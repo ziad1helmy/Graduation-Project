@@ -59,7 +59,7 @@ const userSchema = new Schema(
     },
   },
   // Explain the discriminatorKey: "role" logically and why it is used
-  { timestamps: true, discriminatorKey: "role" },
+  { timestamps: true },
 );
 
 const User = mongoose.model('User', userSchema);

@@ -4,17 +4,23 @@ import response from '../utils/response.js';
 
 // Controller for auth routes
 
-// Register a new user
+/**
+ * Register a new user (donor or hospital)
+ * Validates role-specific fields and returns tokens
+ */
 export const register = async (req, res) => {
     try {
-        const user = await authService.register(req.body);
-        response.success(res, 201, 'User registered successfully', user);
+        const result = await authService.register(req.body);
+        response.success(res, 201, 'User registered successfully', result);
     } catch (error) {
         response.error(res, 400, error.message);
     }
 };
 
-// Login a user
+/**
+ * Login a user with email and password
+ * Returns accessToken and refreshToken
+ */
 export const login = async (req, res) => {
     try {
         const result = await authService.login(req.body);

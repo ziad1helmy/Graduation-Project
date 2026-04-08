@@ -11,7 +11,7 @@ import * as notificationService from '../services/notification.service.js';
 // Get hospital profile
 export const getProfile = async (req, res) => {
   try {
-    const hospital = await Hospital.findById(req.user._id).select('-password');
+    const hospital = await Hospital.findById(req.user.userId).select('-password');
     if (!hospital) {
       return response.error(res, 404, 'Hospital profile not found');
     }
@@ -24,16 +24,16 @@ export const getProfile = async (req, res) => {
 // Update hospital profile
 export const updateProfile = async (req, res) => {
   try {
-    const { name, hospitalName, contactNumber, address, licenseNumber } = req.body;
+    const { fullName, hospitalName, contactNumber, address, licenseNumber } = req.body;
 
     const updateData = {};
-    if (name) updateData.name = name;
+    if (fullName) updateData.fullName = fullName;
     if (hospitalName) updateData.hospitalName = hospitalName;
     if (contactNumber) updateData.contactNumber = contactNumber;
     if (address) updateData.address = address;
     if (licenseNumber) updateData.licenseNumber = licenseNumber;
 
-    const hospital = await Hospital.findByIdAndUpdate(req.user._id, updateData, {
+    const hospital = await Hospital.findByIdAndUpdate(req.user.userId, updateData, {
       new: true,
       runValidators: true,
     }).select('-password');
@@ -81,8 +81,18 @@ export const createRequest = async (req, res) => {
       return response.error(res, 400, 'Required date must be in the future');
     }
 
+    const hospital = await Hospital.findById(req.user.userId).select('contactNumber');
+    if (!hospital) {
+      return response.error(res, 404, 'Hospital profile not found');
+    }
+
+    if (!hospital.contactNumber) {
+      return response.error(res, 400, 'Hospital contact number is required before creating a request');
+    }
+
     const requestData = {
-      hospitalId: req.user._id,
+      hospitalId: req.user.userId,
+      hospitalContact: hospital.contactNumber,
       type,
       urgency,
       requiredBy: requiredByDate,
@@ -112,7 +122,7 @@ export const getRequests = async (req, res) => {
   try {
     const { status, type, skip = 0, limit = 10 } = req.query;
 
-    const filter = { hospitalId: req.user._id };
+    const filter = { hospitalId: req.user.userId };
 
     if (status && ['pending', 'in-progress', 'completed', 'cancelled'].includes(status)) {
       filter.status = status;
@@ -155,7 +165,7 @@ export const getRequestDetails = async (req, res) => {
     }
 
     // Verify hospital ownership
-    if (request.hospitalId._id.toString() !== req.user._id.toString()) {
+    if (request.hospitalId._id.toString() !== req.user.userId.toString()) {
       return response.error(res, 403, 'Unauthorized access to this request');
     }
 
@@ -191,7 +201,7 @@ export const updateRequest = async (req, res) => {
     }
 
     // Verify hospital ownership
-    if (request.hospitalId.toString() !== req.user._id.toString()) {
+    if (request.hospitalId.toString() !== req.user.userId.toString()) {
       return response.error(res, 403, 'Unauthorized access to this request');
     }
 
@@ -218,7 +228,7 @@ export const deleteRequest = async (req, res) => {
     }
 
     // Verify hospital ownership
-    if (request.hospitalId.toString() !== req.user._id.toString()) {
+    if (request.hospitalId.toString() !== req.user.userId.toString()) {
       return response.error(res, 403, 'Unauthorized access to this request');
     }
 
@@ -243,7 +253,7 @@ export const getDonations = async (req, res) => {
     const { status, skip = 0, limit = 10 } = req.query;
 
     // Get all requests by this hospital
-    const hospitalRequests = await Request.find({ hospitalId: req.user._id }).select('_id');
+    const hospitalRequests = await Request.find({ hospitalId: req.user.userId }).select('_id');
     const requestIds = hospitalRequests.map((req) => req._id);
 
     const filter = { requestId: { $in: requestIds } };

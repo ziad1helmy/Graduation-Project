@@ -1,0 +1,352 @@
+{
+  "info": {
+    "_postman_id": "lifelink-auth-collection",
+    "name": "LifeLink Authentication API",
+    "description": "Complete authentication API for LifeLink blood donation platform with Donor and Hospital registration",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Register - Donor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"donor\",\n  \"phoneNumber\": \"1234567890\",\n  \"dateOfBirth\": \"1990-05-15\",\n  \"gender\": \"female\",\n  \"bloodType\": \"O+\",\n  \"location\": {\n    \"city\": \"Cairo\",\n    \"governrate\": \"Cairo\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "Register a new blood donor account with required fields: phoneNumber and dateOfBirth"
+          },
+          "response": []
+        },
+        {
+          "name": "Register - Hospital",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Hospital Admin\",\n  \"email\": \"admin@hospital.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"hospital\",\n  \"hospitalName\": \"Cairo Medical Center\",\n  \"hospitalId\": 12345,\n  \"licenseNumber\": \"LIC-2024-001\",\n  \"contactNumber\": \"+20123456789\",\n  \"address\": {\n    \"city\": \"Cairo\",\n    \"governrate\": \"Cairo Governrate\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "Register a new hospital account with required fields: hospitalName, hospitalId, licenseNumber"
+          },
+          "response": []
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"SecurePass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with email and password to get access and refresh tokens"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Current User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{access_token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/auth/me",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "me"]
+            },
+            "description": "Get the profile of the currently authenticated user"
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh-token",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh-token"]
+            },
+            "description": "Get a new access token using a valid refresh token"
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/logout",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout the user by invalidating the refresh token"
+          },
+          "response": []
+        },
+        {
+          "name": "Forgot Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"sara.donor@example.com\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/forgot-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "forgot-password"]
+            },
+            "description": "Request a password reset email"
+          },
+          "response": []
+        },
+        {
+          "name": "Reset Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"token\": \"reset-token-from-email\",\n  \"password\": \"NewSecurePass@123\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/reset-password",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "reset-password"]
+            },
+            "description": "Reset password using a valid reset token"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Validation Examples",
+      "item": [
+        {
+          "name": "Missing Required Fields - Donor",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"donor\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "This will fail: Missing phoneNumber and dateOfBirth required for donor"
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Phone Number",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"donor\",\n  \"phoneNumber\": \"123\",\n  \"dateOfBirth\": \"1990-05-15\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "This will fail: Phone number must be exactly 10 digits"
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Date of Birth",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"donor\",\n  \"phoneNumber\": \"1234567890\",\n  \"dateOfBirth\": \"2025-05-15\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "This will fail: Date of birth must be in the past"
+          },
+          "response": []
+        },
+        {
+          "name": "Weak Password",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"weak\",\n  \"role\": \"donor\",\n  \"phoneNumber\": \"1234567890\",\n  \"dateOfBirth\": \"1990-05-15\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "This will fail: Password must contain uppercase, lowercase, digit, and special character"
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Email Format",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"invalid-email\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"donor\",\n  \"phoneNumber\": \"1234567890\",\n  \"dateOfBirth\": \"1990-05-15\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "This will fail: Email format is invalid"
+          },
+          "response": []
+        },
+        {
+          "name": "Email Already Registered",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"fullName\": \"Different User\",\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"donor\",\n  \"phoneNumber\": \"9876543210\",\n  \"dateOfBirth\": \"1995-08-20\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/signup",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "signup"]
+            },
+            "description": "This will fail if email already registered: Email is already registered"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:5000"
+    },
+    {
+      "key": "access_token",
+      "value": ""
+    },
+    {
+      "key": "refresh_token",
+      "value": ""
+    }
+  ]
+}

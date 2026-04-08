@@ -13,7 +13,7 @@ import * as notificationService from '../services/notification.service.js';
 // Get donor profile
 export const getProfile = async (req, res) => {
   try {
-    const donor = await Donor.findById(req.user._id).select('-password');
+    const donor = await Donor.findById(req.user.userId).select('-password');
     if (!donor) {
       return response.error(res, 404, 'Donor profile not found');
     }
@@ -26,11 +26,11 @@ export const getProfile = async (req, res) => {
 // Update donor profile
 export const updateProfile = async (req, res) => {
   try {
-    const { name, phoneNumber, gender, dateOfBirth, bloodType, location } = req.body;
+    const { fullName, phoneNumber, gender, dateOfBirth, bloodType, location } = req.body;
 
     // Validate input
     const updateData = {};
-    if (name) updateData.name = name;
+    if (fullName) updateData.fullName = fullName;
     if (phoneNumber) {
       const phoneRegex = /^[0-9]{10}$/;
       if (!phoneRegex.test(phoneNumber)) {
@@ -55,7 +55,7 @@ export const updateProfile = async (req, res) => {
       updateData.location = location;
     }
 
-    const donor = await Donor.findByIdAndUpdate(req.user._id, updateData, {
+    const donor = await Donor.findByIdAndUpdate(req.user.userId, updateData, {
       new: true,
       runValidators: true,
     }).select('-password');
@@ -105,7 +105,7 @@ export const getRequests = async (req, res) => {
 // Get matching requests for this donor
 export const getMatches = async (req, res) => {
   try {
-    const donor = await Donor.findById(req.user._id);
+    const donor = await Donor.findById(req.user.userId);
     if (!donor) {
       return response.error(res, 404, 'Donor not found');
     }
@@ -142,14 +142,14 @@ export const respondToRequest = async (req, res) => {
     }
 
     // Get donor
-    const donor = await Donor.findById(req.user._id);
+    const donor = await Donor.findById(req.user.userId);
     if (!donor) {
       return response.error(res, 404, 'Donor not found');
     }
 
     // Check if donor already responded
     const existingDonation = await Donation.findOne({
-      donorId: req.user._id,
+      donorId: req.user.userId,
       requestId,
       status: { $ne: 'cancelled' },
     });
@@ -166,7 +166,7 @@ export const respondToRequest = async (req, res) => {
 
     // Create donation
     const donation = await Donation.create({
-      donorId: req.user._id,
+      donorId: req.user.userId,
       requestId,
       quantity: quantity || 1,
       status: 'pending',
@@ -186,7 +186,7 @@ export const getDonationHistory = async (req, res) => {
   try {
     const { status, skip = 0, limit = 10 } = req.query;
 
-    const filter = { donorId: req.user._id };
+    const filter = { donorId: req.user.userId };
     if (status && ['pending', 'scheduled', 'completed', 'cancelled'].includes(status)) {
       filter.status = status;
     }
@@ -224,7 +224,7 @@ export const updateAvailability = async (req, res) => {
     }
 
     const donor = await Donor.findByIdAndUpdate(
-      req.user._id,
+      req.user.userId,
       { isAvailable },
       { new: true, runValidators: true }
     ).select('-password');

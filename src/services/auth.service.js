@@ -1,15 +1,15 @@
 // Define the auth service
 /**
  * fields:
- * - register(name, email, password, role)
- * - login(email, password)
- * - logout(refreshToken)
- * - refreshToken(refreshToken)
- * - forgotPassword(email)
- * - resetPassword(token, password)
- * - getMe(userId)
- * - verifyEmail(email)
- * - verifyEmailToken(token)
+ * - register(data) - Register a new user with role-specific fields
+ * - login(email, password) - Login a user
+ * - logout(refreshToken) - Logout a user
+ * - refreshToken(refreshToken) - Refresh access token
+ * - forgotPassword(email) - Request password reset
+ * - resetPassword(token, password) - Reset password
+ * - getMe(userId) - Get current user
+ * - verifyEmail(email) - Request email verification
+ * - verifyEmailToken(token) - Verify email token
  */
 
 // Auth is the Business Logic Layer for the auth routes
@@ -20,61 +20,169 @@ import { env } from '../config/env.js';
 import User from '../models/User.model.js';
 import Donor from '../models/Donor.model.js';
 import Hospital from '../models/Hospital.model.js';
+import { validateRegister } from '../validation/auth.validation.js';
 
-// Register a new user
+/**
+ * Register a new user with role-specific discriminator
+ * CRITICAL: Must use discriminator models (Donor.create / Hospital.create)
+ * not the base User model to properly set the __t field
+ * @param {object} data - Registration data including role and role-specific fields
+ * @returns {object} - { accessToken, refreshToken, user }
+ */
 export const register = async (data) => {
-    const {role} = data; // role is either 'donor' or 'hospital'
+    const { role, fullName, email, password, ...roleSpecificData } = data;
 
-    // Check if the email is already registered
-    const existingUser = await User.findOne({ email: data.email });
-    if (existingUser) throw new Error('Email already registered');
-    
-    // Validate password strength before hashing
-    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-    if (!passwordRegex.test(data.password)) {
-        throw new Error('Password must contain at least one uppercase letter, one lowercase letter, one number, and one special character');
+    // Validate all required fields based on role
+    const validation = validateRegister(data);
+    if (!validation.valid) {
+        const errorMessage = Object.entries(validation.errors)
+            .map(([field, error]) => error)
+            .join('; ');
+        throw new Error(errorMessage);
     }
 
-    const hashedPassword = await bcrypt.hash(data.password, env.BCRYPT_SALT_ROUNDS);
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+        throw new Error('Email is already registered');
+    }
 
-    const payload = {
-        ...data,
+    // Hash password
+    const saltRounds = Number(env.BCRYPT_SALT_ROUNDS) || 10;
+    const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+    // Create user using appropriate discriminator model
+    let user;
+    const baseData = {
+        fullName,
+        email,
         password: hashedPassword,
+        role,
     };
 
+    try {
+        if (role === 'donor') {
+            // Use Donor discriminator - includes phoneNumber, dateOfBirth, gender, etc.
+            user = await Donor.create({
+                ...baseData,
+                phoneNumber: roleSpecificData.phoneNumber,
+                dateOfBirth: roleSpecificData.dateOfBirth,
+                ...(roleSpecificData.gender && { gender: roleSpecificData.gender }),
+                ...(roleSpecificData.bloodType && { bloodType: roleSpecificData.bloodType }),
+                ...(roleSpecificData.location && { location: roleSpecificData.location }),
+            });
+        } else if (role === 'hospital') {
+            // Use Hospital discriminator - includes hospitalName, hospitalId, licenseNumber, etc.
+            user = await Hospital.create({
+                ...baseData,
+                hospitalName: roleSpecificData.hospitalName,
+                hospitalId: roleSpecificData.hospitalId,
+                licenseNumber: roleSpecificData.licenseNumber,
+                ...(roleSpecificData.address && { address: roleSpecificData.address }),
+                ...(roleSpecificData.contactNumber && { contactNumber: roleSpecificData.contactNumber }),
+            });
+        } else {
+            throw new Error('Invalid role');
+        }
+    } catch (error) {
+        if (error.name === 'ValidationError') {
+            const messages = Object.values(error.errors)
+                .map((err) => err.message)
+                .join('; ');
+            throw new Error(`Validation failed: ${messages}`);
+        }
+        throw error;
+    }
 
-    const user = await User.create({
-        ...payload,
-        role: role,
-    })
+    // Generate tokens
+    const accessToken = jwt.signToken({ userId: user._id.toString(), role: user.role });
+    const refreshToken = jwt.signRefreshToken({ userId: user._id.toString(), role: user.role });
 
-    // We will learn about token later
-    // return {
-    //     user: user.toObject(),
-    //     tokens: {
-    //         accessToken: jwt.signToken({ userId: user._id, role: user.role }),
-    //         refreshToken: jwt.signRefreshToken({ userId: user._id, role: user.role }),
-    //     },
-    // };
-
-    return user;
+    return {
+        accessToken,
+        refreshToken,
+        user: {
+            _id: user._id,
+            fullName: user.fullName,
+            email: user.email,
+            role: user.role,
+        },
+    };
 };
 
 // Login a user
 export const login = async ({ email, password }) => {
-    
   const user = await User.findOne({ email }).select('+password');
 
   if (!user) throw new Error('Invalid credentials');
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid credentials');
-// We will learn about token later
-//   const token = jwt.sign(
-//     { id: user._id, role: user.role },
-//     process.env.JWT_SECRET,
-//     { expiresIn: '7d' }
-//   );
 
-  return { token, user };
+  // Generate tokens with userId and role
+  const accessToken = jwt.signToken({ userId: user._id.toString(), role: user.role });
+  const refreshToken = jwt.signRefreshToken({ userId: user._id.toString(), role: user.role });
+
+  return {
+    accessToken,
+    refreshToken,
+    user: {
+      _id: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
+    },
+  };
+};
+
+// Get user by ID
+export const getMe = async (userId) => {
+  const user = await User.findById(userId).select('-password');
+  if (!user) throw new Error('User not found');
+  return user;
+};
+
+// Logout (stub)
+export const logout = async (refreshToken) => {
+  // Implement blacklisting logic if needed
+  return { success: true };
+};
+
+// Refresh token
+export const refreshToken = async (refreshTokenValue) => {
+  if (!refreshTokenValue) throw new Error('Refresh token is required');
+  
+  const decoded = jwt.verifyToken(refreshTokenValue);
+  const user = await User.findById(decoded.userId);
+  if (!user) throw new Error('User not found');
+  
+  const accessToken = jwt.signToken({ userId: user._id.toString(), role: user.role });
+  
+  return { accessToken };
+};
+
+// Forgot password (stub)
+export const forgotPassword = async (email) => {
+  const user = await User.findOne({ email });
+  if (!user) throw new Error('User not found');
+  // Implement email sending logic here
+  return { success: true };
+};
+
+// Reset password (stub)
+export const resetPassword = async (token, password) => {
+  // Implement token verification and password reset
+  return { success: true };
+};
+
+// Verify email (stub)
+export const verifyEmail = async (email) => {
+  // Implement email verification logic
+  return { success: true };
+};
+
+// Verify email token (stub)
+export const verifyEmailToken = async (token) => {
+  // Implement token verification logic
+  return { success: true };
 };

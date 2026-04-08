@@ -3,7 +3,9 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.js';
+import { swaggerSpec } from './config/swagger.js';
 import authRoutes from './routes/auth.routes.js';
 import donorRoutes from './routes/donor.routes.js';
 import hospitalRoutes from './routes/hospital.routes.js';
@@ -15,6 +17,24 @@ const app = express();
 app.use(cors({ origin: env.CORS_ORIGIN }));
 app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));
 app.use(express.json());
+
+
+app.post("/debug", (req, res) => {
+  console.log(req.body);
+  res.send("OK");
+});
+
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+  explorer: true,
+  customSiteTitle: 'LifeLink API Docs',
+  swaggerOptions: {
+    persistAuthorization: true,
+  },
+}));
+
+app.get('/openapi.json', (req, res) => {
+  res.json(swaggerSpec);
+});
 
 // Routes (order matters – specific routes before 404)
 app.get('/', (req, res) => {

@@ -51,6 +51,11 @@ const requestSchema = new mongoose.Schema(
         message: 'Blood type is required for blood donation requests',
       },
     },
+    // Cause of the request, e.g. accident, surgery, etc. This will help the donor to understand the urgency of the request and the type of blood/organ needed
+    cause: {
+      type: String,
+      maxlength: [200, 'Cause cannot exceed 200 characters'],
+    },
     
     organType: {
       type: String,
@@ -109,6 +114,17 @@ const requestSchema = new mongoose.Schema(
     notes: {
       type: String,
       maxlength: [500, 'Notes cannot exceed 500 characters'],
+    },
+    // Add number of the hospital in the request to make it easier for the donor to contact the hospital
+    hospitalContact: {
+      type: String,
+      required: [true, 'Hospital contact number is required'],
+      validate: {
+        validator: function(v) {
+          return /^\d{10}$/.test(v);
+        },
+        message: 'Hospital contact number must be 10 digits long',
+      },
     },
   },
   {
