@@ -74,7 +74,7 @@
               "host": ["{{base_url}}"],
               "path": ["auth", "login"]
             },
-            "description": "Login with email and password to get access and refresh tokens"
+            "description": "Login with email and password to get access and refresh tokens. Accounts must be email-verified first."
           },
           "response": []
         },
@@ -178,7 +178,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"token\": \"reset-token-from-email\",\n  \"password\": \"NewSecurePass@123\"\n}"
+              "raw": "{\n  \"token\": \"{{reset_token}}\",\n  \"password\": \"NewSecurePass@123\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/reset-password",
@@ -186,6 +186,46 @@
               "path": ["auth", "reset-password"]
             },
             "description": "Reset password using a valid reset token"
+          },
+          "response": []
+        },
+        {
+          "name": "Request Email Verification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email?email={{verification_email}}",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "verify-email"],
+              "query": [
+                {
+                  "key": "email",
+                  "value": "{{verification_email}}"
+                }
+              ]
+            },
+            "description": "Request a verification email for the selected account"
+          },
+          "response": []
+        },
+        {
+          "name": "Verify Email Token",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/auth/verify-email-token?token={{verification_token}}",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "verify-email-token"],
+              "query": [
+                {
+                  "key": "token",
+                  "value": "{{verification_token}}"
+                }
+              ]
+            },
+            "description": "Verify an email address using the token received by email"
           },
           "response": []
         }
@@ -346,6 +386,18 @@
     },
     {
       "key": "refresh_token",
+      "value": ""
+    },
+    {
+      "key": "verification_email",
+      "value": "sara.donor@example.com"
+    },
+    {
+      "key": "verification_token",
+      "value": ""
+    },
+    {
+      "key": "reset_token",
       "value": ""
     }
   ]

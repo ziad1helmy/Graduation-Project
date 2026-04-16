@@ -3,7 +3,9 @@
  * fields:
  * - name: string, required, trim: true
  * - email: string, required, unique, lowercase
- * - password: string, required, minlength: 8, select: false
+ * - password: string, required, minlength: 8, select: false, hashed before save
+ * - email verification: token + expiry + status fields
+ * - reset password: token + expiry fields
  * - role: string, enum: ['admin', 'donor', 'hospital'], default: 'donor', discriminatorKey: 'role'
  * - createdAt: date, default: Date.now
  * - updatedAt: date, default: Date.now
@@ -11,7 +13,10 @@
  */
 
 // Define the user model
+import bcrypt from 'bcryptjs';
+import crypto from 'crypto';
 import mongoose, { Schema } from "mongoose";
+import { env } from '../config/env.js';
 
 const userSchema = new Schema(
   {
@@ -52,6 +57,36 @@ const userSchema = new Schema(
       minlength: [8, 'Minimum length of the password should be 8'], 
       select: false,
     },
+    passwordChangedAt: {
+      type: Date,
+      default: null,
+      select: false,
+    },
+    emailVerificationToken: {
+      type: String,
+      select: false,
+    },
+    emailVerificationExpires: {
+      type: Date,
+      select: false,
+    },
+    isEmailVerified: {
+      type: Boolean,
+      default: false,
+      alias: 'isVerified',
+    },
+    emailVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    resetPasswordToken: {
+      type: String,
+      select: false,
+    },
+    resetPasswordExpires: {
+      type: Date,
+      select: false,
+    },
     role: {
       type: String,
       enum: ["admin", "donor", "hospital"],
@@ -61,6 +96,39 @@ const userSchema = new Schema(
   // Explain the discriminatorKey: "role" logically and why it is used
   { timestamps: true },
 );
+
+userSchema.pre('save', async function () {
+  if (!this.isModified('password')) {
+    return;
+  }
+
+  const saltRounds = env.BCRYPT_SALT_ROUNDS || 10;
+  this.password = await bcrypt.hash(this.password, saltRounds);
+});
+
+userSchema.methods.createPasswordResetToken = function () {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+
+  this.resetPasswordToken = crypto
+    .createHash('sha256')
+    .update(resetToken)
+    .digest('hex');
+  this.resetPasswordExpires = Date.now() + 10 * 60 * 1000;
+
+  return resetToken;
+};
+
+userSchema.methods.createEmailVerificationToken = function () {
+  const verificationToken = crypto.randomBytes(32).toString('hex');
+
+  this.emailVerificationToken = crypto
+    .createHash('sha256')
+    .update(verificationToken)
+    .digest('hex');
+  this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
+
+  return verificationToken;
+};
 
 const User = mongoose.model('User', userSchema);
 

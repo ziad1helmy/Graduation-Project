@@ -1,7 +1,7 @@
 /**
  * JWT utility module.
  * Centralizes all JWT operations: signing and verification.
- * Uses env.JWT_SECRET and env.JWT_EXPIRES_IN from config/env.js.
+ * Uses env.JWT_SECRET for access tokens and env.JWT_REFRESH_SECRET for refresh tokens.
  * Throws meaningful errors; does not swallow failures.
  */
 
@@ -38,11 +38,35 @@ export function signToken(payload, options = {}) {
  * @throws {Error} If JWT_SECRET is not set.
  */
 export function signRefreshToken(payload) {
-  if (!env.JWT_SECRET) {
-    throw new Error('JWT_SECRET is not configured. Cannot sign refresh tokens.');
+  const refreshSecret = env.JWT_REFRESH_SECRET || env.JWT_SECRET;
+  if (!refreshSecret) {
+    throw new Error('JWT_REFRESH_SECRET is not configured. Cannot sign refresh tokens.');
   }
   const expiresIn = env.JWT_REFRESH_EXPIRES_IN ?? '30d';
-  return jwt.sign(payload, env.JWT_SECRET, { expiresIn });
+  return jwt.sign(payload, refreshSecret, { expiresIn });
+}
+
+/**
+ * Verifies a refresh JWT and returns the decoded payload.
+ *
+ * @param {string} token - Refresh JWT string.
+ * @returns {object} Decoded payload.
+ */
+export function verifyRefreshToken(token) {
+  if (token == null || typeof token !== 'string') {
+    throw new Error('Token is required and must be a non-empty string.');
+  }
+  const trimmed = token.trim();
+  if (!trimmed) {
+    throw new Error('Token is required and must be a non-empty string.');
+  }
+
+  const refreshSecret = env.JWT_REFRESH_SECRET || env.JWT_SECRET;
+  if (!refreshSecret) {
+    throw new Error('JWT_REFRESH_SECRET is not configured. Cannot verify refresh tokens.');
+  }
+
+  return jwt.verify(trimmed, refreshSecret);
 }
 
 /**

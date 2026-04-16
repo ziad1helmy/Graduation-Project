@@ -1,49 +1,41 @@
 # Authentication Implementation Guide
 
-Last Updated: April 8, 2026
+Last Updated: April 16, 2026
 
 ## Scope
 
-This guide reflects the current authentication state in code, including implemented functionality, partial implementations, and known gaps.
+This guide reflects the current implemented authentication behavior.
 
 ## Implemented Auth Endpoints
 
 | Method | Path | Current Behavior |
 |---|---|---|
-| POST | /auth/signup | Registers donor/hospital with validation and discriminator model creation |
-| POST | /auth/login | Validates credentials and issues access/refresh tokens |
-| POST | /auth/logout | Returns success response (no token blacklist persistence) |
-| POST | /auth/refresh-token | Verifies refresh token and issues a new access token |
-| POST | /auth/forgot-password | Endpoint exists, service logic is stubbed |
-| POST | /auth/reset-password | Endpoint exists, service logic is stubbed |
+| POST | /auth/signup | Registers donor/hospital, issues tokens, creates verification token, sends verification email |
+| POST | /auth/login | Validates credentials and blocks unverified accounts |
+| POST | /auth/logout | Blacklists refresh token hash with TTL-backed expiry |
+| POST | /auth/refresh-token | Verifies refresh token, denies blacklisted/stale tokens, returns new access token |
+| POST | /auth/forgot-password | Non-enumerating response; sends reset email only when account exists |
+| POST | /auth/reset-password | Validates reset token, updates password, clears reset fields, invalidates old sessions |
 | GET | /auth/me | Returns authenticated user payload |
-| GET | /auth/verify-email | Endpoint exists, service logic is stubbed |
-| GET | /auth/verify-email-token | Endpoint exists, service logic is stubbed |
+| GET | /auth/verify-email | Generates and sends verification email |
+| GET | /auth/verify-email-token | Verifies email token and marks account as verified |
 
-## What Is Working Well
+## Security Behaviors
 
-### 1. Role-Aware Registration
+1. Passwords are hashed by model middleware (bcrypt pre-save).
+2. Verification and reset tokens are stored as SHA-256 hashes.
+3. Verification and reset tokens expire and are rejected after expiry.
+4. Refresh-token blacklist prevents reuse after logout.
+5. `passwordChangedAt` invalidates access/refresh tokens issued before password reset.
+6. Forgot-password endpoint avoids user enumeration.
+7. Rate limiting applies in production with a dev-only test bypass header (`x-test-mode: true`).
 
-- Registration uses donor/hospital discriminator models rather than base user creation.
-- Validation layer enforces role-specific required fields before persistence.
-- Passwords are hashed before storage.
+## Email Behavior
 
-### 2. Token Strategy
-
-- Access and refresh tokens are both generated.
-- JWT payload includes userId and role.
-- Auth middleware validates bearer tokens and attaches decoded payload to request context.
-
-### 3. Standardized Responses
-
-- Controllers consistently use shared response helpers for success/error JSON shape.
-
-## Known Limitations
-
-1. forgot-password and reset-password are endpoint-complete but not fully implemented.
-2. verify-email and verify-email-token are endpoint-complete but not fully implemented.
-3. verify-email routes are currently GET while controller methods read request body values.
-4. logout does not currently persist refresh-token revocation.
+- SMTP is used when configured.
+- Verification and reset emails use HTML templates.
+- `EMAIL_LOGO_URL` controls branding image in templates.
+- In development, if SMTP is not configured, email send can be skipped while preserving testability.
 
 ## Validation Coverage for Signup
 
@@ -66,10 +58,7 @@ This guide reflects the current authentication state in code, including implemen
 - hospitalId required numeric.
 - licenseNumber required.
 
-## Recommended Next Auth Improvements
+## Notes
 
-1. Implement real password reset token issue and verification flow.
-2. Implement email verification token issue and verification flow.
-3. Align verify-email endpoint method and payload handling (GET vs POST semantics).
-4. Add refresh token storage/blacklisting strategy for logout and session invalidation.
-5. Add unit tests for auth validation and integration tests for full auth flow.
+- Verify-email routes are intentionally GET and consume query params (`email`, `token`).
+- Use `npm run test:auth-flow` for auth regression checks.

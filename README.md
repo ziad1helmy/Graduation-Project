@@ -1,158 +1,150 @@
 # LifeLink Backend API
 
-LifeLink is a Node.js and Express backend for donor and hospital workflows, covering authentication, donation requests, donor matching, donation responses, and donation tracking.
+LifeLink is a Node.js + Express backend for blood-donation workflows between donors and hospitals. It provides secure authentication, role-based access control, donation request handling, donor matching, and notification-ready service integration.
 
-This README is code-accurate as of April 8, 2026.
+## Feature Highlights
 
-## Tech Stack
+- Role-aware signup for donor and hospital accounts
+- Login with JWT access/refresh tokens
+- Email verification flow with tokenized verification links
+- Forgot/reset password flow with expiring reset tokens
+- Refresh token blacklist with SHA-256 token hashing and TTL cleanup
+- Route-level rate limiting (production) with development test bypass header
+- SMTP email delivery with HTML templates and development fallback behavior
+- Auth E2E flow automation script for regression checks
+- Swagger/OpenAPI docs available at `/api-docs`
 
-| Category | Technology |
-|---|---|
-| Runtime | Node.js (ESM) |
-| Framework | Express 5 |
-| Database | MongoDB + Mongoose |
-| Auth | JWT + bcryptjs |
-| API Docs | swagger-jsdoc + swagger-ui-express |
+## Architecture Overview
 
-## Current Implementation Snapshot
+The project follows a layered architecture:
 
-| Area | Status | Notes |
-|---|---|---|
-| Authentication core (signup/login/me/refresh) | Complete | JWT access + refresh token flow implemented |
-| Donor APIs | Complete | Profile, requests, matches, respond, history, availability |
-| Hospital APIs | Complete | Profile, request create/list/update/cancel, donation listing |
-| Matching service | Complete | Blood compatibility and eligibility rules implemented |
-| Donation lifecycle service | Implemented (internal) | Service exists, not exposed as dedicated public routes |
-| Notification service | Implemented (internal) | Triggered on donor response to hospital request |
-| Admin APIs | Minimal | Only protected profile endpoint exists |
-| Reward service | Not implemented | File exists but empty |
-| Automated tests | Not implemented | npm test is placeholder |
-
-## Architecture
-
-Project structure reflects a layered backend:
-
-- src/config: environment, database, Swagger setup
-- src/models: User/Donor/Hospital plus Request/Donation/Notification
-- src/routes: Auth, Donor, Hospital, Admin route groups
-- src/controllers: HTTP handlers
-- src/services: business logic for auth, matching, donation, notification
-- src/middlewares: auth, role-based access, global error handling
-- src/utils: JWT, standardized responses, geo helpers
-- src/validation: auth input validation rules
+- `src/routes`: route definitions and OpenAPI annotations
+- `src/controllers`: HTTP request/response orchestration
+- `src/services`: core business logic (auth, matching, donation, notifications)
+- `src/models`: Mongoose schemas and discriminators
+- `src/middlewares`: auth, RBAC, rate limiting, centralized error handling
+- `src/utils`: JWT helpers, mailer, response helpers, geolocation utilities
+- `src/config`: environment, MongoDB, Swagger setup
+- `scripts`: tooling and auth E2E automation
 
 ## API Base Paths
 
-The server mounts route groups directly (no /api prefix):
+- `/auth`
+- `/donor`
+- `/hospital`
+- `/admin`
 
-- /auth
-- /donor
-- /hospital
-- /admin
+Utility endpoints:
 
-Other utility endpoints:
+- `GET /`
+- `GET /test`
+- `GET /api-docs`
+- `GET /openapi.json`
 
-- GET /
-- GET /test
-- POST /debug
-- GET /api-docs
-- GET /openapi.json
+## Authentication Endpoints Summary
 
-## Endpoint Coverage
+| Method | Path | Description |
+|---|---|---|
+| POST | `/auth/signup` | Register donor/hospital and send verification email |
+| POST | `/auth/login` | Login (requires verified email) |
+| POST | `/auth/logout` | Blacklist refresh token |
+| POST | `/auth/refresh-token` | Issue a new access token from a valid refresh token |
+| POST | `/auth/forgot-password` | Request password reset email (non-enumerating response) |
+| POST | `/auth/reset-password` | Reset password with token and invalidate prior sessions |
+| GET | `/auth/me` | Return authenticated user profile |
+| GET | `/auth/verify-email` | Send email verification link to user email |
+| GET | `/auth/verify-email-token` | Verify account using token |
 
-### Auth Endpoints
+## Security Features
 
-| Method | Path | Protection | State |
-|---|---|---|---|
-| POST | /auth/signup | Public | Implemented |
-| POST | /auth/login | Public | Implemented |
-| POST | /auth/logout | Public | Implemented (service stub behavior) |
-| POST | /auth/refresh-token | Public | Implemented |
-| POST | /auth/forgot-password | Public | Stubbed logic |
-| POST | /auth/reset-password | Public | Stubbed logic |
-| GET | /auth/me | Bearer token | Implemented |
-| GET | /auth/verify-email | Public | Stubbed logic, expects query parameter: email |
-| GET | /auth/verify-email-token | Public | Stubbed logic, expects query parameter: token |
+- Password hashing at model layer using bcrypt pre-save middleware
+- Email verification token hashing (SHA-256) before database storage
+- Password reset token hashing (SHA-256) before database storage
+- Expiring verification/reset tokens with strict validity checks
+- Refresh-token blacklist persistence (`RefreshTokenBlacklist`) with TTL index
+- Access/refresh token invalidation after password reset using `passwordChangedAt`
+- Rate limiting in production: `5 requests / minute / IP`
+- Development test bypass for rate limiter via header: `x-test-mode: true`
+- Generic forgot-password response to avoid account enumeration
 
-### Donor Endpoints
+## Email System
 
-All donor endpoints require Bearer token and donor role.
-
-| Method | Path | State |
-|---|---|
-| GET | /donor/profile | Implemented |
-| PUT | /donor/profile | Implemented |
-| GET | /donor/requests | Implemented |
-| GET | /donor/matches | Implemented |
-| POST | /donor/respond/:requestId | Implemented |
-| GET | /donor/history | Implemented |
-| PUT | /donor/availability | Implemented |
-
-### Hospital Endpoints
-
-All hospital endpoints require Bearer token and hospital role.
-
-| Method | Path | State |
-|---|---|
-| GET | /hospital/profile | Implemented |
-| PUT | /hospital/profile | Implemented |
-| POST | /hospital/request | Implemented |
-| GET | /hospital/requests | Implemented |
-| GET | /hospital/requests/:requestId | Implemented |
-| PUT | /hospital/requests/:requestId | Implemented |
-| DELETE | /hospital/requests/:requestId | Implemented |
-| GET | /hospital/donations | Implemented |
-
-### Admin Endpoints
-
-All admin endpoints require Bearer token and admin role.
-
-| Method | Path | State |
-|---|---|
-| GET | /admin/profile | Implemented (placeholder response) |
-
-## Donation Flow Implemented
-
-1. Hospital creates request via /hospital/request.
-2. Donor fetches opportunities via /donor/requests or ranked matches via /donor/matches.
-3. Donor responds via /donor/respond/:requestId.
-4. System validates eligibility and creates Donation record.
-5. Notification service creates hospital notification for the match.
-6. Hospital monitors request details and donations through /hospital/requests/:requestId and /hospital/donations.
-7. Hospital can update/cancel requests.
+- SMTP is used when mail credentials are configured.
+- In development, if SMTP is unavailable, auth flow continues and email sending is safely skipped.
+- Verification links and token values are logged in development fallback mode for local testing.
+- Email templates are bilingual (Arabic + English style blocks).
+- Branding logo is configurable through `EMAIL_LOGO_URL`.
 
 ## Environment Variables
 
-| Variable | Required | Default |
-|---|---|---|
-| NODE_ENV | No | development |
-| PORT | No | 5000 |
-| MONGODB_URI | Production: Yes, Development: No | mongodb://localhost:27017/lifelink |
-| JWT_SECRET | Yes | none |
-| JWT_EXPIRES_IN | No | 7d |
-| JWT_REFRESH_EXPIRES_IN | No | 30d |
-| API_PREFIX | No | /api (currently not applied in route mounting) |
-| CORS_ORIGIN | No | * |
-| BCRYPT_SALT_ROUNDS | No | 10 |
+Create a `.env` file in the project root.
 
-## Run Locally
+Required/used variables:
 
-1. Install dependencies: npm install
-2. Create .env and set at least JWT_SECRET. Set MONGODB_URI in production; in development it defaults to mongodb://localhost:27017/lifelink when omitted.
-3. Start development server: npm run dev
-4. Open API docs at /api-docs
+- `PORT`
+- `MONGO_URI` (alias supported: `MONGODB_URI`)
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET` (falls back to `JWT_SECRET` if omitted)
+- `FRONTEND_URL`
+- `SMTP_HOST`
+- `SMTP_PORT`
+- `SMTP_SECURE`
+- `SMTP_USER`
+- `SMTP_PASS`
+- `MAIL_FROM`
+- `EMAIL_LOGO_URL`
+
+Additional optional variables in current codebase:
+
+- `NODE_ENV`
+- `JWT_EXPIRES_IN`
+- `JWT_REFRESH_EXPIRES_IN`
+- `API_PREFIX`
+- `CORS_ORIGIN`
+- `BCRYPT_SALT_ROUNDS`
+
+Use `.env.example` as the safe template.
+
+## Setup (Step-by-Step)
+
+1. Install dependencies:
+   `npm install`
+2. Create your local env file:
+   `cp .env.example .env` (or copy manually on Windows)
+3. Fill in real values for DB, JWT, and SMTP settings.
+4. Start the API in development mode:
+   `npm run dev`
+5. Open API docs:
+   `http://localhost:5000/api-docs`
 
 ## Scripts
 
 | Command | Description |
 |---|---|
-| npm start | Run server |
-| npm run dev | Run server with nodemon |
-| npm run generate:openapi | Generate OpenAPI artifact |
-| npm test | Placeholder, currently fails intentionally |
+| `npm start` | Run server |
+| `npm run dev` | Run server with nodemon |
+| `npm run generate:openapi` | Generate OpenAPI artifact |
+| `npm run test:auth-flow` | Run end-to-end auth flow script |
+| `npm test` | Placeholder script (not used for auth E2E) |
 
-## Important Notes
+## E2E Auth Testing
 
-- Some auth features are endpoint-complete but business logic is still stubbed: forgot/reset password and email verification.
-- Notification and donation services are implemented as internal services; they are not fully exposed through dedicated REST modules.
-- Admin controller functionality is intentionally minimal in current state.
+Run:
+
+`npm run test:auth-flow`
+
+The script validates:
+
+1. Signup
+2. Login blocked before verification
+3. Refresh token issuance
+4. Logout blacklist behavior
+5. Rejection of blacklisted refresh token
+6. Email verification token flow
+7. Login success after verification
+
+## Additional Docs
+
+- `AUTH_SYSTEM_OVERVIEW.md`: full auth flow and security design
+- `LifeLink-Auth-API.postman_collection.json`: Postman testing collection
+- `openapi.yaml` / `openapi.json`: generated API contract

@@ -1,7 +1,8 @@
 import response from '../utils/response.js';
 import { verifyToken, TokenExpiredError, JsonWebTokenError } from '../utils/jwt.js';
+import User from '../models/User.model.js';
 
-export default function authMiddleware(req, res, next) {
+export default async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || typeof authHeader !== 'string') {
@@ -15,6 +16,23 @@ export default function authMiddleware(req, res, next) {
 
   try {
     const decoded = verifyToken(token);
+    const user = await User.findById(decoded.userId).select('isEmailVerified role +passwordChangedAt');
+
+    if (!user) {
+      return response.error(res, 401, 'Unauthorized');
+    }
+
+    if (user.passwordChangedAt && decoded?.iat) {
+      const tokenIssuedAtMs = decoded.iat * 1000;
+      if (tokenIssuedAtMs < user.passwordChangedAt.getTime()) {
+        return response.error(res, 401, 'Token is no longer valid. Please log in again');
+      }
+    }
+
+    if (!user.isEmailVerified) {
+      return response.error(res, 403, 'Email address is not verified');
+    }
+
     req.user = decoded;
     return next();
   } catch (err) {

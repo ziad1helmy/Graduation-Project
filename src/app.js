@@ -11,6 +11,7 @@ import donorRoutes from './routes/donor.routes.js';
 import hospitalRoutes from './routes/hospital.routes.js';
 import adminRoutes from './routes/admin.routes.js';
 import errorMiddleware from './middlewares/error.middleware.js';
+import { authLimiter, limiter } from './middlewares/rateLimit.middleware.js';
 
 const app = express();
 
@@ -41,10 +42,10 @@ app.get('/', (req, res) => {
   res.json({ app: 'LifeLink', status: 'ok' });
 });
 
-app.use('/auth', authRoutes);
-app.use('/donor', donorRoutes);
-app.use('/hospital', hospitalRoutes);
-app.use('/admin', adminRoutes);
+app.use('/auth', authLimiter, authRoutes);
+app.use('/donor', limiter, donorRoutes);
+app.use('/hospital', limiter, hospitalRoutes);
+app.use('/admin', limiter, adminRoutes);
 
 app.get('/test', (req, res) => {
   res.json({ message: 'Test route is working' });
