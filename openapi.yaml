@@ -123,7 +123,7 @@ components:
                 city:
                   type: string
                   example: Cairo
-                governrate:
+                governorate:
                   type: string
                   example: Cairo Governrate
 
@@ -163,7 +163,7 @@ components:
               properties:
                 city:
                   type: string
-                governrate:
+                governorate:
                   type: string
             createdAt:
               type: string
@@ -210,7 +210,7 @@ components:
                 city:
                   type: string
                   example: Cairo
-                governrate:
+                governorate:
                   type: string
                   example: Cairo Governrate
             contactNumber:
@@ -240,7 +240,7 @@ components:
               properties:
                 city:
                   type: string
-                governrate:
+                governorate:
                   type: string
             contactNumber:
               type: string
@@ -362,7 +362,7 @@ paths:
                   bloodType: O+
                   location:
                     city: Cairo
-                    governrate: Cairo
+                    governorate: Cairo
               hospitalSignup:
                 summary: Hospital Registration Example
                 description: Register as a hospital
@@ -377,7 +377,7 @@ paths:
                   contactNumber: '+20123456789'
                   address:
                     city: Cairo
-                    governrate: Cairo Governrate
+                    governorate: Cairo Governrate
       responses:
         '201':
           description: User registered successfully
@@ -614,19 +614,24 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /auth/verify-email:
-    get:
+    post:
       tags:
         - Authentication
       summary: Send an email verification message
       description: Request a verification email for an unverified account
-      parameters:
-        - in: query
-          name: email
-          required: true
-          schema:
-            type: string
-            format: email
-          example: sara@example.com
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+              properties:
+                email:
+                  type: string
+                  format: email
+                  example: sara@example.com
       responses:
         '200':
           description: Verification email sent
@@ -642,18 +647,23 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   /auth/verify-email-token:
-    get:
+    post:
       tags:
         - Authentication
       summary: Verify an email using a verification token
       description: Verify a user email address using a token received by email
-      parameters:
-        - in: query
-          name: token
-          required: true
-          schema:
-            type: string
-          example: verify-token-123
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+              properties:
+                token:
+                  type: string
+                  example: verify-token-123
       responses:
         '200':
           description: Email verified successfully

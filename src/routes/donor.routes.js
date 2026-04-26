@@ -74,7 +74,7 @@ const router = Router();
  *                   city:
  *                     type: string
  *                     example: Cairo
- *                   governrate:
+ *                   governorate:
  *                     type: string
  *                     example: Cairo
  *     responses:
@@ -119,11 +119,17 @@ const router = Router();
  *         schema:
  *           type: integer
  *           example: 0
+ *         description: Legacy pagination alias still supported.
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           example: 10
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
  *     responses:
  *       '200':
  *         description: Requests retrieved successfully
@@ -134,9 +140,10 @@ const router = Router();
  *               message: Requests retrieved successfully
  *               data:
  *                 requests: []
- *                 total: 0
- *                 skip: 0
- *                 limit: 10
+ *                 pagination:
+ *                   page: 1
+ *                   limit: 10
+ *                   total: 0
  *       '401':
  *         description: Missing or invalid JWT
  *       '403':
@@ -154,11 +161,17 @@ const router = Router();
  *         schema:
  *           type: integer
  *           example: 0
+ *         description: Legacy pagination alias still supported.
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           example: 10
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
  *     responses:
  *       '200':
  *         description: Matching requests retrieved successfully
@@ -169,9 +182,10 @@ const router = Router();
  *               message: Matching requests retrieved successfully
  *               data:
  *                 matches: []
- *                 total: 0
- *                 skip: 0
- *                 limit: 10
+ *                 pagination:
+ *                   page: 1
+ *                   limit: 10
+ *                   total: 0
  *       '401':
  *         description: Missing or invalid JWT
  *       '403':
@@ -239,11 +253,17 @@ const router = Router();
  *         schema:
  *           type: integer
  *           example: 0
+ *         description: Legacy pagination alias still supported.
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           example: 10
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
  *     responses:
  *       '200':
  *         description: Donation history retrieved successfully
@@ -254,9 +274,10 @@ const router = Router();
  *               message: Donation history retrieved successfully
  *               data:
  *                 donations: []
- *                 total: 0
- *                 skip: 0
- *                 limit: 10
+ *                 pagination:
+ *                   page: 1
+ *                   limit: 10
+ *                   total: 0
  *       '401':
  *         description: Missing or invalid JWT
  *       '403':

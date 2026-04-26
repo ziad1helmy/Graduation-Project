@@ -51,9 +51,25 @@ const router = Router();
  *                   city:
  *                     type: string
  *                     example: Cairo
- *                   governrate:
+ *                   governorate:
  *                     type: string
  *                     example: Cairo
+ *               location:
+ *                 type: object
+ *                 properties:
+ *                   city:
+ *                     type: string
+ *                   governorate:
+ *                     type: string
+ *                   coordinates:
+ *                     type: object
+ *                     properties:
+ *                       lat:
+ *                         type: number
+ *                         example: 30.0444
+ *                       lng:
+ *                         type: number
+ *                         example: 31.2357
  *               licenseNumber:
  *                 type: string
  *                 example: LIC-2026-001
@@ -139,11 +155,17 @@ const router = Router();
  *         schema:
  *           type: integer
  *           example: 0
+ *         description: Legacy pagination alias still supported.
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           example: 10
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
  *     responses:
  *       '200':
  *         description: Requests retrieved successfully
@@ -247,11 +269,17 @@ const router = Router();
  *         schema:
  *           type: integer
  *           example: 0
+ *         description: Legacy pagination alias still supported.
  *       - in: query
  *         name: limit
  *         schema:
  *           type: integer
  *           example: 10
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
  *     responses:
  *       '200':
  *         description: Donations retrieved successfully
@@ -259,6 +287,106 @@ const router = Router();
  *         description: Missing or invalid JWT
  *       '403':
  *         description: Role not allowed
+ */
+
+/**
+ * @swagger
+ * /hospital/blood-bank-settings:
+ *   get:
+ *     tags: [Hospital]
+ *     summary: Get hospital blood bank settings
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Blood bank settings retrieved successfully
+ *   put:
+ *     tags: [Hospital]
+ *     summary: Update hospital blood bank settings
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Blood bank settings updated successfully
+ *
+ * /hospital/notification-preferences:
+ *   get:
+ *     tags: [Hospital]
+ *     summary: Get hospital notification preferences
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Notification preferences retrieved successfully
+ *   put:
+ *     tags: [Hospital]
+ *     summary: Update hospital notification preferences
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       200:
+ *         description: Notification preferences updated successfully
+ *
+ * /hospital/reports/monthly:
+ *   get:
+ *     tags: [Hospital]
+ *     summary: Get monthly hospital report
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: query
+ *         name: month
+ *         schema:
+ *           type: string
+ *           example: 2026-04
+ *     responses:
+ *       200:
+ *         description: Monthly report retrieved successfully
+ *
+ * /hospital/staff:
+ *   get:
+ *     tags: [Hospital]
+ *     summary: List hospital staff
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Staff retrieved successfully
+ *   post:
+ *     tags: [Hospital]
+ *     summary: Create hospital staff member
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, position]
+ *     responses:
+ *       201:
+ *         description: Staff created successfully
+ *
+ * /hospital/staff/{id}:
+ *   delete:
+ *     tags: [Hospital]
+ *     summary: Delete hospital staff member
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Staff deleted successfully
  */
 
 // Apply auth and role middleware to all hospital routes
@@ -277,5 +405,15 @@ router.delete('/requests/:requestId', hospitalController.deleteRequest);
 
 // Donation tracking
 router.get('/donations', hospitalController.getDonations);
+
+// Extended compatibility features
+router.get('/blood-bank-settings', hospitalController.getBloodBankSettings);
+router.put('/blood-bank-settings', hospitalController.updateBloodBankSettings);
+router.get('/notification-preferences', hospitalController.getNotificationPreferences);
+router.put('/notification-preferences', hospitalController.updateNotificationPreferences);
+router.get('/reports/monthly', hospitalController.getMonthlyReports);
+router.get('/staff', hospitalController.listStaff);
+router.post('/staff', hospitalController.createStaff);
+router.delete('/staff/:id', hospitalController.deleteStaff);
 
 export default router;

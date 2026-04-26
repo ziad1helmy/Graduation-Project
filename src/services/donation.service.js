@@ -2,6 +2,7 @@ import Donation from '../models/Donation.model.js';
 import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import * as matchingService from './matching.service.js';
+import * as rewardService from './reward.service.js';
 
 /**
  * Donation Service - Manages donation lifecycle and eligibility
@@ -100,11 +101,20 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
       runValidators: true,
     });
 
-    // If completed, update donor's last donation date
+    // If completed, update donor's last donation date and award reward points
     if (status === 'completed') {
       await Donor.findByIdAndUpdate(donation.donorId, {
         lastDonationDate: new Date(),
       });
+
+      // Fetch request to detect emergency urgency — fire-and-forget
+      Request.findById(donation.requestId)
+        .select('urgency')
+        .then((req) => {
+          const isEmergency = req?.urgency === 'critical';
+          return rewardService.onDonationCompleted(donation.donorId, donation._id, isEmergency);
+        })
+        .catch((e) => console.error('[DonationService] reward trigger error:', e.message));
     }
 
     return donation;
@@ -191,7 +201,7 @@ export const getDonationsForRequest = async (requestId, filters = {}) => {
     if (status) filter.status = status;
 
     const donations = await Donation.find(filter)
-      .populate('donorId', 'name email phoneNumber location bloodType')
+      .populate('donorId', 'fullName email phoneNumber location bloodType')
       .skip(parseInt(skip))
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });

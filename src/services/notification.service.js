@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Notification from '../models/Notification.model.js';
 
 /**
@@ -121,6 +122,26 @@ export const markAsRead = async (notificationId) => {
 };
 
 /**
+ * Mark one notification as read for a specific user.
+ * @param {string} userId - User ID
+ * @param {string} notificationId - Notification ID
+ * @returns {Object|null} - Updated notification or null if not found
+ */
+export const markAsReadForUser = async (userId, notificationId) => {
+  try {
+    const notification = await Notification.findOneAndUpdate(
+      { _id: notificationId, userId },
+      { read: true },
+      { new: true }
+    );
+    return notification;
+  } catch (error) {
+    console.error('Error marking user notification as read:', error);
+    throw error;
+  }
+};
+
+/**
  * Mark multiple notifications as read
  * @param {string} userId - User ID
  * @param {Array} notificationIds - Array of notification IDs (optional, if not provided, marks all as read)
@@ -205,6 +226,22 @@ export const deleteNotification = async (notificationId) => {
 };
 
 /**
+ * Delete one notification for a specific user.
+ * @param {string} userId - User ID
+ * @param {string} notificationId - Notification ID
+ * @returns {Object|null} - Deleted notification or null if not found
+ */
+export const deleteNotificationForUser = async (userId, notificationId) => {
+  try {
+    const notification = await Notification.findOneAndDelete({ _id: notificationId, userId });
+    return notification;
+  } catch (error) {
+    console.error('Error deleting user notification:', error);
+    throw error;
+  }
+};
+
+/**
  * Clear all notifications for a user
  * @param {string} userId - User ID
  * @returns {Object} - Deletion result
@@ -230,7 +267,7 @@ export const getNotificationStats = async (userId) => {
     const total = await Notification.countDocuments({ userId });
     const unread = await Notification.countDocuments({ userId, read: false });
     const byType = await Notification.aggregate([
-      { $match: { userId: require('mongoose').Types.ObjectId(userId) } },
+      { $match: { userId: new mongoose.Types.ObjectId(userId) } },
       { $group: { _id: '$type', count: { $sum: 1 } } },
     ]);
 

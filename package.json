@@ -4,9 +4,12 @@
   "description": "",
   "main": "src/app.js",
   "scripts": {
-    "start": "node src/server.js",
-    "dev": "nodemon src/server.js",
+    "start": "node scripts/run-server.js",
+    "dev": "node scripts/run-server.js --dev",
     "generate:openapi": "node scripts/generate-openapi.js",
+    "seed-demo": "node scripts/seed-demo.js",
+    "seed": "node scripts/seed.js",
+    "smoke": "node scripts/smoke.js",
     "test:auth-flow": "node scripts/auth-e2e.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -20,6 +23,8 @@
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
     "express-rate-limit": "^8.3.2",
+    "firebase-admin": "^13.6.0",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.1.6",
     "morgan": "^1.10.1",

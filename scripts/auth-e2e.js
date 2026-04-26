@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 
-const BASE_URL = process.env.AUTH_BASE_URL || 'http://localhost:5000';
+const BASE_URL = process.env.AUTH_BASE_URL || 'http://127.0.0.1:5000';
 const VERIFY_TOKEN = process.env.E2E_VERIFY_TOKEN || '';
 const TEST_PASSWORD = process.env.E2E_PASSWORD || 'SecurePass@123';
 const TEST_MODE_HEADER = process.env.E2E_TEST_MODE || 'true';
@@ -39,6 +39,18 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function getHealth() {
+  try {
+    const response = await fetch(`${BASE_URL}/health`);
+    if (!response.ok) {
+      return null;
+    }
+    return response.json();
+  } catch {
+    return null;
+  }
+}
+
 async function callApiWith429Retry(path, options = {}, label = 'API call') {
   const firstAttempt = await callApi(path, options);
   if (firstAttempt.status !== 429) {
@@ -74,6 +86,11 @@ function expectOneOfStatuses(result, expectedStatuses, label) {
 
 async function main() {
   console.log(`Base URL: ${BASE_URL}`);
+  const health = await getHealth();
+  if (!health?.app || health.app !== 'LifeLink') {
+    throw new Error(`Backend is not reachable at ${BASE_URL}. Start the latest LifeLink server before running this script.`);
+  }
+  console.log(`Connected to LifeLink backend pid=${health.pid} startedAt=${health.startedAt}`);
 
   const testEmail = buildEmail();
   console.log(`Using test email: ${testEmail}`);
@@ -92,7 +109,7 @@ async function main() {
       bloodType: 'O+',
       location: {
         city: 'Cairo',
-        governrate: 'Cairo',
+        governorate: 'Cairo',
       },
     },
   });
@@ -112,7 +129,7 @@ async function main() {
       password: TEST_PASSWORD,
     },
   });
-  expectStatus(loginBeforeVerify, 400, 'Login before verification');
+  expectStatus(loginBeforeVerify, 401, 'Login before verification');
   console.log(`   OK (${loginBeforeVerify?.data?.message || 'Rejected as expected'})`);
 
   console.log('\n3) Refresh with signup refresh token should succeed');
@@ -152,8 +169,8 @@ async function main() {
   if (!token) {
     console.log('\n6) Request verification email');
     const requestVerifyEmail = await callApiWith429Retry(
-      `/auth/verify-email?email=${encodeURIComponent(testEmail)}`,
-      {},
+      '/auth/verify-email',
+      { method: 'POST', body: { email: testEmail } },
       'request verification email'
     );
     expectStatus(requestVerifyEmail, 200, 'Request verification email');
@@ -174,8 +191,8 @@ async function main() {
 
   console.log('\n7) Verify email token');
   const verifyToken = await callApiWith429Retry(
-    `/auth/verify-email-token?token=${encodeURIComponent(token)}`,
-    {},
+    '/auth/verify-email-token',
+    { method: 'POST', body: { token: token } },
     'verify email token'
   );
   expectStatus(verifyToken, 200, 'Verify email token');

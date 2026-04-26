@@ -27,8 +27,8 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: {
-        values: ['match', 'request', 'milestone'],
-        message: 'Type must be match, request, or milestone',
+        values: ['match', 'request', 'milestone', 'emergency', 'system', 'admin'],
+        message: 'Type must be match, request, milestone, emergency, system, or admin',
       },
       required: [true, 'Notification type is required'],
     },

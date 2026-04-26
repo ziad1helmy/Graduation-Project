@@ -14,7 +14,6 @@ const router = Router();
  *       properties:
  *         fullName:
  *           type: string
- *           example: Sara Ali
  *         email:
  *           type: string
  *           format: email
@@ -33,6 +32,13 @@ const router = Router();
  *           type: string
  *         refreshToken:
  *           type: string
+ *     FcmTokenRequest:
+ *       type: object
+ *       required: [fcmToken]
+ *       properties:
+ *         fcmToken:
+ *           type: string
+ *           example: fcm-device-token-from-flutter
  *     ErrorResponse:
  *       type: object
  *       properties:
@@ -74,7 +80,10 @@ const router = Router();
  *   post:
  *     tags: [Auth]
  *     summary: Login with email and password
- *     description: Returns tokens only when email is verified.
+ *     description: |
+ *       Returns access and refresh tokens when credentials are valid and 2FA is not enabled.
+ *       If 2FA is enabled, the response returns `requires2FA` and a short-lived `tempToken`
+ *       instead of normal auth tokens. Compatibility aliases are also mounted under `/api/v1/auth/*`.
  *     parameters:
  *       - in: header
  *         name: x-test-mode
@@ -85,9 +94,95 @@ const router = Router();
  *         description: Development-only header to bypass rate limiting for automated tests.
  *     responses:
  *       '200':
- *         description: Login successful
+ *         description: Login successful or 2FA verification required
  *       '400':
  *         description: Invalid credentials or unverified email
+ *
+ * /auth/register:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Register a new user (compatibility alias)
+ *     responses:
+ *       '201':
+ *         description: User registered successfully
+ *
+ * /auth/validate-token:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Validate current JWT and return session state
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Token is valid
+ *
+ * /auth/send-otp:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Send a password reset OTP
+ *     description: |
+ *       This endpoint is only used for password reset verification.
+ *       It invalidates previous unused password reset OTPs for the same account
+ *       and sends a password-reset-only OTP email with a 10 minute expiry.
+ *     requestBody:
+ *       required: true
+ *     responses:
+ *       '200':
+ *         description: Password reset OTP sent successfully
+ *
+ * /auth/verify-otp:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Verify password reset OTP
+ *     description: |
+ *       Validates the OTP and returns a short-lived `resetToken`.
+ *       The returned token is only valid for `POST /auth/reset-password`.
+ *     requestBody:
+ *       required: true
+ *     responses:
+ *       '200':
+ *         description: Password reset OTP verified successfully
+ *
+ * /auth/2fa/setup:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Initialize 2FA setup
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: 2FA setup initialized
+ *
+ * /auth/2fa/confirm-setup:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Confirm 2FA setup for the authenticated user
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: 2FA setup verified successfully
+ *
+ * /auth/2fa/verify:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Complete login by verifying a 2FA code
+ *     description: |
+ *       Accepts the short-lived `tempToken` returned by `/auth/login` when `requires2FA` is true.
+ *       On success it returns normal auth tokens.
+ *     responses:
+ *       '200':
+ *         description: 2FA verified successfully
+ *
+ * /auth/2fa/disable:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Disable 2FA
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: 2FA disabled successfully
  *
  * /auth/logout:
  *   post:
@@ -128,39 +223,50 @@ const router = Router();
  *     tags: [Auth]
  *     summary: Reset password with token
  *     description: |
- *       Validates reset token, updates password, clears reset token fields,
- *       and invalidates previously issued sessions via `passwordChangedAt`.
+ *       Accepts either the existing email reset link token or the short-lived `resetToken`
+ *       returned by `/auth/verify-otp`. The token is password-reset-specific, not a normal auth token.
+ *       Successful resets invalidate previously issued sessions via `passwordChangedAt`.
  *     responses:
  *       '200':
  *         description: Password reset successful
  *
  * /auth/verify-email:
- *   get:
+ *   post:
  *     tags: [Auth]
  *     summary: Send email verification message
  *     description: Creates a new verification token and sends verification email.
- *     parameters:
- *       - in: query
- *         name: email
- *         required: true
- *         schema:
- *           type: string
- *           format: email
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
  *     responses:
  *       '200':
  *         description: Verification email sent
  *
  * /auth/verify-email-token:
- *   get:
+ *   post:
  *     tags: [Auth]
  *     summary: Verify email with token
- *     description: Marks account as verified if token is valid and not expired.
- *     parameters:
- *       - in: query
- *         name: token
- *         required: true
- *         schema:
- *           type: string
+ *     description: |
+ *       Marks account as verified if token is valid and not expired.
+ *       Browser requests receive a lightweight success or failure HTML page for demo-friendly UX.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token]
+ *             properties:
+ *               token:
+ *                 type: string
  *     responses:
  *       '200':
  *         description: Email verified successfully
@@ -179,17 +285,96 @@ const router = Router();
  *         description: User retrieved
  *       '401':
  *         description: Unauthorized
+ *
+ * /auth/fcm-token:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Register the current device FCM token
+ *     description: |
+ *       Stores the device token for the authenticated user using a deduplicated token array.
+ *       Flutter should call this on app startup or immediately after login, and again when Firebase
+ *       refreshes the token. The same endpoint is also mounted under `/api/v1/auth/fcm-token`.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FcmTokenRequest'
+ *     responses:
+ *       '200':
+ *         description: FCM token registered successfully
+ *       '400':
+ *         description: Missing or empty token
+ *       '401':
+ *         description: Unauthorized
+ *
+ *   put:
+ *     tags: [Auth]
+ *     summary: Replace the stored FCM tokens with the current active device token
+ *     description: |
+ *       Lightweight bulk-replace helper for login/startup flows. It keeps only the provided token for
+ *       the authenticated user and is also available under `/api/v1/auth/fcm-token`.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FcmTokenRequest'
+ *     responses:
+ *       '200':
+ *         description: FCM token updated successfully
+ *       '400':
+ *         description: Missing or empty token
+ *       '401':
+ *         description: Unauthorized
+ *
+ *   delete:
+ *     tags: [Auth]
+ *     summary: Remove a device FCM token
+ *     description: |
+ *       Removes the provided token if present. Safe to call on logout, app reinstall, or when cleaning
+ *       up stale tokens. The same endpoint is also mounted under `/api/v1/auth/fcm-token`.
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FcmTokenRequest'
+ *     responses:
+ *       '200':
+ *         description: FCM token removed successfully
+ *       '400':
+ *         description: Missing or empty token
+ *       '401':
+ *         description: Unauthorized
  */
 
 router.post('/signup', AUC.register);
+router.post('/register', AUC.register);
 router.post('/login', AUC.login);
 router.post('/logout', AUC.logout);
 router.post('/refresh-token', AUC.refreshToken);
 router.post('/forgot-password', AUC.forgotPassword);
 router.post('/reset-password', AUC.resetPassword);
+router.post('/send-otp', AUC.sendOtp);
+router.post('/verify-otp', AUC.verifyOtp);
+router.post('/2fa/setup', authMiddleware, AUC.setup2FA);
+router.post('/2fa/confirm-setup', authMiddleware, AUC.confirm2FASetup);
+router.post('/2fa/verify', AUC.verify2FA);
+router.post('/2fa/disable', authMiddleware, AUC.disable2FA);
 
 router.get('/me', authMiddleware, AUC.getMe);
-router.get('/verify-email', AUC.verifyEmail);
-router.get('/verify-email-token', AUC.verifyEmailToken);
+router.post('/validate-token', authMiddleware, AUC.validateToken);
+router.post('/verify-email', AUC.verifyEmail);
+router.post('/verify-email-token', AUC.verifyEmailToken);
+router.post('/fcm-token', authMiddleware, AUC.registerFcmToken);
+router.put('/fcm-token', authMiddleware, AUC.replaceFcmToken);
+router.delete('/fcm-token', authMiddleware, AUC.removeFcmToken);
 
 export default router;

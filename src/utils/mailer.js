@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
-import { confirmEmailTemplate, resetPasswordTemplate } from './emailTemplates.js';
+import { confirmEmailTemplate, resetPasswordOtpTemplate, resetPasswordTemplate } from './emailTemplates.js';
 
 function hasSmtpConfig() {
   return Boolean(env.SMTP_HOST && env.SMTP_USER && env.SMTP_PASS);
@@ -105,13 +105,12 @@ async function sendMail({ to, subject, text, html }) {
       html,
     });
 
-    console.log('Email sent successfully to:', to);
+    console.log(`[Mail] Sent "${subject}" to ${to}`);
 
     return { sent: true };
   } catch (error) {
     if (!isProduction()) {
-      console.error('Email send failed for recipient:', to);
-      console.error('Email send failed:', error.message);
+      console.warn(`[Mail] Unable to send "${subject}" to ${to}: ${error.message}`);
       return {
         skipped: true,
         reason: 'SMTP send failed in development',
@@ -133,6 +132,31 @@ export async function sendPasswordResetEmail({ to, fullName, token }) {
     actionLabel: 'reset your password',
     template: resetPasswordTemplate,
   });
+}
+
+export async function sendPasswordResetOtpEmail({ to, fullName, otp, expiresInMinutes = 10 }) {
+  const subject = 'Your LifeLink password reset code';
+  const text = [
+    `Hello ${fullName || 'there'},`,
+    '',
+    'Your Password Reset Code',
+    `${otp}`,
+    '',
+    `This code expires in ${expiresInMinutes} minutes.`,
+    'Use it only to reset your password in LifeLink.',
+    'It cannot be used to sign in.',
+    '',
+    'If you did not request this, ignore this email.',
+  ].join('\n');
+  const html = resetPasswordOtpTemplate({ otp, expiresInMinutes, name: fullName || 'LifeLink user' });
+
+  if (!hasSmtpConfig() && !isProduction()) {
+    console.log(`[LifeLink][Password Reset OTP Email] ${to}: ${otp} (expires in ${expiresInMinutes} minutes)`);
+    return { skipped: true, reason: 'SMTP is not configured' };
+  }
+
+  const result = await sendMail({ to, subject, text, html });
+  return normalizeMailResult(result);
 }
 
 export async function sendPasswordResetConfirmationEmail({ to, fullName }) {
@@ -159,8 +183,8 @@ export async function sendEmailVerificationEmail({ to, fullName, token }) {
     template: confirmEmailTemplate,
     onDevNoSmtp: ({ token: verificationToken, url: verificationUrl }) => {
       // Development-only visibility for local testing when SMTP is not configured.
-      console.log('Verification Token:', verificationToken);
-      console.log('Verification URL:', verificationUrl);
+      console.log(`[LifeLink][Verification Email] token for ${to}: ${verificationToken}`);
+      console.log(`[LifeLink][Verification Email] url for ${to}: ${verificationUrl}`);
 
       return { skipped: true };
     },
@@ -181,6 +205,7 @@ export async function sendEmailVerificationConfirmationEmail({ to, fullName }) {
 
 export default {
   sendPasswordResetEmail,
+  sendPasswordResetOtpEmail,
   sendPasswordResetConfirmationEmail,
   sendEmailVerificationEmail,
   sendEmailVerificationConfirmationEmail,

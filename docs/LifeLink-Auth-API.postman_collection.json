@@ -21,7 +21,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"donor\",\n  \"phoneNumber\": \"1234567890\",\n  \"dateOfBirth\": \"1990-05-15\",\n  \"gender\": \"female\",\n  \"bloodType\": \"O+\",\n  \"location\": {\n    \"city\": \"Cairo\",\n    \"governrate\": \"Cairo\"\n  }\n}"
+              "raw": "{\n  \"fullName\": \"Sara Ali\",\n  \"email\": \"sara.donor@example.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"donor\",\n  \"phoneNumber\": \"1234567890\",\n  \"dateOfBirth\": \"1990-05-15\",\n  \"gender\": \"female\",\n  \"bloodType\": \"O+\",\n  \"location\": {\n    \"city\": \"Cairo\",\n    \"governorate\": \"Cairo\"\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/signup",
@@ -44,7 +44,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"fullName\": \"Hospital Admin\",\n  \"email\": \"admin@hospital.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"hospital\",\n  \"hospitalName\": \"Cairo Medical Center\",\n  \"hospitalId\": 12345,\n  \"licenseNumber\": \"LIC-2024-001\",\n  \"contactNumber\": \"+20123456789\",\n  \"address\": {\n    \"city\": \"Cairo\",\n    \"governrate\": \"Cairo Governrate\"\n  }\n}"
+              "raw": "{\n  \"fullName\": \"Hospital Admin\",\n  \"email\": \"admin@hospital.com\",\n  \"password\": \"SecurePass@123\",\n  \"role\": \"hospital\",\n  \"hospitalName\": \"Cairo Medical Center\",\n  \"hospitalId\": 12345,\n  \"licenseNumber\": \"LIC-2024-001\",\n  \"contactNumber\": \"+20123456789\",\n  \"address\": {\n    \"city\": \"Cairo\",\n    \"governorate\": \"Cairo Governrate\"\n  }\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/signup",

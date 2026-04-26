@@ -3,12 +3,12 @@
   "info": {
     "title": "LifeLink API",
     "version": "1.0.0",
-    "description": "OpenAPI documentation for the LifeLink donation platform API."
+    "description": "OpenAPI documentation for the LifeLink donation platform API. Primary routes are mounted at root paths and compatibility aliases are also available under /api/v1/*."
   },
   "servers": [
     {
       "url": "http://localhost:5000",
-      "description": "Local development server"
+      "description": "Configured server"
     }
   ],
   "components": {
@@ -30,10 +30,7 @@
         ],
         "properties": {
           "fullName": {
-            "type": "string",
-            "minLength": 3,
-            "maxLength": 100,
-            "example": "Sara Ali"
+            "type": "string"
           },
           "email": {
             "type": "string",
@@ -43,7 +40,6 @@
           "password": {
             "type": "string",
             "format": "password",
-            "description": "Must contain at least one uppercase, one lowercase, one digit, and one special character",
             "example": "SecurePass@123"
           },
           "role": {
@@ -51,187 +47,30 @@
             "enum": [
               "donor",
               "hospital"
-            ],
-            "example": "donor"
+            ]
           }
         }
       },
-      "DonorRegister": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/BaseUser"
-          },
-          {
-            "type": "object",
-            "required": [
-              "phoneNumber",
-              "dateOfBirth"
-            ],
-            "properties": {
-              "role": {
-                "type": "string",
-                "enum": [
-                  "donor"
-                ],
-                "example": "donor"
-              },
-              "phoneNumber": {
-                "type": "string",
-                "pattern": "^\\d{10}$",
-                "description": "10-digit phone number",
-                "example": "1234567890"
-              },
-              "dateOfBirth": {
-                "type": "string",
-                "format": "date",
-                "description": "Date of birth (YYYY-MM-DD)",
-                "example": "1990-05-15"
-              },
-              "gender": {
-                "type": "string",
-                "enum": [
-                  "male",
-                  "female",
-                  "not specified"
-                ],
-                "example": "female"
-              },
-              "bloodType": {
-                "type": "string",
-                "enum": [
-                  "A+",
-                  "A-",
-                  "B+",
-                  "B-",
-                  "AB+",
-                  "AB-",
-                  "O+",
-                  "O-"
-                ],
-                "example": "O+"
-              },
-              "location": {
-                "type": "object",
-                "properties": {
-                  "city": {
-                    "type": "string",
-                    "example": "Cairo"
-                  },
-                  "governrate": {
-                    "type": "string",
-                    "example": "Cairo"
-                  }
-                }
-              }
-            }
-          }
-        ]
-      },
-      "HospitalRegister": {
-        "allOf": [
-          {
-            "$ref": "#/components/schemas/BaseUser"
-          },
-          {
-            "type": "object",
-            "required": [
-              "hospitalName",
-              "hospitalId",
-              "licenseNumber"
-            ],
-            "properties": {
-              "role": {
-                "type": "string",
-                "enum": [
-                  "hospital"
-                ],
-                "example": "hospital"
-              },
-              "hospitalName": {
-                "type": "string",
-                "minLength": 3,
-                "maxLength": 200,
-                "example": "Cairo Medical Center"
-              },
-              "hospitalId": {
-                "type": "number",
-                "example": 12345
-              },
-              "licenseNumber": {
-                "type": "string",
-                "minLength": 5,
-                "maxLength": 50,
-                "example": "LIC-2024-001"
-              },
-              "address": {
-                "type": "object",
-                "properties": {
-                  "city": {
-                    "type": "string",
-                    "example": "Cairo"
-                  },
-                  "governrate": {
-                    "type": "string",
-                    "example": "Cairo"
-                  }
-                }
-              },
-              "contactNumber": {
-                "type": "string",
-                "example": "+20123456789"
-              }
-            }
-          }
-        ]
-      },
-      "AuthResponse": {
+      "AuthTokens": {
         "type": "object",
         "properties": {
-          "success": {
-            "type": "boolean",
-            "example": true
+          "accessToken": {
+            "type": "string"
           },
-          "message": {
+          "refreshToken": {
+            "type": "string"
+          }
+        }
+      },
+      "FcmTokenRequest": {
+        "type": "object",
+        "required": [
+          "fcmToken"
+        ],
+        "properties": {
+          "fcmToken": {
             "type": "string",
-            "example": "User registered successfully"
-          },
-          "data": {
-            "type": "object",
-            "properties": {
-              "accessToken": {
-                "type": "string",
-                "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmYxMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJyb2xlIjoiZG9ub3IiLCJpYXQiOjE3MDAwMDAwMDB9.abcdef123456"
-              },
-              "refreshToken": {
-                "type": "string",
-                "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2NmYxMDAwMDAwMDAwMDAwMDAwMDAwMDEiLCJyb2xlIjoiZG9ub3IiLCJpYXQiOjE3MDAwMDAwMDB9.xyz789"
-              },
-              "user": {
-                "type": "object",
-                "properties": {
-                  "_id": {
-                    "type": "string",
-                    "example": "66f100000000000000000001"
-                  },
-                  "fullName": {
-                    "type": "string",
-                    "example": "Sara Ali"
-                  },
-                  "email": {
-                    "type": "string",
-                    "example": "sara@example.com"
-                  },
-                  "role": {
-                    "type": "string",
-                    "enum": [
-                      "donor",
-                      "hospital"
-                    ],
-                    "example": "donor"
-                  }
-                }
-              }
-            }
+            "example": "fcm-device-token-from-flutter"
           }
         }
       },
@@ -243,8 +82,7 @@
             "example": false
           },
           "message": {
-            "type": "string",
-            "example": "Error message here"
+            "type": "string"
           }
         }
       }
@@ -257,94 +95,37 @@
           "Auth"
         ],
         "summary": "Register a new donor or hospital account",
-        "description": "Register using role-specific fields. Donor requires phoneNumber and dateOfBirth. Hospital requires hospitalName, hospitalId, and licenseNumber.",
+        "description": "Creates a user, returns access/refresh tokens, and triggers email verification.\nIn non-production environments the response may include `verificationToken`\nfor local testing and E2E automation when SMTP is not configured.\n",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-test-mode",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "description": "Development-only header to bypass rate limiting for automated tests."
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/DonorRegister"
-                  },
-                  {
-                    "$ref": "#/components/schemas/HospitalRegister"
-                  }
-                ],
-                "discriminator": {
-                  "propertyName": "role",
-                  "mapping": {
-                    "donor": "#/components/schemas/DonorRegister",
-                    "hospital": "#/components/schemas/HospitalRegister"
-                  }
-                }
-              },
-              "examples": {
-                "donorExample": {
-                  "summary": "Donor Registration",
-                  "value": {
-                    "fullName": "Sara Ali",
-                    "email": "sara.donor@example.com",
-                    "password": "SecurePass@123",
-                    "role": "donor",
-                    "phoneNumber": "1234567890",
-                    "dateOfBirth": "1990-05-15",
-                    "gender": "female",
-                    "bloodType": "O+"
-                  }
-                },
-                "hospitalExample": {
-                  "summary": "Hospital Registration",
-                  "value": {
-                    "fullName": "Admin User",
-                    "email": "admin@hospital.com",
-                    "password": "SecurePass@123",
-                    "role": "hospital",
-                    "hospitalName": "Cairo Medical Center",
-                    "hospitalId": 12345,
-                    "licenseNumber": "LIC-2024-001"
-                  }
-                }
+                "$ref": "#/components/schemas/BaseUser"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "User registered successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
-                }
-              }
-            }
+            "description": "User registered successfully"
           },
           "400": {
-            "description": "Registration error - validation failed or email already registered",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                },
-                "examples": {
-                  "validationError": {
-                    "summary": "Validation Error",
-                    "value": {
-                      "success": false,
-                      "message": "Email is required; Phone number must be 10 digits"
-                    }
-                  },
-                  "emailExists": {
-                    "summary": "Email Already Registered",
-                    "value": {
-                      "success": false,
-                      "message": "Email is already registered"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Validation or registration error"
           }
         }
       }
@@ -355,52 +136,160 @@
           "Auth"
         ],
         "summary": "Login with email and password",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "email",
-                  "password"
-                ],
-                "properties": {
-                  "email": {
-                    "type": "string",
-                    "format": "email",
-                    "example": "sara@example.com"
-                  },
-                  "password": {
-                    "type": "string",
-                    "format": "password",
-                    "example": "SecurePass@123"
-                  }
-                }
-              }
-            }
+        "description": "Returns access and refresh tokens when credentials are valid and 2FA is not enabled.\nIf 2FA is enabled, the response returns `requires2FA` and a short-lived `tempToken`\ninstead of normal auth tokens. Compatibility aliases are also mounted under `/api/v1/auth/*`.\n",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "x-test-mode",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true"
+              ]
+            },
+            "description": "Development-only header to bypass rate limiting for automated tests."
           }
+        ],
+        "responses": {
+          "200": {
+            "description": "Login successful or 2FA verification required"
+          },
+          "400": {
+            "description": "Invalid credentials or unverified email"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register a new user (compatibility alias)",
+        "responses": {
+          "201": {
+            "description": "User registered successfully"
+          }
+        }
+      }
+    },
+    "/auth/validate-token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Validate current JWT and return session state",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Token is valid"
+          }
+        }
+      }
+    },
+    "/auth/send-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send a password reset OTP",
+        "description": "This endpoint is only used for password reset verification.\nIt invalidates previous unused password reset OTPs for the same account\nand sends a password-reset-only OTP email with a 10 minute expiry.\n",
+        "requestBody": {
+          "required": true
         },
         "responses": {
           "200": {
-            "description": "Login successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/AuthResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid credentials",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Password reset OTP sent successfully"
+          }
+        }
+      }
+    },
+    "/auth/verify-otp": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Verify password reset OTP",
+        "description": "Validates the OTP and returns a short-lived `resetToken`.\nThe returned token is only valid for `POST /auth/reset-password`.\n",
+        "requestBody": {
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Password reset OTP verified successfully"
+          }
+        }
+      }
+    },
+    "/auth/2fa/setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Initialize 2FA setup",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "2FA setup initialized"
+          }
+        }
+      }
+    },
+    "/auth/2fa/confirm-setup": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Confirm 2FA setup for the authenticated user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "2FA setup verified successfully"
+          }
+        }
+      }
+    },
+    "/auth/2fa/verify": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Complete login by verifying a 2FA code",
+        "description": "Accepts the short-lived `tempToken` returned by `/auth/login` when `requires2FA` is true.\nOn success it returns normal auth tokens.\n",
+        "responses": {
+          "200": {
+            "description": "2FA verified successfully"
+          }
+        }
+      }
+    },
+    "/auth/2fa/disable": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Disable 2FA",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "2FA disabled successfully"
           }
         }
       }
@@ -410,46 +299,11 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Logout by providing a refresh token",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "refreshToken"
-                ],
-                "properties": {
-                  "refreshToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  }
-                }
-              }
-            }
-          }
-        },
+        "summary": "Logout and blacklist refresh token",
+        "description": "Stores a SHA-256 hash of the refresh token in blacklist storage.\nBlacklisted tokens are denied on subsequent refresh attempts.\n",
         "responses": {
           "200": {
-            "description": "Logged out successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Logout error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Logged out successfully"
           }
         }
       }
@@ -459,62 +313,14 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Exchange a refresh token for a new access token",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "refreshToken"
-                ],
-                "properties": {
-                  "refreshToken": {
-                    "type": "string",
-                    "example": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                  }
-                }
-              }
-            }
-          }
-        },
+        "summary": "Issue a new access token from refresh token",
+        "description": "Rejects blacklisted tokens and tokens issued before `passwordChangedAt`.\n",
         "responses": {
           "200": {
-            "description": "Token refreshed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "accessToken": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Token refreshed"
           },
           "400": {
-            "description": "Refresh error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Invalid, expired, blacklisted, or stale refresh token"
           }
         }
       }
@@ -524,7 +330,36 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Request a password reset email",
+        "summary": "Request password reset",
+        "description": "Always returns success to prevent account enumeration.\nIf account exists, reset token email is sent.\n",
+        "responses": {
+          "200": {
+            "description": "Password reset request accepted"
+          }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Reset password with token",
+        "description": "Accepts either the existing email reset link token or the short-lived `resetToken`\nreturned by `/auth/verify-otp`. The token is password-reset-specific, not a normal auth token.\nSuccessful resets invalidate previously issued sessions via `passwordChangedAt`.\n",
+        "responses": {
+          "200": {
+            "description": "Password reset successful"
+          }
+        }
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Send email verification message",
+        "description": "Creates a new verification token and sends verification email.",
         "requestBody": {
           "required": true,
           "content": {
@@ -537,8 +372,7 @@
                 "properties": {
                   "email": {
                     "type": "string",
-                    "format": "email",
-                    "example": "sara@example.com"
+                    "format": "email"
                   }
                 }
               }
@@ -547,34 +381,18 @@
         },
         "responses": {
           "200": {
-            "description": "Password reset email sent",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Forgot password error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Verification email sent"
           }
         }
       }
     },
-    "/auth/reset-password": {
+    "/auth/verify-email-token": {
       "post": {
         "tags": [
           "Auth"
         ],
-        "summary": "Reset a password using a reset token",
+        "summary": "Verify email with token",
+        "description": "Marks account as verified if token is valid and not expired.\nBrowser requests receive a lightweight success or failure HTML page for demo-friendly UX.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -582,18 +400,11 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "token",
-                  "password"
+                  "token"
                 ],
                 "properties": {
                   "token": {
-                    "type": "string",
-                    "example": "reset-token-123"
-                  },
-                  "password": {
-                    "type": "string",
-                    "format": "password",
-                    "example": "NewSecure@123"
+                    "type": "string"
                   }
                 }
               }
@@ -602,24 +413,7 @@
         },
         "responses": {
           "200": {
-            "description": "Password reset successful",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Reset error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Email verified successfully"
           }
         }
       }
@@ -629,140 +423,120 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Get the current authenticated user",
+        "summary": "Get current authenticated user",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "description": "Requires a valid access token. Access tokens issued before password reset\nare rejected by auth middleware.\n",
         "responses": {
           "200": {
-            "description": "User retrieved",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "_id": {
-                          "type": "string"
-                        },
-                        "fullName": {
-                          "type": "string"
-                        },
-                        "email": {
-                          "type": "string"
-                        },
-                        "role": {
-                          "type": "string"
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
+            "description": "User retrieved"
           },
           "401": {
-            "description": "Missing or invalid JWT",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Unauthorized"
           }
         }
       }
     },
-    "/auth/verify-email": {
-      "get": {
+    "/auth/fcm-token": {
+      "post": {
         "tags": [
           "Auth"
         ],
-        "summary": "Send an email verification message",
-        "parameters": [
+        "summary": "Register the current device FCM token",
+        "description": "Stores the device token for the authenticated user using a deduplicated token array.\nFlutter should call this on app startup or immediately after login, and again when Firebase\nrefreshes the token. The same endpoint is also mounted under `/api/v1/auth/fcm-token`.\n",
+        "security": [
           {
-            "in": "query",
-            "name": "email",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "email"
-            },
-            "example": "sara@example.com"
+            "bearerAuth": []
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FcmTokenRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Verification email sent",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "FCM token registered successfully"
           },
           "400": {
-            "description": "Verification error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "Missing or empty token"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
-      }
-    },
-    "/auth/verify-email-token": {
-      "get": {
+      },
+      "put": {
         "tags": [
           "Auth"
         ],
-        "summary": "Verify an email using a verification token",
-        "parameters": [
+        "summary": "Replace the stored FCM tokens with the current active device token",
+        "description": "Lightweight bulk-replace helper for login/startup flows. It keeps only the provided token for\nthe authenticated user and is also available under `/api/v1/auth/fcm-token`.\n",
+        "security": [
           {
-            "in": "query",
-            "name": "token",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "example": "verify-token-123"
+            "bearerAuth": []
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FcmTokenRequest"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Email verified successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
+            "description": "FCM token updated successfully"
           },
           "400": {
-            "description": "Verification error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
+            "description": "Missing or empty token"
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Remove a device FCM token",
+        "description": "Removes the provided token if present. Safe to call on logout, app reinstall, or when cleaning\nup stale tokens. The same endpoint is also mounted under `/api/v1/auth/fcm-token`.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FcmTokenRequest"
               }
             }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM token removed successfully"
+          },
+          "400": {
+            "description": "Missing or empty token"
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
@@ -871,7 +645,7 @@
                         "type": "string",
                         "example": "Cairo"
                       },
-                      "governrate": {
+                      "governorate": {
                         "type": "string",
                         "example": "Cairo"
                       }
@@ -954,7 +728,8 @@
             "schema": {
               "type": "integer",
               "example": 0
-            }
+            },
+            "description": "Legacy pagination alias still supported."
           },
           {
             "in": "query",
@@ -962,6 +737,14 @@
             "schema": {
               "type": "integer",
               "example": 10
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "example": 1
             }
           }
         ],
@@ -975,9 +758,11 @@
                   "message": "Requests retrieved successfully",
                   "data": {
                     "requests": [],
-                    "total": 0,
-                    "skip": 0,
-                    "limit": 10
+                    "pagination": {
+                      "page": 1,
+                      "limit": 10,
+                      "total": 0
+                    }
                   }
                 }
               }
@@ -1010,7 +795,8 @@
             "schema": {
               "type": "integer",
               "example": 0
-            }
+            },
+            "description": "Legacy pagination alias still supported."
           },
           {
             "in": "query",
@@ -1018,6 +804,14 @@
             "schema": {
               "type": "integer",
               "example": 10
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "example": 1
             }
           }
         ],
@@ -1031,9 +825,11 @@
                   "message": "Matching requests retrieved successfully",
                   "data": {
                     "matches": [],
-                    "total": 0,
-                    "skip": 0,
-                    "limit": 10
+                    "pagination": {
+                      "page": 1,
+                      "limit": 10,
+                      "total": 0
+                    }
                   }
                 }
               }
@@ -1150,7 +946,8 @@
             "schema": {
               "type": "integer",
               "example": 0
-            }
+            },
+            "description": "Legacy pagination alias still supported."
           },
           {
             "in": "query",
@@ -1158,6 +955,14 @@
             "schema": {
               "type": "integer",
               "example": 10
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "example": 1
             }
           }
         ],
@@ -1171,9 +976,11 @@
                   "message": "Donation history retrieved successfully",
                   "data": {
                     "donations": [],
-                    "total": 0,
-                    "skip": 0,
-                    "limit": 10
+                    "pagination": {
+                      "page": 1,
+                      "limit": 10,
+                      "total": 0
+                    }
                   }
                 }
               }
@@ -1304,9 +1111,33 @@
                         "type": "string",
                         "example": "Cairo"
                       },
-                      "governrate": {
+                      "governorate": {
                         "type": "string",
                         "example": "Cairo"
+                      }
+                    }
+                  },
+                  "location": {
+                    "type": "object",
+                    "properties": {
+                      "city": {
+                        "type": "string"
+                      },
+                      "governorate": {
+                        "type": "string"
+                      },
+                      "coordinates": {
+                        "type": "object",
+                        "properties": {
+                          "lat": {
+                            "type": "number",
+                            "example": 30.0444
+                          },
+                          "lng": {
+                            "type": "number",
+                            "example": 31.2357
+                          }
+                        }
                       }
                     }
                   },
@@ -1478,7 +1309,8 @@
             "schema": {
               "type": "integer",
               "example": 0
-            }
+            },
+            "description": "Legacy pagination alias still supported."
           },
           {
             "in": "query",
@@ -1486,6 +1318,14 @@
             "schema": {
               "type": "integer",
               "example": 10
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "example": 1
             }
           }
         ],
@@ -1668,7 +1508,8 @@
             "schema": {
               "type": "integer",
               "example": 0
-            }
+            },
+            "description": "Legacy pagination alias still supported."
           },
           {
             "in": "query",
@@ -1676,6 +1517,14 @@
             "schema": {
               "type": "integer",
               "example": 10
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "example": 1
             }
           }
         ],
@@ -1691,7 +1540,1887 @@
           }
         }
       }
+    },
+    "/hospital/blood-bank-settings": {
+      "get": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Get hospital blood bank settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Blood bank settings retrieved successfully"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Update hospital blood bank settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Blood bank settings updated successfully"
+          }
+        }
+      }
+    },
+    "/hospital/notification-preferences": {
+      "get": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Get hospital notification preferences",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification preferences retrieved successfully"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Update hospital notification preferences",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Notification preferences updated successfully"
+          }
+        }
+      }
+    },
+    "/hospital/reports/monthly": {
+      "get": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Get monthly hospital report",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "month",
+            "schema": {
+              "type": "string",
+              "example": "2026-04"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Monthly report retrieved successfully"
+          }
+        }
+      }
+    },
+    "/hospital/staff": {
+      "get": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "List hospital staff",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Staff retrieved successfully"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Create hospital staff member",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "position"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Staff created successfully"
+          }
+        }
+      }
+    },
+    "/hospital/staff/{id}": {
+      "delete": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Delete hospital staff member",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Staff deleted successfully"
+          }
+        }
+      }
+    },
+    "/admin/profile": {
+      "get": {
+        "summary": "Get admin profile",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Admin profile"
+          }
+        }
+      }
+    },
+    "/admin/system/health": {
+      "get": {
+        "summary": "System health check",
+        "tags": [
+          "Admin - System"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "System health status"
+          }
+        }
+      }
+    },
+    "/admin/system/maintenance": {
+      "post": {
+        "summary": "Toggle maintenance mode",
+        "tags": [
+          "Admin - System"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "enabled"
+                ],
+                "properties": {
+                  "enabled": {
+                    "type": "boolean"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Maintenance mode updated"
+          }
+        }
+      },
+      "get": {
+        "summary": "Get maintenance mode status",
+        "tags": [
+          "Admin - System"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Maintenance status"
+          }
+        }
+      }
+    },
+    "/admin/audit-logs": {
+      "get": {
+        "summary": "List audit logs",
+        "tags": [
+          "Admin - Audit"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "action",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "targetType",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "User",
+                "Request",
+                "Donation",
+                "System"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Audit logs list"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "summary": "List all users with filters and pagination",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "role",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "donor",
+                "hospital",
+                "admin",
+                "superadmin"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "verified",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "suspended",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "true",
+                "false"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Users list"
+          }
+        }
+      }
+    },
+    "/admin/users/stats": {
+      "get": {
+        "summary": "Get user statistics",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User statistics"
+          }
+        }
+      }
+    },
+    "/admin/users/hospital": {
+      "post": {
+        "summary": "Create a new hospital (admin-created, pre-verified)",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "fullName",
+                  "email",
+                  "password",
+                  "hospitalName",
+                  "hospitalId",
+                  "licenseNumber"
+                ],
+                "properties": {
+                  "fullName": {
+                    "type": "string"
+                  },
+                  "email": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  },
+                  "hospitalName": {
+                    "type": "string"
+                  },
+                  "hospitalId": {
+                    "type": "number"
+                  },
+                  "licenseNumber": {
+                    "type": "string"
+                  },
+                  "address": {
+                    "type": "object",
+                    "properties": {
+                      "city": {
+                        "type": "string"
+                      },
+                      "governorate": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "contactNumber": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Hospital created"
+          },
+          "409": {
+            "description": "Email already registered"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}": {
+      "get": {
+        "summary": "Get user details by ID",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User details"
+          },
+          "404": {
+            "description": "User not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Soft-delete a user account",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User deleted"
+          },
+          "403": {
+            "description": "Cannot delete admin accounts"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/verify": {
+      "patch": {
+        "summary": "Verify a user's email",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User verified"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/unverify": {
+      "patch": {
+        "summary": "Unverify a user's email",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User unverified"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/suspend": {
+      "patch": {
+        "summary": "Suspend a user account",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "User suspended"
+          },
+          "403": {
+            "description": "Cannot suspend admin accounts"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/unsuspend": {
+      "patch": {
+        "summary": "Unsuspend a user account",
+        "tags": [
+          "Admin - Users"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "User unsuspended"
+          }
+        }
+      }
+    },
+    "/admin/requests": {
+      "get": {
+        "summary": "List all blood/organ requests",
+        "tags": [
+          "Admin - Requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "in-progress",
+                "completed",
+                "cancelled"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "urgency",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high",
+                "critical"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "bloodType",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "blood",
+                "organ"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Requests list"
+          }
+        }
+      }
+    },
+    "/admin/requests/stats": {
+      "get": {
+        "summary": "Get request statistics",
+        "tags": [
+          "Admin - Requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request statistics"
+          }
+        }
+      }
+    },
+    "/admin/requests/{id}": {
+      "get": {
+        "summary": "Get full request details with donations",
+        "tags": [
+          "Admin - Requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request details"
+          }
+        }
+      }
+    },
+    "/admin/requests/{id}/donations": {
+      "get": {
+        "summary": "Get donations for a specific request",
+        "tags": [
+          "Admin - Requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request donations"
+          }
+        }
+      }
+    },
+    "/admin/requests/{id}/fulfill": {
+      "patch": {
+        "summary": "Mark a request as fulfilled",
+        "tags": [
+          "Admin - Requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request fulfilled"
+          }
+        }
+      }
+    },
+    "/admin/requests/{id}/cancel": {
+      "patch": {
+        "summary": "Cancel a request",
+        "tags": [
+          "Admin - Requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Request cancelled"
+          }
+        }
+      }
+    },
+    "/admin/requests/{id}/broadcast": {
+      "post": {
+        "summary": "Broadcast request to eligible donors",
+        "tags": [
+          "Admin - Requests"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Broadcast sent"
+          }
+        }
+      }
+    },
+    "/admin/analytics/dashboard": {
+      "get": {
+        "summary": "Dashboard summary with key metrics",
+        "tags": [
+          "Admin - Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard summary"
+          }
+        }
+      }
+    },
+    "/admin/analytics/donations": {
+      "get": {
+        "summary": "Monthly donation trends",
+        "tags": [
+          "Admin - Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "months",
+            "schema": {
+              "type": "integer",
+              "default": 6
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Donation trends"
+          }
+        }
+      }
+    },
+    "/admin/analytics/blood-types": {
+      "get": {
+        "summary": "Blood type distribution",
+        "tags": [
+          "Admin - Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Blood type distribution"
+          }
+        }
+      }
+    },
+    "/admin/analytics/top-donors": {
+      "get": {
+        "summary": "Top donors leaderboard",
+        "tags": [
+          "Admin - Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top donors"
+          }
+        }
+      }
+    },
+    "/admin/analytics/growth": {
+      "get": {
+        "summary": "Growth metrics over time",
+        "tags": [
+          "Admin - Analytics"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "months",
+            "schema": {
+              "type": "integer",
+              "default": 6
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Growth metrics"
+          }
+        }
+      }
+    },
+    "/admin/emergency/broadcast": {
+      "post": {
+        "summary": "Send emergency broadcast to donors",
+        "tags": [
+          "Admin - Emergency"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "title",
+                  "message"
+                ],
+                "properties": {
+                  "title": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  },
+                  "governorate": {
+                    "type": "string"
+                  },
+                  "city": {
+                    "type": "string"
+                  },
+                  "bloodTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "A+",
+                        "A-",
+                        "B+",
+                        "B-",
+                        "AB+",
+                        "AB-",
+                        "O+",
+                        "O-"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Emergency broadcast sent"
+          }
+        }
+      }
+    },
+    "/admin/emergency/critical": {
+      "get": {
+        "summary": "List critical and high urgency active requests",
+        "tags": [
+          "Admin - Emergency"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Critical requests"
+          }
+        }
+      }
+    },
+    "/admin/emergency/shortage-alerts": {
+      "get": {
+        "summary": "Blood shortage alerts",
+        "tags": [
+          "Admin - Emergency"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Shortage alerts by blood type"
+          }
+        }
+      }
+    },
+    "/rewards/points": {
+      "get": {
+        "summary": "Get donor's points summary and tier",
+        "tags": [
+          "Rewards - Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Points summary with tier info"
+          }
+        }
+      }
+    },
+    "/rewards/points/history": {
+      "get": {
+        "summary": "Get donor's points transaction history",
+        "tags": [
+          "Rewards - Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "filter",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ALL",
+                "EARNED",
+                "REDEEMED",
+                "ADJUSTMENTS"
+              ],
+              "default": "ALL"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_from",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date_to",
+            "schema": {
+              "type": "string",
+              "format": "date-time"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated points history"
+          }
+        }
+      }
+    },
+    "/rewards/badges": {
+      "get": {
+        "summary": "Get all badges and donor's progress",
+        "tags": [
+          "Rewards - Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Badge list with unlock status and progress"
+          }
+        }
+      }
+    },
+    "/rewards/catalog": {
+      "get": {
+        "summary": "Get available rewards catalog",
+        "tags": [
+          "Rewards - Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "category",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ALL",
+                "FOOD",
+                "ENTERTAINMENT",
+                "HEALTH",
+                "STATUS"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "sort_by",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "COST_ASC",
+                "COST_DESC",
+                "POPULARITY"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rewards catalog"
+          }
+        }
+      }
+    },
+    "/rewards/catalog/{rewardId}/redeem": {
+      "post": {
+        "summary": "Redeem a reward using points",
+        "tags": [
+          "Rewards - Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rewardId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "delivery_preference": {
+                    "type": "string",
+                    "enum": [
+                      "IN_APP",
+                      "EMAIL"
+                    ],
+                    "default": "IN_APP"
+                  },
+                  "delivery_contact": {
+                    "type": "string",
+                    "description": "Email address if delivery_preference is EMAIL"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Redemption confirmed with confirmation code"
+          },
+          "409": {
+            "description": "Insufficient points or limit exceeded"
+          }
+        }
+      }
+    },
+    "/rewards/redemptions": {
+      "get": {
+        "summary": "Get donor's redemption history",
+        "tags": [
+          "Rewards - Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ALL",
+                "PENDING",
+                "CONFIRMED",
+                "DELIVERED",
+                "CANCELLED",
+                "EXPIRED"
+              ]
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Paginated redemption history"
+          }
+        }
+      }
+    },
+    "/rewards/admin/users/{userId}/points/adjust": {
+      "post": {
+        "summary": "Manually adjust a donor's points (admin only)",
+        "tags": [
+          "Rewards - Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "userId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "amount",
+                  "reason"
+                ],
+                "properties": {
+                  "amount": {
+                    "type": "integer",
+                    "description": "Positive to add, negative to deduct"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Points adjusted and transaction logged"
+          }
+        }
+      }
+    },
+    "/rewards/admin/catalog/{rewardId}/status": {
+      "patch": {
+        "summary": "Update a reward's status (admin only)",
+        "tags": [
+          "Rewards - Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "rewardId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "status"
+                ],
+                "properties": {
+                  "status": {
+                    "type": "string",
+                    "enum": [
+                      "ACTIVE",
+                      "INACTIVE",
+                      "LIMITED"
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Reward status updated"
+          }
+        }
+      }
+    },
+    "/rewards/admin/analytics": {
+      "get": {
+        "summary": "Get rewards system analytics (admin only)",
+        "tags": [
+          "Rewards - Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top rewards, tier distribution, total points issued"
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "summary": "List notifications for authenticated user",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "read",
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notifications list"
+          }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "summary": "Mark one notification as read",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification marked as read"
+          }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "patch": {
+        "summary": "Mark all notifications as read",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All notifications marked as read"
+          }
+        }
+      }
+    },
+    "/notifications/{id}": {
+      "delete": {
+        "summary": "Delete one notification",
+        "tags": [
+          "Notifications"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Notification deleted"
+          }
+        }
+      }
+    },
+    "/hospitals": {
+      "get": {
+        "summary": "List hospitals for discovery",
+        "tags": [
+          "Discovery"
+        ],
+        "description": "Public discovery endpoint. Compatibility alias is also mounted under `/api/v1/hospitals`.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "city",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "governorate",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            }
+          },
+          {
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Legacy pagination alias still supported for compatibility."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hospitals list"
+          }
+        }
+      }
+    },
+    "/hospitals/nearby": {
+      "get": {
+        "summary": "List nearby hospitals",
+        "tags": [
+          "Discovery"
+        ],
+        "description": "Returns hospitals sorted by computed distance when coordinate-backed hospital locations exist.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "latitude",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "longitude",
+            "schema": {
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "radius_km",
+            "schema": {
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Nearby hospitals list"
+          }
+        }
+      }
+    },
+    "/hospitals/{id}": {
+      "get": {
+        "summary": "Get hospital details by id",
+        "tags": [
+          "Discovery"
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Hospital details"
+          }
+        }
+      }
+    },
+    "/help/faq": {
+      "get": {
+        "summary": "Get FAQ list",
+        "tags": [
+          "Help"
+        ],
+        "responses": {
+          "200": {
+            "description": "FAQ retrieved successfully"
+          }
+        }
+      }
+    },
+    "/help/documents/{type}": {
+      "get": {
+        "summary": "Get help document by type",
+        "tags": [
+          "Help"
+        ],
+        "description": "Returns a stored help document, or 404 if that document has not been configured.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Document retrieved successfully"
+          }
+        }
+      }
+    },
+    "/support/contact": {
+      "post": {
+        "summary": "Submit a support request",
+        "tags": [
+          "Support"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Authenticated submissions are linked to the current user id, email, and role for traceability.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "subject",
+                  "message"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Support request submitted successfully"
+          }
+        }
+      }
     }
   },
-  "tags": []
+  "tags": [
+    {
+      "name": "Rewards - Donor",
+      "description": "Donor-facing reward endpoints"
+    },
+    {
+      "name": "Rewards - Admin",
+      "description": "Admin reward management"
+    },
+    {
+      "name": "Notifications",
+      "description": "Authenticated user notifications"
+    },
+    {
+      "name": "Discovery",
+      "description": "Public hospital discovery APIs"
+    },
+    {
+      "name": "Help",
+      "description": "Help and document endpoints"
+    },
+    {
+      "name": "Support",
+      "description": "Support contact endpoint"
+    }
+  ]
 }

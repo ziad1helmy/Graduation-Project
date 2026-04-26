@@ -126,7 +126,7 @@ export const findCompatibleDonors = async (requestId) => {
       let locationScore = 50; // Default neutral score
       if (donor.location && request.hospitalId.location) {
         // Note: This assumes location has coordinates
-        // In a real app, you'd convert city/governrate to coordinates
+        // In a real app, you'd convert city/governorate to coordinates
         locationScore = 50; // Placeholder for actual distance calculation
       }
       score = (score + locationScore) / 2;

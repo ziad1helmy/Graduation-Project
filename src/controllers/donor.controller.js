@@ -5,13 +5,14 @@ import Donation from '../models/Donation.model.js';
 import * as matchingService from '../services/matching.service.js';
 import * as donationService from '../services/donation.service.js';
 import * as notificationService from '../services/notification.service.js';
+import { parsePagination, paginationMeta } from '../utils/pagination.js';
 
 /**
  * Donor Controller - Handles donor-specific operations
  */
 
 // Get donor profile
-export const getProfile = async (req, res) => {
+export const getProfile = async (req, res, next) => {
   try {
     const donor = await Donor.findById(req.user.userId).select('-password');
     if (!donor) {
@@ -19,16 +20,15 @@ export const getProfile = async (req, res) => {
     }
     response.success(res, 200, 'Donor profile retrieved successfully', donor);
   } catch (error) {
-    response.error(res, 500, error.message);
+    next(error);
   }
 };
 
 // Update donor profile
-export const updateProfile = async (req, res) => {
+export const updateProfile = async (req, res, next) => {
   try {
     const { fullName, phoneNumber, gender, dateOfBirth, bloodType, location } = req.body;
 
-    // Validate input
     const updateData = {};
     if (fullName) updateData.fullName = fullName;
     if (phoneNumber) {
@@ -62,16 +62,19 @@ export const updateProfile = async (req, res) => {
 
     response.success(res, 200, 'Donor profile updated successfully', donor);
   } catch (error) {
-    response.error(res, 400, error.message);
+    if (error.name === 'ValidationError') {
+      return response.error(res, 400, error.message);
+    }
+    next(error);
   }
 };
 
-// Get all active requests
-export const getRequests = async (req, res) => {
+// Get all active requests — supports ?page=1&limit=10 or legacy ?skip=0&limit=10
+export const getRequests = async (req, res, next) => {
   try {
-    const { type, urgency, skip = 0, limit = 10 } = req.query;
+    const { type, urgency } = req.query;
+    const { skip, limit, page } = parsePagination(req.query);
 
-    // Build filter query
     const filter = {
       status: { $in: ['pending', 'in-progress'] },
     };
@@ -83,65 +86,57 @@ export const getRequests = async (req, res) => {
       filter.urgency = urgency;
     }
 
-    const requests = await Request.find(filter)
-      .populate('hospitalId', 'name hospitalName address contactNumber')
-      .skip(parseInt(skip))
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
-
-    const total = await Request.countDocuments(filter);
+    const [requests, total] = await Promise.all([
+      Request.find(filter)
+        .populate('hospitalId', 'fullName hospitalName address contactNumber')
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
+      Request.countDocuments(filter),
+    ]);
 
     response.success(res, 200, 'Requests retrieved successfully', {
       requests,
-      total,
-      skip: parseInt(skip),
-      limit: parseInt(limit),
+      pagination: paginationMeta(total, page, limit),
     });
   } catch (error) {
-    response.error(res, 500, error.message);
+    next(error);
   }
 };
 
-// Get matching requests for this donor
-export const getMatches = async (req, res) => {
+// Get matching requests for this donor — supports ?page=1&limit=10 or legacy ?skip=0&limit=10
+export const getMatches = async (req, res, next) => {
   try {
     const donor = await Donor.findById(req.user.userId);
     if (!donor) {
       return response.error(res, 404, 'Donor not found');
     }
 
-    const { skip = 0, limit = 10 } = req.query;
+    const { skip, limit, page } = parsePagination(req.query);
 
-    // Get matching requests using matching service
     const matches = await matchingService.findCompatibleRequests(donor._id);
-
-    const paginatedMatches = matches
-      .slice(parseInt(skip), parseInt(skip) + parseInt(limit));
+    const paginatedMatches = matches.slice(skip, skip + limit);
 
     response.success(res, 200, 'Matching requests retrieved successfully', {
       matches: paginatedMatches,
-      total: matches.length,
-      skip: parseInt(skip),
-      limit: parseInt(limit),
+      pagination: paginationMeta(matches.length, page, limit),
     });
   } catch (error) {
-    response.error(res, 500, error.message);
+    next(error);
   }
 };
 
 // Respond to a request (create a donation)
-export const respondToRequest = async (req, res) => {
+export const respondToRequest = async (req, res, next) => {
   try {
     const { requestId } = req.params;
     const { quantity } = req.body;
 
-    // Validate request
     const request = await Request.findById(requestId);
     if (!request) {
       return response.error(res, 404, 'Request not found');
     }
 
-    // Get donor
     const donor = await Donor.findById(req.user.userId);
     if (!donor) {
       return response.error(res, 404, 'Donor not found');
@@ -177,45 +172,48 @@ export const respondToRequest = async (req, res) => {
 
     response.success(res, 201, 'Response submitted successfully', donation);
   } catch (error) {
-    response.error(res, 400, error.message);
+    if (error.name === 'ValidationError') {
+      return response.error(res, 400, error.message);
+    }
+    next(error);
   }
 };
 
-// Get donation history
-export const getDonationHistory = async (req, res) => {
+// Get donation history — supports ?page=1&limit=10 or legacy ?skip=0&limit=10
+export const getDonationHistory = async (req, res, next) => {
   try {
-    const { status, skip = 0, limit = 10 } = req.query;
+    const { status } = req.query;
+    const { skip, limit, page } = parsePagination(req.query);
 
     const filter = { donorId: req.user.userId };
     if (status && ['pending', 'scheduled', 'completed', 'cancelled'].includes(status)) {
       filter.status = status;
     }
 
-    const donations = await Donation.find(filter)
-      .populate('requestId', 'type bloodType organType urgency hospitalId')
-      .populate({
-        path: 'requestId',
-        populate: { path: 'hospitalId', select: 'name hospitalName address' },
-      })
-      .skip(parseInt(skip))
-      .limit(parseInt(limit))
-      .sort({ createdAt: -1 });
-
-    const total = await Donation.countDocuments(filter);
+    const [donations, total] = await Promise.all([
+      Donation.find(filter)
+        .populate({
+          path: 'requestId',
+          select: 'type bloodType organType urgency hospitalId',
+          populate: { path: 'hospitalId', select: 'fullName hospitalName address' },
+        })
+        .skip(skip)
+        .limit(limit)
+        .sort({ createdAt: -1 }),
+      Donation.countDocuments(filter),
+    ]);
 
     response.success(res, 200, 'Donation history retrieved successfully', {
       donations,
-      total,
-      skip: parseInt(skip),
-      limit: parseInt(limit),
+      pagination: paginationMeta(total, page, limit),
     });
   } catch (error) {
-    response.error(res, 500, error.message);
+    next(error);
   }
 };
 
 // Update availability status
-export const updateAvailability = async (req, res) => {
+export const updateAvailability = async (req, res, next) => {
   try {
     const { isAvailable } = req.body;
 
@@ -231,6 +229,6 @@ export const updateAvailability = async (req, res) => {
 
     response.success(res, 200, 'Availability status updated successfully', donor);
   } catch (error) {
-    response.error(res, 400, error.message);
+    next(error);
   }
 };

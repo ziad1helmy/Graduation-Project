@@ -16,10 +16,22 @@ export default async function authMiddleware(req, res, next) {
 
   try {
     const decoded = verifyToken(token);
-    const user = await User.findById(decoded.userId).select('isEmailVerified role +passwordChangedAt');
+    const user = await User.findById(decoded.userId).select(
+      'isEmailVerified role isSuspended deletedAt +passwordChangedAt'
+    );
 
     if (!user) {
       return response.error(res, 401, 'Unauthorized');
+    }
+
+    // Block soft-deleted accounts
+    if (user.deletedAt) {
+      return response.error(res, 401, 'Account not found');
+    }
+
+    // Block suspended accounts
+    if (user.isSuspended) {
+      return response.error(res, 403, 'Account is suspended');
     }
 
     if (user.passwordChangedAt && decoded?.iat) {
@@ -33,7 +45,13 @@ export default async function authMiddleware(req, res, next) {
       return response.error(res, 403, 'Email address is not verified');
     }
 
-    req.user = decoded;
+    req.user = {
+      ...decoded,
+      userId: user._id.toString(),
+      _id: user._id,
+      email: user.email,
+      role: user.role,
+    };
     return next();
   } catch (err) {
     if (err instanceof TokenExpiredError) {
@@ -45,3 +63,4 @@ export default async function authMiddleware(req, res, next) {
     return response.error(res, 401, 'Unauthorized');
   }
 }
+

@@ -2,6 +2,17 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+const normalizeMultilinePrivateKey = (value) => {
+  if (!value || typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  const unquoted =
+    (trimmed.startsWith('"') && trimmed.endsWith('"'))
+    || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+      ? trimmed.slice(1, -1)
+      : trimmed;
+  return unquoted.replace(/\\n/g, '\n');
+};
+
 const env = {
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT, 10) || 5000,
@@ -22,6 +33,7 @@ const env = {
   API_PREFIX: process.env.API_PREFIX || '/api',
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
+  API_BASE_URL: process.env.API_BASE_URL || `http://localhost:${parseInt(process.env.PORT, 10) || 5000}`,
 
   // Mail
   SMTP_HOST: process.env.SMTP_HOST,
@@ -34,6 +46,12 @@ const env = {
 
   // Bcrypt
   BCRYPT_SALT_ROUNDS: parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 10,
+
+  // Firebase Cloud Messaging (FCM)
+  FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+  FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+  FIREBASE_PRIVATE_KEY: normalizeMultilinePrivateKey(process.env.FIREBASE_PRIVATE_KEY),
+  FIREBASE_SERVICE_ACCOUNT_PATH: process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
 };
 
 const required = ['MONGO_URI', 'JWT_SECRET'];

@@ -24,7 +24,7 @@ curl -X POST $BASE_URL/auth/signup \
     "bloodType": "O+",
     "location": {
       "city": "Cairo",
-      "governrate": "Cairo"
+      "governorate": "Cairo"
     }
   }'
 
@@ -50,7 +50,7 @@ curl -X POST $BASE_URL/auth/signup \
     "contactNumber": "+20123456789",
     "address": {
       "city": "Cairo",
-      "governrate": "Cairo Governrate"
+      "governorate": "Cairo Governrate"
     }
   }'
 

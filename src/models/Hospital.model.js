@@ -18,9 +18,11 @@ const hospitalSchema = new mongoose.Schema({
         required: true,
     },
 
-    address:{
+    // Hospital display address (city, governorate for rendering).
+    // Geo-matching uses the shared `location` field on the base User schema.
+    address: {
         city: String,
-        governrate: String,
+        governorate: String, // was: governrate (typo fixed)
     },
 
     contactNumber: String,

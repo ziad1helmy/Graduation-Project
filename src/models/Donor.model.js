@@ -43,18 +43,10 @@ const donorSchema = new mongoose.Schema({
         default: true,
     },
 
-    location: {
-        city: String,
-        governrate: String,
-        // required: [true, 'Location is required'],
-        // This will be in the validation later
-        // validate: {
-        //     validator: function(v) {
-        //         return v.city && v.governrate;
-        //     },
-        //     message: 'Location must contain city and governrate',
-        // },
-    },
+
+    // Location is inherited from the base User model
+    // (city, governorate, coordinates, lastUpdated)
+
 
     dateOfBirth: {
         type: Date,

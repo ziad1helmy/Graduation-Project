@@ -173,7 +173,7 @@ export const validateRegister = (data) => {
     if (data.gender) {
       const { valid, error } = validateField('gender', data.gender);
       if (!valid) {
-        errors[field] = error;
+        errors.gender = error;
       }
     }
   } else if (role === 'hospital') {
