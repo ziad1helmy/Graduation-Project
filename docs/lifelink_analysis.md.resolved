@@ -231,7 +231,7 @@ The `devDependencies` section is absent. `nodemon` is referenced but never insta
 
 1. **`.env` committed with real MongoDB Atlas credentials**
 ```
-MONGODB_URI=mongodb+srv://*********************@cluster0.wyaiqql.mongodb.net/lifelink
+MONGODB_URI=mongodb+srv://************************@cluster0.wyaiqql.mongodb.net/lifelink
 ```
 > [!CAUTION]
 > **This is a live database credential in version control.** Even though `.env` is in `.gitignore`, it was committed at some point. The password must be rotated immediately and the commit history cleaned.
