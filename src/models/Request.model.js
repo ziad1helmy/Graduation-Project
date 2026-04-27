@@ -21,7 +21,7 @@ const requestSchema = new mongoose.Schema(
   {
     hospitalId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Hospital',
+      ref: 'User',
       required: [true, 'Hospital ID is required'],
     },
     

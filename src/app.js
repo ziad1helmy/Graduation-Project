@@ -2,6 +2,7 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
+import mongoSanitize from 'express-mongo-sanitize';
 import { resolve } from 'path';
 import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.js';
@@ -25,7 +26,8 @@ const startedAt = new Date().toISOString();
 app.use(helmet());
 app.use(cors({ origin: env.CORS_ORIGIN }));
 app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+app.use(mongoSanitize()); // Strip $ and . operators — prevents NoSQL injection
 app.use(express.static(resolve(process.cwd(), 'public')));
 
 

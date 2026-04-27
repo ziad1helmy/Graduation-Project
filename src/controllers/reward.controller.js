@@ -61,6 +61,14 @@ export const getBadges = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const getLeaderboard = async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 20;
+    const data = await rewardService.getLeaderboard(limit);
+    response.success(res, 200, 'Leaderboard retrieved successfully', { leaderboard: data });
+  } catch (err) { next(err); }
+};
+
 // ── Admin endpoints ──────────────────────────
 
 export const adminAdjustPoints = async (req, res, next) => {

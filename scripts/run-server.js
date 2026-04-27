@@ -97,12 +97,10 @@ async function ensurePortReady() {
 }
 
 function spawnServer() {
-  const command = 'cmd.exe';
-  const commandArgs = ['/d', '/s', '/c', 'nodemon src/server.js'];
-
-  const child = spawn(command, commandArgs, {
+  // Cross-platform: use npx to resolve nodemon regardless of OS
+  const child = spawn('npx', ['--yes', 'nodemon', 'src/server.js'], {
     stdio: 'inherit',
-    shell: false,
+    shell: true,
     cwd: process.cwd(),
     env: process.env,
   });
@@ -113,7 +111,7 @@ function spawnServer() {
     }
   };
 
-  ['SIGINT', 'SIGTERM', 'SIGBREAK'].forEach((signal) => {
+  ['SIGINT', 'SIGTERM'].forEach((signal) => {
     process.on(signal, () => forwardSignal(signal));
   });
 

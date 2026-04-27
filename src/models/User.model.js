@@ -126,8 +126,11 @@ const userSchema = new Schema(
   { timestamps: true },
 );
 
-// 2dsphere index for future geo-based queries (e.g. nearby donors)
-userSchema.index({ 'location.coordinates': '2dsphere' });
+// Standard compound index for coordinate-based lookups.
+// NOTE: 2dsphere was removed because it requires GeoJSON format
+// ({type:'Point', coordinates:[lng,lat]}) but the schema stores {lat, lng}.
+// Geo-scoring is handled via Haversine in src/utils/geo.js instead.
+userSchema.index({ 'location.coordinates.lat': 1, 'location.coordinates.lng': 1 });
 
 userSchema.pre('save', async function () {
   if (!this.isModified('password')) {

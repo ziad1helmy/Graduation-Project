@@ -19,7 +19,7 @@ const donationSchema = new mongoose.Schema(
   {
     donorId: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: 'Donor',
+      ref: 'User',
       required: [true, 'Donor ID is required'],
     },
     

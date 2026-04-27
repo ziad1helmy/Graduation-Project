@@ -1,4 +1,5 @@
 import response from '../utils/response.js';
+import { ERR } from '../utils/errorCodes.js';
 import * as adminService from '../services/admin.service.js';
 import * as analyticsService from '../services/analytics.service.js';
 import {
@@ -159,7 +160,7 @@ export const suspendUser = async (req, res, next) => {
     }
     return response.success(res, 200, 'User suspended successfully', { user });
   } catch (error) {
-    if (error.message === 'Cannot suspend admin accounts') {
+    if (error.message === ERR.ADMIN_CANNOT_SUSPEND) {
       return response.error(res, 403, error.message);
     }
     next(error);
@@ -188,7 +189,7 @@ export const deleteUser = async (req, res, next) => {
     }
     return response.success(res, 200, 'User deleted successfully');
   } catch (error) {
-    if (error.message === 'Cannot delete admin accounts') {
+    if (error.message === ERR.ADMIN_CANNOT_DELETE) {
       return response.error(res, 403, error.message);
     }
     next(error);
@@ -206,7 +207,7 @@ export const createHospital = async (req, res, next) => {
     const hospital = await adminService.createHospital(req.body, req.user._id);
     return response.success(res, 201, 'Hospital created successfully', { hospital });
   } catch (error) {
-    if (error.message === 'Email already registered') {
+    if (error.message === ERR.ADMIN_EMAIL_EXISTS) {
       return response.error(res, 409, error.message);
     }
     next(error);
@@ -279,7 +280,7 @@ export const fulfillRequest = async (req, res, next) => {
     }
     return response.success(res, 200, 'Request marked as fulfilled', { request });
   } catch (error) {
-    if (error.message === 'Request is already fulfilled') {
+    if (error.message === ERR.REQUEST_ALREADY_FULFILLED) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -300,7 +301,7 @@ export const cancelRequest = async (req, res, next) => {
     }
     return response.success(res, 200, 'Request cancelled', { request });
   } catch (error) {
-    if (error.message === 'Request is already cancelled') {
+    if (error.message === ERR.REQUEST_ALREADY_CANCELLED) {
       return response.error(res, 400, error.message);
     }
     next(error);

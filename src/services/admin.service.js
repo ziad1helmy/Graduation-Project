@@ -9,6 +9,7 @@ import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
 import { env } from '../config/env.js';
+import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 
 // ──────────────────────────────────────────────
 //  Audit Logging
@@ -101,6 +102,9 @@ export const setMaintenanceMode = async (enabled, message, adminId) => {
   }
 
   await logAudit(adminId, 'system.maintenance', 'System', null);
+
+  // Immediately invalidate the in-memory cache so the change takes effect now
+  invalidateMaintenanceCache();
 
   return { maintenanceMode: enabled, message: message || '' };
 };

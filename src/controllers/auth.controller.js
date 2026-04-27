@@ -1,6 +1,7 @@
 import * as authService from '../services/auth.service.js';
 import { renderVerificationFailurePage, renderVerificationSuccessPage } from '../utils/verificationPages.js';
 import response from '../utils/response.js';
+import { ERR } from '../utils/errorCodes.js';
 
 // Controller for auth routes
 
@@ -123,12 +124,12 @@ export const login = async (req, res, next) => {
     });
   } catch (error) {
     // 403 for suspension, 401 for invalid/unverified, 400 for everything else
-    if (error.message === 'Account is suspended. Contact support.') {
+    if (error.message === ERR.AUTH_ACCOUNT_SUSPENDED) {
       return response.error(res, 403, error.message);
     }
     if (
-      error.message === 'Invalid credentials' ||
-      error.message === 'Email address is not verified'
+      error.message === ERR.AUTH_INVALID_CREDENTIALS ||
+      error.message === ERR.AUTH_EMAIL_NOT_VERIFIED
     ) {
       return response.error(res, 401, error.message);
     }
@@ -142,7 +143,7 @@ export const logout = async (req, res, next) => {
     await authService.logout(req.body.refreshToken || req.body.refresh_token);
     response.success(res, 200, 'Logged out successfully');
   } catch (error) {
-    if (error.message === 'Refresh token is required' || error.message === 'Invalid refresh token') {
+    if (error.message === ERR.AUTH_REFRESH_TOKEN_REQUIRED || error.message === ERR.AUTH_REFRESH_TOKEN_INVALID) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -178,7 +179,7 @@ export const resetPassword = async (req, res, next) => {
     await authService.resetPassword(req.body.token || req.body.reset_token, req.body.password || req.body.new_password);
     response.success(res, 200, 'Password reset successful');
   } catch (error) {
-    if (error.message === 'Invalid or expired reset token') {
+    if (error.message === ERR.AUTH_RESET_TOKEN_INVALID) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -202,7 +203,7 @@ export const registerFcmToken = async (req, res, next) => {
     const result = await authService.registerFcmToken(req.user.userId, getFcmTokenFromBody(req.body));
     response.success(res, 200, 'FCM token registered successfully', result);
   } catch (error) {
-    if (error.message === 'fcmToken is required') {
+    if (error.message === ERR.FCM_TOKEN_REQUIRED) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -255,8 +256,9 @@ export const sendOtp = async (req, res, next) => {
     });
     response.success(res, 200, 'Password reset OTP sent successfully', result);
   } catch (error) {
-    if (error.message === 'Account not found') {
-      return response.error(res, 404, error.message);
+    // Always return 200 to prevent email enumeration (same pattern as forgotPassword)
+    if (error.message === ERR.AUTH_ACCOUNT_NOT_FOUND) {
+      return response.success(res, 200, 'Password reset OTP sent successfully');
     }
     next(error);
   }
@@ -270,7 +272,7 @@ export const verifyOtp = async (req, res, next) => {
     });
     response.success(res, 200, 'Password reset OTP verified successfully', result);
   } catch (error) {
-    if (error.message === 'Invalid or expired OTP' || error.message === 'Invalid OTP' || error.message === 'OTP attempts exceeded') {
+    if (error.message === ERR.OTP_INVALID_OR_EXPIRED || error.message === ERR.OTP_INVALID || error.message === ERR.OTP_ATTEMPTS_EXCEEDED) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -291,7 +293,7 @@ export const confirm2FASetup = async (req, res, next) => {
     const result = await authService.verify2FA(req.user.userId, req.body.code || req.body.otp || req.body.otp_code);
     response.success(res, 200, '2FA setup verified successfully', result);
   } catch (error) {
-    if (error.message === '2FA setup not found' || error.message === 'Invalid 2FA code') {
+    if (error.message === ERR.TWO_FA_SETUP_NOT_FOUND || error.message === ERR.TWO_FA_CODE_INVALID) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -315,11 +317,11 @@ export const verify2FA = async (req, res, next) => {
     });
   } catch (error) {
     if (
-      error.message === 'Invalid 2FA code' ||
-      error.message === '2FA is not enabled' ||
-      error.message === 'tempToken is required' ||
-      error.message === '2FA code is required' ||
-      error.message === 'Invalid or expired token' ||
+      error.message === ERR.TWO_FA_CODE_INVALID ||
+      error.message === ERR.TWO_FA_NOT_ENABLED ||
+      error.message === ERR.TWO_FA_TEMP_TOKEN_REQUIRED ||
+      error.message === ERR.TWO_FA_CODE_REQUIRED ||
+      error.message === ERR.TWO_FA_TOKEN_INVALID ||
       error.name === 'TokenExpiredError' ||
       error.name === 'JsonWebTokenError'
     ) {
@@ -334,7 +336,7 @@ export const disable2FA = async (req, res, next) => {
     const result = await authService.disable2FA(req.user.userId, req.body.password);
     response.success(res, 200, '2FA disabled successfully', result);
   } catch (error) {
-    if (error.message === 'Invalid password') {
+    if (error.message === ERR.AUTH_INVALID_PASSWORD) {
       return response.error(res, 401, error.message);
     }
     next(error);
@@ -351,7 +353,7 @@ export const verifyEmail = async (req, res, next) => {
     await authService.verifyEmail(email);
     response.success(res, 200, 'Verification email sent');
   } catch (error) {
-    if (error.message === 'User not found') {
+    if (error.message === ERR.AUTH_USER_NOT_FOUND) {
       return response.error(res, 404, error.message);
     }
     next(error);
@@ -374,7 +376,7 @@ export const verifyEmailToken = async (req, res, next) => {
     }
     response.success(res, 200, 'Email verified successfully');
   } catch (error) {
-    if (error.message === 'Invalid or expired verification token') {
+    if (error.message === ERR.AUTH_VERIFICATION_TOKEN_INVALID) {
       if (prefersHtml(req)) {
         return res.status(400).type('html').send(renderVerificationFailurePage());
       }

@@ -572,3 +572,28 @@ export const getRewardsAnalytics = async () => {
 
   return { topRewards, tierDistribution, totalPointsIssued };
 };
+
+/**
+ * Public leaderboard — top donors by lifetime points.
+ * Uses the existing { lifetimePointsEarned: -1 } index for O(1) sort.
+ *
+ * @param {number} limit - Number of top donors to return (default 20, max 50)
+ * @returns {Array<{ rank, donorId, fullName, tier, lifetimePointsEarned }>}
+ */
+export const getLeaderboard = async (limit = 20) => {
+  const cappedLimit = Math.min(Math.max(1, limit), 50);
+
+  const accounts = await DonorPoints.find({})
+    .sort({ lifetimePointsEarned: -1 })
+    .limit(cappedLimit)
+    .populate('donorId', 'fullName');
+
+  return accounts.map((account, index) => ({
+    rank: index + 1,
+    donorId: account.donorId?._id || account.donorId,
+    fullName: account.donorId?.fullName || 'Anonymous',
+    tier: DonorPoints.calculateTier(account.lifetimePointsEarned),
+    lifetimePointsEarned: account.lifetimePointsEarned,
+    pointsBalance: account.pointsBalance,
+  }));
+};

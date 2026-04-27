@@ -156,6 +156,25 @@ router.post('/catalog/:rewardId/redeem', requireRole('donor'), rc.redeemReward);
  */
 router.get('/redemptions', requireRole('donor'), rc.getRedemptions);
 
+/**
+ * @swagger
+ * /rewards/leaderboard:
+ *   get:
+ *     summary: Get the top donors leaderboard
+ *     tags: [Rewards - Donor]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20, maximum: 50 }
+ *         description: Number of top donors to return
+ *     responses:
+ *       200:
+ *         description: Ranked list of top donors by lifetime points
+ */
+router.get('/leaderboard', rc.getLeaderboard);
+
 // ── Admin routes ──────────────────────────────────────────
 
 /**

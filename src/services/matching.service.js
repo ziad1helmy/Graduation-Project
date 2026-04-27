@@ -23,6 +23,39 @@ const BLOOD_TYPE_COMPATIBILITY = {
 };
 
 /**
+ * Reverse lookup: which donor blood types can donate TO a given recipient type?
+ */
+const getCompatibleDonorTypes = (recipientBloodType) => {
+  return Object.entries(BLOOD_TYPE_COMPATIBILITY)
+    .filter(([, recipients]) => recipients.includes(recipientBloodType))
+    .map(([donorType]) => donorType);
+};
+
+/**
+ * Calculate geo-based location score using Haversine distance.
+ * Returns 0-100 where 100 = same location, 0 = beyond maxDistance km.
+ */
+const calculateLocationScore = (donorLocation, hospitalLocation) => {
+  const donorCoords = donorLocation?.coordinates;
+  const hospitalCoords = hospitalLocation?.coordinates;
+
+  if (!donorCoords?.lat || !donorCoords?.lng || !hospitalCoords?.lat || !hospitalCoords?.lng) {
+    // Fall back to governorate matching if no coordinates
+    if (donorLocation?.governorate && hospitalLocation?.governorate) {
+      return donorLocation.governorate === hospitalLocation.governorate ? 70 : 30;
+    }
+    return 50; // No location data — neutral score
+  }
+
+  const distance = geoUtil.calculateDistance(
+    { latitude: donorCoords.lat, longitude: donorCoords.lng },
+    { latitude: hospitalCoords.lat, longitude: hospitalCoords.lng },
+  );
+
+  return geoUtil.getLocationScore(distance, 100);
+};
+
+/**
  * Check if donor's blood type is compatible with request
  * @param {string} donorBloodType - Donor's blood type
  * @param {string} requestBloodType - Required blood type for request
@@ -89,60 +122,58 @@ export const checkEligibility = (donor, request) => {
  * @returns {Array} - Array of compatible donors sorted by score
  */
 export const findCompatibleDonors = async (requestId) => {
-  try {
-    const request = await Request.findById(requestId);
-    if (!request) {
-      throw new Error('Request not found');
-    }
-
-    // Get all available donors
-    const donors = await Donor.find({ isAvailable: true });
-
-    const compatibleDonors = [];
-
-    for (const donor of donors) {
-      // Check if donor already responded
-      const existingDonation = await Donation.findOne({
-        donorId: donor._id,
-        requestId,
-        status: { $ne: 'cancelled' },
-      });
-
-      if (existingDonation) continue;
-
-      // Check eligibility
-      const eligibility = checkEligibility(donor, request);
-      if (!eligibility.eligible) continue;
-
-      // Calculate compatibility score
-      let score = 100; // Start with perfect score
-
-      // Blood type match for blood requests
-      if (request.type === 'blood' && donor.bloodType === request.bloodType) {
-        score += 20; // Bonus for exact blood type match
-      }
-
-      // Location proximity (if both have location data)
-      let locationScore = 50; // Default neutral score
-      if (donor.location && request.hospitalId.location) {
-        // Note: This assumes location has coordinates
-        // In a real app, you'd convert city/governorate to coordinates
-        locationScore = 50; // Placeholder for actual distance calculation
-      }
-      score = (score + locationScore) / 2;
-
-      compatibleDonors.push({
-        donor,
-        score,
-        eligibility: eligibility.reason,
-      });
-    }
-
-    // Sort by score descending
-    return compatibleDonors.sort((a, b) => b.score - a.score);
-  } catch (error) {
-    throw error;
+  const request = await Request.findById(requestId).populate('hospitalId', 'location');
+  if (!request) {
+    throw new Error('Request not found');
   }
+
+  // Pre-filter by blood type at DB level (reduces result set by ~87.5%)
+  const donorQuery = { isAvailable: true };
+  if (request.type === 'blood' && request.bloodType) {
+    donorQuery.bloodType = { $in: getCompatibleDonorTypes(request.bloodType) };
+  }
+
+  const donors = await Donor.find(donorQuery).limit(500);
+
+  // Batch check existing donations (eliminates N+1 queries)
+  const donorIds = donors.map((d) => d._id);
+  const existingDonations = await Donation.find({
+    donorId: { $in: donorIds },
+    requestId,
+    status: { $ne: 'cancelled' },
+  }).select('donorId');
+  const respondedDonorIds = new Set(existingDonations.map((d) => d.donorId.toString()));
+
+  const hospitalLocation = request.hospitalId?.location;
+  const compatibleDonors = [];
+
+  for (const donor of donors) {
+    if (respondedDonorIds.has(donor._id.toString())) continue;
+
+    const eligibility = checkEligibility(donor, request);
+    if (!eligibility.eligible) continue;
+
+    // Calculate compatibility score (0-100 scale)
+    let score = 100;
+
+    // Bonus for exact blood type match
+    if (request.type === 'blood' && donor.bloodType === request.bloodType) {
+      score += 20;
+    }
+
+    // Geo-based location scoring using Haversine distance
+    const locationScore = calculateLocationScore(donor.location, hospitalLocation);
+    score = (score + locationScore) / 2;
+
+    compatibleDonors.push({
+      donor,
+      score: Math.round(score * 10) / 10,
+      locationScore,
+      eligibility: eligibility.reason,
+    });
+  }
+
+  return compatibleDonors.sort((a, b) => b.score - a.score);
 };
 
 /**
@@ -151,65 +182,61 @@ export const findCompatibleDonors = async (requestId) => {
  * @returns {Array} - Array of compatible requests
  */
 export const findCompatibleRequests = async (donorId) => {
-  try {
-    const donor = await Donor.findById(donorId);
-    if (!donor) {
-      throw new Error('Donor not found');
-    }
-
-    // Get all active requests
-    const requests = await Request.find({
-      status: { $in: ['pending', 'in-progress'] },
-    }).populate('hospitalId', 'address location');
-
-    const compatibleRequests = [];
-
-    for (const request of requests) {
-      // Check if donor already responded
-      const existingDonation = await Donation.findOne({
-        donorId,
-        requestId: request._id,
-        status: { $ne: 'cancelled' },
-      });
-
-      if (existingDonation) continue;
-
-      // Check eligibility
-      const eligibility = checkEligibility(donor, request);
-      if (!eligibility.eligible) continue;
-
-      // Calculate compatibility score
-      let score = 100;
-
-      // Blood type match
-      if (request.type === 'blood' && donor.bloodType === request.bloodType) {
-        score += 20;
-      }
-
-      // Urgency factor (critical requests get priority)
-      const urgencyBonus = {
-        'critical': 25,
-        'high': 15,
-        'medium': 5,
-        'low': 0,
-      };
-      score += urgencyBonus[request.urgency] || 0;
-
-      compatibleRequests.push({
-        request,
-        score,
-        compatibility: {
-          bloodTypeMatch: donor.bloodType === request.bloodType,
-          eligible: true,
-        },
-      });
-    }
-
-    // Sort by score descending
-    return compatibleRequests.sort((a, b) => b.score - a.score);
-  } catch (error) {
-    throw error;
+  const donor = await Donor.findById(donorId);
+  if (!donor) {
+    throw new Error('Donor not found');
   }
+
+  // Get all active requests with hospital location for geo-scoring
+  const requests = await Request.find({
+    status: { $in: ['pending', 'in-progress'] },
+  }).populate('hospitalId', 'address location').limit(500);
+
+  // Batch check existing donations (eliminates N+1 queries)
+  const requestIds = requests.map((r) => r._id);
+  const existingDonations = await Donation.find({
+    donorId,
+    requestId: { $in: requestIds },
+    status: { $ne: 'cancelled' },
+  }).select('requestId');
+  const respondedRequestIds = new Set(existingDonations.map((d) => d.requestId.toString()));
+
+  const compatibleRequests = [];
+
+  for (const request of requests) {
+    if (respondedRequestIds.has(request._id.toString())) continue;
+
+    const eligibility = checkEligibility(donor, request);
+    if (!eligibility.eligible) continue;
+
+    // Calculate compatibility score
+    let score = 100;
+
+    // Blood type match bonus
+    if (request.type === 'blood' && donor.bloodType === request.bloodType) {
+      score += 20;
+    }
+
+    // Urgency factor (critical requests get priority)
+    const urgencyBonus = { critical: 25, high: 15, medium: 5, low: 0 };
+    score += urgencyBonus[request.urgency] || 0;
+
+    // Geo-based location scoring using Haversine distance
+    const locationScore = calculateLocationScore(donor.location, request.hospitalId?.location);
+    score = (score + locationScore) / 2;
+
+    compatibleRequests.push({
+      request,
+      score: Math.round(score * 10) / 10,
+      locationScore,
+      compatibility: {
+        bloodTypeMatch: donor.bloodType === request.bloodType,
+        eligible: true,
+      },
+    });
+  }
+
+  return compatibleRequests.sort((a, b) => b.score - a.score);
 };
 
 /**
