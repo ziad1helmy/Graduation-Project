@@ -27,6 +27,7 @@ The authentication system uses role-based access control (RBAC) with MongoDB Dis
    - Atomic array manipulation is used to prevent race-condition defects.
 
 ## Available Documentation Artifacts
+- **[Flutter Integration Guide](FLUTTER_INTEGRATION.md)**: Concise backend contract for the Flutter client, including auth flow, headers, JWT usage, and demo accounts.
 - **[OpenAPI / Swagger](../openapi.yaml)**: Definitive source for API contracts.
 - **[Postman Collection](LifeLink-Auth-API.postman_collection.json)**: Ready-to-import Postman workspace.
 - **[CURL Examples](CURL_EXAMPLES.sh)**: Executable shell script containing curl commands for all auth paths.

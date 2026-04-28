@@ -4,9 +4,7 @@ import cors from 'cors';
 import morgan from 'morgan';
 import mongoSanitize from 'express-mongo-sanitize';
 import { resolve } from 'path';
-import swaggerUi from 'swagger-ui-express';
 import { env } from './config/env.js';
-import { swaggerSpec } from './config/swagger.js';
 import authRoutes from './routes/auth.routes.js';
 import donorRoutes from './routes/donor.routes.js';
 import hospitalRoutes from './routes/hospital.routes.js';
@@ -28,20 +26,25 @@ app.use(cors({ origin: env.CORS_ORIGIN }));
 app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));
 app.use(express.json({ limit: '1mb' }));
 app.use(mongoSanitize()); // Strip $ and . operators — prevents NoSQL injection
-app.use(express.static(resolve(process.cwd(), 'public')));
 
+if (env.NODE_ENV !== 'production') {
+  const swaggerUi = (await import('swagger-ui-express')).default;
+  const { swaggerSpec } = await import('./config/swagger.js');
 
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  explorer: true,
-  customSiteTitle: 'LifeLink API Docs',
-  swaggerOptions: {
-    persistAuthorization: true,
-  },
-}));
+  app.use(express.static(resolve(process.cwd(), 'public')));
 
-app.get('/openapi.json', (req, res) => {
-  res.json(swaggerSpec);
-});
+  app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    customSiteTitle: 'LifeLink API Docs',
+    swaggerOptions: {
+      persistAuthorization: true,
+    },
+  }));
+
+  app.get('/openapi.json', (req, res) => {
+    res.json(swaggerSpec);
+  });
+}
 
 // Routes (order matters – specific routes before 404)
 app.get('/', (req, res) => {
