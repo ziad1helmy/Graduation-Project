@@ -15,7 +15,7 @@ The LifeLink backend has reached its primary stabilization milestone, transition
 ## Documentation Restructuring
 - The repository root has been purged of obsolete, speculative, and duplicated tracking files.
 - The `README.md` is strictly focused on immediate startup and environmental requirements.
-- The `/docs` folder acts as the centralized technical hub, containing `API_STATUS.md`, `DEMO_FLOW.md`, Postman collections, and CURL examples matching the verified OpenAPI specifications.
+- The `/docs` folder now centers the Flutter integration note, Postman collection, and CURL examples around the verified OpenAPI contract.
 
 ## Known Remaining Limitations
 - **Partial Module Status**: The Hospital Discovery (`/hospitals`), Help, and Support modules are currently scaffolded/partial and provide limited functionality.

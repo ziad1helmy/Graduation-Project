@@ -25,6 +25,112 @@ const router = Router();
  *         role:
  *           type: string
  *           enum: [donor, hospital]
+ *     SignupDonorRequest:
+ *       allOf:
+ *         - $ref: '#/components/schemas/BaseUser'
+ *         - type: object
+ *           required: [phoneNumber, dateOfBirth]
+ *           properties:
+ *             role:
+ *               type: string
+ *               enum: [donor]
+ *             phoneNumber:
+ *               type: string
+ *             dateOfBirth:
+ *               type: string
+ *               format: date
+ *             gender:
+ *               type: string
+ *               enum: [male, female, not specified]
+ *             bloodType:
+ *               type: string
+ *               enum: [A+, A-, B+, B-, AB+, AB-, O+, O-]
+ *             location:
+ *               type: object
+ *               properties:
+ *                 city:
+ *                   type: string
+ *                 governorate:
+ *                   type: string
+ *     SignupHospitalRequest:
+ *       allOf:
+ *         - $ref: '#/components/schemas/BaseUser'
+ *         - type: object
+ *           required: [hospitalName, hospitalId, licenseNumber]
+ *           properties:
+ *             role:
+ *               type: string
+ *               enum: [hospital]
+ *             hospitalName:
+ *               type: string
+ *             hospitalId:
+ *               type: number
+ *             licenseNumber:
+ *               type: string
+ *             address:
+ *               type: object
+ *               properties:
+ *                 city:
+ *                   type: string
+ *                 governorate:
+ *                   type: string
+ *             contactNumber:
+ *               type: string
+ *             location:
+ *               type: object
+ *               properties:
+ *                 city:
+ *                   type: string
+ *                 governorate:
+ *                   type: string
+ *     LoginRequest:
+ *       type: object
+ *       required: [password]
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         email_or_phone:
+ *           type: string
+ *         password:
+ *           type: string
+ *           format: password
+ *     RefreshTokenRequest:
+ *       type: object
+ *       required: [refreshToken]
+ *       properties:
+ *         refreshToken:
+ *           type: string
+ *         refresh_token:
+ *           type: string
+ *     EmailRequest:
+ *       type: object
+ *       required: [email]
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         email_or_phone:
+ *           type: string
+ *     TokenRequest:
+ *       type: object
+ *       required: [token]
+ *       properties:
+ *         token:
+ *           type: string
+ *     OtpRequest:
+ *       type: object
+ *       required: [email, otp]
+ *       properties:
+ *         email:
+ *           type: string
+ *           format: email
+ *         email_or_phone:
+ *           type: string
+ *         otp:
+ *           type: string
+ *         otp_code:
+ *           type: string
  *     AuthTokens:
  *       type: object
  *       properties:
@@ -69,7 +175,9 @@ const router = Router();
  *       content:
  *         application/json:
  *           schema:
- *             $ref: '#/components/schemas/BaseUser'
+ *             oneOf:
+ *               - $ref: '#/components/schemas/SignupDonorRequest'
+ *               - $ref: '#/components/schemas/SignupHospitalRequest'
  *     responses:
  *       '201':
  *         description: User registered successfully
@@ -92,6 +200,12 @@ const router = Router();
  *           type: string
  *           enum: ['true']
  *         description: Development-only header to bypass rate limiting for automated tests.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
  *     responses:
  *       '200':
  *         description: Login successful or 2FA verification required
@@ -102,6 +216,14 @@ const router = Router();
  *   post:
  *     tags: [Auth]
  *     summary: Register a new user (compatibility alias)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             oneOf:
+ *               - $ref: '#/components/schemas/SignupDonorRequest'
+ *               - $ref: '#/components/schemas/SignupHospitalRequest'
  *     responses:
  *       '201':
  *         description: User registered successfully
@@ -126,6 +248,10 @@ const router = Router();
  *       and sends a password-reset-only OTP email with a 10 minute expiry.
  *     requestBody:
  *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EmailRequest'
  *     responses:
  *       '200':
  *         description: Password reset OTP sent successfully
@@ -139,6 +265,10 @@ const router = Router();
  *       The returned token is only valid for `POST /auth/reset-password`.
  *     requestBody:
  *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/OtpRequest'
  *     responses:
  *       '200':
  *         description: Password reset OTP verified successfully
@@ -159,6 +289,20 @@ const router = Router();
  *     summary: Confirm 2FA setup for the authenticated user
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [code]
+ *             properties:
+ *               code:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *               otp_code:
+ *                 type: string
  *     responses:
  *       '200':
  *         description: 2FA setup verified successfully
@@ -170,6 +314,24 @@ const router = Router();
  *     description: |
  *       Accepts the short-lived `tempToken` returned by `/auth/login` when `requires2FA` is true.
  *       On success it returns normal auth tokens.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [tempToken, code]
+ *             properties:
+ *               tempToken:
+ *                 type: string
+ *               temp_token:
+ *                 type: string
+ *               code:
+ *                 type: string
+ *               otp:
+ *                 type: string
+ *               otp_code:
+ *                 type: string
  *     responses:
  *       '200':
  *         description: 2FA verified successfully
@@ -180,6 +342,17 @@ const router = Router();
  *     summary: Disable 2FA
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [password]
+ *             properties:
+ *               password:
+ *                 type: string
+ *                 format: password
  *     responses:
  *       '200':
  *         description: 2FA disabled successfully
@@ -191,6 +364,12 @@ const router = Router();
  *     description: |
  *       Stores a SHA-256 hash of the refresh token in blacklist storage.
  *       Blacklisted tokens are denied on subsequent refresh attempts.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
  *     responses:
  *       '200':
  *         description: Logged out successfully
@@ -201,6 +380,12 @@ const router = Router();
  *     summary: Issue a new access token from refresh token
  *     description: |
  *       Rejects blacklisted tokens and tokens issued before `passwordChangedAt`.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/RefreshTokenRequest'
  *     responses:
  *       '200':
  *         description: Token refreshed
@@ -214,6 +399,12 @@ const router = Router();
  *     description: |
  *       Always returns success to prevent account enumeration.
  *       If account exists, reset token email is sent.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EmailRequest'
  *     responses:
  *       '200':
  *         description: Password reset request accepted
@@ -226,6 +417,24 @@ const router = Router();
  *       Accepts either the existing email reset link token or the short-lived `resetToken`
  *       returned by `/auth/verify-otp`. The token is password-reset-specific, not a normal auth token.
  *       Successful resets invalidate previously issued sessions via `passwordChangedAt`.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, password]
+ *             properties:
+ *               token:
+ *                 type: string
+ *               reset_token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 format: password
+ *               new_password:
+ *                 type: string
+ *                 format: password
  *     responses:
  *       '200':
  *         description: Password reset successful
@@ -240,12 +449,7 @@ const router = Router();
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [email]
- *             properties:
- *               email:
- *                 type: string
- *                 format: email
+ *             $ref: '#/components/schemas/EmailRequest'
  *     responses:
  *       '200':
  *         description: Verification email sent
@@ -262,11 +466,7 @@ const router = Router();
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required: [token]
- *             properties:
- *               token:
- *                 type: string
+ *             $ref: '#/components/schemas/TokenRequest'
  *     responses:
  *       '200':
  *         description: Email verified successfully

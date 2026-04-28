@@ -14,7 +14,9 @@ await seedRewardData();
 const server = app.listen(env.PORT, () => {
   console.log(`Server running on port ${env.PORT} (${env.NODE_ENV}) [pid ${process.pid}]`);
   console.log(`Health endpoint available at http://localhost:${env.PORT}/health`);
-  console.log('Swagger docs available at /api-docs');
+  if (env.NODE_ENV !== 'production') {
+    console.log('Swagger docs available at /api-docs');
+  }
 });
 
 server.on('error', (error) => {
