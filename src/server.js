@@ -10,6 +10,7 @@ await connectDB();
 // Seed default system settings and reward catalog (no-op if already exist)
 await seedDefaultSettings();
 await seedRewardData();
+console.log("ENV DEBUG:", process.env);
 
 const server = app.listen(env.PORT, () => {
   console.log(`Server running on port ${env.PORT} (${env.NODE_ENV}) [pid ${process.pid}]`);
