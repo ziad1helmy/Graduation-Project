@@ -46,7 +46,6 @@ const userBadgeSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-userBadgeSchema.index({ donorId: 1 });
 userBadgeSchema.index({ donorId: 1, badgeId: 1 }, { unique: true });
 userBadgeSchema.index({ unlockStatus: 1 });
 

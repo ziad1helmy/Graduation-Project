@@ -287,6 +287,20 @@ const router = Router();
  *         description: Missing or invalid JWT
  *       '403':
  *         description: Role not allowed
+ * /hospital/blood-inventory:
+ *   get:
+ *     tags:
+ *       - Hospital
+ *     summary: Get a read-only blood inventory summary for the authenticated hospital
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Blood inventory retrieved successfully
+ *       '401':
+ *         description: Missing or invalid JWT
+ *       '403':
+ *         description: Role not allowed
  */
 
 /**
@@ -398,8 +412,15 @@ router.put('/profile', hospitalController.updateProfile);
 
 // Request management routes
 router.post('/request', hospitalController.createRequest);
+// Compatibility alias for emergency-style request creation
+router.post('/requests/create-emergency', hospitalController.createRequest);
+// Hospital dashboard
+router.get('/dashboard', hospitalController.getMonthlyReports);
+// Close request (dedicated flow)
+router.post('/requests/:requestId/close', hospitalController.closeRequest);
 router.get('/requests', hospitalController.getRequests);
 router.get('/requests/:requestId', hospitalController.getRequestDetails);
+router.get('/requests/:requestId/responses', hospitalController.getRequestDetails);
 router.put('/requests/:requestId', hospitalController.updateRequest);
 router.delete('/requests/:requestId', hospitalController.deleteRequest);
 
@@ -409,6 +430,7 @@ router.get('/donations', hospitalController.getDonations);
 // Extended compatibility features
 router.get('/blood-bank-settings', hospitalController.getBloodBankSettings);
 router.put('/blood-bank-settings', hospitalController.updateBloodBankSettings);
+router.get('/blood-inventory', hospitalController.getBloodInventory);
 router.get('/notification-preferences', hospitalController.getNotificationPreferences);
 router.put('/notification-preferences', hospitalController.updateNotificationPreferences);
 router.get('/reports/monthly', hospitalController.getMonthlyReports);

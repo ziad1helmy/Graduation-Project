@@ -8,6 +8,8 @@ import Hospital from '../models/Hospital.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
+import HospitalSettings from '../models/HospitalSettings.model.js';
+import RolePermission from '../models/RolePermission.model.js';
 import { env } from '../config/env.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 
@@ -345,6 +347,256 @@ export const createHospital = async (data, adminId) => {
   return hospital;
 };
 
+export const updateDonor = async (donorId, data, adminId) => {
+  const donor = await Donor.findOne({ _id: donorId, deletedAt: null });
+  if (!donor) return null;
+
+  const updateData = {};
+  const allowedFields = ['fullName', 'email', 'phoneNumber', 'bloodType', 'gender', 'dateOfBirth', 'location', 'isAvailable'];
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) updateData[field] = data[field];
+  }
+
+  if (updateData.email) {
+    const existing = await User.findOne({ email: updateData.email, _id: { $ne: donorId } });
+    if (existing) {
+      throw new Error('Email already registered');
+    }
+  }
+
+  const updated = await Donor.findByIdAndUpdate(donorId, updateData, { new: true, runValidators: true });
+  await logAudit(adminId, 'user.update_donor', 'User', donorId);
+  return updated;
+};
+
+export const banDonor = async (donorId, reason, adminId) => {
+  const donor = await Donor.findOne({ _id: donorId, deletedAt: null });
+  if (!donor) return null;
+  if (donor.isSuspended) throw new Error('Donor is already banned');
+
+  donor.isSuspended = true;
+  donor.suspendedAt = new Date();
+  donor.suspendedReason = reason || 'Banned by admin';
+  await donor.save({ validateBeforeSave: false });
+
+  await logAudit(adminId, 'user.ban_donor', 'User', donorId);
+  return donor;
+};
+
+export const unbanDonor = async (donorId, adminId) => {
+  const donor = await Donor.findOne({ _id: donorId, deletedAt: null });
+  if (!donor) return null;
+  if (!donor.isSuspended) throw new Error('Donor is not banned');
+
+  donor.isSuspended = false;
+  donor.suspendedAt = null;
+  donor.suspendedReason = null;
+  await donor.save({ validateBeforeSave: false });
+
+  await logAudit(adminId, 'user.unban_donor', 'User', donorId);
+  return donor;
+};
+
+export const updateHospitalStatus = async (hospitalId, action, reason, adminId) => {
+  const hospital = await Hospital.findOne({ _id: hospitalId, deletedAt: null });
+  if (!hospital) return null;
+
+  if (action === 'suspend') {
+    hospital.isSuspended = true;
+    hospital.suspendedAt = new Date();
+    hospital.suspendedReason = reason || 'Suspended by admin';
+  } else if (action === 'unsuspend') {
+    hospital.isSuspended = false;
+    hospital.suspendedAt = null;
+    hospital.suspendedReason = null;
+  } else {
+    throw new Error('Invalid hospital status action');
+  }
+
+  await hospital.save({ validateBeforeSave: false });
+  await logAudit(adminId, `user.${action}_hospital`, 'User', hospitalId);
+  return hospital;
+};
+
+export const createAdmin = async (data, adminId) => {
+  const existing = await User.findOne({ email: data.email });
+  if (existing) {
+    throw new Error('Email already registered');
+  }
+
+  const role = (data.role || 'admin').toLowerCase();
+  if (!['admin', 'superadmin'].includes(role)) {
+    throw new Error('Invalid admin role');
+  }
+
+  const admin = await User.create({
+    fullName: data.fullName,
+    email: data.email,
+    password: data.password,
+    role,
+    isEmailVerified: true,
+    emailVerifiedAt: new Date(),
+    location: data.location || {},
+  });
+
+  await logAudit(adminId, 'user.create_admin', 'User', admin._id);
+  return admin;
+};
+
+export const updateAdmin = async (id, data, adminId) => {
+  const existing = await User.findOne({ _id: id, deletedAt: null });
+  if (!existing) return null;
+  if (!['admin', 'superadmin'].includes(existing.role)) return null;
+
+  if (data.email && data.email !== existing.email) {
+    const dup = await User.findOne({ email: data.email, _id: { $ne: id } });
+    if (dup) throw new Error('Email already registered');
+  }
+
+  if (data.role && !['admin', 'superadmin'].includes(data.role)) {
+    throw new Error('Invalid admin role');
+  }
+
+  const updateData = {};
+  const allowedFields = ['fullName', 'email', 'role', 'location', 'isEmailVerified', 'isSuspended'];
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) updateData[field] = data[field];
+  }
+
+  if (data.password) updateData.password = data.password;
+  if (data.isEmailVerified !== undefined && data.isEmailVerified) updateData.emailVerifiedAt = new Date();
+  if (data.isSuspended !== undefined && !data.isSuspended) {
+    updateData.suspendedAt = null;
+    updateData.suspendedReason = null;
+  }
+
+  const admin = await User.findById(id);
+  if (!admin) return null;
+  Object.assign(admin, updateData);
+  await admin.save();
+
+  await logAudit(adminId, 'user.update_admin', 'User', id);
+  return admin;
+};
+
+export const deleteAdmin = async (id, adminId) => {
+  const admin = await User.findOne({ _id: id, deletedAt: null });
+  if (!admin) return null;
+  if (!['admin', 'superadmin'].includes(admin.role)) return null;
+  if (admin._id.toString() === adminId?.toString()) {
+    throw new Error('Cannot delete your own account');
+  }
+
+  admin.deletedAt = new Date();
+  admin.isSuspended = true;
+  await admin.save({ validateBeforeSave: false });
+
+  await logAudit(adminId, 'user.delete_admin', 'User', id);
+  return admin;
+};
+
+const DEFAULT_ROLE_PERMISSIONS = [
+  {
+    role: 'admin',
+    displayName: 'Administrator',
+    description: 'Standard administrative access for operations and moderation.',
+    isSystemRole: true,
+    permissions: {
+      donor_management: { view: true, manage: true, ban: true },
+      hospital_management: { view: true, manage: true, suspend: true },
+      admin_management: { view: true, create: false, delete: false },
+      system_settings: { view: true, manage: true },
+      audit_logging: { view: true, export: false },
+      reporting: { view: true, export: true },
+    },
+  },
+  {
+    role: 'superadmin',
+    displayName: 'Super Administrator',
+    description: 'Full system access including admin and permission management.',
+    isSystemRole: true,
+    permissions: {
+      donor_management: { view: true, manage: true, ban: true },
+      hospital_management: { view: true, manage: true, suspend: true },
+      admin_management: { view: true, create: true, delete: true },
+      system_settings: { view: true, manage: true },
+      audit_logging: { view: true, export: true },
+      reporting: { view: true, export: true },
+    },
+  },
+];
+
+export const seedDefaultRolePermissions = async () => {
+  for (const rolePermission of DEFAULT_ROLE_PERMISSIONS) {
+    await RolePermission.findOneAndUpdate(
+      { role: rolePermission.role },
+      { $setOnInsert: rolePermission },
+      { upsert: true, new: true }
+    );
+  }
+};
+
+export const listRolePermissions = async () => {
+  return RolePermission.find().sort({ createdAt: 1 });
+};
+
+export const getRolePermissionDetails = async (role) => {
+  return RolePermission.findOne({ role: role.toLowerCase() });
+};
+
+export const createRolePermission = async (data, adminId) => {
+  const normalizedRole = String(data.role || '').toLowerCase();
+  if (['admin', 'superadmin'].includes(normalizedRole)) {
+    throw new Error('Cannot modify a system role');
+  }
+
+  const existing = await RolePermission.findOne({ role: normalizedRole });
+  if (existing) {
+    throw new Error('Role already exists');
+  }
+
+  const rolePermission = await RolePermission.create({
+    role: data.role,
+    displayName: data.displayName,
+    description: data.description || '',
+    isSystemRole: Boolean(data.isSystemRole),
+    permissions: data.permissions || {},
+    updatedBy: adminId,
+  });
+
+  await logAudit(adminId, 'permissions.create_role', 'RolePermission', rolePermission._id);
+  return rolePermission;
+};
+
+export const updateRolePermissions = async (role, data, adminId) => {
+  const normalizedRole = String(role || '').toLowerCase();
+  if (['admin', 'superadmin'].includes(normalizedRole)) {
+    throw new Error('Cannot modify a system role');
+  }
+
+  const rolePermission = await RolePermission.findOne({ role: normalizedRole });
+  if (!rolePermission) return null;
+  if (rolePermission.isSystemRole || ['admin', 'superadmin'].includes(rolePermission.role)) {
+    throw new Error('Cannot modify a system role');
+  }
+
+  const updateData = {};
+  const allowedFields = ['displayName', 'description', 'permissions'];
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) updateData[field] = data[field];
+  }
+  updateData.updatedBy = adminId;
+
+  const updated = await RolePermission.findOneAndUpdate(
+    { role: normalizedRole },
+    { $set: updateData },
+    { new: true, runValidators: true }
+  );
+
+  await logAudit(adminId, 'permissions.update_role', 'RolePermission', updated._id);
+  return updated;
+};
+
 // ──────────────────────────────────────────────
 //  Request Management (Phase 3)
 // ──────────────────────────────────────────────
@@ -379,20 +631,24 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
 /**
  * Get request statistics (by status, urgency, blood type).
  */
-export const getRequestStats = async () => {
+export const getRequestStats = async (hospitalId = null) => {
+  const baseMatch = hospitalId ? { hospitalId } : {};
+  const activeMatch = { ...baseMatch, status: { $in: ['pending', 'in-progress'] } };
+
   const [byStatus, byUrgency, byBloodType, total] = await Promise.all([
     Request.aggregate([
+      { $match: baseMatch },
       { $group: { _id: '$status', count: { $sum: 1 } } },
     ]),
     Request.aggregate([
-      { $match: { status: { $in: ['pending', 'in-progress'] } } },
+      { $match: activeMatch },
       { $group: { _id: '$urgency', count: { $sum: 1 } } },
     ]),
     Request.aggregate([
-      { $match: { type: 'blood', status: { $in: ['pending', 'in-progress'] } } },
+      { $match: { ...activeMatch, type: 'blood' } },
       { $group: { _id: '$bloodType', count: { $sum: 1 } } },
     ]),
-    Request.countDocuments(),
+    Request.countDocuments(baseMatch),
   ]);
 
   return {
@@ -400,6 +656,96 @@ export const getRequestStats = async () => {
     byStatus: byStatus.reduce((acc, i) => ({ ...acc, [i._id]: i.count }), {}),
     byUrgency: byUrgency.reduce((acc, i) => ({ ...acc, [i._id]: i.count }), {}),
     byBloodType: byBloodType.reduce((acc, i) => ({ ...acc, [i._id]: i.count }), {}),
+  };
+};
+
+const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+
+const buildBloodInventoryMap = () => BLOOD_TYPES.reduce((acc, bloodType) => {
+  acc[bloodType] = {
+    bloodType,
+    donatedUnits: 0,
+    requestedUnits: 0,
+    netUnits: 0,
+    shortageUnits: 0,
+    shortage: false,
+    lowStock: false,
+  };
+  return acc;
+}, {});
+
+const getThresholdForBloodType = (thresholds = {}, bloodType, fallback = 2) => {
+  if (thresholds && typeof thresholds === 'object') {
+    const value = thresholds[bloodType] ?? thresholds.default;
+    if (Number.isFinite(Number(value))) return Number(value);
+  }
+
+  return fallback;
+};
+
+export const getBloodInventorySummary = async (hospitalId = null) => {
+  const [requests, completedDonations, settings, requestStats, shortageAlerts] = await Promise.all([
+    Request.find({
+      type: 'blood',
+      ...(hospitalId ? { hospitalId } : {}),
+      status: { $in: ['pending', 'in-progress'] },
+    }).select('bloodType quantity hospitalId status'),
+    Donation.find({ status: 'completed' })
+      .populate({
+        path: 'requestId',
+        select: 'bloodType type hospitalId',
+      })
+      .select('quantity requestId'),
+    hospitalId ? HospitalSettings.findOne({ hospitalId }) : Promise.resolve(null),
+    getRequestStats(hospitalId),
+    getShortageAlerts(hospitalId),
+  ]);
+
+  const inventory = buildBloodInventoryMap();
+
+  for (const request of requests) {
+    if (!request.bloodType || !inventory[request.bloodType]) continue;
+    inventory[request.bloodType].requestedUnits += Number(request.quantity || 1);
+  }
+
+  for (const donation of completedDonations) {
+    const request = donation.requestId;
+    if (!request || request.type !== 'blood' || !request.bloodType || !inventory[request.bloodType]) continue;
+    if (hospitalId && request.hospitalId?.toString?.() !== hospitalId.toString()) continue;
+    inventory[request.bloodType].donatedUnits += Number(donation.quantity || 1);
+  }
+
+  for (const bloodType of BLOOD_TYPES) {
+    const entry = inventory[bloodType];
+    entry.netUnits = entry.donatedUnits - entry.requestedUnits;
+    entry.shortageUnits = Math.max(0, entry.requestedUnits - entry.donatedUnits);
+    entry.shortage = entry.shortageUnits > 0;
+
+    const lowThreshold = hospitalId
+      ? getThresholdForBloodType(settings?.bloodBankSettings?.lowThreshold, bloodType, 2)
+      : 2;
+
+    entry.lowStock = entry.netUnits <= lowThreshold;
+  }
+
+  const lowStockAlerts = BLOOD_TYPES
+    .map((bloodType) => inventory[bloodType])
+    .filter((entry) => entry.lowStock || entry.shortage)
+    .map((entry) => ({
+      bloodType: entry.bloodType,
+      message: entry.shortage
+        ? `Shortage detected for ${entry.bloodType}: ${entry.shortageUnits} unit(s) needed`
+        : `${entry.bloodType} stock is low with ${entry.netUnits} net unit(s)`,
+      severity: entry.shortage ? 'high' : 'medium',
+    }));
+
+  return {
+    scope: hospitalId ? 'hospital' : 'system',
+    hospitalId: hospitalId || null,
+    bloodTypeTotals: inventory,
+    lowStockAlerts,
+    shortageAlerts,
+    requestStats,
   };
 };
 
@@ -602,17 +948,18 @@ export const getCriticalRequests = async () => {
 /**
  * Get blood shortage alerts: blood types where demand exceeds supply.
  */
-export const getShortageAlerts = async () => {
+export const getShortageAlerts = async (hospitalId = null) => {
   const bloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  const requestFilter = {
+    type: 'blood',
+    status: { $in: ['pending', 'in-progress'] },
+    ...(hospitalId ? { hospitalId } : {}),
+  };
 
   const alerts = await Promise.all(
     bloodTypes.map(async (bt) => {
       const [demand, supply] = await Promise.all([
-        Request.countDocuments({
-          type: 'blood',
-          bloodType: bt,
-          status: { $in: ['pending', 'in-progress'] },
-        }),
+        Request.countDocuments({ ...requestFilter, bloodType: bt }),
         Donor.countDocuments({
           bloodType: bt,
           isAvailable: true,

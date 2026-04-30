@@ -2,6 +2,8 @@ import { Router } from 'express';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import requireRole from '../middlewares/role.middleware.js';
 import * as donorController from '../controllers/donor.controller.js';
+import * as rewardController from '../controllers/reward.controller.js';
+import * as notificationController from '../controllers/notification.controller.js';
 
 const router = Router();
 
@@ -314,6 +316,41 @@ const router = Router();
  *         description: Missing or invalid JWT
  *       '403':
  *         description: Role not allowed
+ * /donor/health-history:
+ *   get:
+ *     tags:
+ *       - Donor
+ *     summary: Get the authenticated donor health history
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Health history retrieved successfully
+ *       '401':
+ *         description: Missing or invalid JWT
+ *       '403':
+ *         description: Role not allowed
+ *   patch:
+ *     tags:
+ *       - Donor
+ *     summary: Update the authenticated donor health history
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *     responses:
+ *       '200':
+ *         description: Health history updated successfully
+ *       '400':
+ *         description: Invalid health history payload
+ *       '401':
+ *         description: Missing or invalid JWT
+ *       '403':
+ *         description: Role not allowed
  */
 
 // Apply auth and role middleware to all donor routes
@@ -329,6 +366,35 @@ router.get('/matches', donorController.getMatches);
 
 // Donation response route
 router.post('/respond/:requestId', donorController.respondToRequest);
+
+// Donation eligibility (alias to internal eligibility logic)
+router.get('/donation-eligibility', donorController.getDonationEligibility);
+
+// Lightweight donor health history
+router.get('/health-history', donorController.getHealthHistory);
+router.patch('/health-history', donorController.updateHealthHistory);
+
+// Compatibility alias: expose donations under donor namespace
+router.get('/donations', donorController.getDonationHistory);
+
+// Donor dashboard and activity (Medium)
+router.get('/dashboard', donorController.getDashboard);
+router.get('/recent-activity', donorController.getRecentActivity);
+
+// Urgent requests feed
+router.get('/urgent-requests', donorController.getUrgentRequests);
+router.get('/urgent-requests/:requestId', donorController.getUrgentRequestDetails);
+router.post('/urgent-requests/:requestId/accept', donorController.respondToRequest);
+router.post('/urgent-requests/:requestId/decline', donorController.declineUrgentRequest);
+
+// Expose rewards endpoints under donor prefix for quick-reference compatibility
+router.get('/points', rewardController.getPoints);
+router.get('/badges', rewardController.getBadges);
+router.get('/redemptions', rewardController.getRedemptions);
+
+// Notifications aliases under donor prefix
+router.get('/notifications', notificationController.getNotifications);
+router.patch('/notifications/:id/mark-read', notificationController.markNotificationRead);
 
 // Donation history
 router.get('/history', donorController.getDonationHistory);

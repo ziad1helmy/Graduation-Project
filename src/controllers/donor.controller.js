@@ -6,6 +6,7 @@ import * as matchingService from '../services/matching.service.js';
 import * as donationService from '../services/donation.service.js';
 import * as notificationService from '../services/notification.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
+import * as rewardService from '../services/reward.service.js';
 
 /**
  * Donor Controller - Handles donor-specific operations
@@ -231,4 +232,242 @@ export const updateAvailability = async (req, res, next) => {
   } catch (error) {
     next(error);
   }
+};
+
+// Check donation eligibility for a specific request
+export const getDonationEligibility = async (req, res, next) => {
+  try {
+    const { requestId } = req.query;
+    if (!requestId) {
+      return response.error(res, 400, 'requestId is required');
+    }
+
+    const request = await Request.findById(requestId);
+    if (!request) {
+      return response.error(res, 404, 'Request not found');
+    }
+
+    const donor = await Donor.findById(req.user.userId);
+    if (!donor) {
+      return response.error(res, 404, 'Donor not found');
+    }
+
+    const eligibility = await donationService.validateEligibility(donor, request);
+    return response.success(res, 200, 'Eligibility result', eligibility);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const normalizeStringList = (value) => {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) return null;
+
+  const normalized = value
+    .map((item) => (typeof item === 'string' ? item.trim() : ''))
+    .filter(Boolean);
+
+  return normalized;
+};
+
+const normalizeHealthHistoryPayload = (body) => {
+  const payload = {};
+
+  const chronicConditions = normalizeStringList(body.chronicConditions);
+  if (chronicConditions === null) return { error: 'chronicConditions must be an array of strings' };
+  if (chronicConditions !== undefined) payload.chronicConditions = chronicConditions;
+
+  const medications = normalizeStringList(body.medications);
+  if (medications === null) return { error: 'medications must be an array of strings' };
+  if (medications !== undefined) payload.medications = medications;
+
+  const allergies = normalizeStringList(body.allergies);
+  if (allergies === null) return { error: 'allergies must be an array of strings' };
+  if (allergies !== undefined) payload.allergies = allergies;
+
+  if (body.recentIllness !== undefined) {
+    if (typeof body.recentIllness !== 'string') return { error: 'recentIllness must be a string' };
+    payload.recentIllness = body.recentIllness.trim();
+  }
+
+  if (body.notes !== undefined) {
+    if (typeof body.notes !== 'string') return { error: 'notes must be a string' };
+    payload.notes = body.notes.trim();
+  }
+
+  if (body.lastCheckupDate !== undefined) {
+    const checkupDate = new Date(body.lastCheckupDate);
+    if (Number.isNaN(checkupDate.getTime())) return { error: 'lastCheckupDate must be a valid date' };
+    if (checkupDate > new Date()) return { error: 'lastCheckupDate must be in the past' };
+    payload.lastCheckupDate = checkupDate;
+  }
+
+  return { payload };
+};
+
+export const getHealthHistory = async (req, res, next) => {
+  try {
+    const donor = await Donor.findById(req.user.userId).select('healthHistory');
+    if (!donor) {
+      return response.error(res, 404, 'Donor profile not found');
+    }
+
+    return response.success(res, 200, 'Health history retrieved successfully', {
+      healthHistory: donor.healthHistory || {
+        chronicConditions: [],
+        medications: [],
+        allergies: [],
+        recentIllness: '',
+        notes: '',
+        lastCheckupDate: null,
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateHealthHistory = async (req, res, next) => {
+  try {
+    const normalized = normalizeHealthHistoryPayload(req.body || {});
+    if (normalized.error) {
+      return response.error(res, 400, normalized.error);
+    }
+
+    const donor = await Donor.findById(req.user.userId);
+    if (!donor) {
+      return response.error(res, 404, 'Donor profile not found');
+    }
+
+    donor.healthHistory = {
+      ...(donor.healthHistory || {}),
+      ...normalized.payload,
+      updatedAt: new Date(),
+    };
+
+    await donor.save({ validateBeforeSave: true });
+
+    return response.success(res, 200, 'Health history updated successfully', {
+      healthHistory: donor.healthHistory,
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      return response.error(res, 400, error.message);
+    }
+    next(error);
+  }
+};
+
+export const getDashboard = async (req, res, next) => {
+  try {
+    const donorId = req.user.userId;
+    const [donationStats, pointsSummary, badges] = await Promise.all([
+      donationService.getDonorStats(donorId),
+      rewardService.getPointsSummary(donorId),
+      rewardService.getDonorBadges(donorId),
+    ]);
+
+    return response.success(res, 200, 'Donor dashboard retrieved successfully', {
+      donationStats,
+      pointsSummary,
+      badges,
+    });
+  } catch (err) { next(err); }
+};
+
+export const getRecentActivity = async (req, res, next) => {
+  try {
+    const donorId = req.user.userId;
+    const { page = 1, limit = 20 } = req.query;
+
+    const [donations, points] = await Promise.all([
+      donationService.getDonationHistory(donorId, { page, limit }),
+      rewardService.getPointsHistory(donorId, { page, limit }),
+    ]);
+
+    return response.success(res, 200, 'Recent activity retrieved successfully', {
+      donations,
+      points,
+    });
+  } catch (err) { next(err); }
+};
+
+export const getUrgentRequests = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 20 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const filter = { status: { $in: ['pending', 'in-progress'] }, urgency: { $in: ['high', 'critical'] } };
+
+    const [requests, total] = await Promise.all([
+      Request.find(filter).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+      Request.countDocuments(filter),
+    ]);
+
+    return response.success(res, 200, 'Urgent requests retrieved successfully', {
+      requests,
+      pagination: { total, page: parseInt(page), limit: parseInt(limit) },
+    });
+  } catch (err) { next(err); }
+};
+
+export const getUrgentRequestDetails = async (req, res, next) => {
+  try {
+    const request = await Request.findOne({
+      _id: req.params.requestId,
+      urgency: { $in: ['high', 'critical'] },
+      status: { $in: ['pending', 'in-progress'] },
+    }).populate('hospitalId', 'fullName hospitalName address contactNumber');
+
+    if (!request) {
+      return response.error(res, 404, 'Urgent request not found');
+    }
+
+    return response.success(res, 200, 'Urgent request retrieved successfully', { request });
+  } catch (err) { next(err); }
+};
+
+export const declineUrgentRequest = async (req, res, next) => {
+  try {
+    const { requestId } = req.params;
+    const { reason } = req.body;
+
+    const request = await Request.findOne({
+      _id: requestId,
+      urgency: { $in: ['high', 'critical'] },
+      status: { $in: ['pending', 'in-progress'] },
+    });
+
+    if (!request) {
+      return response.error(res, 404, 'Urgent request not found');
+    }
+
+    const donor = await Donor.findById(req.user.userId);
+    if (!donor) {
+      return response.error(res, 404, 'Donor not found');
+    }
+
+    const existingResponse = await Donation.findOne({
+      donorId: req.user.userId,
+      requestId,
+    });
+
+    if (existingResponse && existingResponse.status !== 'cancelled') {
+      return response.error(res, 400, 'You have already responded to this request');
+    }
+
+    if (existingResponse && existingResponse.status === 'cancelled') {
+      return response.success(res, 200, 'Urgent request already declined', existingResponse);
+    }
+
+    const declinedResponse = await Donation.create({
+      donorId: req.user.userId,
+      requestId,
+      quantity: request.quantity || 1,
+      status: 'cancelled',
+      notes: reason ? `Declined urgent request: ${reason}` : 'Declined urgent request',
+    });
+
+    return response.success(res, 201, 'Urgent request declined successfully', declinedResponse);
+  } catch (err) { next(err); }
 };

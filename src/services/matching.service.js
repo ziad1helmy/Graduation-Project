@@ -78,21 +78,39 @@ export const isBloodTypeCompatible = (donorBloodType, requestBloodType) => {
  * @returns {Object} - {eligible: boolean, reason: string}
  */
 export const checkEligibility = (donor, request) => {
+  const warnings = [];
+
+  const healthHistory = donor?.healthHistory || {};
+  if (healthHistory.lastCheckupDate) {
+    const lastCheckupDate = new Date(healthHistory.lastCheckupDate);
+    const daysSinceCheckup = Math.floor((new Date() - lastCheckupDate) / (1000 * 60 * 60 * 24));
+    if (Number.isFinite(daysSinceCheckup) && daysSinceCheckup > 365) {
+      warnings.push('Last checkup date is older than 12 months');
+    }
+  } else {
+    warnings.push('No checkup date on file');
+  }
+
+  if (Array.isArray(healthHistory.chronicConditions) && healthHistory.chronicConditions.length > 0) {
+    warnings.push('Chronic conditions are recorded on the donor profile');
+  }
+
   // Check availability
   if (!donor.isAvailable) {
-    return { eligible: false, reason: 'Donor is not currently available' };
+    return { eligible: false, reason: 'Donor is not currently available', warnings };
   }
 
   // Check blood type compatibility for blood requests
   if (request.type === 'blood') {
     if (!donor.bloodType) {
-      return { eligible: false, reason: 'Donor has not provided blood type information' };
+      return { eligible: false, reason: 'Donor has not provided blood type information', warnings };
     }
 
     if (!isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
       return { 
         eligible: false, 
-        reason: `Donor blood type ${donor.bloodType} is not compatible with request for ${request.bloodType}` 
+        reason: `Donor blood type ${donor.bloodType} is not compatible with request for ${request.bloodType}`,
+        warnings,
       };
     }
 
@@ -108,12 +126,13 @@ export const checkEligibility = (donor, request) => {
         return {
           eligible: false,
           reason: `Must wait ${MIN_DAYS_BETWEEN_DONATIONS - daysSinceLastDonation} more days before donating again`,
+          warnings,
         };
       }
     }
   }
 
-  return { eligible: true, reason: 'Donor is eligible' };
+  return { eligible: true, reason: 'Donor is eligible', warnings };
 };
 
 /**
@@ -148,10 +167,14 @@ export const findCompatibleDonors = async (requestId) => {
   const compatibleDonors = [];
 
   for (const donor of donors) {
-    if (respondedDonorIds.has(donor._id.toString())) continue;
+    if (respondedDonorIds.has(donor._id.toString())) {
+      continue;
+    }
 
     const eligibility = checkEligibility(donor, request);
-    if (!eligibility.eligible) continue;
+    if (!eligibility.eligible) {
+      continue;
+    }
 
     // Calculate compatibility score (0-100 scale)
     let score = 100;

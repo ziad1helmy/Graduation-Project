@@ -41,6 +41,8 @@ router.get('/profile', adminController.getProfile);
  *         description: System health status
  */
 router.get('/system/health', adminController.getSystemHealth);
+router.get('/system-health', adminController.getSystemHealth);
+router.get('/system-health/check', adminController.getSystemHealth);
 
 /**
  * @swagger
@@ -79,6 +81,50 @@ router.post('/system/maintenance', adminController.setMaintenanceMode);
  *         description: Maintenance status
  */
 router.get('/system/maintenance', adminController.getMaintenanceStatus);
+router.post('/maintenance-mode', adminController.setMaintenanceMode);
+router.get('/maintenance-mode/status', adminController.getMaintenanceStatus);
+
+/**
+ * @swagger
+ * /admin/statistics:
+ *   get:
+ *     summary: Get admin statistics summary
+ *     tags: [Admin - Analytics]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Statistics summary
+ */
+router.get('/statistics', adminController.getStatistics);
+router.get('/dashboard', adminController.getDashboard);
+/**
+ * @swagger
+ * /admin/alerts:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Get the admin alert summary
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Alerts summary
+ */
+router.get('/alerts', adminController.getAlerts);
+/**
+ * @swagger
+ * /admin/blood-inventory-summary:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Get the system blood inventory summary
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Blood inventory summary
+ */
+router.get('/blood-inventory-summary', adminController.getBloodInventorySummary);
 
 // ──────────────────────────────────────────────
 //  Audit Logs
@@ -114,6 +160,459 @@ router.get('/system/maintenance', adminController.getMaintenanceStatus);
  *         description: Audit logs list
  */
 router.get('/audit-logs', adminController.getAuditLogs);
+// Dedicated donor/hospital listing aliases
+/**
+ * @swagger
+ * /admin/donors:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: List donors
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Donor list
+ */
+router.get('/donors', adminController.listDonors);
+/**
+ * @swagger
+ * /admin/hospitals:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: List hospitals
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Hospital list
+ */
+router.get('/hospitals', adminController.listHospitals);
+// Dedicated donor/hospital detail routes
+/**
+ * @swagger
+ * /admin/donors/{id}:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Get a donor by id
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Donor details
+ */
+router.get('/donors/:id', adminController.getUserById);
+/**
+ * @swagger
+ * /admin/hospitals/{id}:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Get a hospital by id
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Hospital details
+ */
+router.get('/hospitals/:id', adminController.getUserById);
+/**
+ * @swagger
+ * /admin/admins:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: List admin users
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Admin list
+ */
+router.get('/admins', adminController.listAdmins);
+/**
+ * @swagger
+ * /admin/admins/{id}:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Get an admin by id
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Admin details
+ */
+router.get('/admins/:id', adminController.getAdminById);
+
+// Donor management
+/**
+ * @swagger
+ * /admin/donors/{id}:
+ *   put:
+ *     tags:
+ *       - Admin
+ *     summary: Update a donor
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               phoneNumber:
+ *                 type: string
+ *               bloodType:
+ *                 type: string
+ *               gender:
+ *                 type: string
+ *               dateOfBirth:
+ *                 type: string
+ *                 format: date
+ *               isAvailable:
+ *                 type: boolean
+ *     responses:
+ *       '200':
+ *         description: Donor updated successfully
+ *       '404':
+ *         description: Donor not found
+ *       '409':
+ *         description: Email already registered
+ */
+router.put('/donors/:id', adminController.updateDonor);
+/**
+ * @swagger
+ * /admin/donors/{id}/ban:
+ *   post:
+ *     tags:
+ *       - Admin
+ *     summary: Ban a donor
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Donor banned successfully
+ *       '400':
+ *         description: Donor already banned
+ *       '404':
+ *         description: Donor not found
+ */
+router.post('/donors/:id/ban', adminController.banDonor);
+/**
+ * @swagger
+ * /admin/donors/{id}/unban:
+ *   post:
+ *     tags:
+ *       - Admin
+ *     summary: Unban a donor
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Donor unbanned successfully
+ *       '400':
+ *         description: Donor is not banned
+ *       '404':
+ *         description: Donor not found
+ */
+router.post('/donors/:id/unban', adminController.unbanDonor);
+
+// Hospital management
+/**
+ * @swagger
+ * /admin/hospitals/{id}/status:
+ *   put:
+ *     tags:
+ *       - Admin
+ *     summary: Update hospital suspension status
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [action]
+ *             properties:
+ *               action:
+ *                 type: string
+ *                 enum: [suspend, unsuspend]
+ *               reason:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Hospital status updated successfully
+ *       '400':
+ *         description: Invalid action payload
+ *       '404':
+ *         description: Hospital not found
+ */
+router.put('/hospitals/:id/status', adminController.updateHospitalStatus);
+
+// Admin management (superadmin only)
+/**
+ * @swagger
+ * /admin/admins:
+ *   post:
+ *     tags:
+ *       - Admin
+ *     summary: Create a new admin account
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [fullName, email, password]
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [admin, superadmin]
+ *               location:
+ *                 type: object
+ *     responses:
+ *       '201':
+ *         description: Admin created successfully
+ *       '400':
+ *         description: Invalid payload
+ *       '403':
+ *         description: Only superadmin can create admins
+ *       '409':
+ *         description: Email already registered
+ */
+router.post('/admins', requireRole('superadmin'), adminController.createAdmin);
+/**
+ * @swagger
+ * /admin/admins/{id}:
+ *   put:
+ *     tags:
+ *       - Admin
+ *     summary: Update an admin account
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               fullName:
+ *                 type: string
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *               role:
+ *                 type: string
+ *                 enum: [admin, superadmin]
+ *               isEmailVerified:
+ *                 type: boolean
+ *               isSuspended:
+ *                 type: boolean
+ *     responses:
+ *       '200':
+ *         description: Admin updated successfully
+ *       '404':
+ *         description: Admin not found
+ *       '409':
+ *         description: Email already registered
+ */
+router.put('/admins/:id', requireRole('superadmin'), adminController.updateAdmin);
+/**
+ * @swagger
+ * /admin/admins/{id}:
+ *   delete:
+ *     tags:
+ *       - Admin
+ *     summary: Delete an admin account
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Admin deleted successfully
+ *       '403':
+ *         description: Cannot delete own account or insufficient role
+ *       '404':
+ *         description: Admin not found
+ */
+router.delete('/admins/:id', requireRole('superadmin'), adminController.deleteAdmin);
+
+// Role permissions (superadmin for mutations)
+/**
+ * @swagger
+ * /admin/permissions/roles:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: List role permissions
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Roles retrieved successfully
+ */
+router.get('/permissions/roles', adminController.listRolePermissions);
+/**
+ * @swagger
+ * /admin/permissions/roles/{role}:
+ *   get:
+ *     tags:
+ *       - Admin
+ *     summary: Get a role permission record
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: role
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Role retrieved successfully
+ */
+router.get('/permissions/roles/:role', adminController.getRolePermissionDetails);
+/**
+ * @swagger
+ * /admin/permissions/roles:
+ *   post:
+ *     tags:
+ *       - Admin
+ *     summary: Create a role permission record
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '201':
+ *         description: Role created successfully
+ *       '400':
+ *         description: Invalid payload
+ *       '403':
+ *         description: System roles cannot be created or modified
+ *       '409':
+ *         description: Role already exists
+ */
+router.post('/permissions/roles', requireRole('superadmin'), adminController.createRolePermission);
+/**
+ * @swagger
+ * /admin/permissions/roles/{role}:
+ *   put:
+ *     tags:
+ *       - Admin
+ *     summary: Update role permissions
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: role
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               displayName:
+ *                 type: string
+ *               description:
+ *                 type: string
+ *               permissions:
+ *                 type: object
+ *     responses:
+ *       '200':
+ *         description: Role permissions updated successfully
+ *       '403':
+ *         description: System roles cannot be modified
+ *       '404':
+ *         description: Role not found
+ */
+router.put('/permissions/roles/:role', requireRole('superadmin'), adminController.updateRolePermissions);
 
 // ──────────────────────────────────────────────
 //  User Management

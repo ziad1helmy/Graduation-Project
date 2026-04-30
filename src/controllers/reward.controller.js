@@ -54,6 +54,15 @@ export const getRedemptions = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const getHistory = async (req, res, next) => {
+  try {
+    const { status } = req.query;
+    const { page, limit } = parsePagination(req.query, 20);
+    const data = await rewardService.getDonorRedemptions(req.user.userId, { page, limit, status });
+    response.success(res, 200, 'Reward history retrieved successfully', data);
+  } catch (err) { next(err); }
+};
+
 export const getBadges = async (req, res, next) => {
   try {
     const data = await rewardService.getDonorBadges(req.user.userId);

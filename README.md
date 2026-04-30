@@ -14,7 +14,7 @@ graph TB
     subgraph Middleware Chain
         HL["helmet()"]
         CO["cors()"]
-        MS["mongoSanitize()"]
+        MS["request sanitizer"]
         RL["rateLimiter"]
         MM["maintenanceMode"]
         AU["authMiddleware"]
@@ -86,9 +86,16 @@ graph TB
 
 - **Mongoose Discriminators** — `Donor` and `Hospital` share the `users` collection via discriminator inheritance, enabling polymorphic queries.
 - **Haversine Geo-Matching** — Real distance-based scoring between donors and hospitals using the `geo.js` utility. Nearby donors rank higher.
-- **Atomic Gamification** — Points awards use `mongoose.startSession()` with `withTransaction()` for ACID guarantees. Deduplication via partial unique indexes prevents double-awards.
+- **Atomic Gamification** — Points awards use efficient `$inc` operations with idempotent checks against the `PointsTransaction` collection to prevent double-awards.
 - **Dual JWT Tokens** — Short-lived access tokens + long-lived refresh tokens with blacklist support.
 - **Maintenance Bypass** — Admin requests bypass maintenance mode; the check is cached in-memory (30s TTL) to avoid per-request DB hits.
+
+## Core Business Flows
+
+1. **Hospital Request Creation**: Hospitals broadcast specific blood or organ requests (e.g., Critical O- blood).
+2. **Matching Engine**: The system identifies eligible donors based on blood compatibility and calculates a priority score using the Haversine distance formula (prioritizing nearby donors).
+3. **Donor Response**: Matched donors accept the request and schedule an appointment.
+4. **Donation Completion**: Upon successful donation, the system transitions the state to `completed` and automatically triggers gamification rewards.
 
 ## Quick Start
 
@@ -111,8 +118,9 @@ graph TB
    curl http://127.0.0.1:5000/health
    ```
 5. **View API Documentation**:
-   Open your browser to:
-   `http://127.0.0.1:5000/api-docs`
+   Open your browser to view the complete Swagger UI:
+   - **Local**: `http://localhost:5000/api-docs`
+   - **Production**: `https://your-api-url/api-docs`
 
 ## Key Scripts
 
@@ -120,15 +128,32 @@ graph TB
 |---|---|
 | `npm start` | Start backend with runtime checks |
 | `npm run dev` | Start backend in watch mode |
-| `npm test` | Run automated test suite (76 tests) |
+| `npm test` | Run Vitest test suite |
 | `npm run test:watch` | Run tests in watch mode for TDD |
 | `npm run seed` | Seed local database with verified test accounts |
+| `npm run seed-demo` | Seed rich demo dataset (donors, hospitals, requests, rewards, admins) |
+| `npm run smoke` | Run smoke flow checks against a running server |
 | `npm run test:auth-flow` | Run E2E authentication smoke tests |
-| `npm run generate:openapi` | Update the `openapi.json` artifact from YAML |
+| `npm run generate:openapi` | Regenerate `openapi.json` from route JSDoc annotations |
+
+## Implemented Endpoint Coverage
+
+The following feature groups are implemented and exposed under root and compatibility aliases (`/api/v1/*` where applicable):
+
+- Authentication: login/register, OTP, email verification, refresh, logout, reset/forgot password, 2FA, FCM token lifecycle.
+- Donor: profile, availability, matches, responses, donation eligibility, dashboard/recent activity, urgent request flows, health history.
+- Hospital: profile, request CRUD, close request, monthly reports, staff, blood-bank settings, notification preferences, blood inventory summary.
+- Appointments: donor booking, donor appointment list, donor cancellation.
+- Donations: completion endpoint and donor appointment listing alias.
+- Rewards: points/history, catalog/listing aliases, redeem aliases, badges, redemptions, leaderboard.
+- Admin: system health, maintenance, analytics/alerts, donor/hospital management, admin management, role-permissions management.
+- Discovery/Help/Support/Notifications: hospital discovery endpoints, FAQ/documents, contact/support messaging, notification listing and mark-read.
 
 ## Test Suite
 
-The project includes **76 automated tests** across 6 test files using [Vitest](https://vitest.dev/) with MongoDB Memory Server:
+The project test suite is built with [Vitest](https://vitest.dev/) + MongoDB Memory Server and validates 243 test cases covering utilities, validation, matching, reward logic, and token flows.
+
+Baseline suites:
 
 | Test File | Tests | Coverage |
 |-----------|-------|----------|
@@ -142,6 +167,8 @@ The project includes **76 automated tests** across 6 test files using [Vitest](h
 ```bash
 npm test
 ```
+
+The suite runs in non-parallel mode (`maxWorkers: 1`) to keep Mongo memory tests deterministic.
 
 ## Test Accounts
 
@@ -157,6 +184,17 @@ npm run seed
 This generates:
 - **Donor**: `donor@test.com` / `SecurePass@123`
 - **Hospital**: `hospital@test.com` / `SecurePass@123`
+
+## E2E / Smoke Tests Notes
+
+- The project includes smoke/E2E helper scripts under `scripts/` such as `scripts/smoke.js` and `scripts/fcm-e2e.js`.
+- For automated E2E runs the server supports an `x-test-mode` header that helps bypass rate limits and supports test automation flows.
+- `scripts/fcm-e2e.js` now auto-creates and auto-verifies a unique test donor account per run (helps avoid stale/unverified accounts during CI). Remove or revert this behavior if you prefer a fixed seeded account.
+
+If you intend to run CI against a persistent test environment, ensure either:
+
+- The seed script is run with verified accounts (`npm run seed`) or
+- CI provides environment setup to pre-verify test email addresses.
 
 ## Technical Documentation
 

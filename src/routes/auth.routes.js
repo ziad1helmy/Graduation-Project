@@ -562,6 +562,7 @@ router.post('/logout', AUC.logout);
 router.post('/refresh-token', AUC.refreshToken);
 router.post('/forgot-password', AUC.forgotPassword);
 router.post('/reset-password', AUC.resetPassword);
+router.post('/password-reset', AUC.resetPassword);
 router.post('/send-otp', AUC.sendOtp);
 router.post('/verify-otp', AUC.verifyOtp);
 router.post('/2fa/setup', authMiddleware, AUC.setup2FA);

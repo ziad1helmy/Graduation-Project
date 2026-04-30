@@ -1,3 +1,62 @@
+import { describe, it, expect, vi } from 'vitest';
+import { setupTestDB } from '../helpers/db.js';
+import { buildDonor, createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
+import * as matchingService from '../../src/services/matching.service.js';
+
+vi.mock('../../src/utils/geo.js', () => ({
+  calculateDistance: vi.fn(({ latitude: lat1 }, { latitude: lat2 }) => {
+    // crude distance approximation: degrees * 111 km/deg
+    return Math.abs(lat1 - lat2) * 111;
+  }),
+  getLocationScore: vi.fn((distance, maxDistance = 100) => {
+    const score = Math.max(0, Math.round((1 - (distance / maxDistance)) * 100));
+    return score;
+  }),
+}));
+
+// setupTestDB(); // Removed to prevent duplicate connections
+
+describe('Matching Service — pure helpers', () => {
+  it('correctly reports blood type compatibility', () => {
+    expect(matchingService.isBloodTypeCompatible('O+', 'A+')).toBe(true);
+    expect(matchingService.isBloodTypeCompatible('A+', 'O+')).toBe(false);
+    expect(matchingService.isBloodTypeCompatible(null, 'A+')).toBe(false);
+  });
+
+  it('checks eligibility with missing blood type', () => {
+    const donor = { isAvailable: true, bloodType: null, healthHistory: {} };
+    const request = { type: 'blood', bloodType: 'A+' };
+    const res = matchingService.checkEligibility(donor, request);
+    expect(res.eligible).toBe(false);
+    expect(res.reason).toMatch(/has not provided blood type/i);
+  });
+});
+
+describe('Matching Service — DB-backed flows', () => {
+  it('findCompatibleDonors returns only compatible, available donors', async () => {
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+
+    // create compatible donor
+    const donorA = await createDonor({ bloodType: 'O+', isAvailable: true });
+    // create incompatible donor
+    const donorB = await createDonor({ bloodType: 'A+', isAvailable: true });
+    // create unavailable donor
+    const donorC = await createDonor({ bloodType: 'O+', isAvailable: false });
+
+    // mark donorA as already responded
+    await createDonation(donorA._id, request._id, { status: 'pending' });
+
+    const results = await matchingService.findCompatibleDonors(request._id);
+
+    // donorA should be excluded because they already responded
+    expect(results.find((r) => r.donor._id.toString() === donorA._id.toString())).toBeUndefined();
+    // donorB is incompatible
+    expect(results.find((r) => r.donor._id.toString() === donorB._id.toString())).toBeUndefined();
+    // donorC is unavailable so also excluded
+    expect(results.find((r) => r.donor._id.toString() === donorC._id.toString())).toBeUndefined();
+  });
+});
 /**
  * Tests for src/services/matching.service.js
  *
@@ -10,7 +69,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { connectTestDB, clearTestDB, disconnectTestDB } from '../helpers/db.js';
+import { connect, clearDatabase, closeDatabase } from '../helpers/db.js';
 import { createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
 import {
   isBloodTypeCompatible,
@@ -19,15 +78,15 @@ import {
 } from '../../src/services/matching.service.js';
 
 beforeAll(async () => {
-  await connectTestDB();
+  await connect();
 });
 
 afterEach(async () => {
-  await clearTestDB();
+  await clearDatabase();
 });
 
 afterAll(async () => {
-  await disconnectTestDB();
+  await closeDatabase();
 });
 
 // ──────────────────────────────────────────────
@@ -108,7 +167,7 @@ describe('findCompatibleDonors', () => {
 
   it('should exclude unavailable donors', async () => {
     // Clear DB to ensure no donors from previous tests leak in
-    await clearTestDB();
+    await clearDatabase();
 
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { bloodType: 'O+' });

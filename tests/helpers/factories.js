@@ -13,6 +13,17 @@ import Donation from '../../src/models/Donation.model.js';
 let counter = Math.floor(Math.random() * 100000);
 const nextNum = () => ++counter;
 
+export const buildDonor = (overrides = {}) => ({
+  role: 'donor',
+  fullName: 'Test Donor',
+  email: 'donor@example.com',
+  password: 'Password123!',
+  phoneNumber: '0123456789',
+  dateOfBirth: '1990-01-01',
+  bloodType: 'A+',
+  ...overrides,
+});
+
 /**
  * Create a donor user in the database.
  */

@@ -86,7 +86,20 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
       throw new Error('Invalid donation status');
     }
 
+    const currentDonation = await Donation.findById(donationId);
+    if (!currentDonation) {
+      throw new Error('Donation not found');
+    }
+
+    if (currentDonation.status === status && status === 'completed') {
+      return currentDonation;
+    }
+
     const updateData = { status, ...data };
+
+    if (status === 'completed' && !updateData.completedDate) {
+      updateData.completedDate = new Date();
+    }
 
     // Validate dates
     if (data.scheduledDate) {

@@ -7,6 +7,8 @@
  */
 
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
+import { afterAll } from 'vitest';
+import { clearTestDB } from './helpers/db.js';
 
 let replSet;
 
@@ -26,6 +28,12 @@ export async function setup() {
   process.env.FRONTEND_URL = 'http://localhost:3000';
   process.env.PORT = '0'; // don't bind to any port
 }
+
+afterAll(async () => {
+  if (process.env.MONGO_URI && process.env.MONGODB_URI) {
+    await clearTestDB();
+  }
+});
 
 export async function teardown() {
   if (replSet) {

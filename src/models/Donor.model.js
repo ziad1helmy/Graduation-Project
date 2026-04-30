@@ -38,6 +38,38 @@ const donorSchema = new mongoose.Schema({
 
     lastDonationDate: Date,
 
+    healthHistory: {
+        chronicConditions: {
+            type: [String],
+            default: [],
+        },
+        medications: {
+            type: [String],
+            default: [],
+        },
+        allergies: {
+            type: [String],
+            default: [],
+        },
+        recentIllness: {
+            type: String,
+            default: '',
+        },
+        notes: {
+            type: String,
+            default: '',
+            maxlength: [1000, 'Health history notes cannot exceed 1000 characters'],
+        },
+        lastCheckupDate: {
+            type: Date,
+            default: null,
+        },
+        updatedAt: {
+            type: Date,
+            default: null,
+        },
+    },
+
     isAvailable: {
         type: Boolean,
         default: true,

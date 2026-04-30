@@ -210,6 +210,21 @@ export const getUserNotifications = async (userId, options = {}) => {
 };
 
 /**
+ * Get one notification for a specific user.
+ * @param {string} userId - User ID
+ * @param {string} notificationId - Notification ID
+ * @returns {Object|null} - Notification or null if not found
+ */
+export const getNotificationForUser = async (userId, notificationId) => {
+  try {
+    return await Notification.findOne({ _id: notificationId, userId });
+  } catch (error) {
+    console.error('Error fetching user notification:', error);
+    throw error;
+  }
+};
+
+/**
  * Delete a notification
  * @param {string} notificationId - Notification ID
  * @returns {Object} - Deleted notification

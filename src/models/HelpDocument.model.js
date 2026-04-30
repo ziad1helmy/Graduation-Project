@@ -11,8 +11,6 @@ const helpDocumentSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-helpDocumentSchema.index({ type: 1 }, { unique: true });
-
 const HelpDocument = mongoose.model('HelpDocument', helpDocumentSchema);
 
 export default HelpDocument;

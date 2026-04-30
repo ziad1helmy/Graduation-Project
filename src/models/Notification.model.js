@@ -27,8 +27,8 @@ const notificationSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: {
-        values: ['match', 'request', 'milestone', 'emergency', 'system', 'admin'],
-        message: 'Type must be match, request, milestone, emergency, system, or admin',
+        values: ['match', 'request', 'milestone', 'emergency', 'system', 'admin', 'appointment'],
+        message: 'Type must be match, request, milestone, emergency, system, admin, or appointment',
       },
       required: [true, 'Notification type is required'],
     },
@@ -58,8 +58,8 @@ const notificationSchema = new mongoose.Schema(
     relatedType: {
       type: String,
       enum: {
-        values: ['Request', 'Donation', 'User', 'Achievement'],
-        message: 'Related type must be Request, Donation, User, or Achievement',
+        values: ['Request', 'Donation', 'User', 'Achievement', 'Appointment'],
+        message: 'Related type must be Request, Donation, User, Achievement, or Appointment',
       },
       optional: true,
     },
@@ -75,7 +75,6 @@ const notificationSchema = new mongoose.Schema(
 );
 
 // Indexes for efficient queries
-notificationSchema.index({ userId: 1 });
 notificationSchema.index({ read: 1 });
 notificationSchema.index({ userId: 1, read: 1 });
 notificationSchema.index({ userId: 1, createdAt: -1 });

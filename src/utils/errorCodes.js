@@ -43,6 +43,12 @@ export const ERR = Object.freeze({
   ADMIN_CANNOT_SUSPEND:            'Cannot suspend admin accounts',
   ADMIN_CANNOT_DELETE:             'Cannot delete admin accounts',
   ADMIN_EMAIL_EXISTS:              'Email already registered',
+  ADMIN_CANNOT_DELETE_SELF:        'Cannot delete your own account',
+  ADMIN_ROLE_NOT_FOUND:            'Role not found',
+  ADMIN_ROLE_IS_SYSTEM:            'Cannot modify a system role',
+  ADMIN_ROLE_ALREADY_EXISTS:       'Role already exists',
+  DONOR_ALREADY_BANNED:            'Donor is already banned',
+  DONOR_NOT_BANNED:                'Donor is not banned',
 
   // ── Requests ────────────────────────────────
   REQUEST_ALREADY_FULFILLED:       'Request is already fulfilled',
@@ -56,6 +62,10 @@ export const ERR = Object.freeze({
   NOT_FOUND:                       'Resource not found',
   UNAUTHORIZED:                    'Unauthorized',
   FORBIDDEN:                       'Forbidden',
+  // ── Appointments ──────────────────────────────
+  APPOINTMENT_NOT_FOUND:           'Appointment not found',
+  APPOINTMENT_ALREADY_EXISTS:      'You already have an active appointment at this hospital',
+  APPOINTMENT_CANNOT_CANCEL:       'This appointment cannot be cancelled',
 });
 
 export default ERR;

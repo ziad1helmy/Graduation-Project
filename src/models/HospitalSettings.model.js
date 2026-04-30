@@ -35,8 +35,6 @@ const hospitalSettingsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-hospitalSettingsSchema.index({ hospitalId: 1 }, { unique: true });
-
 const HospitalSettings = mongoose.model('HospitalSettings', hospitalSettingsSchema);
 
 export default HospitalSettings;

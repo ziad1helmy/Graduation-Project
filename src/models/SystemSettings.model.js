@@ -31,9 +31,6 @@ const systemSettingsSchema = new mongoose.Schema(
   }
 );
 
-// Unique index on key
-systemSettingsSchema.index({ key: 1 }, { unique: true });
-
 const SystemSettings = mongoose.model('SystemSettings', systemSettingsSchema);
 
 export default SystemSettings;

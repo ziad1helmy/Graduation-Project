@@ -55,7 +55,6 @@ const donorPointsSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-donorPointsSchema.index({ donorId: 1 }, { unique: true });
 donorPointsSchema.index({ lifetimePointsEarned: -1 }); // for leaderboard
 
 /**

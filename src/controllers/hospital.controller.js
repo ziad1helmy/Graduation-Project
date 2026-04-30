@@ -7,6 +7,7 @@ import * as notificationService from '../services/notification.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import HospitalStaff from '../models/HospitalStaff.model.js';
+import * as adminService from '../services/admin.service.js';
 
 const normalizeLocationInput = (location) => {
   if (!location || typeof location !== 'object') return null;
@@ -116,7 +117,7 @@ export const createRequest = async (req, res, next) => {
       return response.error(res, 400, 'Required date must be in the future');
     }
 
-    const hospital = await Hospital.findById(req.user.userId).select('contactNumber');
+    const hospital = await Hospital.findById(req.user.userId).select('contactNumber location fullName hospitalName');
     if (!hospital) {
       return response.error(res, 404, 'Hospital profile not found');
     }
@@ -134,6 +135,13 @@ export const createRequest = async (req, res, next) => {
       quantity: quantity || 1,
       notes: notes || '',
     };
+
+    // Snapshot hospital location and display name at time of request
+    requestData.hospitalLocation = {
+      lat: hospital?.location?.coordinates?.lat,
+      lng: hospital?.location?.coordinates?.lng,
+    };
+    requestData.hospitalName = hospital?.hospitalName || hospital?.fullName;
 
     if (type === 'blood') {
       requestData.bloodType = bloodType;
@@ -246,6 +254,33 @@ export const updateRequest = async (req, res, next) => {
     );
 
     response.success(res, 200, 'Request status updated successfully', updatedRequest);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// Close a request (set status to 'completed')
+export const closeRequest = async (req, res, next) => {
+  try {
+    const { requestId } = req.params;
+
+    const request = await Request.findById(requestId);
+    if (!request) {
+      return response.error(res, 404, 'Request not found');
+    }
+
+    // Verify hospital ownership
+    if (request.hospitalId.toString() !== req.user.userId.toString()) {
+      return response.error(res, 403, 'Unauthorized access to this request');
+    }
+
+    if (request.status === 'completed') {
+      return response.error(res, 400, 'Request is already completed');
+    }
+
+    const updatedRequest = await Request.findByIdAndUpdate(requestId, { status: 'completed' }, { new: true });
+
+    return response.success(res, 200, 'Request closed successfully', updatedRequest);
   } catch (error) {
     next(error);
   }
@@ -387,6 +422,15 @@ export const updateNotificationPreferences = async (req, res, next) => {
     return response.success(res, 200, 'Notification preferences updated successfully', {
       notificationPreferences: settings.notificationPreferences,
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getBloodInventory = async (req, res, next) => {
+  try {
+    const summary = await adminService.getBloodInventorySummary(req.user.userId);
+    return response.success(res, 200, 'Blood inventory retrieved successfully', summary);
   } catch (error) {
     next(error);
   }

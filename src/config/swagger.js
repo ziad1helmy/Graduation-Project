@@ -11,8 +11,12 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: env.API_BASE_URL,
-        description: env.NODE_ENV === 'production' ? 'Production server' : 'Configured server',
+        url: 'http://localhost:5000',
+        description: 'Development server',
+      },
+      {
+        url: env.API_BASE_URL || 'https://your-api-url',
+        description: 'Production server',
       },
     ],
     components: {
@@ -25,17 +29,7 @@ const swaggerOptions = {
       },
     },
   },
-  apis: [
-    './src/routes/auth.routes.js',
-    './src/routes/donor.routes.js',
-    './src/routes/hospital.routes.js',
-    './src/routes/admin.routes.js',
-    './src/routes/reward.routes.js',
-    './src/routes/notification.routes.js',
-    './src/routes/discovery.routes.js',
-    './src/routes/help.routes.js',
-    './src/routes/support.routes.js',
-  ],
+  apis: ['./src/routes/*.js'],
 };
 
 export const swaggerSpec = swaggerJsdoc(swaggerOptions);

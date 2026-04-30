@@ -17,7 +17,7 @@ export default async function authMiddleware(req, res, next) {
   try {
     const decoded = verifyToken(token);
     const user = await User.findById(decoded.userId).select(
-      'isEmailVerified role isSuspended deletedAt +passwordChangedAt'
+      'email fullName isEmailVerified role isSuspended deletedAt +passwordChangedAt'
     );
 
     if (!user) {

@@ -71,6 +71,28 @@ router.patch('/read-all', authMiddleware, notificationController.markAllNotifica
 /**
  * @swagger
  * /notifications/{id}:
+ *   get:
+ *     summary: Get one notification
+ *     tags: [Notifications]
+ *     security: [{ bearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200:
+ *         description: Notification retrieved successfully
+ *       400:
+ *         description: Invalid notification id
+ *       404:
+ *         description: Notification not found
+ */
+router.get('/:id', authMiddleware, notificationController.getNotificationById);
+
+/**
+ * @swagger
+ * /notifications/{id}:
  *   delete:
  *     summary: Delete one notification
  *     tags: [Notifications]

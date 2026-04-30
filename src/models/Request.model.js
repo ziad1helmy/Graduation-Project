@@ -126,6 +126,13 @@ const requestSchema = new mongoose.Schema(
         message: 'Hospital contact number must be 10 digits long',
       },
     },
+    hospitalLocation: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
+    hospitalName: {
+      type: String,
+    },
   },
   {
     timestamps: true,
@@ -133,7 +140,6 @@ const requestSchema = new mongoose.Schema(
 );
 
 // Indexes for efficient queries
-requestSchema.index({ hospitalId: 1 });
 requestSchema.index({ status: 1 });
 requestSchema.index({ urgency: 1 });
 requestSchema.index({ hospitalId: 1, status: 1 });

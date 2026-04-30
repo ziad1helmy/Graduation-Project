@@ -15,7 +15,7 @@ import RewardCatalog from '../src/models/RewardCatalog.model.js';
 import RewardRedemption from '../src/models/RewardRedemption.model.js';
 import Badge from '../src/models/Badge.model.js';
 import UserBadge from '../src/models/UserBadge.model.js';
-import { seedDefaultSettings } from '../src/services/admin.service.js';
+import { seedDefaultSettings, seedDefaultRolePermissions } from '../src/services/admin.service.js';
 import { seedRewardData } from '../src/services/reward.service.js';
 
 const now = new Date();
@@ -24,6 +24,7 @@ const pastDate = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
 const demoCredentials = [
   { role: 'admin', email: 'admin@lifelink.demo', password: 'AdminPass@123' },
+  { role: 'superadmin', email: 'root@lifelink.demo', password: 'SuperAdminPass@123' },
   { role: 'donor', email: 'aya.hassan@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'omar.nabil@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'mariam.adel@lifelink.demo', password: 'DonorPass@123' },
@@ -235,6 +236,7 @@ async function main() {
   }
 
   await seedDefaultSettings();
+  await seedDefaultRolePermissions();
   await seedRewardData();
 
   const admin = await ensureAdmin({
@@ -242,6 +244,19 @@ async function main() {
     email: 'admin@lifelink.demo',
     password: 'AdminPass@123',
     role: 'admin',
+    location: {
+      city: 'Cairo',
+      governorate: 'Cairo',
+      coordinates: { lat: 30.0444, lng: 31.2357 },
+      lastUpdated: now,
+    },
+  });
+
+  await ensureAdmin({
+    fullName: 'LifeLink Super Admin',
+    email: 'root@lifelink.demo',
+    password: 'SuperAdminPass@123',
+    role: 'superadmin',
     location: {
       city: 'Cairo',
       governorate: 'Cairo',

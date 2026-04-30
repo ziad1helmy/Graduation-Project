@@ -1,52 +1,16 @@
-# LifeLink Technical Documentation
+# LifeLink Technical Documentation Hub
 
-Welcome to the LifeLink backend technical documentation hub. This directory contains API specifications, testing artifacts, and architectural information.
+Welcome to the LifeLink backend technical documentation directory. This folder contains the definitive, highly-audited artifacts detailing the system's architecture, API specifications, and Flutter integration guidelines.
 
-## Runtime Architecture
-The backend is built with:
-- **Node.js + Express**: Core web server
-- **MongoDB + Mongoose**: Database and ODM
-- **JWT**: Stateless session management and scoped tokens
-- **Firebase Admin**: Push notifications (FCM)
-- **Nodemailer**: SMTP email delivery
+## Master Documents
 
-## Authentication Flow (Verified)
-The authentication system uses role-based access control (RBAC) with MongoDB Discriminators (`User` -> `Donor` | `Hospital`).
+- **[Project Review & Technical Audit](PROJECT_REVIEW.md)**: The final forensic audit report, detailing architecture, security, test inventories (243 tests), matching algorithms, and system readiness.
+- **[Flutter Integration Guide](FLUTTER_INTEGRATION.md)**: The comprehensive developer integration contract. Includes step-by-step authentication flows, route structures, and token handling for the Flutter client team.
 
-1. **Registration**: 
-   - `POST /auth/signup`
-   - Role-specific schemas must be satisfied.
-   - An unverified account is created, returning an access/refresh token.
-2. **Email Verification**:
-   - `POST /auth/verify-email` triggers a verification email.
-   - `POST /auth/verify-email-token` verifies the token.
-3. **Login**:
-   - `POST /auth/login` checks credentials. If 2FA is active, returns a short-lived `tempToken` for `POST /auth/2fa/verify`.
-4. **FCM Tokens**:
-   - `POST /auth/fcm-token` registers a device token (Flutter should call this on startup/login).
-   - Atomic array manipulation is used to prevent race-condition defects.
+## API Specifications
 
-## Available Documentation Artifacts
-- **[Flutter Integration Guide](FLUTTER_INTEGRATION.md)**: Concise backend contract for the Flutter client, including auth flow, headers, JWT usage, and demo accounts.
-- **[OpenAPI / Swagger](../openapi.yaml)**: Definitive source for API contracts.
-- **[Postman Collection](LifeLink-Auth-API.postman_collection.json)**: Ready-to-import Postman workspace.
-- **[CURL Examples](CURL_EXAMPLES.sh)**: Executable shell script containing curl commands for all auth paths.
+- **[OpenAPI / Swagger](../openapi.yaml)**: The primary source of truth for all API contracts. Importable to Swagger UI or code generators.
+- **[Postman Collection](LifeLink-Auth-API.postman_collection.json)**: Ready-to-use Postman workspace for rapid testing.
+- **[CURL Examples](CURL_EXAMPLES.sh)**: Executable shell script containing `curl` snippets for core endpoints.
 
-## Running Tests
-For end-to-end testing, the backend provides tools to bypass standard SMTP/OTP limits in development:
-
-### 1. Seeding Test Accounts
-Use the built-in seed script to insert pre-verified test accounts directly into the database:
-```bash
-npm run seed
-```
-This generates:
-- **Donor**: `donor@test.com` / `SecurePass@123`
-- **Hospital**: `hospital@test.com` / `SecurePass@123`
-
-### 2. Auth Smoke Tests
-To run the automated E2E sequence:
-```bash
-npm run test:auth-flow
-```
-*Note: The server must be running (`npm start`) before executing smoke tests.*
+*(Note: For local environment setup, architecture diagrams, and testing commands, please refer to the [Root README](../README.md).)*

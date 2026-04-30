@@ -1,6 +1,9 @@
+import mongoose from 'mongoose';
 import response from '../utils/response.js';
 import * as notificationService from '../services/notification.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
+
+const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
 export const getNotifications = async (req, res, next) => {
   try {
@@ -29,6 +32,10 @@ export const getNotifications = async (req, res, next) => {
 
 export const markNotificationRead = async (req, res, next) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return response.error(res, 400, 'Invalid notification id');
+    }
+
     const notification = await notificationService.markAsReadForUser(req.user.userId, req.params.id);
     if (!notification) {
       return response.error(res, 404, 'Notification not found');
@@ -53,12 +60,33 @@ export const markAllNotificationsRead = async (req, res, next) => {
 
 export const deleteNotificationById = async (req, res, next) => {
   try {
+    if (!isValidObjectId(req.params.id)) {
+      return response.error(res, 400, 'Invalid notification id');
+    }
+
     const notification = await notificationService.deleteNotificationForUser(req.user.userId, req.params.id);
     if (!notification) {
       return response.error(res, 404, 'Notification not found');
     }
 
     return response.success(res, 200, 'Notification deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getNotificationById = async (req, res, next) => {
+  try {
+    if (!isValidObjectId(req.params.id)) {
+      return response.error(res, 400, 'Invalid notification id');
+    }
+
+    const notification = await notificationService.getNotificationForUser(req.user.userId, req.params.id);
+    if (!notification) {
+      return response.error(res, 404, 'Notification not found');
+    }
+
+    return response.success(res, 200, 'Notification retrieved successfully', { notification });
   } catch (error) {
     next(error);
   }

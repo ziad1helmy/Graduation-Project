@@ -40,8 +40,6 @@ const twoFactorSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-twoFactorSchema.index({ userId: 1 }, { unique: true });
-
 const TwoFactor = mongoose.model('TwoFactor', twoFactorSchema);
 
 export default TwoFactor;

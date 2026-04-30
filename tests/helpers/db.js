@@ -1,35 +1,40 @@
-/**
- * Test DB helpers — connect, disconnect, and clean collections between tests.
- */
-
 import mongoose from 'mongoose';
+import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
-/**
- * Connect to the in-memory MongoDB set up by the global setup file.
- */
-export async function connectTestDB() {
-  const uri = process.env.MONGO_URI || process.env.MONGODB_URI;
-  if (mongoose.connection.readyState !== 0) {
-    return; // already connected
-  }
+let replSet;
+
+export const connect = async () => {
+  replSet = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
+  const uri = replSet.getUri();
   await mongoose.connect(uri);
-}
+};
 
-/**
- * Drop all collections in the current database.
- * Use in afterEach or beforeEach to isolate tests.
- */
-export async function clearTestDB() {
+export const clearDatabase = async () => {
   const collections = await mongoose.connection.db.collections();
   for (const collection of collections) {
     await collection.deleteMany({});
   }
-}
+};
+
+export const closeDatabase = async () => {
+  await mongoose.disconnect();
+  if (replSet) await replSet.stop();
+};
+
+export const setupTestDB = () => {
+  beforeAll(async () => {
+    await connect();
+  });
+
+  afterEach(async () => {
+    await clearDatabase();
+  });
+
+  afterAll(async () => {
+    await closeDatabase();
+  });
+};
 
 /**
- * Disconnect and close the connection.
+ * Test DB helpers — connect, disconnect, and clean collections between tests.
  */
-export async function disconnectTestDB() {
-  await mongoose.connection.dropDatabase();
-  await mongoose.disconnect();
-}
