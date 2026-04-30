@@ -1,19 +1,25 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+if (process.env.NODE_ENV !== 'production') {
+  dotenv.config();
+}
 
 const normalizeMultilinePrivateKey = (value) => {
   if (!value || typeof value !== 'string') return undefined;
+
   const trimmed = value.trim();
+
   const unquoted =
-    (trimmed.startsWith('"') && trimmed.endsWith('"'))
-    || (trimmed.startsWith("'") && trimmed.endsWith("'"))
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
       ? trimmed.slice(1, -1)
       : trimmed;
+
   return unquoted.replace(/\\n/g, '\n');
 };
 
-const env = {
+// ✅ Dynamic getter (no freezing bug)
+const getEnv = () => ({
   NODE_ENV: process.env.NODE_ENV || 'development',
   PORT: parseInt(process.env.PORT, 10) || 5000,
 
@@ -33,7 +39,9 @@ const env = {
   API_PREFIX: process.env.API_PREFIX || '/api',
   CORS_ORIGIN: process.env.CORS_ORIGIN || '*',
   FRONTEND_URL: process.env.FRONTEND_URL || 'http://localhost:3000',
-  API_BASE_URL: process.env.API_BASE_URL || `http://localhost:${parseInt(process.env.PORT, 10) || 5000}`,
+  API_BASE_URL:
+    process.env.API_BASE_URL ||
+    `http://localhost:${parseInt(process.env.PORT, 10) || 5000}`,
 
   // Mail
   SMTP_HOST: process.env.SMTP_HOST,
@@ -42,28 +50,39 @@ const env = {
   SMTP_USER: process.env.SMTP_USER,
   SMTP_PASS: process.env.SMTP_PASS,
   MAIL_FROM: process.env.MAIL_FROM,
-  EMAIL_LOGO_URL: process.env.EMAIL_LOGO_URL,
+  EMAIL_LOGO_URL: process.env.EMAIL_LOGO_URL, // ✅ FIXED
 
   // Bcrypt
   BCRYPT_SALT_ROUNDS: parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 10,
 
-  // Firebase Cloud Messaging (FCM)
+  // Firebase
   FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
   FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
-  FIREBASE_PRIVATE_KEY: normalizeMultilinePrivateKey(process.env.FIREBASE_PRIVATE_KEY),
+  FIREBASE_PRIVATE_KEY: normalizeMultilinePrivateKey(
+    process.env.FIREBASE_PRIVATE_KEY
+  ),
   FIREBASE_SERVICE_ACCOUNT_PATH: process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
-};
+});
 
 const required = ['MONGO_URI', 'JWT_SECRET'];
 
 function validateEnv() {
+  const env = getEnv();
+
   const missing = required.filter((key) => !env[key]);
+
   if (missing.length) {
     throw new Error(
-      `Missing required environment variables: ${missing.join(', ')}. ` +
-        'Check your .env file or set them in the environment.'
+      `[ENV ERROR] Missing required environment variables: ${missing.join(
+        ', '
+      )}. Check your environment configuration.`
     );
   }
+
+  return env;
 }
 
-export { env, validateEnv };
+// ✅ IMPORTANT: keep backward compatibility
+const env = getEnv();
+
+export { env, getEnv, validateEnv };

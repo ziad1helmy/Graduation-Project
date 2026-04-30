@@ -4,7 +4,7 @@
   "description": "",
   "main": "src/app.js",
   "scripts": {
-    "start": "node scripts/run-server.js",
+    "start": "node src/server.js",
     "dev": "node scripts/run-server.js --dev",
     "generate:openapi": "node scripts/generate-openapi.js",
     "seed-demo": "node scripts/seed-demo.js",
