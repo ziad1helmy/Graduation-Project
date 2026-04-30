@@ -10,14 +10,13 @@ await connectDB();
 // Seed default system settings and reward catalog (no-op if already exist)
 await seedDefaultSettings();
 await seedRewardData();
-console.log("ENV DEBUG:", process.env);
+
 
 const server = app.listen(env.PORT, () => {
   console.log(`Server running on port ${env.PORT} (${env.NODE_ENV}) [pid ${process.pid}]`);
   console.log(`Health endpoint available at http://localhost:${env.PORT}/health`);
-  if (env.NODE_ENV !== 'production') {
-    console.log('Swagger docs available at /api-docs');
-  }
+  console.log(`API Docs available at https://graduation-project-cy61.onrender.com/api-docs`);
+
 });
 
 server.on('error', (error) => {
