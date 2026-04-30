@@ -81,7 +81,7 @@ app.use((req, res, next) => {
   next();
 });
 
-if (env.NODE_ENV !== 'production') {
+if (env.NODE_ENV !== 'test') {
   const swaggerUi = (await import('swagger-ui-express')).default;
   const { swaggerSpec } = await import('./config/swagger.js');
 
