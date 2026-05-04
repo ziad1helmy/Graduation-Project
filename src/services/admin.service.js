@@ -1,15 +1,21 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import * as jwt from '../utils/jwt.js';
+import { logger } from '../utils/logger.js';
 import AuditLog from '../models/AuditLog.model.js';
 import SystemSettings from '../models/SystemSettings.model.js';
 import User from '../models/User.model.js';
 import Donor from '../models/Donor.model.js';
 import Hospital from '../models/Hospital.model.js';
+import TwoFactor from '../models/TwoFactor.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import RolePermission from '../models/RolePermission.model.js';
+import * as hospitalService from './hospital.service.js';
+import { ERR } from '../utils/errorCodes.js';
 import { env } from '../config/env.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 
@@ -29,7 +35,9 @@ export const logAudit = async (adminId, action, targetType = null, targetId = nu
     await AuditLog.create({ adminId, action, targetType, targetId });
   } catch (error) {
     // Audit logging should never break the main operation
-    console.error('Audit log error:', error.message);
+    logger.error('Audit log error', {
+      message: error.message,
+    });
   }
 };
 
@@ -324,27 +332,30 @@ export const softDeleteUser = async (id, adminId) => {
  * Create a new hospital account (admin-created, pre-verified).
  */
 export const createHospital = async (data, adminId) => {
-  const existing = await User.findOne({ email: data.email });
-  if (existing) {
-    throw new Error('Email already registered');
-  }
+  const result = await hospitalService.createHospitalByAdmin(
+    {
+      name: data.fullName || data.name || data.hospitalName,
+      type: data.type || 'hospital',
+      email: data.email,
+      phone: data.contactNumber || data.phone,
+      address: data.address || null,
+      city: data.city,
+      state: data.state,
+      zipCode: data.zipCode,
+      licenseNumber: data.licenseNumber,
+      adminContactName: data.adminContactName,
+      adminContactPhone: data.adminContactPhone,
+      emergencyContact: data.emergencyContact,
+      bloodBanksAvailable: data.bloodBanksAvailable,
+      capacity: data.capacity,
+      lat: data.lat,
+      long: data.long,
+      password: data.password,
+    },
+    adminId
+  );
 
-  const hospital = await Hospital.create({
-    fullName: data.fullName,
-    email: data.email,
-    password: data.password, // hashed by pre-save hook
-    role: 'hospital',
-    isEmailVerified: true,
-    emailVerifiedAt: new Date(),
-    hospitalName: data.hospitalName,
-    hospitalId: data.hospitalId,
-    licenseNumber: data.licenseNumber,
-    address: data.address || {},
-    contactNumber: data.contactNumber || '',
-  });
-
-  await logAudit(adminId, 'user.create_hospital', 'User', hospital._id);
-  return hospital;
+  return result.hospital;
 };
 
 export const updateDonor = async (donorId, data, adminId) => {
@@ -352,7 +363,19 @@ export const updateDonor = async (donorId, data, adminId) => {
   if (!donor) return null;
 
   const updateData = {};
-  const allowedFields = ['fullName', 'email', 'phoneNumber', 'bloodType', 'gender', 'dateOfBirth', 'location', 'isAvailable'];
+  const allowedFields = [
+    'fullName',
+    'email',
+    'phoneNumber',
+    'bloodType',
+    'gender',
+    'location',
+    'hemoglobinLevel',
+    'travelHistory',
+    'temporaryDeferralUntil',
+    'lastDeferralReason',
+    'isAvailable',
+  ];
   for (const field of allowedFields) {
     if (data[field] !== undefined) updateData[field] = data[field];
   }
@@ -419,6 +442,11 @@ export const updateHospitalStatus = async (hospitalId, action, reason, adminId) 
 };
 
 export const createAdmin = async (data, adminId) => {
+  const requestingAdmin = await User.findById(adminId).select('role');
+  if (!requestingAdmin || requestingAdmin.role !== 'superadmin') {
+    throw new Error('Only superadmin can create admin accounts');
+  }
+
   const existing = await User.findOne({ email: data.email });
   if (existing) {
     throw new Error('Email already registered');
@@ -429,6 +457,8 @@ export const createAdmin = async (data, adminId) => {
     throw new Error('Invalid admin role');
   }
 
+  const adminKey = crypto.randomBytes(16).toString('hex');
+
   const admin = await User.create({
     fullName: data.fullName,
     email: data.email,
@@ -436,10 +466,95 @@ export const createAdmin = async (data, adminId) => {
     role,
     isEmailVerified: true,
     emailVerifiedAt: new Date(),
+    phone: data.phone || null,
+    address: data.address || null,
+    adminKey,
     location: data.location || {},
   });
 
   await logAudit(adminId, 'user.create_admin', 'User', admin._id);
+  return { ...admin.toObject(), adminKey };
+};
+
+export const loginAdmin = async (email, password, adminKey) => {
+  if (!email) throw new Error('Email is required');
+  if (!password) throw new Error('Password is required');
+  if (!adminKey) throw new Error('adminKey is required');
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail, role: { $in: ['admin', 'superadmin'] } })
+    .select('+password +adminKey +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +phone +address')
+    .lean();
+
+  if (!user) throw new Error('Invalid credentials');
+  if (user.deletedAt) throw new Error('Invalid credentials');
+  if (user.isSuspended) throw new Error('Account is suspended. Contact support.');
+  if (!user.isEmailVerified) throw new Error('Email address is not verified');
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) throw new Error('Invalid credentials');
+
+  if (String(user.adminKey || '').trim() !== String(adminKey).trim()) {
+    throw new Error(ERR.AUTH_INVALID_ADMIN_KEY);
+  }
+
+  const tf = await TwoFactor.findOne({ userId: user._id }).select('enabled secret').lean();
+  const admin = {
+    _id: user._id,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role,
+    phone: user.phone || null,
+    address: user.address || null,
+  };
+
+  const tokens = {
+    accessToken: jwt.signToken({ userId: user._id.toString(), role: user.role }),
+    refreshToken: jwt.signRefreshToken({ userId: user._id.toString(), role: user.role }),
+  };
+
+  if (tf?.enabled && tf.secret) {
+    const tempToken = jwt.signToken({ userId: user._id.toString(), role: user.role, twoFactor: true }, { expiresIn: '10m' });
+    return {
+      requires2FA: true,
+      tempToken,
+      message: '2FA verification required',
+      admin,
+    };
+  }
+
+  return {
+    ...tokens,
+    admin,
+  };
+};
+
+export const getAllAdmins = async (pagination = {}) => {
+  const { page = 1, limit = 20 } = pagination;
+  const skip = (page - 1) * limit;
+
+  const query = { deletedAt: null, role: { $in: ['admin', 'superadmin'] } };
+
+  const [admins, total] = await Promise.all([
+    User.find(query)
+      .select('fullName email role phone address adminKey isEmailVerified isSuspended createdAt updatedAt')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(parseInt(limit, 10)),
+    User.countDocuments(query),
+  ]);
+
+  return { admins, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
+};
+
+export const getAdminProfile = async (adminId) => {
+  const admin = await User.findOne({ _id: adminId, deletedAt: null, role: { $in: ['admin', 'superadmin'] } })
+    .select('fullName email role phone address isEmailVerified isSuspended createdAt updatedAt');
+
+  if (!admin) {
+    return null;
+  }
+
   return admin;
 };
 
@@ -595,6 +710,27 @@ export const updateRolePermissions = async (role, data, adminId) => {
 
   await logAudit(adminId, 'permissions.update_role', 'RolePermission', updated._id);
   return updated;
+};
+
+export const deleteRolePermission = async (role, adminId) => {
+  const normalizedRole = String(role || '').toLowerCase();
+  if (['admin', 'superadmin', 'donor', 'hospital'].includes(normalizedRole)) {
+    throw new Error('Cannot delete a system role');
+  }
+
+  const rolePermission = await RolePermission.findOne({ role: normalizedRole });
+  if (!rolePermission) return null;
+  if (rolePermission.isSystemRole || ['admin', 'superadmin', 'donor', 'hospital'].includes(rolePermission.role)) {
+    throw new Error('Cannot delete a system role');
+  }
+
+  const deleted = await RolePermission.findOneAndDelete({ role: normalizedRole });
+  
+  if (deleted) {
+    await logAudit(adminId, 'permissions.delete_role', 'RolePermission', deleted._id);
+  }
+  
+  return deleted;
 };
 
 // ──────────────────────────────────────────────

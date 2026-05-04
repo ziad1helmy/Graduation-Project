@@ -29,12 +29,13 @@ describe('Auth Smoke E2E Flow', () => {
     const testEmail = 'newdonor@example.com';
     const testPassword = 'Password123!';
 
-    // 1. POST /auth/register
+    // 1. POST /auth/signup
     let res = await request(app)
-      .post('/api/v1/auth/register')
+      .post('/auth/signup')
       .send({
         email: testEmail,
         password: testPassword,
+        confirmPassword: testPassword,
         role: 'donor',
         fullName: 'New Donor',
         phoneNumber: '01011112222',
@@ -56,8 +57,8 @@ describe('Auth Smoke E2E Flow', () => {
     
     // 3. POST /auth/login
     res = await request(app)
-      .post('/api/v1/auth/login')
-      .send({ email: testEmail, password: testPassword });
+      .post('/auth/login')
+      .send({ email: testEmail, password: testPassword, role: 'donor' });
     
     expect(res.status).toBe(200);
     expect(res.body.data.accessToken).toBeDefined();
@@ -68,7 +69,7 @@ describe('Auth Smoke E2E Flow', () => {
 
     // 4. GET /auth/me
     res = await request(app)
-      .get('/api/v1/auth/me')
+      .get('/auth/me')
       .set('Authorization', `Bearer ${accessToken}`);
     
     expect(res.status).toBe(200);
@@ -76,7 +77,7 @@ describe('Auth Smoke E2E Flow', () => {
 
     // 5. POST /auth/logout
     res = await request(app)
-      .post('/api/v1/auth/logout')
+      .post('/auth/logout')
       .set('Authorization', `Bearer ${accessToken}`)
       .send({ refreshToken });
     

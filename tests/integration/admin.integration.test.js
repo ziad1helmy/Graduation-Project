@@ -20,8 +20,8 @@ describe('Admin Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('user');
-    expect(response.body.data.user.role).toBe('admin');
+    expect(response.body.data).toHaveProperty('admin');
+    expect(response.body.data.admin.role).toBe('admin');
   });
 
   it('GET /admin/profile requires admin role', async () => {
@@ -185,7 +185,7 @@ describe('Admin Routes Integration', () => {
 
   it('GET /admin/admins returns list of admins', async () => {
     await clearDatabase();
-    const admin = await createAdmin();
+    const admin = await createAdmin({ role: 'superadmin' });
 
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
@@ -195,7 +195,7 @@ describe('Admin Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('users');
+    expect(response.body.data).toHaveProperty('admins');
   });
 
   it('GET /admin/donors/:id returns donor details', async () => {
@@ -234,7 +234,7 @@ describe('Admin Routes Integration', () => {
 
   it('GET /admin/admins/:id returns admin details', async () => {
     await clearDatabase();
-    const admin1 = await createAdmin();
+    const admin1 = await createAdmin({ role: 'superadmin' });
     const admin2 = await createAdmin();
 
     const token = signToken({ userId: admin1._id.toString(), role: admin1.role });

@@ -18,7 +18,8 @@ export const buildDonor = (overrides = {}) => ({
   fullName: 'Test Donor',
   email: 'donor@example.com',
   password: 'Password123!',
-  phoneNumber: '0123456789',
+  confirmPassword: 'Password123!',
+  phoneNumber: '01012345678',
   dateOfBirth: '1990-01-01',
   bloodType: 'A+',
   ...overrides,
@@ -29,7 +30,7 @@ export const buildDonor = (overrides = {}) => ({
  */
 export async function createDonor(overrides = {}) {
   const n = nextNum();
-  const phone = String(n).padStart(10, '1').slice(-10); // always 10 digits
+  const phone = String(n).padStart(11, '1').slice(-11); // always 11 digits
   return Donor.create({
     fullName: `Test Donor ${n}`,
     email: `donor${n}_${Date.now()}@test.com`,
@@ -56,17 +57,22 @@ export async function createDonor(overrides = {}) {
  */
 export async function createHospital(overrides = {}) {
   const n = nextNum();
-  const phone = String(n).padStart(10, '1').slice(-10);
+  const phone = String(n).padStart(11, '1').slice(-11);
   return Hospital.create({
     fullName: `Test Hospital Admin ${n}`,
+    name: `Test Hospital ${n}`,
+    hospitalName: `Test Hospital ${n}`,
     email: `hospital${n}_${Date.now()}@test.com`,
     password: 'TestPass@123',
     role: 'hospital',
-    hospitalName: `Test Hospital ${n}`,
-    hospitalId: 1000000 + n,
-    licenseNumber: `LIC-TEST-${n}`,
+    type: 'hospital',
+    phone,
     contactNumber: phone,
+    licenseNumber: `LIC-TEST-${n}`,
     address: { city: 'Cairo', governorate: 'Cairo' },
+    city: 'Cairo',
+    state: 'Cairo',
+    zipCode: '11511',
     isEmailVerified: true,
     location: {
       city: 'Cairo',

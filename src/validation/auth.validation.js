@@ -1,13 +1,25 @@
 /**
  * Auth Service Validation Layer
- * Handles validation for registration and login with role-specific fields
+ * Handles validation for registration and login with strict role-specific field separation
+ * Supports Arabic and English text input for names and text fields
  */
 
-const VALIDATION_RULES = {
+import { calculateAge } from '../utils/age.js';
+import { isValidArabicEnglishText } from '../utils/textNormalization.js';
+
+// Regex pattern for Arabic + English text (letters + spaces + dash + dot)
+// Allows: Arabic (ا-ي, ء-ة), English (a-z, A-Z), spaces, dots (.), dashes (-)
+// Rejects: numbers, special characters
+const ARABIC_ENGLISH_PATTERN = /^[\u0600-\u06FFa-zA-Z\s\.\-]+$/;
+
+// BASE VALIDATION RULES (all roles)
+const BASE_RULES = {
   fullName: {
     required: true,
     minLength: 3,
     maxLength: 100,
+    pattern: ARABIC_ENGLISH_PATTERN,
+    errorMessage: 'fullName can contain Arabic and English letters, spaces, dots, and dashes only',
   },
   email: {
     required: true,
@@ -21,12 +33,16 @@ const VALIDATION_RULES = {
   },
   role: {
     required: true,
-    enum: ['donor', 'hospital'],
+    enum: ['donor', 'hospital', 'admin'],
   },
-  // Donor-specific fields
+};
+
+// DONOR-SPECIFIC VALIDATION RULES
+const DONOR_RULES = {
   phoneNumber: {
-    pattern: /^[0-9]{10}$/,
-    errorMessage: 'Phone number must be 10 digits',
+    required: true,
+    pattern: /^[0-9]{11}$/,
+    errorMessage: 'Phone number must be 11 digits',
   },
   dateOfBirth: {
     required: true,
@@ -37,24 +53,53 @@ const VALIDATION_RULES = {
     },
     errorMessage: 'Date of birth must be a valid past date',
   },
-  gender: {
-    enum: ['male', 'female', 'not specified'],
+  bloodType: {
+    required: true,
+    enum: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
+    errorMessage: 'bloodType must be one of A+, A-, B+, B-, AB+, AB-, O+, O-',
   },
-  // Hospital-specific fields
+  gender: {
+    required: false,
+    enum: ['male', 'female'],
+  },
+};
+
+// HOSPITAL-SPECIFIC VALIDATION RULES
+const HOSPITAL_RULES = {
   hospitalName: {
     required: true,
     minLength: 3,
     maxLength: 200,
-  },
-  hospitalId: {
-    required: true,
-    type: 'number',
+    pattern: ARABIC_ENGLISH_PATTERN,
+    errorMessage: 'hospitalName can contain Arabic and English letters, spaces, dots, and dashes only',
   },
   licenseNumber: {
     required: true,
     minLength: 5,
     maxLength: 50,
   },
+  address: {
+    required: false,
+    minLength: 3,
+    maxLength: 300,
+    pattern: ARABIC_ENGLISH_PATTERN,
+    errorMessage: 'address can contain Arabic and English letters, spaces, dots, and dashes only',
+  },
+};
+
+// SHARED VALIDATION RULES
+const SHARED_RULES = {
+  confirmPassword: {
+    required: true,
+  },
+};
+
+// Merged rule set for validateField()
+const VALIDATION_RULES = {
+  ...BASE_RULES,
+  ...DONOR_RULES,
+  ...HOSPITAL_RULES,
+  ...SHARED_RULES,
 };
 
 /**
@@ -123,19 +168,44 @@ const validateField = (fieldName, value) => {
 };
 
 /**
- * Validate login data
- * @param {object} data - Login data { email, password }
+ * Validate login data with role-specific requirements
+ * @param {object} data - Login data { email, password, role, licenseNumber?, adminCode? }
  * @returns {object} { valid: boolean, errors: object }
  */
 export const validateLogin = (data) => {
   const errors = {};
+  const { role } = data;
 
-  ['email', 'password'].forEach((field) => {
+  // Validate base fields (email, password, role)
+  ['email', 'password', 'role'].forEach((field) => {
     const { valid, error } = validateField(field, data[field]);
     if (!valid) {
       errors[field] = error;
     }
   });
+
+  // Role-specific validation
+  if (role === 'hospital') {
+    // Hospital requires licenseNumber
+    if (data.licenseNumber === undefined || data.licenseNumber === null || data.licenseNumber === '') {
+      errors.licenseNumber = 'licenseNumber is required for hospital login';
+    } else {
+      const { valid, error } = validateField('licenseNumber', data.licenseNumber);
+      if (!valid) {
+        errors.licenseNumber = error;
+      }
+    }
+  } else if (role === 'admin') {
+    // Admin requires adminCode
+    if (data.adminCode === undefined || data.adminCode === null || data.adminCode === '') {
+      errors.adminCode = 'adminCode is required for admin login';
+    } else {
+      const { valid, error } = validateField('adminCode', data.adminCode);
+      if (!valid) {
+        errors.adminCode = error;
+      }
+    }
+  }
 
   return {
     valid: Object.keys(errors).length === 0,
@@ -160,6 +230,16 @@ export const validateRegister = (data) => {
     }
   });
 
+  // confirmPassword must match password (always checked when registering)
+  if (data.password) {
+    const confirm = data.confirmPassword;
+    if (confirm === undefined || confirm === null || confirm === '') {
+      errors.confirmPassword = 'confirmPassword is required';
+    } else if (String(confirm) !== String(data.password)) {
+      errors.confirmPassword = 'confirmPassword must match password';
+    }
+  }
+
   // Validate role-specific required fields
   if (role === 'donor') {
     ['phoneNumber', 'dateOfBirth'].forEach((field) => {
@@ -169,6 +249,11 @@ export const validateRegister = (data) => {
       }
     });
 
+    const age = calculateAge(data.dateOfBirth);
+    if (!errors.dateOfBirth && age !== null && age < 17) {
+      errors.dateOfBirth = 'You must be at least 17 years old to donate';
+    }
+
     // Validate optional donor fields
     if (data.gender) {
       const { valid, error } = validateField('gender', data.gender);
@@ -176,8 +261,15 @@ export const validateRegister = (data) => {
         errors.gender = error;
       }
     }
+
+    // Validate bloodType
+    const { valid: btValid, error: btError } = validateField('bloodType', data.bloodType);
+    if (!btValid) {
+      errors.bloodType = btError;
+    }
   } else if (role === 'hospital') {
-    ['hospitalName', 'hospitalId', 'licenseNumber'].forEach((field) => {
+    // Hospital requires: hospitalName and licenseNumber (only these)
+    ['hospitalName', 'licenseNumber'].forEach((field) => {
       const { valid, error } = validateField(field, data[field]);
       if (!valid) {
         errors[field] = error;

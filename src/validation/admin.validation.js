@@ -90,6 +90,90 @@ export const validateCreateHospitalBody = (body) => {
     errors.push('licenseNumber is required');
   }
 
+  if (body.lat === undefined || body.lat === null || typeof body.lat !== 'number') {
+    errors.push('lat (number) is required');
+  } else if (body.lat < -90 || body.lat > 90) {
+    errors.push('lat must be between -90 and 90');
+  }
+
+  if (body.long === undefined || body.long === null || typeof body.long !== 'number') {
+    errors.push('long (number) is required');
+  } else if (body.long < -180 || body.long > 180) {
+    errors.push('long must be between -180 and 180');
+  }
+
+  return { valid: errors.length === 0, errors };
+};
+
+/**
+ * Validate admin creation payload.
+ */
+export const validateCreateAdminBody = (body) => {
+  const errors = [];
+  const validRoles = ['admin', 'superadmin'];
+
+  if (!body.fullName || typeof body.fullName !== 'string') {
+    errors.push('fullName is required');
+  }
+
+  if (!body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+    errors.push('Valid email is required');
+  }
+
+  if (!body.password || typeof body.password !== 'string' || body.password.length < 8) {
+    errors.push('Password must be at least 8 characters');
+  }
+
+  if (body.role && !validRoles.includes(body.role)) {
+    errors.push(`role must be one of: ${validRoles.join(', ')}`);
+  }
+
+  return { valid: errors.length === 0, errors };
+};
+
+/**
+ * Validate admin-created hospital payload for the new hospital form.
+ */
+export const validateCreateHospitalByAdminBody = (body) => {
+  const errors = [];
+  const validBloodTypes = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
+
+  if (!body.name || typeof body.name !== 'string') {
+    errors.push('name is required');
+  }
+
+  if (!body.type || typeof body.type !== 'string') {
+    errors.push('type is required');
+  }
+
+  if (!body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+    errors.push('Valid email is required');
+  }
+
+  if (!body.phone || typeof body.phone !== 'string') {
+    errors.push('phone is required');
+  }
+
+  if (!body.licenseNumber || typeof body.licenseNumber !== 'string') {
+    errors.push('licenseNumber is required');
+  }
+
+  if (body.bloodBanksAvailable !== undefined) {
+    if (!Array.isArray(body.bloodBanksAvailable)) {
+      errors.push('bloodBanksAvailable must be an array');
+    } else {
+      for (const bloodType of body.bloodBanksAvailable) {
+        if (!validBloodTypes.includes(bloodType)) {
+          errors.push(`Invalid blood type: ${bloodType}`);
+        }
+      }
+    }
+  }
+
+  if (body.capacity !== undefined && body.capacity !== null && body.capacity !== '' && Number.isNaN(Number(body.capacity))) {
+    errors.push('capacity must be a number');
+  }
+
   return { valid: errors.length === 0, errors };
 };
 

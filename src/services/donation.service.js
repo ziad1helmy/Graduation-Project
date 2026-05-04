@@ -3,6 +3,7 @@ import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import * as matchingService from './matching.service.js';
 import * as rewardService from './reward.service.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Donation Service - Manages donation lifecycle and eligibility
@@ -17,7 +18,7 @@ import * as rewardService from './reward.service.js';
 export const validateEligibility = async (donor, request) => {
   try {
     // Use matching service to check eligibility
-    const eligibility = matchingService.checkEligibility(donor, request);
+    const eligibility = await matchingService.checkEligibility(donor, request);
     return eligibility;
   } catch (error) {
     return { eligible: false, reason: 'Error validating eligibility: ' + error.message };
@@ -127,7 +128,9 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
           const isEmergency = req?.urgency === 'critical';
           return rewardService.onDonationCompleted(donation.donorId, donation._id, isEmergency);
         })
-        .catch((e) => console.error('[DonationService] reward trigger error:', e.message));
+        .catch((e) => logger.error('Reward trigger error', {
+          message: e.message,
+        }));
     }
 
     return donation;

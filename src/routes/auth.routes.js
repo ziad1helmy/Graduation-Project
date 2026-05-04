@@ -5,6 +5,17 @@ import authMiddleware from '../middlewares/auth.middleware.js';
 const router = Router();
 
 /**
+ * @swagger
+ * tags:
+ *   - name: Auth - Donor
+ *     description: Donor registration and authentication (signup, email verification, login)
+ *   - name: Auth - Hospital
+ *     description: Hospital registration and authentication (signup, email verification, login)
+ *   - name: Auth
+ *     description: General authentication (logout, refresh token, password reset, 2FA)
+ */
+
+/**
  * @openapi
  * components:
  *   schemas:
@@ -17,91 +28,63 @@ const router = Router();
  *         email:
  *           type: string
  *           format: email
- *           example: sara@example.com
  *         password:
  *           type: string
  *           format: password
- *           example: SecurePass@123
  *         role:
  *           type: string
- *           enum: [donor, hospital]
+ *           enum: [donor, hospital, admin]
  *     SignupDonorRequest:
  *       allOf:
  *         - $ref: '#/components/schemas/BaseUser'
  *         - type: object
- *           required: [phoneNumber, dateOfBirth]
+ *           required: [phoneNumber, dateOfBirth, bloodType, confirmPassword]
  *           properties:
- *             role:
- *               type: string
- *               enum: [donor]
  *             phoneNumber:
  *               type: string
  *             dateOfBirth:
  *               type: string
  *               format: date
- *             gender:
- *               type: string
- *               enum: [male, female, not specified]
  *             bloodType:
  *               type: string
- *               enum: [A+, A-, B+, B-, AB+, AB-, O+, O-]
- *             location:
- *               type: object
- *               properties:
- *                 city:
- *                   type: string
- *                 governorate:
- *                   type: string
+ *             confirmPassword:
+ *               type: string
+ *               format: password
  *     SignupHospitalRequest:
  *       allOf:
  *         - $ref: '#/components/schemas/BaseUser'
  *         - type: object
- *           required: [hospitalName, hospitalId, licenseNumber]
+ *           required: [hospitalName, licenseNumber]
  *           properties:
- *             role:
- *               type: string
- *               enum: [hospital]
  *             hospitalName:
  *               type: string
- *             hospitalId:
- *               type: number
  *             licenseNumber:
  *               type: string
- *             address:
- *               type: object
- *               properties:
- *                 city:
- *                   type: string
- *                 governorate:
- *                   type: string
+ *             phone:
+ *               type: string
  *             contactNumber:
  *               type: string
- *             location:
- *               type: object
- *               properties:
- *                 city:
- *                   type: string
- *                 governorate:
- *                   type: string
+ *             type:
+ *               type: string
+ *               example: hospital
  *     LoginRequest:
  *       type: object
- *       required: [password]
+ *       required: [email, password, role]
  *       properties:
  *         email:
  *           type: string
  *           format: email
- *         email_or_phone:
- *           type: string
  *         password:
  *           type: string
  *           format: password
+ *         role:
+ *           type: string
+ *           enum: [donor, hospital, admin]
  *     RefreshTokenRequest:
  *       type: object
  *       required: [refreshToken]
  *       properties:
  *         refreshToken:
- *           type: string
- *         refresh_token:
  *           type: string
  *     EmailRequest:
  *       type: object
@@ -110,8 +93,6 @@ const router = Router();
  *         email:
  *           type: string
  *           format: email
- *         email_or_phone:
- *           type: string
  *     TokenRequest:
  *       type: object
  *       required: [token]
@@ -125,11 +106,7 @@ const router = Router();
  *         email:
  *           type: string
  *           format: email
- *         email_or_phone:
- *           type: string
  *         otp:
- *           type: string
- *         otp_code:
  *           type: string
  *     AuthTokens:
  *       type: object
@@ -144,32 +121,31 @@ const router = Router();
  *       properties:
  *         fcmToken:
  *           type: string
- *           example: fcm-device-token-from-flutter
  *     ErrorResponse:
  *       type: object
  *       properties:
  *         success:
  *           type: boolean
- *           example: false
+ *         code:
+ *           type: string
  *         message:
  *           type: string
+ *     ApiSuccessResponse:
+ *       type: object
+ *       properties:
+ *         success:
+ *           type: boolean
+ *         data:
+ *           nullable: true
+ *     ApiErrorResponse:
+ *       allOf:
+ *         - $ref: '#/components/schemas/ErrorResponse'
  *
  * /auth/signup:
  *   post:
- *     tags: [Auth]
+ *     tags: [Auth - General]
  *     summary: Register a new donor or hospital account
- *     description: |
- *       Creates a user, returns access/refresh tokens, and triggers email verification.
- *       In non-production environments the response may include `verificationToken`
- *       for local testing and E2E automation when SMTP is not configured.
- *     parameters:
- *       - in: header
- *         name: x-test-mode
- *         required: false
- *         schema:
- *           type: string
- *           enum: ['true']
- *         description: Development-only header to bypass rate limiting for automated tests.
+ *     description: Create a new account as donor or hospital. Donor signup requires phoneNumber, dateOfBirth, bloodType. Hospital signup requires hospitalName, licenseNumber
  *     requestBody:
  *       required: true
  *       content:
@@ -180,26 +156,17 @@ const router = Router();
  *               - $ref: '#/components/schemas/SignupHospitalRequest'
  *     responses:
  *       '201':
- *         description: User registered successfully
+ *         description: User registered successfully - Email verification required
  *       '400':
  *         description: Validation or registration error
+ *       '409':
+ *         description: Email already registered
  *
  * /auth/login:
  *   post:
- *     tags: [Auth]
- *     summary: Login with email and password
- *     description: |
- *       Returns access and refresh tokens when credentials are valid and 2FA is not enabled.
- *       If 2FA is enabled, the response returns `requires2FA` and a short-lived `tempToken`
- *       instead of normal auth tokens. Compatibility aliases are also mounted under `/api/v1/auth/*`.
- *     parameters:
- *       - in: header
- *         name: x-test-mode
- *         required: false
- *         schema:
- *           type: string
- *           enum: ['true']
- *         description: Development-only header to bypass rate limiting for automated tests.
+ *     tags: [Auth - Donor]
+ *     summary: Donor login with email and password
+ *     description: Authenticate as a donor user. Returns JWT token. Supports optional 2FA
  *     requestBody:
  *       required: true
  *       content:
@@ -210,23 +177,55 @@ const router = Router();
  *       '200':
  *         description: Login successful or 2FA verification required
  *       '400':
- *         description: Invalid credentials or unverified email
- *
- * /auth/register:
+ *         description: Validation error or invalid credentials
+ *       '403':
+ *         description: Email not verified or account suspended
+
+ * /auth/hospital/login:
  *   post:
- *     tags: [Auth]
- *     summary: Register a new user (compatibility alias)
+ *     tags: [Auth - Hospital]
+ *     summary: Hospital login with email and password
+ *     description: Authenticate as a hospital user. Returns JWT token
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             oneOf:
- *               - $ref: '#/components/schemas/SignupDonorRequest'
- *               - $ref: '#/components/schemas/SignupHospitalRequest'
+ *             $ref: '#/components/schemas/LoginRequest'
  *     responses:
- *       '201':
- *         description: User registered successfully
+ *       '200':
+ *         description: Hospital login successful
+ *       '400':
+ *         description: Validation error or invalid credentials
+ *       '403':
+ *         description: Email not verified or hospital not approved
+
+ * /auth/admin/login:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Admin/Superadmin login with email, password, and adminKey
+ *     description: Authenticate as admin or superadmin. Requires email, password, and adminKey secret
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [email, password, adminKey]
+ *             properties:
+ *               email:
+ *                 type: string
+ *                 format: email
+ *               password:
+ *                 type: string
+ *                 format: password
+ *               adminKey:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Admin login successful or 2FA verification required
+ *       '400':
+ *         description: Validation error or invalid credentials
  *
  * /auth/validate-token:
  *   post:
@@ -242,10 +241,6 @@ const router = Router();
  *   post:
  *     tags: [Auth]
  *     summary: Send a password reset OTP
- *     description: |
- *       This endpoint is only used for password reset verification.
- *       It invalidates previous unused password reset OTPs for the same account
- *       and sends a password-reset-only OTP email with a 10 minute expiry.
  *     requestBody:
  *       required: true
  *       content:
@@ -260,9 +255,6 @@ const router = Router();
  *   post:
  *     tags: [Auth]
  *     summary: Verify password reset OTP
- *     description: |
- *       Validates the OTP and returns a short-lived `resetToken`.
- *       The returned token is only valid for `POST /auth/reset-password`.
  *     requestBody:
  *       required: true
  *       content:
@@ -296,13 +288,6 @@ const router = Router();
  *           schema:
  *             type: object
  *             required: [code]
- *             properties:
- *               code:
- *                 type: string
- *               otp:
- *                 type: string
- *               otp_code:
- *                 type: string
  *     responses:
  *       '200':
  *         description: 2FA setup verified successfully
@@ -311,9 +296,6 @@ const router = Router();
  *   post:
  *     tags: [Auth]
  *     summary: Complete login by verifying a 2FA code
- *     description: |
- *       Accepts the short-lived `tempToken` returned by `/auth/login` when `requires2FA` is true.
- *       On success it returns normal auth tokens.
  *     requestBody:
  *       required: true
  *       content:
@@ -321,17 +303,6 @@ const router = Router();
  *           schema:
  *             type: object
  *             required: [tempToken, code]
- *             properties:
- *               tempToken:
- *                 type: string
- *               temp_token:
- *                 type: string
- *               code:
- *                 type: string
- *               otp:
- *                 type: string
- *               otp_code:
- *                 type: string
  *     responses:
  *       '200':
  *         description: 2FA verified successfully
@@ -349,220 +320,18 @@ const router = Router();
  *           schema:
  *             type: object
  *             required: [password]
- *             properties:
- *               password:
- *                 type: string
- *                 format: password
  *     responses:
  *       '200':
  *         description: 2FA disabled successfully
- *
- * /auth/logout:
- *   post:
- *     tags: [Auth]
- *     summary: Logout and blacklist refresh token
- *     description: |
- *       Stores a SHA-256 hash of the refresh token in blacklist storage.
- *       Blacklisted tokens are denied on subsequent refresh attempts.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/RefreshTokenRequest'
- *     responses:
- *       '200':
- *         description: Logged out successfully
- *
- * /auth/refresh-token:
- *   post:
- *     tags: [Auth]
- *     summary: Issue a new access token from refresh token
- *     description: |
- *       Rejects blacklisted tokens and tokens issued before `passwordChangedAt`.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/RefreshTokenRequest'
- *     responses:
- *       '200':
- *         description: Token refreshed
- *       '400':
- *         description: Invalid, expired, blacklisted, or stale refresh token
- *
- * /auth/forgot-password:
- *   post:
- *     tags: [Auth]
- *     summary: Request password reset
- *     description: |
- *       Always returns success to prevent account enumeration.
- *       If account exists, reset token email is sent.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/EmailRequest'
- *     responses:
- *       '200':
- *         description: Password reset request accepted
- *
- * /auth/reset-password:
- *   post:
- *     tags: [Auth]
- *     summary: Reset password with token
- *     description: |
- *       Accepts either the existing email reset link token or the short-lived `resetToken`
- *       returned by `/auth/verify-otp`. The token is password-reset-specific, not a normal auth token.
- *       Successful resets invalidate previously issued sessions via `passwordChangedAt`.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [token, password]
- *             properties:
- *               token:
- *                 type: string
- *               reset_token:
- *                 type: string
- *               password:
- *                 type: string
- *                 format: password
- *               new_password:
- *                 type: string
- *                 format: password
- *     responses:
- *       '200':
- *         description: Password reset successful
- *
- * /auth/verify-email:
- *   post:
- *     tags: [Auth]
- *     summary: Send email verification message
- *     description: Creates a new verification token and sends verification email.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/EmailRequest'
- *     responses:
- *       '200':
- *         description: Verification email sent
- *
- * /auth/verify-email-token:
- *   post:
- *     tags: [Auth]
- *     summary: Verify email with token
- *     description: |
- *       Marks account as verified if token is valid and not expired.
- *       Browser requests receive a lightweight success or failure HTML page for demo-friendly UX.
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/TokenRequest'
- *     responses:
- *       '200':
- *         description: Email verified successfully
- *
- * /auth/me:
- *   get:
- *     tags: [Auth]
- *     summary: Get current authenticated user
- *     security:
- *       - bearerAuth: []
- *     description: |
- *       Requires a valid access token. Access tokens issued before password reset
- *       are rejected by auth middleware.
- *     responses:
- *       '200':
- *         description: User retrieved
- *       '401':
- *         description: Unauthorized
- *
- * /auth/fcm-token:
- *   post:
- *     tags: [Auth]
- *     summary: Register the current device FCM token
- *     description: |
- *       Stores the device token for the authenticated user using a deduplicated token array.
- *       Flutter should call this on app startup or immediately after login, and again when Firebase
- *       refreshes the token. The same endpoint is also mounted under `/api/v1/auth/fcm-token`.
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/FcmTokenRequest'
- *     responses:
- *       '200':
- *         description: FCM token registered successfully
- *       '400':
- *         description: Missing or empty token
- *       '401':
- *         description: Unauthorized
- *
- *   put:
- *     tags: [Auth]
- *     summary: Replace the stored FCM tokens with the current active device token
- *     description: |
- *       Lightweight bulk-replace helper for login/startup flows. It keeps only the provided token for
- *       the authenticated user and is also available under `/api/v1/auth/fcm-token`.
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/FcmTokenRequest'
- *     responses:
- *       '200':
- *         description: FCM token updated successfully
- *       '400':
- *         description: Missing or empty token
- *       '401':
- *         description: Unauthorized
- *
- *   delete:
- *     tags: [Auth]
- *     summary: Remove a device FCM token
- *     description: |
- *       Removes the provided token if present. Safe to call on logout, app reinstall, or when cleaning
- *       up stale tokens. The same endpoint is also mounted under `/api/v1/auth/fcm-token`.
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/FcmTokenRequest'
- *     responses:
- *       '200':
- *         description: FCM token removed successfully
- *       '400':
- *         description: Missing or empty token
- *       '401':
- *         description: Unauthorized
  */
-
+router.post('/reset-password', AUC.resetPassword);
 router.post('/signup', AUC.register);
-router.post('/register', AUC.register);
-router.post('/login', AUC.login);
+router.post('/login', AUC.loginUser);
+router.post('/hospital/login', AUC.loginHospital);
+router.post('/admin/login', AUC.loginAdmin);
 router.post('/logout', AUC.logout);
 router.post('/refresh-token', AUC.refreshToken);
 router.post('/forgot-password', AUC.forgotPassword);
-router.post('/reset-password', AUC.resetPassword);
-router.post('/password-reset', AUC.resetPassword);
 router.post('/send-otp', AUC.sendOtp);
 router.post('/verify-otp', AUC.verifyOtp);
 router.post('/2fa/setup', authMiddleware, AUC.setup2FA);

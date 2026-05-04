@@ -8,6 +8,7 @@ import UserBadge from '../models/UserBadge.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
 import { paginationMeta } from '../utils/pagination.js';
+import { logger } from '../utils/logger.js';
 
 // ──────────────────────────────────────────────
 //  Seed Data
@@ -41,7 +42,9 @@ export const seedRewardData = async () => {
       await RewardCatalog.findOneAndUpdate({ name: reward.name }, { $setOnInsert: reward }, { upsert: true });
     }
   } catch (err) {
-    console.error('[Rewards] Seed error:', err.message);
+    logger.error('Reward seed error', {
+      message: err.message,
+    });
   }
 };
 
@@ -178,10 +181,14 @@ export const onDonationCompleted = async (donorId, donationId, isEmergency = fal
     }
 
     // Check badges (fire-and-forget — never blocks the main flow)
-    checkAndUpdateBadges(donorId).catch((e) => console.error('[Rewards] Badge check error:', e.message));
+    checkAndUpdateBadges(donorId).catch((e) => logger.error('Badge check error', {
+      message: e.message,
+    }));
   } catch (err) {
     // Reward errors must NEVER break the donation flow
-    console.error('[Rewards] onDonationCompleted error:', err.message);
+    logger.error('Reward donation completion error', {
+      message: err.message,
+    });
   }
 };
 
@@ -196,7 +203,9 @@ export const onProfileCompleted = async (donorId) => {
     await awardPoints(donorId, POINTS_CONFIG.PROFILE_COMPLETION, 'PROFILE_COMPLETION', 'Profile Completed', `profile_${donorId}`);
     await DonorPoints.findOneAndUpdate({ donorId }, { profileCompletionAwarded: true });
   } catch (err) {
-    console.error('[Rewards] onProfileCompleted error:', err.message);
+    logger.error('Reward profile completion error', {
+      message: err.message,
+    });
   }
 };
 

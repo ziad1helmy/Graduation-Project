@@ -5,6 +5,7 @@ import morgan from 'morgan';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { env } from './config/env.js';
+import { logger, requestLogger, securityLogger } from './utils/logger.js';
 import authRoutes from './routes/auth.routes.js';
 import donorRoutes from './routes/donor.routes.js';
 import hospitalRoutes from './routes/hospital.routes.js';
@@ -16,6 +17,7 @@ import notificationRoutes from './routes/notification.routes.js';
 import discoveryRoutes from './routes/discovery.routes.js';
 import helpRoutes from './routes/help.routes.js';
 import supportRoutes from './routes/support.routes.js';
+import activityRoutes from './routes/activity.routes.js';
 import errorMiddleware from './middlewares/error.middleware.js';
 import { authLimiter, limiter } from './middlewares/rateLimit.middleware.js';
 import maintenanceMiddleware from './middlewares/maintenance.middleware.js';
@@ -28,9 +30,14 @@ const app = express();
 const startedAt = new Date().toISOString();
 
 // ─── Core middleware ──────────────────────────────────────────────────────────
-app.use(helmet());
+// Security & CORS
+app.use(helmet()); // Security headers (applied globally before routes)
 app.use(cors({ origin: env.CORS_ORIGIN }));
-app.use(morgan(env.NODE_ENV === 'development' ? 'dev' : 'combined'));
+
+// Logging middleware (logs all requests with response time)
+app.use(requestLogger);
+
+// Body parsing
 app.use(express.json({ limit: '1mb' }));
 
 // ─── NoSQL injection sanitizer ────────────────────────────────────────────────
@@ -72,7 +79,7 @@ app.use((req, res, next) => {
     const opts = {
       replaceWith: '_',
       onSanitize: ({ req, key }) => {
-        console.warn(`[sanitize] Removed dangerous key: ${key}`);
+        securityLogger.injectionAttempt(req.ip, key);
       },
     };
     if (req.body && typeof req.body === 'object')
@@ -82,7 +89,10 @@ app.use((req, res, next) => {
     if (req.query && typeof req.query === 'object')
       sanitizeInPlace(req.query, { replaceWith: opts.replaceWith, request: req, onSanitize: opts.onSanitize });
   } catch (err) {
-    console.warn('[sanitize] error:', err?.message ?? err);
+    logger.warn('Sanitization error', {
+      message: err?.message,
+      ip: req.ip,
+    });
   }
   next();
 });
@@ -108,7 +118,6 @@ app.get('/favicon.ico', (req, res) => res.status(204).end());
 // ─── Routes ───────────────────────────────────────────────────────────────────
 // Admin BEFORE maintenance middleware so admins always have access
 app.use('/admin', limiter, adminRoutes);
-app.use('/api/v1/admin', limiter, adminRoutes);
 
 // Maintenance check — blocks non-admin routes when enabled
 app.use(maintenanceMiddleware);
@@ -131,11 +140,11 @@ if (env.NODE_ENV !== 'test') {
         },
         servers: [
           {
-            url: 'https://graduation-project-cy61.onrender.com/api/v1',
+            url: 'https://graduation-project-cy61.onrender.com',
             description: 'Production (Render)',
           },
           {
-            url: 'http://localhost:5000/api/v1',
+            url: 'http://localhost:5000',
             description: 'Local development',
           },
         ],
@@ -167,42 +176,29 @@ if (env.NODE_ENV !== 'test') {
       res.json(swaggerSpec);
     });
 
-    console.log('[swagger] ✅ Docs available at /api-docs');
+    logger.info('Swagger documentation initialized', {
+      endpoint: '/api-docs',
+    });
   } catch (err) {
-    console.error('[swagger] ❌ Failed to initialize:', err?.message ?? err);
+    logger.error('Failed to initialize Swagger documentation', {
+      message: err?.message,
+    });
   }
 }
 
 // ─── Business Routes ──────────────────────────────────────────────────────────
+// Mount all routes at base path
 app.use('/auth', authLimiter, authRoutes);
-app.use('/api/v1/auth', authLimiter, authRoutes);
-
 app.use('/donor', limiter, donorRoutes);
-app.use('/api/v1/donor', limiter, donorRoutes);
-
+app.use('/donor', limiter, activityRoutes);
 app.use('/hospital', limiter, hospitalRoutes);
-app.use('/api/v1/hospital', limiter, hospitalRoutes);
-
 app.use('/rewards', limiter, rewardRoutes);
-app.use('/api/v1/rewards', limiter, rewardRoutes);
-
 app.use('/donations/book-appointment', limiter, appointmentRoutes);
-app.use('/api/v1/donations/book-appointment', limiter, appointmentRoutes);
-
 app.use('/donations', limiter, donationRoutes);
-app.use('/api/v1/donations', limiter, donationRoutes);
-
 app.use('/notifications', limiter, notificationRoutes);
-app.use('/api/v1/notifications', limiter, notificationRoutes);
-
 app.use('/hospitals', limiter, discoveryRoutes);
-app.use('/api/v1/hospitals', limiter, discoveryRoutes);
-
 app.use('/help', helpRoutes);
-app.use('/api/v1/help', helpRoutes);
-
 app.use('/support', supportRoutes);
-app.use('/api/v1/support', supportRoutes);
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res, next) => {

@@ -6,6 +6,46 @@
 
 
 
+const inferErrorCode = (statusCode, message) => {
+  const normalizedMessage = String(message || '').toLowerCase();
+
+  if (normalizedMessage.includes('already registered') || normalizedMessage.includes('already exists')) {
+    return 'EMAIL_ALREADY_EXISTS';
+  }
+  if (normalizedMessage.includes('must match password') || normalizedMessage.includes('password mismatch')) {
+    return 'PASSWORD_MISMATCH';
+  }
+  if (normalizedMessage.includes('at least 17') || normalizedMessage.includes('underage')) {
+    return 'UNDERAGE_DONOR';
+  }
+  if (normalizedMessage.includes('not eligible')) {
+    return 'DONOR_NOT_ELIGIBLE';
+  }
+  if (
+    normalizedMessage.includes('validation') ||
+    normalizedMessage.includes('required') ||
+    normalizedMessage.includes('must be') ||
+    normalizedMessage.includes('format')
+  ) {
+    return 'VALIDATION_ERROR';
+  }
+
+  switch (statusCode) {
+    case 400:
+      return 'BAD_REQUEST';
+    case 401:
+      return 'UNAUTHORIZED';
+    case 403:
+      return 'FORBIDDEN';
+    case 404:
+      return 'NOT_FOUND';
+    case 409:
+      return 'CONFLICT';
+    default:
+      return 'INTERNAL_SERVER_ERROR';
+  }
+};
+
 /**
  * Sends a success JSON response with a consistent shape.
  *
@@ -16,10 +56,10 @@
  * @returns {import('express').Response} The same res for optional chaining.
  */
 export function successResponse(res, statusCode, message, data = undefined) {
-  const body = { success: true, message };
-  if (data !== undefined) {
-    body.data = data;
-  }
+  const body = {
+    success: true,
+    data: data !== undefined ? data : message ?? null,
+  };
   return res.status(statusCode).json(body);
 }
 
@@ -29,18 +69,14 @@ export function successResponse(res, statusCode, message, data = undefined) {
  * @param {import('express').Response} res - Express response object.
  * @param {number} statusCode - HTTP status (e.g. 400, 401, 404, 500).
  * @param {string} message - Human-readable error message.
- * @param {object|array|null} [details] - Optional error context/details.
  * @returns {import('express').Response} The same res for optional chaining.
  */
-export function errorResponse(res, statusCode, message, details = undefined) {
-  const body = {
+export function errorResponse(res, statusCode, message) {
+  return res.status(statusCode).json({
     success: false,
+    code: inferErrorCode(statusCode, message),
     message,
-  };
-  if (details !== undefined) {
-    body.details = details;
-  }
-  return res.status(statusCode).json(body);
+  });
 }
 
 

@@ -22,6 +22,8 @@ const mapHospital = (h) => ({
   email: h.email,
   address: h.address || null,
   location: h.location || null,
+  lat: h.lat || null,
+  long: h.long || null,
 });
 
 export const listHospitals = async (req, res, next) => {
@@ -77,8 +79,9 @@ export const getHospitalById = async (req, res, next) => {
 
 export const getNearbyHospitals = async (req, res, next) => {
   try {
-    const lat = Number(req.query.latitude);
-    const lng = Number(req.query.longitude);
+    // Accept both lat/long and latitude/longitude for backwards compatibility
+    const lat = Number(req.query.lat ?? req.query.latitude);
+    const lng = Number(req.query.long ?? req.query.longitude);
     const radiusKm = req.query.radius_km ? Number(req.query.radius_km) : null;
 
     const query = { role: 'hospital', deletedAt: null, isSuspended: false, isEmailVerified: true };
@@ -86,8 +89,9 @@ export const getNearbyHospitals = async (req, res, next) => {
 
     let mapped = hospitals.map((h) => {
       const entry = mapHospital(h);
-      const hLat = h.location?.coordinates?.lat;
-      const hLng = h.location?.coordinates?.lng;
+      // Support both new format (lat/long) and old format (location.coordinates)
+      const hLat = h.lat ?? h.location?.coordinates?.lat;
+      const hLng = h.long ?? h.location?.coordinates?.lng;
       if (Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(hLat) && Number.isFinite(hLng)) {
         entry.distanceKm = Number(haversineKm(lat, lng, hLat, hLng).toFixed(2));
       }

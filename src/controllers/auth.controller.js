@@ -2,6 +2,7 @@ import * as authService from '../services/auth.service.js';
 import { renderVerificationFailurePage, renderVerificationSuccessPage } from '../utils/verificationPages.js';
 import response from '../utils/response.js';
 import { ERR } from '../utils/errorCodes.js';
+import { logger } from '../utils/logger.js';
 
 // Controller for auth routes
 
@@ -9,9 +10,7 @@ const normalizeRole = (role) => (typeof role === 'string' ? role.trim().toLowerC
 
 const normalizePhone = (phone) => {
   if (!phone || typeof phone !== 'string') return phone;
-  const digits = phone.replace(/\D/g, '');
-  if (digits.length === 11 && digits.startsWith('0')) return digits.slice(1);
-  return digits;
+  return phone.replace(/\D/g, '');
 };
 
 const normalizeRegisterPayload = (body) => {
@@ -57,6 +56,18 @@ const normalizeRegisterPayload = (body) => {
     }
   }
 
+  // Accept string locations like "City, Governorate" and map to location object
+  if (payload.location && typeof payload.location === 'string') {
+    const parts = payload.location.split(',').map((p) => p.trim()).filter(Boolean);
+    const city = parts[0] || undefined;
+    const governorate = parts[1] || undefined;
+    payload.location = {
+      city,
+      governorate,
+      lastUpdated: new Date(),
+    };
+  }
+
   return payload;
 };
 
@@ -79,15 +90,22 @@ const prefersHtml = (req) => {
  */
 export const register = async (req, res, next) => {
   try {
-    const result = await authService.register(normalizeRegisterPayload(req.body));
-    const user = result.user || {};
+    const traceId = `signup-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+    logger.info('Signup request received', {
+      traceId,
+      email: req.body?.email,
+      role: req.body?.role,
+      path: req.originalUrl,
+    });
+
+    const result = await authService.register(normalizeRegisterPayload(req.body), { traceId });
     response.success(res, 201, 'User registered successfully', {
-      ...result,
-      access_token: result.accessToken,
-      refresh_token: result.refreshToken,
-      user_id: user._id,
-      user_role: user.role,
-      user_name: user.fullName,
+      user: result.user,
+      tokens: {
+        accessToken: result.accessToken,
+        refreshToken: result.refreshToken,
+      },
+      ...(result.verificationToken ? { verificationToken: result.verificationToken } : {}),
     });
   } catch (error) {
     // Treat validation/business errors as 400; unexpected errors go to middleware
@@ -99,16 +117,35 @@ export const register = async (req, res, next) => {
 };
 
 /**
- * Login a user with email and password
+ * Login a user with email, password, and role-specific credentials
  * Returns accessToken and refreshToken
  */
-export const login = async (req, res, next) => {
+export const loginUser = async (req, res, next) => {
   try {
+    const { validateLogin } = await import('../validation/auth.validation.js');
+
     const payload = normalizeLoginPayload(req.body);
+    if (payload.role === 'admin') {
+      return response.error(res, 400, 'Use /auth/admin/login for admin accounts');
+    }
+
+    // Enforce donor-only for this endpoint
+    if (payload.role && payload.role !== 'donor') {
+      return response.error(res, 403, ERR.AUTH_INVALID_ROLE);
+    }
+
+    // Validate login data including role and role-specific fields
+    payload.role = 'donor';
+    const validation = validateLogin(payload);
+    if (!validation.valid) {
+      return response.error(res, 400, 'Validation failed', validation.errors);
+    }
+
     if (!payload.email) {
       return response.error(res, 400, 'email is required');
     }
-    const result = await authService.login(payload);
+
+    const result = await authService.loginUser(payload);
     if (result.requires2FA) {
       return response.success(res, 200, '2FA verification required', result);
     }
@@ -123,7 +160,97 @@ export const login = async (req, res, next) => {
       user_name: user.fullName,
     });
   } catch (error) {
-    // 403 for suspension, 401 for invalid/unverified, 400 for everything else
+    // 403 for suspension, 401 for invalid/unverified/unauthorized, 400 for everything else
+    if (error.message === ERR.AUTH_ACCOUNT_SUSPENDED) {
+      return response.error(res, 403, error.message);
+    }
+    if (
+      error.message === ERR.AUTH_INVALID_CREDENTIALS ||
+      error.message === ERR.AUTH_EMAIL_NOT_VERIFIED
+    ) {
+      return response.error(res, 401, error.message);
+    }
+    // 401 for role-specific credential failures
+    if (
+      error.message.includes('Invalid hospital license') ||
+      error.message.includes('Invalid admin code') ||
+      error.message === 'Invalid role for this account'
+    ) {
+      return response.error(res, 401, error.message);
+    }
+    next(error);
+  }
+};
+
+export const loginAdmin = async (req, res, next) => {
+  try {
+    const payload = normalizeLoginPayload(req.body);
+    payload.role = 'admin';
+    if (!payload.email) {
+      return response.error(res, 400, 'email is required');
+    }
+    if (!payload.password) {
+      return response.error(res, 400, 'password is required');
+    }
+    if (!payload.adminKey) {
+      return response.error(res, 400, 'adminKey is required');
+    }
+
+    const result = await authService.loginAdmin(payload);
+    if (result.requires2FA) {
+      return response.success(res, 200, '2FA verification required', result);
+    }
+
+    return response.success(res, 200, 'Admin login successful', result);
+  } catch (error) {
+    if (error.message === ERR.AUTH_ACCOUNT_SUSPENDED) {
+      return response.error(res, 403, error.message);
+    }
+    if (
+      error.message === ERR.AUTH_INVALID_CREDENTIALS ||
+      error.message === ERR.AUTH_EMAIL_NOT_VERIFIED ||
+      error.message === ERR.AUTH_INVALID_ADMIN_KEY
+    ) {
+      return response.error(res, 401, error.message);
+    }
+    if (error.message.includes('Invalid hospital license') || error.message === 'Invalid role for this account') {
+      return response.error(res, 401, error.message);
+    }
+    next(error);
+  }
+};
+
+export const loginHospital = async (req, res, next) => {
+  try {
+    const payload = normalizeLoginPayload(req.body);
+
+    // Enforce hospital-only for this endpoint
+    if (payload.role && payload.role !== 'hospital') {
+      return response.error(res, 403, ERR.AUTH_INVALID_ROLE);
+    }
+
+    if (!payload.email) {
+      return response.error(res, 400, 'email is required');
+    }
+    if (!payload.password) {
+      return response.error(res, 400, 'password is required');
+    }
+
+    const result = await authService.loginHospital(payload);
+    if (result.requires2FA) {
+      return response.success(res, 200, '2FA verification required', result);
+    }
+
+    const user = result.user || {};
+    return response.success(res, 200, 'Login successful', {
+      ...result,
+      access_token: result.accessToken,
+      refresh_token: result.refreshToken,
+      user_id: user._id,
+      user_role: user.role,
+      user_name: user.fullName,
+    });
+  } catch (error) {
     if (error.message === ERR.AUTH_ACCOUNT_SUSPENDED) {
       return response.error(res, 403, error.message);
     }
@@ -136,6 +263,8 @@ export const login = async (req, res, next) => {
     next(error);
   }
 };
+
+export const login = loginUser;
 
 // Logout a user
 export const logout = async (req, res, next) => {
@@ -389,6 +518,9 @@ export const verifyEmailToken = async (req, res, next) => {
 export default {
   register,
   login,
+  loginUser,
+  loginAdmin,
+  loginHospital,
   logout,
   refreshToken,
   forgotPassword,

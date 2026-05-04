@@ -5,11 +5,11 @@ import Donor from '../../src/models/Donor.model.js';
 import * as authService from '../../src/services/auth.service.js';
 
 vi.mock('../../src/utils/mailer.js', () => ({
-  sendEmailVerificationEmail: vi.fn(),
-  sendEmailVerificationConfirmationEmail: vi.fn(),
-  sendPasswordResetOtpEmail: vi.fn(),
-  sendPasswordResetConfirmationEmail: vi.fn(),
-  sendPasswordResetEmail: vi.fn(),
+  sendEmailVerificationEmail: vi.fn(() => Promise.resolve()),
+  sendEmailVerificationConfirmationEmail: vi.fn(() => Promise.resolve()),
+  sendPasswordResetOtpEmail: vi.fn(() => Promise.resolve()),
+  sendPasswordResetConfirmationEmail: vi.fn(() => Promise.resolve()),
+  sendPasswordResetEmail: vi.fn(() => Promise.resolve()),
 }));
 
 setupTestDB();
@@ -18,7 +18,7 @@ describe('Auth Integration', () => {
   it('registers and logs in a donor (service-level integration)', async () => {
     const email = 'int-alice@example.com';
     const password = 'IntSecret123!';
-    const data = buildDonor({ email, password });
+    const data = buildDonor({ email, password, confirmPassword: password });
 
     const res = await authService.register(data);
 
@@ -32,7 +32,7 @@ describe('Auth Integration', () => {
     user.isEmailVerified = true;
     await user.save();
 
-    const loginRes = await authService.login({ email, password });
+    const loginRes = await authService.login({ email, password, role: 'donor' });
     expect(loginRes).toHaveProperty('accessToken');
     expect(loginRes).toHaveProperty('refreshToken');
     expect(loginRes.user.email).toBe(email);

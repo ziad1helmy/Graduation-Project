@@ -44,7 +44,7 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
 
     // 1. Hospital creates a blood request
     let res = await request(app)
-      .post('/api/v1/hospital/request')
+      .post('/hospital/request')
       .set('Authorization', `Bearer ${hospitalToken}`)
       .send({
         type: 'blood',
@@ -61,7 +61,7 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
 
     // 2. Donor responds
     res = await request(app)
-      .post(`/api/v1/donor/respond/${requestId}`)
+      .post(`/donor/respond/${requestId}`)
       .set('Authorization', `Bearer ${donorToken}`)
       .send({ quantity: 1 });
       
@@ -71,7 +71,7 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
 
     // 3. Hospital marks donation complete
     res = await request(app)
-      .post('/api/v1/donations/complete')
+      .post('/donations/complete')
       .set('Authorization', `Bearer ${hospitalToken}`)
       .send({ donationId });
       

@@ -1,0 +1,429 @@
+# 🏗️ Unified Activity System — Architecture & Implementation Plan
+
+> **Project:** LifeLink Backend  
+> **Stack:** Node.js (Express) · MongoDB (Mongoose) · Clean Architecture  
+> **Target Consumer:** Flutter mobile app (Bloc pattern)  
+> **Date:** 2026-05-04
+
+---
+
+## 1️⃣ High-Level Architecture
+
+### Where Activity Fits
+
+The Activity System is a **read-optimized, append-only event log** that sits as a **cross-cutting concern** alongside the existing Notification system. It does NOT replace notifications — it complements them.
+
+```mermaid
+graph TB
+    subgraph "Existing Services"
+        DS[donation.service]
+        RS[reward.service]
+        NS[notification.service]
+        DC[donor.controller]
+    end
+
+    subgraph "New Activity Layer"
+        AS[activity.service]
+        AM[Activity Model]
+        AC[activity.controller]
+        AR[activity.routes]
+    end
+
+    DS -->|"onDonationCreated / onStatusChange"| AS
+    RS -->|"onPointsAwarded / onRewardRedeemed"| AS
+    DC -->|"onUrgentResponse / onProfileUpdate"| AS
+    AS --> AM
+    AC --> AS
+    AR --> AC
+```
+
+> [!IMPORTANT]
+> **Activity ≠ Notification.** Notifications are actionable alerts (read/unread, TTL-expiring). Activities are a permanent historical record of what the user did. They serve different purposes and must remain separate collections.
+
+### Responsibility Breakdown
+
+| Layer | File | Responsibility |
+|-------|------|----------------|
+| **Model** | `Activity.model.js` | Schema definition, indexes, TTL policy, enum validation |
+| **Service** | `activity.service.js` | Create activities, query timeline, deduplication logic, dashboard aggregation |
+| **Controller** | `activity.controller.js` | HTTP request handling, input validation, response formatting via `response.js` |
+| **Routes** | `activity.routes.js` | Endpoint definitions, auth middleware, rate limiting |
+
+### Interaction with Existing Modules
+
+The Activity service is a **consumer** — it is called BY other services, never the reverse. No existing service should ever depend on or import from the activity service for its core logic.
+
+- **donation.service.js** → calls `activityService.logActivity()` after donation creation/completion
+- **reward.service.js** → calls `activityService.logActivity()` after points award / reward redemption
+- **donor.controller.js** → calls `activityService.logActivity()` after profile update, urgent request accept/decline
+- **Activity never calls** donation, reward, or notification services
+
+---
+
+## 2️⃣ Data Modeling Plan
+
+### Entity Structure
+
+| Field | Type | Required | Purpose |
+|-------|------|----------|---------|
+| `userId` | ObjectId (ref: User) | ✅ | Owner of the activity — who performed the action |
+| `type` | String (enum) | ✅ | Category discriminator: `donation`, `reward`, `emergency_response`, `profile_update` |
+| `action` | String | ✅ | Human-readable verb: `"donated_blood"`, `"earned_points"`, `"redeemed_reward"`, `"accepted_urgent_request"`, `"declined_urgent_request"`, `"updated_profile"` |
+| `title` | String (max 200) | ✅ | Display-ready title for the Flutter UI, e.g. `"Blood Donation Completed"` |
+| `description` | String (max 500) | ✅ | Summary sentence, e.g. `"Donated 1 unit of A+ blood to Cairo Hospital"` |
+| `referenceId` | String | ❌ | ID of the related entity (donationId, redemptionId, etc.) — used for deduplication and deep linking |
+| `referenceType` | String (enum) | ❌ | Type of referenced entity: `Donation`, `PointsTransaction`, `RewardRedemption`, `Request`, `User` |
+| `metadata` | Mixed (Object) | ❌ | Lightweight snapshot of key data at creation time (avoids JOIN-heavy reads) |
+| `icon` | String | ❌ | Icon identifier for the Flutter UI (e.g. `"heart"`, `"trophy"`, `"flash"`, `"user"`) |
+| `createdAt` | Date (auto) | ✅ | Timestamp — the timeline sort key |
+
+### Field Reasoning
+
+- **`userId`**: Scopes all queries. Every activity belongs to exactly one user.
+- **`type`**: Enables filtering by category on the mobile app (tabs/chips).
+- **`action`**: More granular than `type`. A single `type: "donation"` can have actions like `"created_donation"`, `"completed_donation"`, `"cancelled_donation"`. This enables future filtering without schema changes.
+- **`title` + `description`**: Pre-rendered at write-time so the Flutter app never needs to compute display strings. This is critical for mobile performance — the client receives display-ready content.
+- **`referenceId` + `referenceType`**: Enables deduplication (`referenceId` is unique per `userId + type + action`) and deep-linking (tap an activity → navigate to the donation detail screen).
+- **`metadata`**: Denormalized snapshot. Example for a donation: `{ bloodType: "A+", hospitalName: "Cairo Hospital", quantity: 1 }`. This avoids expensive `$lookup`/populate on read queries. The trade-off is slight data redundancy, which is acceptable for a read-heavy timeline.
+- **`icon`**: Stored at write-time so the Flutter UI has zero logic to determine icons.
+
+### Indexing Strategy
+
+| Index | Fields | Purpose |
+|-------|--------|---------|
+| **Primary timeline** | `{ userId: 1, createdAt: -1 }` | Powers the main paginated query — most critical index |
+| **Type filter** | `{ userId: 1, type: 1, createdAt: -1 }` | Enables per-category filtering (e.g. "show only donations") |
+| **Deduplication** | `{ userId: 1, action: 1, referenceId: 1 }` | Unique compound index with partial filter (`referenceId` is not null) — prevents duplicate activities for the same event |
+| **TTL (optional)** | `{ createdAt: 1 }` with `expireAfterSeconds` | Auto-prune activities older than 365 days to bound collection growth |
+
+### Extensibility
+
+New activity types (e.g. `appointment`, `badge_unlock`, `tier_promotion`) are added by:
+
+1. Adding the new value to the `type` enum array
+2. Defining new `action` strings (free-form, no enum change needed)
+3. Calling `activityService.logActivity()` from the relevant service
+
+No schema migration required. No existing code changes. The `metadata` field (Mixed type) absorbs any type-specific data without schema changes.
+
+---
+
+## 3️⃣ Service Design Plan
+
+### Core Responsibilities
+
+The `activity.service.js` is responsible for:
+
+1. **Creating** activity records (write path)
+2. **Querying** the user timeline with pagination and optional type filter (read path)
+3. **Deduplication** — ensuring the same event never creates two activities
+4. **Dashboard aggregation** — returning the latest N items efficiently
+
+### Required Service Methods
+
+| Method | Purpose |
+|--------|---------|
+| `logActivity(userId, payload)` | Core write method. Accepts `{ type, action, title, description, referenceId?, referenceType?, metadata?, icon? }`. Performs deduplication check, then inserts. Fire-and-forget safe (errors are logged, never thrown upstream). |
+| `getUserTimeline(userId, filters)` | Core read method. Accepts `{ page, limit, type? }`. Returns `{ activities, pagination }` using the existing `paginationMeta()` utility. |
+| `getLatestActivities(userId, count)` | Dashboard shortcut. Returns the latest `count` (default 5) activities with no pagination overhead. Used by `getDashboard` in `donor.controller.js`. |
+| `deleteUserActivities(userId)` | GDPR / account deletion support. Bulk-deletes all activities for a user. |
+
+### When Activities Are Created
+
+| Trigger Event | Activity Created |
+|---------------|-----------------|
+| Donor responds to a request (donation created) | `type: "donation"`, `action: "created_donation"` |
+| Donation status changes to `completed` | `type: "donation"`, `action: "completed_donation"` |
+| Donation status changes to `cancelled` | `type: "donation"`, `action: "cancelled_donation"` |
+| Points awarded (blood donation / emergency / first donation) | `type: "reward"`, `action: "earned_points"` |
+| Reward redeemed | `type: "reward"`, `action: "redeemed_reward"` |
+| Badge unlocked | `type: "reward"`, `action: "badge_unlocked"` |
+| Tier promoted | `type: "reward"`, `action: "tier_promoted"` |
+| Donor accepts urgent request | `type: "emergency_response"`, `action: "accepted_urgent_request"` |
+| Donor declines urgent request | `type: "emergency_response"`, `action: "declined_urgent_request"` |
+| Donor updates profile | `type: "profile_update"`, `action: "updated_profile"` |
+
+### Deduplication Rules
+
+1. Before creating, check for existing activity with the same `userId + action + referenceId`
+2. If a matching record exists, skip insertion silently (return null)
+3. The unique compound index with `partialFilterExpression` on `referenceId` serves as a database-level safety net (same pattern used by `PointsTransaction.model.js` — proven in this codebase)
+4. Activities without a `referenceId` (e.g. `profile_update`) are always inserted (no dedup)
+
+---
+
+## 4️⃣ Integration Plan
+
+### 4.1 — Donation System
+
+**File:** [donation.service.js](file:///Users/mohamedyaser/Documents/LifeLink/src/services/donation.service.js)
+
+**Trigger points:**
+
+| Location | Event | Activity Payload |
+|----------|-------|-----------------|
+| `createDonation()` — after `Donation.create()` succeeds (line ~63) | Donation created | `type: "donation"`, `action: "created_donation"`, `referenceId: donation._id`, `referenceType: "Donation"`, `metadata: { requestType, bloodType/organType, hospitalName }` |
+| `updateDonationStatus()` — inside the `if (status === 'completed')` block (line ~119) | Donation completed | `type: "donation"`, `action: "completed_donation"`, `referenceId: donation._id`, `metadata: { quantity, completedDate }` |
+| `cancelDonation()` — after status set to cancelled (line ~240) | Donation cancelled | `type: "donation"`, `action: "cancelled_donation"`, `referenceId: donation._id` |
+
+**Integration pattern:** Fire-and-forget. Call `activityService.logActivity().catch(e => logger.error(...))` — exactly the same pattern used for reward triggers at line 125-133 of `donation.service.js`.
+
+### 4.2 — Reward System
+
+**File:** [reward.service.js](file:///Users/mohamedyaser/Documents/LifeLink/src/services/reward.service.js)
+
+**Trigger points:**
+
+| Location | Event | Activity Payload |
+|----------|-------|-----------------|
+| `awardPoints()` — after successful transaction commit (line ~118) | Points earned | `type: "reward"`, `action: "earned_points"`, `referenceId: transaction._id`, `referenceType: "PointsTransaction"`, `metadata: { pointsAmount, transactionType, description, balanceAfter }` |
+| `redeemReward()` — after successful redemption (line ~468) | Reward redeemed | `type: "reward"`, `action: "redeemed_reward"`, `referenceId: redemption._id`, `referenceType: "RewardRedemption"`, `metadata: { rewardName, pointsSpent, confirmationCode }` |
+| `checkAndUpdateBadges()` — inside the `if (!wasAlreadyUnlocked)` block (line ~264) | Badge unlocked | `type: "reward"`, `action: "badge_unlocked"`, `referenceId: badge._id`, `metadata: { badgeName, rarity }` |
+| `awardPoints()` — inside `if (result?.tierChanged)` block (line ~131) | Tier promotion | `type: "reward"`, `action: "tier_promoted"`, `referenceId: donorId`, `metadata: { newTier, bonusPoints }` |
+
+### 4.3 — Urgent Requests (Accept / Decline)
+
+**File:** [donor.controller.js](file:///Users/mohamedyaser/Documents/LifeLink/src/controllers/donor.controller.js)
+
+**Trigger points:**
+
+| Location | Event | Activity Payload |
+|----------|-------|-----------------|
+| `respondToRequest()` — after `Donation.create()` succeeds (line ~157) | Accepted urgent/normal request | `type: "emergency_response"` (if urgency is high/critical, else `"donation"`), `action: "accepted_urgent_request"`, `referenceId: donation._id`, `metadata: { requestType, urgency, hospitalName }` |
+| `declineUrgentRequest()` — after `Donation.create()` with cancelled status (line ~456) | Declined urgent request | `type: "emergency_response"`, `action: "declined_urgent_request"`, `referenceId: declinedResponse._id`, `metadata: { reason, urgency }` |
+
+### 4.4 — Profile Updates
+
+**File:** [donor.controller.js](file:///Users/mohamedyaser/Documents/LifeLink/src/controllers/donor.controller.js)
+
+**Trigger points:**
+
+| Location | Event | Activity Payload |
+|----------|-------|-----------------|
+| `updateProfile()` — after successful `findByIdAndUpdate` (line ~52) | Profile updated | `type: "profile_update"`, `action: "updated_profile"`, `referenceId: null` (no dedup — each update is a valid activity), `metadata: { fieldsUpdated: ["fullName", "bloodType", ...] }` |
+| `updateHealthHistory()` — after successful save (line ~341) | Health history updated | `type: "profile_update"`, `action: "updated_health_history"`, `referenceId: null`, `metadata: { fieldsUpdated: [...] }` |
+
+---
+
+## 5️⃣ API Design Plan
+
+### Endpoints
+
+#### `GET /donor/activity` — User Activity Timeline
+
+**Auth:** JWT required (donor role)  
+**Query params:** `page` (default 1), `limit` (default 20, max 100), `type` (optional filter: `donation`, `reward`, `emergency_response`, `profile_update`)
+
+**Response shape:**
+```
+{
+  "success": true,
+  "data": {
+    "activities": [
+      {
+        "_id": "...",
+        "type": "donation",
+        "action": "completed_donation",
+        "title": "Blood Donation Completed",
+        "description": "Donated 1 unit of A+ blood to Cairo Hospital",
+        "icon": "heart",
+        "referenceId": "...",
+        "referenceType": "Donation",
+        "metadata": { "bloodType": "A+", "hospitalName": "Cairo Hospital", "quantity": 1 },
+        "createdAt": "2026-05-04T12:00:00Z"
+      }
+    ],
+    "pagination": {
+      "total": 42,
+      "page": 1,
+      "limit": 20,
+      "totalPages": 3,
+      "hasNextPage": true,
+      "hasPrevPage": false
+    }
+  }
+}
+```
+
+**Sorting:** Always `{ createdAt: -1 }` (latest first). No user-configurable sort — this is a timeline, not a table.
+
+#### `GET /donor/dashboard` — Enhanced Dashboard (existing endpoint)
+
+Modify the existing `getDashboard` handler in `donor.controller.js` to include `latestActivity` by calling `activityService.getLatestActivities(donorId, 5)`.
+
+**Added field in response:**
+```
+"latestActivity": [
+  { "type": "...", "action": "...", "title": "...", "icon": "...", "createdAt": "..." }
+]
+```
+
+> [!TIP]
+> The dashboard query uses `getLatestActivities(userId, 5)` which is a simple `find().sort().limit(5)` — no pagination overhead, no count query. This keeps the dashboard endpoint fast.
+
+### Performance Considerations
+
+1. **No `$lookup` / `populate` on read:** All display data is denormalized into `title`, `description`, `metadata` at write-time. Timeline reads are single-collection, index-covered queries.
+2. **Cursor-based pagination alternative:** If the dataset grows beyond ~100K activities per user, consider switching from skip-based to cursor-based pagination using `_id` or `createdAt` as the cursor. For the MVP, skip-based (matching the existing `parsePagination` utility) is sufficient.
+3. **Projection:** Only return fields the Flutter app needs. Exclude `__v`, `updatedAt` via a `.select()` on the query.
+4. **Count optimization:** Use `estimatedDocumentCount` for total if exact count becomes a bottleneck (unlikely at LifeLink's scale).
+
+---
+
+## 6️⃣ Step-by-Step Execution Plan
+
+### Phase 1 — Foundation
+
+**What to build:**
+- `Activity.model.js` — Schema, enums, indexes, TTL
+- `activity.service.js` — `logActivity()`, `getUserTimeline()`, `getLatestActivities()`
+- Unit test skeleton for the service
+
+**Why it matters:** The model and core service are the foundation. Nothing else can proceed without them.
+
+**Dependencies:** None — this is a standalone module.
+
+**Estimated effort:** ~2 hours
+
+---
+
+### Phase 2 — API Layer
+
+**What to build:**
+- `activity.controller.js` — `getTimeline` handler using `response.success()`/`response.error()`
+- `activity.routes.js` — `GET /donor/activity` with auth middleware + rate limiter
+- Mount routes in `app.js` under both base path and `/api/v1`
+- Update `getDashboard` in `donor.controller.js` to include latest 5 activities
+
+**Why it matters:** Exposes the timeline to the Flutter app. The dashboard enhancement provides immediate user value.
+
+**Dependencies:** Phase 1 (model + service must exist)
+
+**Estimated effort:** ~1.5 hours
+
+---
+
+### Phase 3 — Integration
+
+**What to build (incremental — one integration at a time):**
+
+1. **Donation integration** — Add `activityService.logActivity()` calls to `donation.service.js` at `createDonation`, `updateDonationStatus` (completed/cancelled), and `cancelDonation`
+2. **Reward integration** — Add calls to `reward.service.js` at `awardPoints`, `redeemReward`, `checkAndUpdateBadges`
+3. **Urgent request integration** — Add calls to `donor.controller.js` at `respondToRequest`, `declineUrgentRequest`
+4. **Profile integration** — Add calls to `donor.controller.js` at `updateProfile`, `updateHealthHistory`
+
+**Why it matters:** This is where the system becomes useful. Each integration should be done, tested, and verified independently before moving to the next.
+
+**Dependencies:** Phase 2 (API must be queryable so you can verify integration results)
+
+**Estimated effort:** ~3 hours (45 min per integration point)
+
+---
+
+### Phase 4 — Optimization & Polish
+
+**What to build:**
+- Swagger/JSDoc annotations for the new route
+- `deleteUserActivities()` for account deletion flow
+- Review index performance with `explain()` on staging
+- Optional: TTL index for auto-pruning old activities (365 days)
+- Integration tests: create donation → verify activity appears in timeline
+
+**Why it matters:** Production hardening. Without this, the feature works but isn't battle-tested.
+
+**Dependencies:** Phase 3 (all integrations must be live)
+
+**Estimated effort:** ~2 hours
+
+---
+
+## 7️⃣ Risks & Edge Cases
+
+### Duplication Risks
+
+| Risk | Mitigation |
+|------|-----------|
+| Same donation triggers activity twice (e.g. retry logic) | Unique compound index on `{ userId, action, referenceId }` with partial filter. Same battle-tested pattern as `PointsTransaction.model.js` line 87-94. |
+| Profile update with no actual changes still logs activity | Check if `updateData` has any keys before logging. If empty, skip activity creation. |
+| `awardPoints()` is called recursively for tier bonuses | Each call has a unique `referenceId` (e.g. `tier_gold_<donorId>`) — dedup handles this naturally. |
+
+### Performance Issues
+
+| Risk | Mitigation |
+|------|-----------|
+| Activity collection grows unbounded | TTL index (365 days) auto-prunes. For users with very high activity, cursor-based pagination can replace skip-based. |
+| Dashboard query slows down | `getLatestActivities()` uses `find().sort().limit(5)` — this is O(1) with the `{ userId: 1, createdAt: -1 }` index. |
+| Write amplification (every action now writes to 2+ collections) | All activity writes are fire-and-forget (non-blocking). They use `.catch()` to swallow errors — identical to the existing notification pattern in `reward.service.js`. |
+
+### Data Consistency Concerns
+
+| Risk | Mitigation |
+|------|-----------|
+| Activity created but source action fails (e.g. donation rollback) | Activity is created AFTER the source action succeeds, never before. If the source action fails, the activity is never written. |
+| Metadata becomes stale (e.g. hospital renames) | Accepted trade-off. Activities are historical snapshots — they reflect the state at the time of the event. This is the correct semantic for a timeline. |
+| Activity write fails silently | Logged via `logger.error()`. Activity loss is non-critical — the source-of-truth (Donation, PointsTransaction) is unaffected. A periodic reconciliation job could backfill gaps if needed. |
+
+### Future Scalability
+
+| Risk | Mitigation |
+|------|-----------|
+| New activity types require schema changes | The `type` enum is the only change needed. `action` is free-form. `metadata` is `Mixed`. |
+| Multi-tenant / hospital activity timelines | The `userId` field already supports any user role. Hospital activities can use the same model with `type: "hospital_action"`. |
+| Real-time activity feed (WebSocket) | The current design is pull-based (REST). To add push, emit an event after `logActivity()` that a WebSocket layer can broadcast. The service doesn't need to change. |
+
+---
+
+## 8️⃣ Design Decisions
+
+### Decision 1: Separate Collection vs. Virtual Aggregation
+
+**Chosen:** Dedicated `activities` collection (append-only).
+
+**Rejected alternative:** Querying across Donation, PointsTransaction, Notification at read-time using `$unionWith` aggregation.
+
+**Why:** Virtual aggregation requires cross-collection joins on every read — expensive, hard to paginate, impossible to index efficiently. A denormalized collection gives O(1) indexed reads at the cost of slight write overhead. For a mobile-first, read-heavy timeline, this is the correct trade-off.
+
+### Decision 2: Pre-rendered Display Strings vs. Client-Side Rendering
+
+**Chosen:** `title` and `description` are computed at write-time and stored as plain strings.
+
+**Rejected alternative:** Storing only raw data and having the Flutter client compute display strings.
+
+**Why:** Mobile clients should receive display-ready payloads. This eliminates localization/formatting logic in Flutter, reduces payload parsing overhead, and ensures consistent display across app versions. If localization is needed later, a `locale` field can be added and titles pre-rendered per locale.
+
+### Decision 3: Fire-and-Forget vs. Transactional Writes
+
+**Chosen:** Activity writes are fire-and-forget (`.catch(logger.error)`), outside any MongoDB transaction.
+
+**Rejected alternative:** Writing the activity inside the same transaction as the source event.
+
+**Why:** Activity is a non-critical side effect. Including it in the source transaction would: (a) increase transaction scope and lock duration, (b) risk failing the primary action (e.g. donation completion) due to an unrelated activity write failure. The existing codebase already uses this pattern for notifications (see `reward.service.js` lines 139-144, 266-272).
+
+### Decision 4: Flat `metadata` vs. Typed Sub-Documents
+
+**Chosen:** `metadata` is `Mixed` (schemaless).
+
+**Rejected alternative:** Discriminator-based sub-schemas per activity type.
+
+**Why:** Discriminators add complexity for minimal benefit. The `metadata` field is write-once/read-only — it's never queried by its internal fields (all filtering is on `userId`, `type`, `createdAt`). Schemaless `Mixed` provides maximum flexibility for new activity types without migrations.
+
+### Decision 5: Activity Service as Import vs. Event Emitter
+
+**Chosen:** Direct import — services call `activityService.logActivity()` explicitly.
+
+**Rejected alternative:** EventEmitter pattern where services emit events and a listener creates activities.
+
+**Why:** Direct imports are simpler, debuggable, and grep-able. The codebase consistently uses direct service-to-service calls (e.g. `donation.service` → `rewardService.onDonationCompleted`). An event system adds indirection and makes the call graph harder to trace. At LifeLink's scale, the coupling trade-off is worth the simplicity.
+
+---
+
+## Summary Checklist
+
+- [ ] Phase 1: `Activity.model.js` + `activity.service.js`
+- [ ] Phase 2: `activity.controller.js` + `activity.routes.js` + mount in `app.js`
+- [ ] Phase 3a: Donation integration
+- [ ] Phase 3b: Reward integration
+- [ ] Phase 3c: Urgent request integration
+- [ ] Phase 3d: Profile update integration
+- [ ] Phase 4: Swagger docs, cleanup, integration tests
+- [ ] Dashboard: Enhance `getDashboard` with `latestActivity`

@@ -2,7 +2,7 @@ openapi: 3.0.0
 info:
   title: LifeLink API
   version: 1.0.0
-  description: OpenAPI documentation for the LifeLink donation platform API. Primary routes are mounted at root paths and compatibility aliases are also available under /api/v1/*.
+  description: OpenAPI documentation for the LifeLink donation platform API.
 servers:
   - url: http://localhost:5000
     description: Configured server
@@ -52,6 +52,13 @@ components:
               type: string
             dateOfBirth:
               type: string
+            phone:
+              type: string
+            contactNumber:
+              type: string
+            type:
+              type: string
+              default: hospital
               format: date
             gender:
               type: string
@@ -115,6 +122,7 @@ components:
     LoginRequest:
       type: object
       required:
+        - email
         - password
       properties:
         email:
@@ -250,22 +258,57 @@ paths:
           description: Login successful or 2FA verification required
         '400':
           description: Invalid credentials or unverified email
-  /auth/register:
+  /auth/hospital/login:
     post:
       tags:
         - Auth
-      summary: Register a new user (compatibility alias)
+      summary: Login with email and password for hospital users (hospital-only)
+      description: |
+        Hospital-specific login endpoint. Accepts email and password and returns
+        normal auth tokens or a 2FA tempToken when 2FA is enabled. This endpoint
+        only allows accounts with role `hospital` and rejects other roles with 403.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              oneOf:
-                - $ref: '#/components/schemas/SignupDonorRequest'
-                - $ref: '#/components/schemas/SignupHospitalRequest'
+              $ref: '#/components/schemas/LoginRequest'
       responses:
-        '201':
-          description: User registered successfully
+        '200':
+          description: Login successful or 2FA verification required
+        '400':
+          description: Invalid credentials or unverified email
+        '403':
+          description: Forbidden — role not allowed for this endpoint
+  /auth/admin/login:
+    post:
+      tags:
+        - Auth
+      summary: Login with email, password, and adminKey for the admin UI
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - adminKey
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                adminKey:
+                  type: string
+      responses:
+        '200':
+          description: Admin login successful or 2FA verification required
+        '400':
+          description: Validation error or invalid credentials
   /auth/validate-token:
     post:
       tags:
@@ -1538,6 +1581,47 @@ paths:
       responses:
         '200':
           description: Hospital list
+    post:
+      summary: Create a hospital account (admin-created, pre-verified)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+                - type
+                - email
+                - phone
+                - licenseNumber
+              properties:
+                name:
+                  type: string
+                type:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phone:
+                  type: string
+                licenseNumber:
+                  type: string
+                address:
+                  type: object
+                city:
+                  type: string
+                state:
+                  type: string
+                zipCode:
+                  type: string
+      responses:
+        '201':
+          description: Hospital created
   /admin/donors/{id}:
     get:
       tags:
@@ -3002,7 +3086,380 @@ paths:
       responses:
         '201':
           description: Support request submitted successfully
+  /admin/login:
+    post:
+      summary: Login for admin and superadmin accounts
+      tags:
+        - Admin
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - adminKey
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                adminKey:
+                  type: string
+      responses:
+        '200':
+          description: Admin login successful
+  /admin:
+    get:
+      summary: List admin users (root alias)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Admin list
+  /admin/dashboard:
+    get:
+      summary: Dashboard summary with key metrics
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard summary
+  /admin/maintenance-mode:
+    post:
+      summary: Toggle maintenance mode
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - enabled
+              properties:
+                enabled:
+                  type: boolean
+                message:
+                  type: string
+      responses:
+        '200':
+          description: Maintenance mode updated
+  /admin/maintenance-mode/status:
+    get:
+      summary: Get maintenance mode status
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Maintenance status
+  /admin/system-health:
+    get:
+      summary: System health check
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System health status
+  /admin/system-health/check:
+    get:
+      summary: System health check (compatibility alias)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System health status
+  /admin/create:
+    post:
+      summary: Create a new admin account (alias)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fullName
+                - email
+                - password
+              properties:
+                fullName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum:
+                    - admin
+                    - superadmin
+      responses:
+        '201':
+          description: Admin created successfully
+  /donor/donation-eligibility:
+    get:
+      summary: Get donor donation eligibility
+      tags:
+        - Rewards - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Eligibility retrieved successfully
+  /donor/dashboard:
+    get:
+      summary: Get donor dashboard data
+      tags:
+        - Rewards - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard retrieved successfully
+  /donor/recent-activity:
+    get:
+      summary: Get donor recent activity
+      tags:
+        - Rewards - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Recent activity retrieved successfully
+  /donor/points:
+    get:
+      summary: Get donor points summary
+      tags:
+        - Rewards - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Points summary retrieved successfully
+  /donor/badges:
+    get:
+      summary: Get donor badges
+      tags:
+        - Rewards - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Badge list retrieved successfully
+  /donor/redemptions:
+    get:
+      summary: Get donor redemptions
+      tags:
+        - Rewards - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Redemption history retrieved successfully
+  /donor/donations:
+    get:
+      summary: Get donor donation history
+      tags:
+        - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Donation history retrieved successfully
+  /donor/urgent-requests:
+    get:
+      summary: Get urgent requests for the authenticated donor
+      tags:
+        - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Urgent requests retrieved successfully
+  /donor/urgent-requests/{requestId}:
+    get:
+      summary: Get urgent request details
+      tags:
+        - Donor
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Urgent request details retrieved successfully
+  /donor/urgent-requests/{requestId}/accept:
+    post:
+      summary: Accept an urgent request
+      tags:
+        - Donor
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Urgent request accepted successfully
+  /donor/urgent-requests/{requestId}/decline:
+    post:
+      summary: Decline an urgent request
+      tags:
+        - Donor
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Urgent request declined successfully
+  /donor/notifications:
+    get:
+      summary: Get donor notifications
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+  /donor/notifications/{id}/mark-read:
+    patch:
+      summary: Mark a donor notification as read
+      tags:
+        - Notifications
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification marked as read
+  /hospital/dashboard:
+    get:
+      summary: Get hospital dashboard report
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Dashboard retrieved successfully
+  /hospital/requests/create-emergency:
+    post:
+      summary: Create an emergency request
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      responses:
+        '201':
+          description: Emergency request created successfully
+  /hospital/requests/{requestId}/close:
+    post:
+      summary: Close a hospital request
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Request closed successfully
+  /hospital/requests/{requestId}/responses:
+    get:
+      summary: Get request responses
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Request responses retrieved successfully
+  /rewards:
+    get:
+      summary: Get rewards catalog (base alias)
+      tags:
+        - Rewards - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rewards catalog retrieved successfully
+  /rewards/{rewardId}/redeem:
+    post:
+      summary: Redeem a reward using points (alias)
+      tags:
+        - Rewards - Donor
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: rewardId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Redemption confirmed
 tags:
+  - name: Admin
+    description: Admin operations and aliases
+  - name: Auth
+    description: Authentication and session endpoints
+  - name: Donor
+    description: Donor namespace aliases
+  - name: Hospital
+    description: Hospital namespace aliases
   - name: Rewards - Donor
     description: Donor-facing reward endpoints
   - name: Rewards - Admin

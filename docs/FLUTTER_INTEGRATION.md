@@ -5,7 +5,7 @@ This document serves as the primary developer contract between the LifeLink Node
 ## 1. Base Configuration
 
 - **Base URL (Local)**: `http://localhost:5000` or `http://10.0.2.2:5000` (for Android Emulator)
-- **API Prefix**: All routes are accessible via the `/api/v1` prefix (e.g., `/api/v1/auth/login`).
+- **Base URL (Production)**: `https://graduation-project-cy61.onrender.com`
 - **Swagger Documentation**: Accessible at `http://localhost:5000/api-docs`. This is the absolute source of truth for all request/response schemas.
 
 ### Required Headers
@@ -22,14 +22,14 @@ Authorization: Bearer <accessToken>
 The backend employs a Dual-Token JWT strategy (Access Token + Refresh Token).
 
 ### Step-by-Step Flow
-1. **Login/Signup**: Call `POST /api/v1/auth/login`. 
+1. **Login/Signup**: Call `POST /auth/login`. 
 2. **Secure Storage**: Extract `accessToken` and `refreshToken` from the response. Store them using `flutter_secure_storage`.
 3. **Session Usage**: Attach `Authorization: Bearer <accessToken>` to all protected API calls.
-4. **Token Refresh**: Access tokens expire quickly (e.g., 15m). When you receive a `401 Unauthorized`, automatically call `POST /api/v1/auth/refresh-token` sending the `refreshToken` in the body. Update your stored tokens and retry the failed request.
-5. **Logout**: Call `POST /api/v1/auth/logout` sending the `refreshToken` to blacklist it, then clear your local secure storage.
+4. **Token Refresh**: Access tokens expire quickly (e.g., 15m). When you receive a `401 Unauthorized`, automatically call `POST /auth/refresh-token` sending the `refreshToken` in the body. Update your stored tokens and retry the failed request.
+5. **Logout**: Call `POST /auth/logout` sending the `refreshToken` to blacklist it, then clear your local secure storage.
 
 ### 2FA & OTP
-If a user has 2FA enabled, the login response will return `requires2FA: true` and a `tempToken`. Use this `tempToken` to hit `POST /api/v1/auth/2fa/verify` with the user's OTP code to receive the final access tokens.
+If a user has 2FA enabled, the login response will return `requires2FA: true` and a `tempToken`. Use this `tempToken` to hit `POST /auth/2fa/verify` with the user's OTP code to receive the final access tokens.
 
 ---
 
@@ -37,10 +37,10 @@ If a user has 2FA enabled, the login response will return `requires2FA: true` an
 
 Donors interact with requests and manage their profile.
 
-- **Discovery**: Use `GET /api/v1/donor/requests` to view available hospital requests. The backend automatically filters this based on the donor's blood type and ranks them via the Haversine geo-scoring algorithm.
-- **Matching & Responses**: Use `POST /api/v1/donor/respond/:requestId` to accept a request and propose an appointment time.
-- **Availability**: Use `PUT /api/v1/donor/availability` to toggle the `isAvailable` flag.
-- **History**: Fetch past activity using `GET /api/v1/donor/history`.
+- **Discovery**: Use `GET /donor/requests` to view available hospital requests. The backend automatically filters this based on the donor's blood type and ranks them via the Haversine geo-scoring algorithm.
+- **Matching & Responses**: Use `POST /donor/respond/:requestId` to accept a request and propose an appointment time.
+- **Availability**: Use `PUT /donor/availability` to toggle the `isAvailable` flag.
+- **History**: Fetch past activity using `GET /donor/history`.
 
 ---
 
@@ -48,9 +48,9 @@ Donors interact with requests and manage their profile.
 
 Hospitals broadcast needs and finalize donations.
 
-- **Creating Requests**: Use `POST /api/v1/hospital/request` to broadcast a need. Use `POST /api/v1/hospital/requests/create-emergency` for critical push-notified broadcasts.
-- **Manage Requests**: `GET /api/v1/hospital/requests` to list active requests and view donor matches.
-- **Finalize Donations**: Donations use a strict state machine (`pending` → `scheduled` → `completed` or `cancelled`). Use `PUT /api/v1/hospital/donations/:id/status` to mark a donation as `completed`.
+- **Creating Requests**: Use `POST /hospital/request` to broadcast a need. Use `POST /hospital/requests/create-emergency` for critical push-notified broadcasts.
+- **Manage Requests**: `GET /hospital/requests` to list active requests and view donor matches.
+- **Finalize Donations**: Donations use a strict state machine (`pending` → `scheduled` → `completed` or `cancelled`). Use `PUT /hospital/donations/:id/status` to mark a donation as `completed`.
 
 ---
 
@@ -59,7 +59,7 @@ Hospitals broadcast needs and finalize donations.
 Gamification is automatically handled by the backend when a donation completes.
 
 - **Points Allocation**: When a hospital marks a donation as `completed`, the `reward.service` automatically allocates points to the donor using atomic `$inc` operations to prevent duplicates.
-- **Leaderboard**: Fetch the top donors using `GET /api/v1/rewards/leaderboard`.
+- **Leaderboard**: Fetch the top donors using `GET /rewards/leaderboard`.
 - **Tiers**: Tiers (Bronze, Silver, Gold, Platinum) are calculated dynamically on the backend based on lifetime points.
 
 ---
@@ -68,9 +68,9 @@ Gamification is automatically handled by the backend when a donation completes.
 
 The system utilizes Firebase Cloud Messaging (FCM) for real-time alerts.
 
-- **Device Registration**: Immediately after a successful login (or app launch), call `POST /api/v1/auth/fcm-token` with the device's FCM token.
+- **Device Registration**: Immediately after a successful login (or app launch), call `POST /auth/fcm-token` with the device's FCM token.
 - **Structure**: Notifications contain a `type` (`match`, `request`, `milestone`, `appointment`), a `title`, and a `message`. 
-- **In-App Polling**: If push notifications are disabled, you can poll `GET /api/v1/notifications` to populate an in-app inbox. Use `PATCH /api/v1/notifications/:id/read` to mark them as seen.
+- **In-App Polling**: If push notifications are disabled, you can poll `GET /notifications` to populate an in-app inbox. Use `PATCH /notifications/:id/read` to mark them as seen.
 
 ---
 
@@ -119,173 +119,173 @@ To bypass email verification and OTP loops during local UI development, run `npm
 
 ## 10. All Project Endpoints
 
-Every route listed here is available under the `/api/v1` prefix. Use `Authorization: Bearer <accessToken>` for protected endpoints.
+Every route listed here is available under the `` prefix. Use `Authorization: Bearer <accessToken>` for protected endpoints.
 
 ### Admin
-- `GET /api/v1/admin/profile`
-- `GET /api/v1/admin/system/health`
-- `GET /api/v1/admin/system-health`
-- `GET /api/v1/admin/system-health/check`
-- `POST /api/v1/admin/system/maintenance`
-- `GET /api/v1/admin/system/maintenance`
-- `POST /api/v1/admin/maintenance-mode`
-- `GET /api/v1/admin/maintenance-mode/status`
-- `GET /api/v1/admin/statistics`
-- `GET /api/v1/admin/dashboard`
-- `GET /api/v1/admin/alerts`
-- `GET /api/v1/admin/blood-inventory-summary`
-- `GET /api/v1/admin/audit-logs`
-- `GET /api/v1/admin/donors`
-- `GET /api/v1/admin/hospitals`
-- `GET /api/v1/admin/donors/:id`
-- `GET /api/v1/admin/hospitals/:id`
-- `GET /api/v1/admin/admins`
-- `GET /api/v1/admin/admins/:id`
-- `PUT /api/v1/admin/donors/:id`
-- `POST /api/v1/admin/donors/:id/ban`
-- `POST /api/v1/admin/donors/:id/unban`
-- `PUT /api/v1/admin/hospitals/:id/status`
-- `POST /api/v1/admin/admins`
-- `PUT /api/v1/admin/admins/:id`
-- `DELETE /api/v1/admin/admins/:id`
-- `GET /api/v1/admin/permissions/roles`
-- `GET /api/v1/admin/permissions/roles/:role`
-- `POST /api/v1/admin/permissions/roles`
-- `PUT /api/v1/admin/permissions/roles/:role`
-- `GET /api/v1/admin/users`
-- `GET /api/v1/admin/users/stats`
-- `POST /api/v1/admin/users/hospital`
-- `GET /api/v1/admin/users/:id`
-- `PATCH /api/v1/admin/users/:id/verify`
-- `PATCH /api/v1/admin/users/:id/unverify`
-- `PATCH /api/v1/admin/users/:id/suspend`
-- `PATCH /api/v1/admin/users/:id/unsuspend`
-- `DELETE /api/v1/admin/users/:id`
-- `GET /api/v1/admin/requests`
-- `GET /api/v1/admin/requests/stats`
-- `GET /api/v1/admin/requests/:id`
-- `GET /api/v1/admin/requests/:id/donations`
-- `PATCH /api/v1/admin/requests/:id/fulfill`
-- `PATCH /api/v1/admin/requests/:id/cancel`
-- `POST /api/v1/admin/requests/:id/broadcast`
-- `GET /api/v1/admin/analytics/dashboard`
-- `GET /api/v1/admin/analytics/donations`
-- `GET /api/v1/admin/analytics/blood-types`
-- `GET /api/v1/admin/analytics/top-donors`
-- `GET /api/v1/admin/analytics/growth`
-- `POST /api/v1/admin/emergency/broadcast`
-- `GET /api/v1/admin/emergency/critical`
-- `GET /api/v1/admin/emergency/shortage-alerts`
+- `GET /admin/profile`
+- `GET /admin/system/health`
+- `GET /admin/system-health`
+- `GET /admin/system-health/check`
+- `POST /admin/system/maintenance`
+- `GET /admin/system/maintenance`
+- `POST /admin/maintenance-mode`
+- `GET /admin/maintenance-mode/status`
+- `GET /admin/statistics`
+- `GET /admin/dashboard`
+- `GET /admin/alerts`
+- `GET /admin/blood-inventory-summary`
+- `GET /admin/audit-logs`
+- `GET /admin/donors`
+- `GET /admin/hospitals`
+- `GET /admin/donors/:id`
+- `GET /admin/hospitals/:id`
+- `GET /admin/admins`
+- `GET /admin/admins/:id`
+- `PUT /admin/donors/:id`
+- `POST /admin/donors/:id/ban`
+- `POST /admin/donors/:id/unban`
+- `PUT /admin/hospitals/:id/status`
+- `POST /admin/admins`
+- `PUT /admin/admins/:id`
+- `DELETE /admin/admins/:id`
+- `GET /admin/permissions/roles`
+- `GET /admin/permissions/roles/:role`
+- `POST /admin/permissions/roles`
+- `PUT /admin/permissions/roles/:role`
+- `GET /admin/users`
+- `GET /admin/users/stats`
+- `POST /admin/users/hospital`
+- `GET /admin/users/:id`
+- `PATCH /admin/users/:id/verify`
+- `PATCH /admin/users/:id/unverify`
+- `PATCH /admin/users/:id/suspend`
+- `PATCH /admin/users/:id/unsuspend`
+- `DELETE /admin/users/:id`
+- `GET /admin/requests`
+- `GET /admin/requests/stats`
+- `GET /admin/requests/:id`
+- `GET /admin/requests/:id/donations`
+- `PATCH /admin/requests/:id/fulfill`
+- `PATCH /admin/requests/:id/cancel`
+- `POST /admin/requests/:id/broadcast`
+- `GET /admin/analytics/dashboard`
+- `GET /admin/analytics/donations`
+- `GET /admin/analytics/blood-types`
+- `GET /admin/analytics/top-donors`
+- `GET /admin/analytics/growth`
+- `POST /admin/emergency/broadcast`
+- `GET /admin/emergency/critical`
+- `GET /admin/emergency/shortage-alerts`
 
 ### Appointment
-- `POST /api/v1/appointment/`
-- `GET /api/v1/appointment/my-appointments`
-- `DELETE /api/v1/appointment/:appointmentId`
+- `POST /appointment/`
+- `GET /appointment/my-appointments`
+- `DELETE /appointment/:appointmentId`
 
 ### Auth
-- `POST /api/v1/auth/signup`
-- `POST /api/v1/auth/register`
-- `POST /api/v1/auth/login`
-- `POST /api/v1/auth/logout`
-- `POST /api/v1/auth/refresh-token`
-- `POST /api/v1/auth/forgot-password`
-- `POST /api/v1/auth/reset-password`
-- `POST /api/v1/auth/password-reset`
-- `POST /api/v1/auth/send-otp`
-- `POST /api/v1/auth/verify-otp`
-- `POST /api/v1/auth/2fa/setup`
-- `POST /api/v1/auth/2fa/confirm-setup`
-- `POST /api/v1/auth/2fa/verify`
-- `POST /api/v1/auth/2fa/disable`
-- `GET /api/v1/auth/me`
-- `POST /api/v1/auth/validate-token`
-- `POST /api/v1/auth/verify-email`
-- `POST /api/v1/auth/verify-email-token`
-- `POST /api/v1/auth/fcm-token`
-- `PUT /api/v1/auth/fcm-token`
-- `DELETE /api/v1/auth/fcm-token`
+- `POST /auth/signup`
+- `POST /auth/register`
+- `POST /auth/login`
+- `POST /auth/logout`
+- `POST /auth/refresh-token`
+- `POST /auth/forgot-password`
+- `POST /auth/reset-password`
+- `POST /auth/password-reset`
+- `POST /auth/send-otp`
+- `POST /auth/verify-otp`
+- `POST /auth/2fa/setup`
+- `POST /auth/2fa/confirm-setup`
+- `POST /auth/2fa/verify`
+- `POST /auth/2fa/disable`
+- `GET /auth/me`
+- `POST /auth/validate-token`
+- `POST /auth/verify-email`
+- `POST /auth/verify-email-token`
+- `POST /auth/fcm-token`
+- `PUT /auth/fcm-token`
+- `DELETE /auth/fcm-token`
 
 ### Discovery
-- `GET /api/v1/discovery/`
-- `GET /api/v1/discovery/nearby`
-- `GET /api/v1/discovery/:id`
+- `GET /discovery/`
+- `GET /discovery/nearby`
+- `GET /discovery/:id`
 
 ### Donation
-- `GET /api/v1/donation/my-appointments`
-- `POST /api/v1/donation/complete`
+- `GET /donation/my-appointments`
+- `POST /donation/complete`
 
 ### Donor
-- `GET /api/v1/donor/profile`
-- `PUT /api/v1/donor/profile`
-- `GET /api/v1/donor/requests`
-- `GET /api/v1/donor/matches`
-- `POST /api/v1/donor/respond/:requestId`
-- `GET /api/v1/donor/donation-eligibility`
-- `GET /api/v1/donor/health-history`
-- `PATCH /api/v1/donor/health-history`
-- `GET /api/v1/donor/donations`
-- `GET /api/v1/donor/dashboard`
-- `GET /api/v1/donor/recent-activity`
-- `GET /api/v1/donor/urgent-requests`
-- `GET /api/v1/donor/urgent-requests/:requestId`
-- `POST /api/v1/donor/urgent-requests/:requestId/accept`
-- `POST /api/v1/donor/urgent-requests/:requestId/decline`
-- `GET /api/v1/donor/points`
-- `GET /api/v1/donor/badges`
-- `GET /api/v1/donor/redemptions`
-- `GET /api/v1/donor/notifications`
-- `PATCH /api/v1/donor/notifications/:id/mark-read`
-- `GET /api/v1/donor/history`
-- `PUT /api/v1/donor/availability`
+- `GET /donor/profile`
+- `PUT /donor/profile`
+- `GET /donor/requests`
+- `GET /donor/matches`
+- `POST /donor/respond/:requestId`
+- `GET /donor/donation-eligibility`
+- `GET /donor/health-history`
+- `PATCH /donor/health-history`
+- `GET /donor/donations`
+- `GET /donor/dashboard`
+- `GET /donor/recent-activity`
+- `GET /donor/urgent-requests`
+- `GET /donor/urgent-requests/:requestId`
+- `POST /donor/urgent-requests/:requestId/accept`
+- `POST /donor/urgent-requests/:requestId/decline`
+- `GET /donor/points`
+- `GET /donor/badges`
+- `GET /donor/redemptions`
+- `GET /donor/notifications`
+- `PATCH /donor/notifications/:id/mark-read`
+- `GET /donor/history`
+- `PUT /donor/availability`
 
 ### Help
-- `GET /api/v1/help/faq`
-- `GET /api/v1/help/documents/:type`
+- `GET /help/faq`
+- `GET /help/documents/:type`
 
 ### Hospital
-- `GET /api/v1/hospital/profile`
-- `PUT /api/v1/hospital/profile`
-- `POST /api/v1/hospital/request`
-- `POST /api/v1/hospital/requests/create-emergency`
-- `GET /api/v1/hospital/dashboard`
-- `POST /api/v1/hospital/requests/:requestId/close`
-- `GET /api/v1/hospital/requests`
-- `GET /api/v1/hospital/requests/:requestId`
-- `GET /api/v1/hospital/requests/:requestId/responses`
-- `PUT /api/v1/hospital/requests/:requestId`
-- `DELETE /api/v1/hospital/requests/:requestId`
-- `GET /api/v1/hospital/donations`
-- `GET /api/v1/hospital/blood-bank-settings`
-- `PUT /api/v1/hospital/blood-bank-settings`
-- `GET /api/v1/hospital/blood-inventory`
-- `GET /api/v1/hospital/notification-preferences`
-- `PUT /api/v1/hospital/notification-preferences`
-- `GET /api/v1/hospital/reports/monthly`
-- `GET /api/v1/hospital/staff`
-- `POST /api/v1/hospital/staff`
-- `DELETE /api/v1/hospital/staff/:id`
+- `GET /hospital/profile`
+- `PUT /hospital/profile`
+- `POST /hospital/request`
+- `POST /hospital/requests/create-emergency`
+- `GET /hospital/dashboard`
+- `POST /hospital/requests/:requestId/close`
+- `GET /hospital/requests`
+- `GET /hospital/requests/:requestId`
+- `GET /hospital/requests/:requestId/responses`
+- `PUT /hospital/requests/:requestId`
+- `DELETE /hospital/requests/:requestId`
+- `GET /hospital/donations`
+- `GET /hospital/blood-bank-settings`
+- `PUT /hospital/blood-bank-settings`
+- `GET /hospital/blood-inventory`
+- `GET /hospital/notification-preferences`
+- `PUT /hospital/notification-preferences`
+- `GET /hospital/reports/monthly`
+- `GET /hospital/staff`
+- `POST /hospital/staff`
+- `DELETE /hospital/staff/:id`
 
 ### Notification
-- `GET /api/v1/notification/`
-- `PATCH /api/v1/notification/:id/read`
-- `PATCH /api/v1/notification/read-all`
-- `GET /api/v1/notification/:id`
-- `DELETE /api/v1/notification/:id`
+- `GET /notification/`
+- `PATCH /notification/:id/read`
+- `PATCH /notification/read-all`
+- `GET /notification/:id`
+- `DELETE /notification/:id`
 
 ### Reward
-- `GET /api/v1/reward/points`
-- `GET /api/v1/reward/`
-- `GET /api/v1/reward/points/history`
-- `GET /api/v1/reward/badges`
-- `GET /api/v1/reward/catalog`
-- `GET /api/v1/reward/history`
-- `POST /api/v1/reward/catalog/:rewardId/redeem`
-- `POST /api/v1/reward/:rewardId/redeem`
-- `GET /api/v1/reward/redemptions`
-- `GET /api/v1/reward/leaderboard`
-- `POST /api/v1/reward/admin/users/:userId/points/adjust`
-- `PATCH /api/v1/reward/admin/catalog/:rewardId/status`
-- `GET /api/v1/reward/admin/analytics`
+- `GET /reward/points`
+- `GET /reward/`
+- `GET /reward/points/history`
+- `GET /reward/badges`
+- `GET /reward/catalog`
+- `GET /reward/history`
+- `POST /reward/catalog/:rewardId/redeem`
+- `POST /reward/:rewardId/redeem`
+- `GET /reward/redemptions`
+- `GET /reward/leaderboard`
+- `POST /reward/admin/users/:userId/points/adjust`
+- `PATCH /reward/admin/catalog/:rewardId/status`
+- `GET /reward/admin/analytics`
 
 ### Support
-- `POST /api/v1/support/contact`
+- `POST /support/contact`

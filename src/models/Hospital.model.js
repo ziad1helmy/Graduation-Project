@@ -1,32 +1,146 @@
 import mongoose from 'mongoose';
-import User from './User.model.js'
+import User from './User.model.js';
+import { normalizeArabic } from '../utils/textNormalization.js';
 
 const hospitalSchema = new mongoose.Schema({
-    hospitalName: {
+    name: {
         type: String,
-        required: true,
+        required: [true, 'Hospital name is required'],
+        trim: true,
+        minlength: [3, 'Hospital name must be at least 3 characters long'],
+        maxlength: [200, 'Hospital name must be less than 200 characters long'],
     },
-
-    // Is licenc number and hospital ID are the same??
-    hospitalId: {
-        type: Number,
-        required: true,
+    type: {
+        type: String,
+        trim: true,
+        default: 'hospital',
     },
-
+    phone: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    address: {
+        type: mongoose.Schema.Types.Mixed,
+        default: null,
+    },
+    city: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    state: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    zipCode: {
+        type: String,
+        trim: true,
+        default: null,
+    },
     licenseNumber: {
         type: String,
-        required: true,
+        required: [true, 'License number is required'],
+        unique: true,
+        trim: true,
+        minlength: [5, 'License number must be at least 5 characters long'],
+        maxlength: [50, 'License number must be less than 50 characters long'],
+    },
+    adminContactName: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    adminContactPhone: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    emergencyContact: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+    bloodBanksAvailable: {
+        type: [String],
+        enum: ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'],
+        default: [],
+    },
+    capacity: {
+        type: Number,
+        default: null,
+        min: 0,
+    },
+    lat: {
+        type: Number,
+        default: null,
+        min: -90,
+        max: 90,
+    },
+    long: {
+        type: Number,
+        default: null,
+        min: -180,
+        max: 180,
     },
 
-    // Hospital display address (city, governorate for rendering).
-    // Geo-matching uses the shared `location` field on the base User schema.
-    address: {
-        city: String,
-        governorate: String, // was: governrate (typo fixed)
+    // Backward-compatible legacy fields still used by older controllers and selectors.
+    hospitalName: {
+        type: String,
+        trim: true,
     },
+    hospitalNameNormalized: {
+        type: String,
+        lowercase: true,
+        trim: true,
+        index: true,
+    },
+    contactNumber: {
+        type: String,
+        trim: true,
+        default: null,
+    },
+});
 
-    contactNumber: String,
-})
+// Indexes for efficient queries
+hospitalSchema.index({ hospitalName: 1 });
+
+// Normalize legacy and new hospital display names before saving
+hospitalSchema.pre('save', function () {
+    if (!this.type) {
+        this.type = 'hospital';
+    }
+
+    if (this.isModified('name') && !this.isModified('hospitalName')) {
+        this.hospitalName = this.name;
+    }
+    if (this.isModified('hospitalName') && !this.isModified('name')) {
+        this.name = this.hospitalName;
+    }
+
+    if (this.isModified('phone') && !this.isModified('contactNumber')) {
+        this.contactNumber = this.phone;
+    }
+    if (this.isModified('contactNumber') && !this.isModified('phone')) {
+        this.phone = this.contactNumber;
+    }
+
+    if (!this.phone && this.contactNumber) {
+        this.phone = this.contactNumber;
+    }
+    if (!this.contactNumber && this.phone) {
+        this.contactNumber = this.phone;
+    }
+
+    const normalizedName = this.name || this.hospitalName;
+    if (normalizedName) {
+        this.hospitalNameNormalized = normalizeArabic(normalizedName);
+    }
+});
+
+// Enforce strict mode: reject fields not in schema
+hospitalSchema.set('strict', 'throw');
 
 const Hospital = User.discriminator('hospital', hospitalSchema);
 

@@ -6,6 +6,7 @@ import Request from '../models/Request.model.js';
 import Notification from '../models/Notification.model.js';
 import * as donationService from './donation.service.js';
 import { paginationMeta } from '../utils/pagination.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Book an appointment
@@ -78,7 +79,9 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       relatedId: appointment._id,
       relatedType: 'User',
       data: { appointmentId: appointment._id, donorId },
-    }).catch((err) => console.error('[AppointmentService] notification error:', err && err.message));
+    }).catch((err) => logger.error('Appointment notification error', {
+      message: err?.message,
+    }));
 
     return appointment;
   } catch (error) {

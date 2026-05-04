@@ -7,36 +7,72 @@ const donorSchema = new mongoose.Schema({
         required: [true, 'Phone number is required'],
         validate: {
             validator: function(v) {
-                return /^[0-9]{10}$/.test(v);
+                return /^[0-9]{11}$/.test(v);
             },
-            message: 'Phone number must be 10 digits long',
+            message: 'Phone number must be 11 digits long',
         },
     },
 
     bloodType:{
         type: String,
         enum:['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-        default: null
+        required: [true, 'Blood type is required'],
+    },
+
+    dateOfBirth: {
+        type: Date,
+        required: [true, 'Date of birth is required'],
+        validate: {
+            validator: function(v) {
+                return v instanceof Date && v <= new Date();
+            },
+            message: 'Date of birth must be in the past',
+        },
     },
 
     gender: {
         type: String,
         enum: {
-            values: ['male', 'female', 'not specified'],
+            values: ['male', 'female'],
             message: 'Gender must be male or female',
         },
-        default: 'not specified',
-        required: [true, 'Gender is required'],
-        // This will be in the validation later
-        validate: {
-            validator: function(v) {
-                return v === 'male' || v === 'female' || v === 'not specified';
-            },
-            message: 'Gender must be male or female',
-        },
+        required: false,
     },
 
     lastDonationDate: Date,
+
+    hemoglobinLevel: {
+        type: Number,
+        min: [0, 'Hemoglobin level must be a positive number'],
+        default: null,
+    },
+
+    travelHistory: {
+        type: [
+            {
+                country: {
+                    type: String,
+                    trim: true,
+                    required: true,
+                },
+                returnDate: {
+                    type: Date,
+                    required: true,
+                },
+            },
+        ],
+        default: [],
+    },
+
+    temporaryDeferralUntil: {
+        type: Date,
+        default: null,
+    },
+
+    lastDeferralReason: {
+        type: String,
+        default: null,
+    },
 
     healthHistory: {
         chronicConditions: {
@@ -75,23 +111,31 @@ const donorSchema = new mongoose.Schema({
         default: true,
     },
 
+    
+    // Derived status is exposed through virtuals.
+    // Base User model already stores `isSuspended` for ban status.
 
     // Location is inherited from the base User model
     // (city, governorate, coordinates, lastUpdated)
-
-
-    dateOfBirth: {
-        type: Date,
-        required: [true, 'Date of birth is required'],
-        // This will be in the validation later
-        validate: {
-            validator: function(v) {
-                return v instanceof Date && v <= new Date();
-            },
-        },
-        message: 'Date of birth must be in the past',
-    },
 })
+
+donorSchema.virtual('isBanned').get(function () {
+    return Boolean(this.isSuspended);
+});
+
+donorSchema.virtual('availableToDonate').get(function () {
+    return Boolean(this.isAvailable) && !this.isSuspended;
+});
+
+// Indexes for efficient queries
+donorSchema.index({ phoneNumber: 1 });
+donorSchema.index({ bloodType: 1 });
+donorSchema.index({ lastDonationDate: 1 });
+
+donorSchema.set('toJSON', { virtuals: true });
+donorSchema.set('toObject', { virtuals: true });
+// Enforce strict mode: reject fields not in schema
+donorSchema.set('strict', 'throw');
 
 const Donor = User.discriminator('donor', donorSchema);
 

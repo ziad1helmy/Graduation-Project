@@ -17,6 +17,7 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import * as jwt from '../utils/jwt.js';
+import { logger } from '../utils/logger.js';
 import {
   sendEmailVerificationConfirmationEmail,
   sendEmailVerificationEmail,
@@ -31,6 +32,8 @@ import RefreshTokenBlacklist from '../models/RefreshTokenBlacklist.model.js';
 import { validateRegister } from '../validation/auth.validation.js';
 import OneTimeOtp from '../models/OneTimeOtp.model.js';
 import TwoFactor from '../models/TwoFactor.model.js';
+import { ERR } from '../utils/errorCodes.js';
+import * as adminService from './admin.service.js';
 
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest('hex');
@@ -50,6 +53,14 @@ const generateTotp = (secret, counter = totpCounter()) => {
 const PASSWORD_RESET_OTP_PURPOSE = 'password_reset';
 const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
 const TWO_FACTOR_TEMP_TOKEN_TTL = '10m';
+
+const createServiceError = (message, statusCode = 400) => {
+  const error = new Error(message);
+  error.statusCode = statusCode;
+  return error;
+};
+
+const hrtimeMs = (start) => Number(process.hrtime.bigint() - start) / 1e6;
 
 const createScopedToken = (payload, purpose, expiresIn) => (
   jwt.signToken({ ...payload, purpose }, { expiresIn })
@@ -87,6 +98,80 @@ const buildAuthPayload = (user) => {
     },
   };
 };
+
+const loadLoginUser = async ({ email, password, role, licenseNumber }) => {
+  if (!email) throw new Error('Email is required');
+  if (!password) throw new Error('Password is required');
+  if (!role) throw new Error('Role is required');
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail })
+    .select('+password +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +licenseNumber')
+    .lean();
+
+  if (!user) {
+    throw new Error('Invalid credentials');
+  }
+
+  if (user.deletedAt) {
+    throw new Error('Invalid credentials');
+  }
+
+  if (user.isSuspended) {
+    throw new Error('Account is suspended. Contact support.');
+  }
+
+  if (!user.isEmailVerified) {
+    throw new Error('Email address is not verified');
+  }
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) throw new Error('Invalid credentials');
+
+  if (user.role !== role) {
+    throw new Error('Invalid role for this account');
+  }
+
+  if (role === 'hospital') {
+    if (!licenseNumber || user.licenseNumber !== licenseNumber) {
+      throw new Error('Invalid hospital license number');
+    }
+  }
+
+  const tf = await TwoFactor.findOne({ userId: user._id }).select('enabled secret').lean();
+  return { user, twoFactorEnabled: Boolean(tf?.enabled && tf.secret) };
+};
+
+const toLoginUserResponse = (user, { requires2FA = false, tempToken = null } = {}) => {
+  if (requires2FA) {
+    return {
+      requires2FA: true,
+      tempToken,
+      message: '2FA verification required',
+      user: {
+        _id: user._id,
+        fullName: user.fullName,
+        email: user.email,
+        role: user.role,
+      },
+    };
+  }
+
+  return buildAuthPayload(user);
+};
+
+const toLoginAdminResponse = (user) => ({
+  admin: {
+    _id: user._id,
+    fullName: user.fullName,
+    email: user.email,
+    role: user.role,
+  },
+  tokens: {
+    accessToken: jwt.signToken({ userId: user._id.toString(), role: user.role }),
+    refreshToken: jwt.signRefreshToken({ userId: user._id.toString(), role: user.role }),
+  },
+});
 
 export const sendOtp = async ({ email }) => {
   if (!email) throw new Error('Email is required');
@@ -126,14 +211,20 @@ export const sendOtp = async ({ email }) => {
   });
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log(`[OTP] ${PASSWORD_RESET_OTP_PURPOSE} for ${normalizedEmail}: ${otp}`);
+    logger.info('OTP generated', {
+      purpose: PASSWORD_RESET_OTP_PURPOSE,
+      email: normalizedEmail,
+    });
   }
 
-  await sendPasswordResetOtpEmail({
+  // Send OTP asynchronously (fire-and-forget) to avoid blocking endpoint response.
+  void sendPasswordResetOtpEmail({
     to: user.email,
     fullName: user.fullName,
     otp,
     expiresInMinutes: 10,
+  }).catch((err) => {
+    logger.warn('Background OTP send failed', { email: user.email, message: err?.message });
   });
 
   return {
@@ -178,17 +269,20 @@ export const verifyOtp = async ({ email, otp }) => {
 };
 
 export const setup2FA = async (userId) => {
-  const user = await User.findById(userId);
-  if (!user) throw new Error('User not found');
-
-  let tf = await TwoFactor.findOne({ userId });
-  if (!tf) tf = await TwoFactor.create({ userId });
+  const user = await User.findById(userId).select('email').lean();
+  if (!user) throw createServiceError(ERR.AUTH_USER_NOT_FOUND, 404);
 
   const secret = generateSecret();
   const backupCodes = generateBackupCodes();
-  tf.pendingSecret = secret;
-  tf.pendingBackupCodes = backupCodes;
-  await tf.save();
+
+  // Upsert pending secret/backup codes in a single operation to avoid extra roundtrips
+  await TwoFactor.findOneAndUpdate(
+    { userId },
+    {
+      $set: { pendingSecret: secret, pendingBackupCodes: backupCodes },
+    },
+    { upsert: true, returnDocument: 'after' }
+  );
 
   return {
     secret,
@@ -198,48 +292,61 @@ export const setup2FA = async (userId) => {
 };
 
 export const verify2FA = async (userId, otp) => {
-  if (!otp) throw new Error('OTP is required');
+  if (!otp) throw createServiceError(ERR.TWO_FA_CODE_REQUIRED, 400);
 
-  const tf = await TwoFactor.findOne({ userId });
-  if (!tf || !tf.pendingSecret) throw new Error('2FA setup not found');
+  // Read pending secret and backup codes as a plain object for fast verification
+  const tf = await TwoFactor.findOne({ userId }).select('pendingSecret pendingBackupCodes').lean();
+  if (!tf || !tf.pendingSecret) throw createServiceError(ERR.TWO_FA_SETUP_NOT_FOUND, 400);
 
   const expected = generateTotp(tf.pendingSecret);
-  const backupIndex = tf.pendingBackupCodes.indexOf(String(otp).trim().toUpperCase());
+  const backupIndex = (tf.pendingBackupCodes || []).indexOf(String(otp).trim().toUpperCase());
 
   if (otp !== expected && backupIndex === -1) {
-    throw new Error('Invalid 2FA code');
+    throw createServiceError(ERR.TWO_FA_CODE_INVALID, 400);
   }
 
-  tf.enabled = true;
-  tf.secret = tf.pendingSecret;
-  tf.backupCodes = tf.pendingBackupCodes;
-  tf.pendingSecret = null;
-  tf.pendingBackupCodes = [];
-  tf.verifiedAt = new Date();
-  await tf.save();
+  // Atomically enable 2FA and persist secret/backup codes, clearing pending fields
+  await TwoFactor.findOneAndUpdate(
+    { userId },
+    {
+      $set: {
+        enabled: true,
+        secret: tf.pendingSecret,
+        backupCodes: tf.pendingBackupCodes || [],
+        verifiedAt: new Date(),
+      },
+      $unset: { pendingSecret: '', pendingBackupCodes: '' },
+    },
+    { returnDocument: 'after' }
+  );
 
   return { success: true };
 };
 
 export const disable2FA = async (userId, password) => {
-  if (!password) throw new Error('Password is required');
+  if (!password) throw createServiceError('Password is required', 400);
 
-  const user = await User.findById(userId).select('+password');
-  if (!user) throw new Error('User not found');
+  const user = await User.findById(userId).select('+password').lean();
+  if (!user) throw createServiceError(ERR.AUTH_USER_NOT_FOUND, 404);
 
   const match = await bcrypt.compare(password, user.password);
-  if (!match) throw new Error('Invalid password');
+  if (!match) throw createServiceError(ERR.AUTH_INVALID_PASSWORD, 401);
 
-  const tf = await TwoFactor.findOne({ userId });
-  if (!tf) return { success: true };
-
-  tf.enabled = false;
-  tf.secret = null;
-  tf.backupCodes = [];
-  tf.pendingSecret = null;
-  tf.pendingBackupCodes = [];
-  tf.disabledAt = new Date();
-  await tf.save();
+  // Atomically disable 2FA and clear secrets
+  await TwoFactor.findOneAndUpdate(
+    { userId },
+    {
+      $set: {
+        enabled: false,
+        secret: null,
+        backupCodes: [],
+        pendingSecret: null,
+        pendingBackupCodes: [],
+        disabledAt: new Date(),
+      },
+    },
+    { returnDocument: 'after' }
+  );
 
   return { success: true };
 };
@@ -251,11 +358,27 @@ export const disable2FA = async (userId, password) => {
  * @param {object} data - Registration data including role and role-specific fields
  * @returns {object} - { accessToken, refreshToken, user }
  */
-export const register = async (data) => {
-    const { role, fullName, email, password, ...roleSpecificData } = data;
+export const register = async (data, trace = {}) => {
+    const traceId = trace.traceId || `signup-${Date.now()}`;
+    const requestStartedAt = process.hrtime.bigint();
+    const { role, fullName, email, password, location, ...roleSpecificData } = data;
+
+    logger.info('Signup validation starting', {
+      traceId,
+      email,
+      role,
+    });
 
     // Validate all required fields based on role
+    const validationStartedAt = process.hrtime.bigint();
     const validation = validateRegister(data);
+    logger.info('Signup validation finished', {
+      traceId,
+      email,
+      role,
+      validationMs: Number(hrtimeMs(validationStartedAt).toFixed(3)),
+      valid: validation.valid,
+    });
     if (!validation.valid) {
         const errorMessage = Object.entries(validation.errors)
             .map(([field, error]) => error)
@@ -263,46 +386,84 @@ export const register = async (data) => {
         throw new Error(errorMessage);
     }
 
+    logger.info('Signup duplicate email lookup starting', {
+      traceId,
+      email,
+      role,
+    });
+
     // Check if email already exists
+    const duplicateLookupStartedAt = process.hrtime.bigint();
     const existingUser = await User.findOne({ email });
+    logger.info('Signup duplicate email lookup finished', {
+      traceId,
+      email,
+      role,
+      lookupMs: Number(hrtimeMs(duplicateLookupStartedAt).toFixed(3)),
+      found: Boolean(existingUser),
+    });
     if (existingUser) {
         throw new Error('Email is already registered');
     }
 
-    // Create user using appropriate discriminator model
-    let user;
+    // Base user data (shared across all roles)
     const baseData = {
         fullName,
         email,
-      password,
+        password,
         role,
+        ...(location && { location }),
     };
 
+    let user;
     try {
+        logger.info('Signup database write starting', {
+          traceId,
+          email,
+          role,
+        });
+
+        const writeStartedAt = process.hrtime.bigint();
         if (role === 'donor') {
-            // Use Donor discriminator - includes phoneNumber, dateOfBirth, gender, etc.
+            // Use Donor discriminator with donor-specific fields only
             user = await Donor.create({
                 ...baseData,
                 phoneNumber: roleSpecificData.phoneNumber,
                 dateOfBirth: roleSpecificData.dateOfBirth,
+                bloodType: roleSpecificData.bloodType,
                 ...(roleSpecificData.gender && { gender: roleSpecificData.gender }),
-                ...(roleSpecificData.bloodType && { bloodType: roleSpecificData.bloodType }),
-                ...(roleSpecificData.location && { location: roleSpecificData.location }),
             });
         } else if (role === 'hospital') {
-            // Use Hospital discriminator - includes hospitalName, hospitalId, licenseNumber, etc.
+            // Use Hospital discriminator with hospital-specific fields only
             user = await Hospital.create({
                 ...baseData,
+            name: roleSpecificData.name || roleSpecificData.hospitalName || baseData.fullName,
+            type: roleSpecificData.type || 'hospital',
+            phone: roleSpecificData.phone || roleSpecificData.contactNumber || null,
                 hospitalName: roleSpecificData.hospitalName,
-                hospitalId: roleSpecificData.hospitalId,
                 licenseNumber: roleSpecificData.licenseNumber,
                 ...(roleSpecificData.address && { address: roleSpecificData.address }),
                 ...(roleSpecificData.contactNumber && { contactNumber: roleSpecificData.contactNumber }),
-                ...(roleSpecificData.location && { location: roleSpecificData.location }),
             });
+        } else if (role === 'admin' || role === 'superadmin') {
+            // Admin uses base User model (no role-specific fields)
+          user = await User.create({
+            ...baseData,
+            phone: roleSpecificData.phone || roleSpecificData.contactNumber || null,
+            address: roleSpecificData.address || null,
+            adminKey: crypto.randomBytes(16).toString('hex'),
+          });
         } else {
             throw new Error('Invalid role');
         }
+
+        logger.info('Signup database write finished', {
+          traceId,
+          email,
+          role,
+          writeMs: Number(hrtimeMs(writeStartedAt).toFixed(3)),
+          userId: user?._id?.toString(),
+        });
     } catch (error) {
         if (error.name === 'ValidationError') {
             const messages = Object.values(error.errors)
@@ -314,64 +475,107 @@ export const register = async (data) => {
     }
 
     const verificationToken = user.createEmailVerificationToken();
+    logger.info('Signup verification-token save starting', {
+      traceId,
+      email,
+      role,
+    });
+    const tokenSaveStartedAt = process.hrtime.bigint();
     await user.save({ validateBeforeSave: false });
-    await sendEmailVerificationEmail({
+    logger.info('Signup verification-token save finished', {
+      traceId,
+      email,
+      role,
+      saveMs: Number(hrtimeMs(tokenSaveStartedAt).toFixed(3)),
+    });
+
+    // Schedule verification email asynchronously so registration is not blocked
+    // by external SMTP latency. Log failures if they occur.
+    void sendEmailVerificationEmail({
       to: user.email,
       fullName: user.fullName,
       token: verificationToken,
+    }).catch((err) => {
+      logger.warn('Background verification-email send failed', { email: user.email, message: err?.message });
     });
 
+    logger.info('Signup completed (verification email scheduled)', {
+      traceId,
+      email,
+      role,
+      totalMs: Number(hrtimeMs(requestStartedAt).toFixed(3)),
+    });
+
+    // Return created user and tokens; verification email was scheduled.
     const authPayload = buildAuthPayload(user);
-
-    // Development-only token exposure for automated E2E tests.
-    if (process.env.NODE_ENV !== 'production') {
-      authPayload.verificationToken = verificationToken;
-    }
-
-    return authPayload;
+    return {
+      user,
+      accessToken: authPayload.accessToken,
+      refreshToken: authPayload.refreshToken,
+      verificationToken,
+    };
 };
 
-// Login a user
-export const login = async ({ email, password }) => {
-  const user = await User.findOne({ email }).select('fullName email role isEmailVerified isSuspended deletedAt +password');
+export const loginUser = async (data) => {
+  const { user, twoFactorEnabled } = await loadLoginUser({ ...data });
 
-  if (!user) throw new Error('Invalid credentials');
-
-
-  // Block soft-deleted accounts — same message as invalid credentials to avoid enumeration
-  if (user.deletedAt) {
-    throw new Error('Invalid credentials');
-  }
-
-  // Block suspended accounts with a clear message
-  if (user.isSuspended) {
-    throw new Error('Account is suspended. Contact support.');
-  }
-
-  if (!user.isEmailVerified) {
-    throw new Error('Email address is not verified');
-  }
-
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) throw new Error('Invalid credentials');
-
-  const tf = await TwoFactor.findOne({ userId: user._id }).select('enabled secret');
-  if (tf?.enabled && tf.secret) {
+  if (twoFactorEnabled) {
     const tempToken = createScopedToken(
       { userId: user._id.toString(), role: user.role, twoFactor: true },
       'two_factor_auth',
       TWO_FACTOR_TEMP_TOKEN_TTL
     );
 
-    return {
-      requires2FA: true,
-      tempToken,
-      message: '2FA verification required',
-    };
+    return toLoginUserResponse(user, { requires2FA: true, tempToken });
   }
 
-  return buildAuthPayload(user);
+  return toLoginUserResponse(user);
 };
+
+// Dedicated donor login helper (explicit method)
+export const loginDonor = async (data) => {
+  // delegate to existing loginUser logic but enforce donor role
+  return loginUser({ ...data, role: 'donor' });
+};
+
+// Dedicated hospital login - does not require licenseNumber here (simple email+password)
+export const loginHospital = async (data) => {
+  const { email, password } = data || {};
+  if (!email) throw new Error('Email is required');
+  if (!password) throw new Error('Password is required');
+
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail, role: 'hospital' })
+    .select('+password +passwordChangedAt +deletedAt +isSuspended +isEmailVerified')
+    .lean();
+
+  if (!user) throw new Error('Invalid credentials');
+  if (user.deletedAt) throw new Error('Invalid credentials');
+  if (user.isSuspended) throw new Error('Account is suspended. Contact support.');
+  if (!user.isEmailVerified) throw new Error('Email address is not verified');
+
+  const isMatch = await bcrypt.compare(password, user.password);
+  if (!isMatch) throw new Error('Invalid credentials');
+
+  // Check two-factor
+  const tf = await TwoFactor.findOne({ userId: user._id }).select('enabled secret').lean();
+  if (tf?.enabled && tf.secret) {
+    const tempToken = createScopedToken(
+      { userId: user._id.toString(), role: user.role, twoFactor: true },
+      'two_factor_auth',
+      TWO_FACTOR_TEMP_TOKEN_TTL
+    );
+    return toLoginUserResponse(user, { requires2FA: true, tempToken });
+  }
+
+  return toLoginUserResponse(user);
+};
+
+export const loginAdmin = async (data) => {
+  return adminService.loginAdmin(data.email, data.password, data.adminKey);
+};
+
+export const login = loginUser;
 
 // Get user by ID
 export const getMe = async (userId) => {
@@ -521,10 +725,13 @@ export const forgotPassword = async (email) => {
 
   const resetToken = user.createPasswordResetToken();
   await user.save({ validateBeforeSave: false });
-  await sendPasswordResetEmail({
+  // Send password-reset email asynchronously so endpoint returns quickly.
+  void sendPasswordResetEmail({
     to: user.email,
     fullName: user.fullName,
     token: resetToken,
+  }).catch((err) => {
+    logger.warn('Background password-reset email failed', { email: user.email, message: err?.message });
   });
 
   return { success: true };
@@ -574,25 +781,32 @@ export const resetPassword = async (token, password) => {
   }
 
   if (process.env.NODE_ENV !== 'production') {
-    console.log('All sessions invalidated for user:', user._id.toString());
+    logger.info('All sessions invalidated for user', {
+      userId: user._id.toString(),
+    });
   }
 
-  await sendPasswordResetConfirmationEmail({
+  // Fire-and-forget confirmation email
+  void sendPasswordResetConfirmationEmail({
     to: user.email,
     fullName: user.fullName,
+  }).catch((err) => {
+    logger.warn('Background password-reset confirmation email failed', { email: user.email, message: err?.message });
   });
 
   return { success: true, message: 'Password reset successfully' };
 };
 
 export const verify2FALogin = async (tempToken, code) => {
-  if (!tempToken) throw new Error('tempToken is required');
-  if (!code) throw new Error('2FA code is required');
+  if (!tempToken) throw createServiceError(ERR.TWO_FA_TEMP_TOKEN_REQUIRED, 400);
+  if (!code) throw createServiceError(ERR.TWO_FA_CODE_REQUIRED, 400);
 
   const decoded = verifyScopedToken(tempToken, 'two_factor_auth');
-  const tf = await TwoFactor.findOne({ userId: decoded.userId });
+
+  // Read TF doc with lean for fast verification
+  const tf = await TwoFactor.findOne({ userId: decoded.userId }).select('enabled secret backupCodes').lean();
   if (!tf?.enabled || !tf.secret) {
-    throw new Error('2FA is not enabled');
+    throw createServiceError(ERR.TWO_FA_NOT_ENABLED, 400);
   }
 
   const normalizedCode = String(code).trim();
@@ -601,22 +815,22 @@ export const verify2FALogin = async (tempToken, code) => {
     generateTotp(tf.secret, totpCounter()),
     generateTotp(tf.secret, totpCounter(Date.now() + 30000)),
   ];
-  const backupIndex = tf.backupCodes.indexOf(normalizedCode.toUpperCase());
+  const backupExists = (tf.backupCodes || []).includes(normalizedCode.toUpperCase());
 
-  if (!expectedCodes.includes(normalizedCode) && backupIndex === -1) {
-    throw new Error('Invalid 2FA code');
+  if (!expectedCodes.includes(normalizedCode) && !backupExists) {
+    throw createServiceError(ERR.TWO_FA_CODE_INVALID, 400);
   }
 
-  if (backupIndex !== -1) {
-    tf.backupCodes.splice(backupIndex, 1);
-    await tf.save();
+  // If a backup code was used, remove it atomically (no extra read/save cycle)
+  if (backupExists) {
+    await TwoFactor.updateOne({ userId: decoded.userId }, { $pull: { backupCodes: normalizedCode.toUpperCase() } });
   }
 
-  const user = await User.findById(decoded.userId);
-  if (!user) throw new Error('User not found');
-  if (user.deletedAt) throw new Error('Invalid credentials');
-  if (user.isSuspended) throw new Error('Account is suspended. Contact support.');
-  if (!user.isEmailVerified) throw new Error('Email address is not verified');
+  const user = await User.findById(decoded.userId).select('-password').lean();
+  if (!user) throw createServiceError(ERR.AUTH_USER_NOT_FOUND, 404);
+  if (user.deletedAt) throw createServiceError(ERR.AUTH_INVALID_CREDENTIALS, 401);
+  if (user.isSuspended) throw createServiceError(ERR.AUTH_ACCOUNT_SUSPENDED, 403);
+  if (!user.isEmailVerified) throw createServiceError(ERR.AUTH_EMAIL_NOT_VERIFIED, 403);
 
   return buildAuthPayload(user);
 };
@@ -628,10 +842,12 @@ export const verifyEmail = async (email) => {
 
   const verificationToken = user.createEmailVerificationToken();
   await user.save({ validateBeforeSave: false });
-  await sendEmailVerificationEmail({
+  void sendEmailVerificationEmail({
     to: user.email,
     fullName: user.fullName,
     token: verificationToken,
+  }).catch((err) => {
+    logger.warn('Background verification-email send failed', { email: user.email, message: err?.message });
   });
 
   return { success: true, verificationToken };
@@ -657,9 +873,11 @@ export const verifyEmailToken = async (token) => {
   user.emailVerificationExpires = undefined;
   await user.save();
 
-  await sendEmailVerificationConfirmationEmail({
+  void sendEmailVerificationConfirmationEmail({
     to: user.email,
     fullName: user.fullName,
+  }).catch((err) => {
+    logger.warn('Background verification-confirmation email failed', { email: user.email, message: err?.message });
   });
 
   return { success: true };

@@ -121,9 +121,9 @@ const requestSchema = new mongoose.Schema(
       required: [true, 'Hospital contact number is required'],
       validate: {
         validator: function(v) {
-          return /^\d{10}$/.test(v);
+          return /^\d{10,11}$/.test(v);
         },
-        message: 'Hospital contact number must be 10 digits long',
+        message: 'Hospital contact number must be 10-11 digits long',
       },
     },
     hospitalLocation: {

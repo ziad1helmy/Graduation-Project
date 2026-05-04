@@ -2,6 +2,7 @@ import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import * as geoUtil from '../utils/geo.js';
+import { canDonate } from './eligibility.service.js';
 
 /**
  * Matching Service - Finds compatible donors for requests and vice versa
@@ -77,62 +78,27 @@ export const isBloodTypeCompatible = (donorBloodType, requestBloodType) => {
  * @param {Object} request - Request document
  * @returns {Object} - {eligible: boolean, reason: string}
  */
-export const checkEligibility = (donor, request) => {
-  const warnings = [];
-
-  const healthHistory = donor?.healthHistory || {};
-  if (healthHistory.lastCheckupDate) {
-    const lastCheckupDate = new Date(healthHistory.lastCheckupDate);
-    const daysSinceCheckup = Math.floor((new Date() - lastCheckupDate) / (1000 * 60 * 60 * 24));
-    if (Number.isFinite(daysSinceCheckup) && daysSinceCheckup > 365) {
-      warnings.push('Last checkup date is older than 12 months');
-    }
-  } else {
-    warnings.push('No checkup date on file');
-  }
-
-  if (Array.isArray(healthHistory.chronicConditions) && healthHistory.chronicConditions.length > 0) {
-    warnings.push('Chronic conditions are recorded on the donor profile');
-  }
-
-  // Check availability
-  if (!donor.isAvailable) {
-    return { eligible: false, reason: 'Donor is not currently available', warnings };
+export const checkEligibility = async (donor, request) => {
+  const donorEligibility = await canDonate(donor, { persistTravelDeferral: false });
+  if (!donorEligibility.eligible) {
+    return donorEligibility;
   }
 
   // Check blood type compatibility for blood requests
   if (request.type === 'blood') {
     if (!donor.bloodType) {
-      return { eligible: false, reason: 'Donor has not provided blood type information', warnings };
+      return { eligible: false, reason: 'Donor has not provided blood type information' };
     }
 
     if (!isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
-      return { 
-        eligible: false, 
+      return {
+        eligible: false,
         reason: `Donor blood type ${donor.bloodType} is not compatible with request for ${request.bloodType}`,
-        warnings,
       };
-    }
-
-    // Check last donation date (56 days minimum for whole blood)
-    const MIN_DAYS_BETWEEN_DONATIONS = 56;
-    if (donor.lastDonationDate) {
-      const lastDonationDate = new Date(donor.lastDonationDate);
-      const daysSinceLastDonation = Math.floor(
-        (new Date() - lastDonationDate) / (1000 * 60 * 60 * 24)
-      );
-
-      if (daysSinceLastDonation < MIN_DAYS_BETWEEN_DONATIONS) {
-        return {
-          eligible: false,
-          reason: `Must wait ${MIN_DAYS_BETWEEN_DONATIONS - daysSinceLastDonation} more days before donating again`,
-          warnings,
-        };
-      }
     }
   }
 
-  return { eligible: true, reason: 'Donor is eligible', warnings };
+  return { eligible: true, reason: 'Donor is eligible' };
 };
 
 /**
@@ -147,7 +113,7 @@ export const findCompatibleDonors = async (requestId) => {
   }
 
   // Pre-filter by blood type at DB level (reduces result set by ~87.5%)
-  const donorQuery = { isAvailable: true };
+  const donorQuery = { isAvailable: true, isSuspended: { $ne: true } };
   if (request.type === 'blood' && request.bloodType) {
     donorQuery.bloodType = { $in: getCompatibleDonorTypes(request.bloodType) };
   }
@@ -171,7 +137,7 @@ export const findCompatibleDonors = async (requestId) => {
       continue;
     }
 
-    const eligibility = checkEligibility(donor, request);
+    const eligibility = await checkEligibility(donor, request);
     if (!eligibility.eligible) {
       continue;
     }
@@ -229,7 +195,7 @@ export const findCompatibleRequests = async (donorId) => {
   for (const request of requests) {
     if (respondedRequestIds.has(request._id.toString())) continue;
 
-    const eligibility = checkEligibility(donor, request);
+    const eligibility = await checkEligibility(donor, request);
     if (!eligibility.eligible) continue;
 
     // Calculate compatibility score
@@ -277,7 +243,7 @@ export const getMatchingAnalysis = async (donorId, requestId) => {
       throw new Error('Donor or Request not found');
     }
 
-    const eligibility = checkEligibility(donor, request);
+    const eligibility = await checkEligibility(donor, request);
 
     return {
       donor: {

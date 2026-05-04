@@ -24,6 +24,8 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import mongoose, { Schema } from "mongoose";
 import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
+import { normalizeArabic } from '../utils/textNormalization.js';
 
 const userSchema = new Schema(
   {
@@ -35,6 +37,14 @@ const userSchema = new Schema(
       trim: true,
       minlength: [3, 'Full name must be at least 3 characters long'],
       maxlength: [100, 'Full name must be less than 100 characters long'],
+    },
+    // Normalized version of fullName for consistent searching
+    // Normalizes Arabic variants and converts to lowercase for fuzzy matching
+    fullNameNormalized: {
+      type: String,
+      lowercase: true,
+      trim: true,
+      index: true,
     },
     email: {
       type: String,
@@ -122,23 +132,67 @@ const userSchema = new Schema(
 
     // --- FCM Push Notification Tokens ---
     fcmTokens: [{ type: String }],
+
+    // Admin-specific fields (used only for admin / superadmin accounts).
+    phone: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    address: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    adminKey: {
+      type: String,
+      trim: true,
+      unique: true,
+      sparse: true,
+      select: false,
+    },
   },
-  { timestamps: true },
+  { 
+    timestamps: true,
+    strict: 'throw', // Reject any fields not defined in schema to prevent pollution
+  },
 );
 
-// Standard compound index for coordinate-based lookups.
-// NOTE: 2dsphere was removed because it requires GeoJSON format
-// ({type:'Point', coordinates:[lng,lat]}) but the schema stores {lat, lng}.
-// Geo-scoring is handled via Haversine in src/utils/geo.js instead.
+// Indexes for efficient queries
+userSchema.index({ role: 1 });
+userSchema.index({ deletedAt: 1 });
 userSchema.index({ 'location.coordinates.lat': 1, 'location.coordinates.lng': 1 });
 
 userSchema.pre('save', async function () {
+  const hookStartedAt = process.hrtime.bigint();
+
+  // Normalize fullName if modified
+  if (this.isModified('fullName')) {
+    const normalizeStartedAt = process.hrtime.bigint();
+    this.fullNameNormalized = normalizeArabic(this.fullName);
+    logger.debug('User pre-save fullName normalization finished', {
+      userId: this._id?.toString?.(),
+      durationMs: Number(process.hrtime.bigint() - normalizeStartedAt) / 1e6,
+    });
+  }
+
   if (!this.isModified('password')) {
+    logger.debug('User pre-save skipped password hashing', {
+      userId: this._id?.toString?.(),
+      durationMs: Number(process.hrtime.bigint() - hookStartedAt) / 1e6,
+    });
     return;
   }
 
   const saltRounds = env.BCRYPT_SALT_ROUNDS || 10;
+  const hashStartedAt = process.hrtime.bigint();
   this.password = await bcrypt.hash(this.password, saltRounds);
+  logger.debug('User pre-save password hashing finished', {
+    userId: this._id?.toString?.(),
+    saltRounds,
+    durationMs: Number(process.hrtime.bigint() - hashStartedAt) / 1e6,
+    totalHookMs: Number(process.hrtime.bigint() - hookStartedAt) / 1e6,
+  });
 });
 
 userSchema.methods.createPasswordResetToken = function () {

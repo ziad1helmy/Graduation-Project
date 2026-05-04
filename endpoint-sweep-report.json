@@ -1,0 +1,2476 @@
+{
+  "generatedAt": "2026-05-02T02:06:54.314Z",
+  "summary": [
+    {
+      "method": "POST",
+      "path": "/admin/login",
+      "status": 400,
+      "durationMs": 2.922,
+      "body": {
+        "success": false,
+        "code": "VALIDATION_ERROR",
+        "message": "email, password and adminKey are required"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/profile",
+      "status": 200,
+      "durationMs": 6.268,
+      "body": {
+        "success": true,
+        "data": {
+          "admin": {
+            "_id": "69f55c3d908a188f6830f280",
+            "fullName": "Sweep Superadmin",
+            "email": "superadmin.1777687613253.4add44@example.com",
+            "isEmailVerified": true,
+            "role": "superadmin",
+            "isSuspended": false,
+            "phone": null,
+            "address": null,
+            "createdAt": "2026-05-02T02:06:53.449Z",
+            "updatedAt": "2026-05-02T02:06:53.449Z"
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/system/health",
+      "status": 200,
+      "durationMs": 5.146,
+      "body": {
+        "success": true,
+        "data": {
+          "status": "healthy",
+          "uptime": 2.4432318,
+          "database": "connected",
+          "memory": {
+            "used": "43 MB",
+            "total": "71 MB"
+          },
+          "timestamp": "2026-05-02T02:06:53.682Z"
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/system/maintenance",
+      "status": 200,
+      "durationMs": 15.611,
+      "body": {
+        "success": true,
+        "data": {
+          "maintenanceMode": false,
+          "message": ""
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/system/maintenance",
+      "status": 200,
+      "durationMs": 6.537,
+      "body": {
+        "success": true,
+        "data": {
+          "enabled": false,
+          "message": ""
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/statistics",
+      "status": 200,
+      "durationMs": 9.457,
+      "body": {
+        "success": true,
+        "data": {
+          "users": {
+            "total": 4,
+            "donors": 1,
+            "hospitals": 1
+          },
+          "requests": {
+            "active": 1,
+            "critical": 0
+          },
+          "donations": {
+            "pending": 0,
+            "completed": 0
+          },
+          "alerts": {
+            "unverifiedUsers": 0,
+            "suspendedUsers": 0,
+            "criticalRequests": 0
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/alerts",
+      "status": 200,
+      "durationMs": 18.681,
+      "body": {
+        "success": true,
+        "data": {
+          "alerts": {
+            "unverifiedUsers": 0,
+            "suspendedUsers": 0,
+            "criticalRequests": [
+              {
+                "_id": "69f55c3d908a188f6830f282",
+                "hospitalId": {
+                  "location": {
+                    "city": "Cairo",
+                    "governorate": "Cairo",
+                    "lastUpdated": "2026-05-02T02:06:53.388Z"
+                  },
+                  "_id": "69f55c3d908a188f6830f27e",
+                  "fullName": "Sweep Hospital",
+                  "__t": "hospital",
+                  "hospitalName": "Sweep Hospital",
+                  "contactNumber": "0100000001"
+                },
+                "type": "blood",
+                "bloodType": "O+",
+                "urgency": "high",
+                "status": "pending",
+                "requiredBy": "2026-05-09T02:06:53.621Z",
+                "quantity": 2,
+                "notes": "Endpoint sweep request",
+                "hospitalContact": "0100000001",
+                "hospitalName": "Sweep Hospital",
+                "createdAt": "2026-05-02T02:06:53.627Z",
+                "updatedAt": "2026-05-02T02:06:53.627Z",
+                "__v": 0
+              }
+            ],
+            "shortageAlerts": [
+              {
+                "bloodType": "A+",
+                "activeRequests": 0,
+                "availableDonors": 0,
+                "ratio": "0.00",
+                "status": "ok"
+              },
+              {
+                "bloodType": "A-",
+                "activeRequests": 0,
+                "availableDonors": 0,
+                "ratio": "0.00",
+                "status": "ok"
+              },
+              {
+                "bloodType": "B+",
+                "activeRequests": 0,
+                "availableDonors": 0,
+                "ratio": "0.00",
+                "status": "ok"
+              },
+              {
+                "bloodType": "B-",
+                "activeRequests": 0,
+                "availableDonors": 0,
+                "ratio": "0.00",
+                "status": "ok"
+              },
+              {
+                "bloodType": "AB+",
+                "activeRequests": 0,
+                "availableDonors": 0,
+                "ratio": "0.00",
+                "status": "ok"
+              },
+              {
+                "bloodType": "AB-",
+                "activeRequests": 0,
+                "availableDonors": 0,
+                "ratio": "0.00",
+                "status": "ok"
+              },
+              {
+                "bloodType": "O+",
+                "activeRequests": 1,
+                "availableDonors": 1,
+                "ratio": "1.00",
+                "status": "ok"
+              },
+              {
+                "bloodType": "O-",
+                "activeRequests": 0,
+                "availableDonors": 0,
+                "ratio": "0.00",
+                "status": "ok"
+              }
+            ]
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/blood-inventory-summary",
+      "status": 200,
+      "durationMs": 15.599,
+      "body": {
+        "success": true,
+        "data": {
+          "scope": "system",
+          "hospitalId": null,
+          "bloodTypeTotals": {
+            "A+": {
+              "bloodType": "A+",
+              "donatedUnits": 0,
+              "requestedUnits": 0,
+              "netUnits": 0,
+              "shortageUnits": 0,
+              "shortage": false,
+              "lowStock": true
+            },
+            "A-": {
+              "bloodType": "A-",
+              "donatedUnits": 0,
+              "requestedUnits": 0,
+              "netUnits": 0,
+              "shortageUnits": 0,
+              "shortage": false,
+              "lowStock": true
+            },
+            "B+": {
+              "bloodType": "B+",
+              "donatedUnits": 0,
+              "requestedUnits": 0,
+              "netUnits": 0,
+              "shortageUnits": 0,
+              "shortage": false,
+              "lowStock": true
+            },
+            "B-": {
+              "bloodType": "B-",
+              "donatedUnits": 0,
+              "requestedUnits": 0,
+              "netUnits": 0,
+              "shortageUnits": 0,
+              "shortage": false,
+              "lowStock": true
+            },
+            "AB+": {
+              "bloodType": "AB+",
+              "donatedUnits": 0,
+              "requestedUnits": 0,
+              "netUnits": 0,
+              "shortageUnits": 0,
+              "shortage": false,
+              "lowStock": true
+            },
+            "AB-": {
+              "bloodType": "AB-",
+              "donatedUnits": 0,
+              "requestedUnits": 0,
+              "netUnits": 0,
+              "shortageUnits": 0,
+              "shortage": false,
+              "lowStock": true
+            },
+            "O+": {
+              "bloodType": "O+",
+              "donatedUnits": 0,
+              "requestedUnits": 2,
+              "netUnits": -2,
+              "shortageUnits": 2,
+              "shortage": true,
+              "lowStock": true
+            },
+            "O-": {
+              "bloodType": "O-",
+              "donatedUnits": 0,
+              "requestedUnits": 0,
+              "netUnits": 0,
+              "shortageUnits": 0,
+              "shortage": false,
+              "lowStock": true
+            }
+          },
+          "lowStockAlerts": [
+            {
+              "bloodType": "A+",
+              "message": "A+ stock is low with 0 net unit(s)",
+              "severity": "medium"
+            },
+            {
+              "bloodType": "A-",
+              "message": "A- stock is low with 0 net unit(s)",
+              "severity": "medium"
+            },
+            {
+              "bloodType": "B+",
+              "message": "B+ stock is low with 0 net unit(s)",
+              "severity": "medium"
+            },
+            {
+              "bloodType": "B-",
+              "message": "B- stock is low with 0 net unit(s)",
+              "severity": "medium"
+            },
+            {
+              "bloodType": "AB+",
+              "message": "AB+ stock is low with 0 net unit(s)",
+              "severity": "medium"
+            },
+            {
+              "bloodType": "AB-",
+              "message": "AB- stock is low with 0 net unit(s)",
+              "severity": "medium"
+            },
+            {
+              "bloodType": "O+",
+              "message": "Shortage detected for O+: 2 unit(s) needed",
+              "severity": "high"
+            },
+            {
+              "bloodType": "O-",
+              "message": "O- stock is low with 0 net unit(s)",
+              "severity": "medium"
+            }
+          ],
+          "shortageAlerts": [
+            {
+              "bloodType": "A+",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "A-",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "B+",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "B-",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "AB+",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "AB-",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "O+",
+              "activeRequests": 1,
+              "availableDonors": 1,
+              "ratio": "1.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "O-",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            }
+          ],
+          "requestStats": {
+            "total": 1,
+            "byStatus": {
+              "pending": 1
+            },
+            "byUrgency": {
+              "high": 1
+            },
+            "byBloodType": {
+              "O+": 1
+            }
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/audit-logs",
+      "status": 200,
+      "durationMs": 11.649,
+      "body": {
+        "success": true,
+        "data": {
+          "logs": [
+            {
+              "_id": "69f55c3d908a188f6830f284",
+              "adminId": {
+                "_id": "69f55c3d908a188f6830f280",
+                "fullName": "Sweep Superadmin",
+                "email": "superadmin.1777687613253.4add44@example.com",
+                "role": "superadmin"
+              },
+              "action": "system.maintenance",
+              "targetType": "System",
+              "targetId": null,
+              "createdAt": "2026-05-02T02:06:53.694Z",
+              "__v": 0
+            }
+          ],
+          "total": 1,
+          "page": 1,
+          "limit": 20
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/donors",
+      "status": 200,
+      "durationMs": 7.434,
+      "body": {
+        "success": true,
+        "data": {
+          "users": [
+            {
+              "healthHistory": {
+                "chronicConditions": [],
+                "medications": [],
+                "allergies": [],
+                "recentIllness": "",
+                "notes": "",
+                "lastCheckupDate": null,
+                "updatedAt": null
+              },
+              "location": {
+                "city": "Cairo",
+                "governorate": "Cairo"
+              },
+              "_id": "69f55c3d908a188f6830f27d",
+              "fullName": "Sweep Donor",
+              "email": "donor.1777687613253.e4dd1e@example.com",
+              "isEmailVerified": true,
+              "emailVerifiedAt": "2026-05-02T02:06:53.463Z",
+              "role": "donor",
+              "isSuspended": false,
+              "suspendedAt": null,
+              "suspendedReason": null,
+              "deletedAt": null,
+              "fcmTokens": [],
+              "phone": null,
+              "address": null,
+              "__t": "donor",
+              "phoneNumber": "01234567890",
+              "bloodType": "O+",
+              "dateOfBirth": "1990-01-01T00:00:00.000Z",
+              "gender": "male",
+              "hemoglobinLevel": null,
+              "temporaryDeferralUntil": null,
+              "lastDeferralReason": null,
+              "isAvailable": true,
+              "travelHistory": [],
+              "createdAt": "2026-05-02T02:06:53.301Z",
+              "updatedAt": "2026-05-02T02:06:53.575Z",
+              "fullNameNormalized": "sweep donor",
+              "__v": 0,
+              "isBanned": false,
+              "availableToDonate": true,
+              "isVerified": true,
+              "id": "69f55c3d908a188f6830f27d"
+            }
+          ],
+          "total": 1,
+          "page": 1,
+          "limit": 20
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/hospitals",
+      "status": 200,
+      "durationMs": 8.16,
+      "body": {
+        "success": true,
+        "data": {
+          "users": [
+            {
+              "location": {
+                "city": "Cairo",
+                "governorate": "Cairo",
+                "lastUpdated": "2026-05-02T02:06:53.388Z"
+              },
+              "_id": "69f55c3d908a188f6830f27e",
+              "fullName": "Sweep Hospital",
+              "email": "hospital.1777687613253.06b9b8@example.com",
+              "isEmailVerified": true,
+              "emailVerifiedAt": "2026-05-02T02:06:53.482Z",
+              "role": "hospital",
+              "isSuspended": false,
+              "suspendedAt": null,
+              "suspendedReason": null,
+              "deletedAt": null,
+              "fcmTokens": [],
+              "phone": "0100000001",
+              "address": {
+                "city": "Cairo",
+                "governorate": "Cairo"
+              },
+              "__t": "hospital",
+              "name": "Sweep Hospital",
+              "type": "hospital",
+              "city": null,
+              "state": null,
+              "zipCode": null,
+              "licenseNumber": "LIC-SWEEP-001",
+              "adminContactName": null,
+              "adminContactPhone": null,
+              "emergencyContact": null,
+              "bloodBanksAvailable": [],
+              "capacity": null,
+              "hospitalName": "Sweep Hospital",
+              "contactNumber": "0100000001",
+              "createdAt": "2026-05-02T02:06:53.392Z",
+              "updatedAt": "2026-05-02T02:06:53.482Z",
+              "fullNameNormalized": "sweep hospital",
+              "hospitalNameNormalized": "sweep hospital",
+              "__v": 0
+            }
+          ],
+          "total": 1,
+          "page": 1,
+          "limit": 20
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/donors/69f55c3d908a188f6830f27e",
+      "status": 200,
+      "durationMs": 9.577,
+      "body": {
+        "success": true,
+        "data": {
+          "user": {
+            "location": {
+              "city": "Cairo",
+              "governorate": "Cairo",
+              "lastUpdated": "2026-05-02T02:06:53.388Z"
+            },
+            "_id": "69f55c3d908a188f6830f27e",
+            "fullName": "Sweep Hospital",
+            "email": "hospital.1777687613253.06b9b8@example.com",
+            "isEmailVerified": true,
+            "emailVerifiedAt": "2026-05-02T02:06:53.482Z",
+            "role": "hospital",
+            "isSuspended": false,
+            "suspendedAt": null,
+            "suspendedReason": null,
+            "deletedAt": null,
+            "fcmTokens": [],
+            "phone": "0100000001",
+            "address": {
+              "city": "Cairo",
+              "governorate": "Cairo"
+            },
+            "__t": "hospital",
+            "name": "Sweep Hospital",
+            "type": "hospital",
+            "city": null,
+            "state": null,
+            "zipCode": null,
+            "licenseNumber": "LIC-SWEEP-001",
+            "adminContactName": null,
+            "adminContactPhone": null,
+            "emergencyContact": null,
+            "bloodBanksAvailable": [],
+            "capacity": null,
+            "hospitalName": "Sweep Hospital",
+            "contactNumber": "0100000001",
+            "createdAt": "2026-05-02T02:06:53.392Z",
+            "updatedAt": "2026-05-02T02:06:53.482Z",
+            "fullNameNormalized": "sweep hospital",
+            "hospitalNameNormalized": "sweep hospital",
+            "__v": 0,
+            "totalRequests": 1
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/donors/69f55c3d908a188f6830f27e",
+      "status": 404,
+      "durationMs": 5.957,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Donor not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/hospitals/69f55c3d908a188f6830f27e",
+      "status": 200,
+      "durationMs": 7.403,
+      "body": {
+        "success": true,
+        "data": {
+          "user": {
+            "location": {
+              "city": "Cairo",
+              "governorate": "Cairo",
+              "lastUpdated": "2026-05-02T02:06:53.388Z"
+            },
+            "_id": "69f55c3d908a188f6830f27e",
+            "fullName": "Sweep Hospital",
+            "email": "hospital.1777687613253.06b9b8@example.com",
+            "isEmailVerified": true,
+            "emailVerifiedAt": "2026-05-02T02:06:53.482Z",
+            "role": "hospital",
+            "isSuspended": false,
+            "suspendedAt": null,
+            "suspendedReason": null,
+            "deletedAt": null,
+            "fcmTokens": [],
+            "phone": "0100000001",
+            "address": {
+              "city": "Cairo",
+              "governorate": "Cairo"
+            },
+            "__t": "hospital",
+            "name": "Sweep Hospital",
+            "type": "hospital",
+            "city": null,
+            "state": null,
+            "zipCode": null,
+            "licenseNumber": "LIC-SWEEP-001",
+            "adminContactName": null,
+            "adminContactPhone": null,
+            "emergencyContact": null,
+            "bloodBanksAvailable": [],
+            "capacity": null,
+            "hospitalName": "Sweep Hospital",
+            "contactNumber": "0100000001",
+            "createdAt": "2026-05-02T02:06:53.392Z",
+            "updatedAt": "2026-05-02T02:06:53.482Z",
+            "fullNameNormalized": "sweep hospital",
+            "hospitalNameNormalized": "sweep hospital",
+            "__v": 0,
+            "totalRequests": 1
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/admins",
+      "status": 200,
+      "durationMs": 6.976,
+      "body": {
+        "success": true,
+        "data": {
+          "admins": [
+            {
+              "_id": "69f55c3d908a188f6830f280",
+              "fullName": "Sweep Superadmin",
+              "email": "superadmin.1777687613253.4add44@example.com",
+              "isEmailVerified": true,
+              "role": "superadmin",
+              "isSuspended": false,
+              "phone": null,
+              "address": null,
+              "createdAt": "2026-05-02T02:06:53.449Z",
+              "updatedAt": "2026-05-02T02:06:53.449Z"
+            },
+            {
+              "_id": "69f55c3d908a188f6830f27f",
+              "fullName": "Sweep Admin",
+              "email": "admin.1777687613253.361c59@example.com",
+              "isEmailVerified": true,
+              "role": "admin",
+              "isSuspended": false,
+              "phone": null,
+              "address": null,
+              "adminKey": "02aed4b0a31a7914134ecaf04e895f61",
+              "createdAt": "2026-05-02T02:06:53.427Z",
+              "updatedAt": "2026-05-02T02:06:53.515Z"
+            }
+          ],
+          "total": 2,
+          "page": 1,
+          "limit": 20
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/admins",
+      "status": 409,
+      "durationMs": 6.425,
+      "body": {
+        "success": false,
+        "code": "EMAIL_ALREADY_EXISTS",
+        "message": "Email already registered"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/admins/69f55c3d908a188f6830f27e",
+      "status": 404,
+      "durationMs": 6.869,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Admin not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/admins/69f55c3d908a188f6830f27e",
+      "status": 404,
+      "durationMs": 5.827,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Admin not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/admins/69f55c3d908a188f6830f27e",
+      "status": 404,
+      "durationMs": 5.119,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Admin not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/donors/69f55c3d908a188f6830f27e/ban",
+      "status": 404,
+      "durationMs": 5.474,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Donor not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/donors/69f55c3d908a188f6830f27e/unban",
+      "status": 404,
+      "durationMs": 5.657,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Donor not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/hospitals/69f55c3d908a188f6830f27e/status",
+      "status": 400,
+      "durationMs": 3.764,
+      "body": {
+        "success": false,
+        "code": "VALIDATION_ERROR",
+        "message": "action must be suspend or unsuspend"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/permissions/roles",
+      "status": 200,
+      "durationMs": 5.519,
+      "body": {
+        "success": true,
+        "data": {
+          "roles": []
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/permissions/roles",
+      "status": 400,
+      "durationMs": 3.948,
+      "body": {
+        "success": false,
+        "code": "VALIDATION_ERROR",
+        "message": "role and displayName are required"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/permissions/roles/auditor",
+      "status": 404,
+      "durationMs": 4.476,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Role not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/permissions/roles/auditor",
+      "status": 404,
+      "durationMs": 14.117,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Role not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users",
+      "status": 200,
+      "durationMs": 9.303,
+      "body": {
+        "success": true,
+        "data": {
+          "users": [
+            {
+              "_id": "69f55c3d908a188f6830f280",
+              "fullName": "Sweep Superadmin",
+              "email": "superadmin.1777687613253.4add44@example.com",
+              "isEmailVerified": true,
+              "emailVerifiedAt": null,
+              "role": "superadmin",
+              "isSuspended": false,
+              "suspendedAt": null,
+              "suspendedReason": null,
+              "deletedAt": null,
+              "fcmTokens": [],
+              "phone": null,
+              "address": null,
+              "createdAt": "2026-05-02T02:06:53.449Z",
+              "updatedAt": "2026-05-02T02:06:53.449Z",
+              "fullNameNormalized": "sweep superadmin",
+              "__v": 0
+            },
+            {
+              "_id": "69f55c3d908a188f6830f27f",
+              "fullName": "Sweep Admin",
+              "email": "admin.1777687613253.361c59@example.com",
+              "isEmailVerified": true,
+              "emailVerifiedAt": "2026-05-02T02:06:53.515Z",
+              "role": "admin",
+              "isSuspended": false,
+              "suspendedAt": null,
+              "suspendedReason": null,
+              "deletedAt": null,
+              "fcmTokens": [],
+              "phone": null,
+              "address": null,
+              "createdAt": "2026-05-02T02:06:53.427Z",
+              "updatedAt": "2026-05-02T02:06:53.515Z",
+              "fullNameNormalized": "sweep admin",
+              "__v": 0
+            },
+            {
+              "location": {
+                "city": "Cairo",
+                "governorate": "Cairo",
+                "lastUpdated": "2026-05-02T02:06:53.388Z"
+              },
+              "_id": "69f55c3d908a188f6830f27e",
+              "fullName": "Sweep Hospital",
+              "email": "hospital.1777687613253.06b9b8@example.com",
+              "isEmailVerified": true,
+              "emailVerifiedAt": "2026-05-02T02:06:53.482Z",
+              "role": "hospital",
+              "isSuspended": false,
+              "suspendedAt": null,
+              "suspendedReason": null,
+              "deletedAt": null,
+              "fcmTokens": [],
+              "phone": "0100000001",
+              "address": {
+                "city": "Cairo",
+                "governorate": "Cairo"
+              },
+              "__t": "hospital",
+              "name": "Sweep Hospital",
+              "type": "hospital",
+              "city": null,
+              "state": null,
+              "zipCode": null,
+              "licenseNumber": "LIC-SWEEP-001",
+              "adminContactName": null,
+              "adminContactPhone": null,
+              "emergencyContact": null,
+              "bloodBanksAvailable": [],
+              "capacity": null,
+              "hospitalName": "Sweep Hospital",
+              "contactNumber": "0100000001",
+              "createdAt": "2026-05-02T02:06:53.392Z",
+              "updatedAt": "2026-05-02T02:06:53.482Z",
+              "fullNameNormalized": "sweep hospital",
+              "hospitalNameNormalized": "sweep hospital",
+              "__v": 0
+            },
+            {
+              "healthHistory": {
+                "chronicConditions": [],
+                "medications": [],
+                "allergies": [],
+                "recentIllness": "",
+                "notes": "",
+                "lastCheckupDate": null,
+                "updatedAt": null
+              },
+              "location": {
+                "city": "Cairo",
+                "governorate": "Cairo"
+              },
+              "_id": "69f55c3d908a188f6830f27d",
+              "fullName": "Sweep Donor",
+              "email": "donor.1777687613253.e4dd1e@example.com",
+              "isEmailVerified": true,
+              "emailVerifiedAt": "2026-05-02T02:06:53.463Z",
+              "role": "donor",
+              "isSuspended": false,
+              "suspendedAt": null,
+              "suspendedReason": null,
+              "deletedAt": null,
+              "fcmTokens": [],
+              "phone": null,
+              "address": null,
+              "__t": "donor",
+              "phoneNumber": "01234567890",
+              "bloodType": "O+",
+              "dateOfBirth": "1990-01-01T00:00:00.000Z",
+              "gender": "male",
+              "hemoglobinLevel": null,
+              "temporaryDeferralUntil": null,
+              "lastDeferralReason": null,
+              "isAvailable": true,
+              "travelHistory": [],
+              "createdAt": "2026-05-02T02:06:53.301Z",
+              "updatedAt": "2026-05-02T02:06:53.575Z",
+              "fullNameNormalized": "sweep donor",
+              "__v": 0,
+              "isBanned": false,
+              "availableToDonate": true,
+              "isVerified": true,
+              "id": "69f55c3d908a188f6830f27d"
+            }
+          ],
+          "total": 4,
+          "page": 1,
+          "limit": 20
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users/stats",
+      "status": 200,
+      "durationMs": 7.145,
+      "body": {
+        "success": true,
+        "data": {
+          "totalUsers": 4,
+          "totalDonors": 1,
+          "totalHospitals": 1,
+          "totalAdmins": 2,
+          "verifiedUsers": 4,
+          "unverifiedUsers": 0,
+          "suspendedUsers": 0
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/users/hospital",
+      "status": 400,
+      "durationMs": 4.285,
+      "body": {
+        "success": false,
+        "code": "VALIDATION_ERROR",
+        "message": "hospitalId is required"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users/69f55c3d908a188f6830f27e",
+      "status": 200,
+      "durationMs": 5.847,
+      "body": {
+        "success": true,
+        "data": {
+          "user": {
+            "location": {
+              "city": "Cairo",
+              "governorate": "Cairo",
+              "lastUpdated": "2026-05-02T02:06:53.388Z"
+            },
+            "_id": "69f55c3d908a188f6830f27e",
+            "fullName": "Sweep Hospital",
+            "email": "hospital.1777687613253.06b9b8@example.com",
+            "isEmailVerified": true,
+            "emailVerifiedAt": "2026-05-02T02:06:53.482Z",
+            "role": "hospital",
+            "isSuspended": false,
+            "suspendedAt": null,
+            "suspendedReason": null,
+            "deletedAt": null,
+            "fcmTokens": [],
+            "phone": "0100000001",
+            "address": {
+              "city": "Cairo",
+              "governorate": "Cairo"
+            },
+            "__t": "hospital",
+            "name": "Sweep Hospital",
+            "type": "hospital",
+            "city": null,
+            "state": null,
+            "zipCode": null,
+            "licenseNumber": "LIC-SWEEP-001",
+            "adminContactName": null,
+            "adminContactPhone": null,
+            "emergencyContact": null,
+            "bloodBanksAvailable": [],
+            "capacity": null,
+            "hospitalName": "Sweep Hospital",
+            "contactNumber": "0100000001",
+            "createdAt": "2026-05-02T02:06:53.392Z",
+            "updatedAt": "2026-05-02T02:06:53.482Z",
+            "fullNameNormalized": "sweep hospital",
+            "hospitalNameNormalized": "sweep hospital",
+            "__v": 0,
+            "totalRequests": 1
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/users/69f55c3d908a188f6830f27e",
+      "status": 200,
+      "durationMs": 12.931,
+      "body": {
+        "success": true,
+        "data": "User deleted successfully"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/69f55c3d908a188f6830f27e/verify",
+      "status": 404,
+      "durationMs": 5.519,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "User not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/69f55c3d908a188f6830f27e/unverify",
+      "status": 404,
+      "durationMs": 4.332,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "User not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/69f55c3d908a188f6830f27e/suspend",
+      "status": 404,
+      "durationMs": 5.013,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "User not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/users/69f55c3d908a188f6830f27e/unsuspend",
+      "status": 404,
+      "durationMs": 5.413,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "User not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/requests",
+      "status": 200,
+      "durationMs": 9.322,
+      "body": {
+        "success": true,
+        "data": {
+          "requests": [
+            {
+              "_id": "69f55c3d908a188f6830f282",
+              "hospitalId": {
+                "_id": "69f55c3d908a188f6830f27e",
+                "fullName": "Sweep Hospital",
+                "email": "hospital.1777687613253.06b9b8@example.com",
+                "address": {
+                  "city": "Cairo",
+                  "governorate": "Cairo"
+                },
+                "__t": "hospital",
+                "hospitalName": "Sweep Hospital",
+                "contactNumber": "0100000001"
+              },
+              "type": "blood",
+              "bloodType": "O+",
+              "urgency": "high",
+              "status": "pending",
+              "requiredBy": "2026-05-09T02:06:53.621Z",
+              "quantity": 2,
+              "notes": "Endpoint sweep request",
+              "hospitalContact": "0100000001",
+              "hospitalName": "Sweep Hospital",
+              "createdAt": "2026-05-02T02:06:53.627Z",
+              "updatedAt": "2026-05-02T02:06:53.627Z",
+              "__v": 0
+            }
+          ],
+          "total": 1,
+          "page": 1,
+          "limit": 20
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/requests/stats",
+      "status": 200,
+      "durationMs": 9.484,
+      "body": {
+        "success": true,
+        "data": {
+          "total": 1,
+          "byStatus": {
+            "pending": 1
+          },
+          "byUrgency": {
+            "high": 1
+          },
+          "byBloodType": {
+            "O+": 1
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/requests/69f55c3d908a188f6830f27e",
+      "status": 404,
+      "durationMs": 6.083,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Request not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/requests/69f55c3d908a188f6830f27e/donations",
+      "status": 200,
+      "durationMs": 6.445,
+      "body": {
+        "success": true,
+        "data": {
+          "donations": [],
+          "total": 0,
+          "page": 1,
+          "limit": 20
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/requests/69f55c3d908a188f6830f27e/fulfill",
+      "status": 404,
+      "durationMs": 4.522,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Request not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/requests/69f55c3d908a188f6830f27e/cancel",
+      "status": 400,
+      "durationMs": 3.903,
+      "body": {
+        "success": false,
+        "code": "VALIDATION_ERROR",
+        "message": "reason (string) is required"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/requests/69f55c3d908a188f6830f27e/broadcast",
+      "status": 404,
+      "durationMs": 4.564,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Request not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/analytics/dashboard",
+      "status": 200,
+      "durationMs": 6.263,
+      "body": {
+        "success": true,
+        "data": {
+          "users": {
+            "total": 3,
+            "donors": 1,
+            "hospitals": 0
+          },
+          "requests": {
+            "active": 1,
+            "critical": 0
+          },
+          "donations": {
+            "pending": 0,
+            "completed": 0
+          },
+          "alerts": {
+            "unverifiedUsers": 0,
+            "suspendedUsers": 0,
+            "criticalRequests": 0
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/analytics/donations",
+      "status": 200,
+      "durationMs": 6.052,
+      "body": {
+        "success": true,
+        "data": {
+          "trends": []
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/analytics/blood-types",
+      "status": 200,
+      "durationMs": 4.955,
+      "body": {
+        "success": true,
+        "data": {
+          "distribution": [
+            {
+              "bloodType": "A+",
+              "donors": 0,
+              "activeRequests": 0
+            },
+            {
+              "bloodType": "A-",
+              "donors": 0,
+              "activeRequests": 0
+            },
+            {
+              "bloodType": "B+",
+              "donors": 0,
+              "activeRequests": 0
+            },
+            {
+              "bloodType": "B-",
+              "donors": 0,
+              "activeRequests": 0
+            },
+            {
+              "bloodType": "AB+",
+              "donors": 0,
+              "activeRequests": 0
+            },
+            {
+              "bloodType": "AB-",
+              "donors": 0,
+              "activeRequests": 0
+            },
+            {
+              "bloodType": "O+",
+              "donors": 1,
+              "activeRequests": 1
+            },
+            {
+              "bloodType": "O-",
+              "donors": 0,
+              "activeRequests": 0
+            }
+          ]
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/analytics/top-donors",
+      "status": 200,
+      "durationMs": 7.892,
+      "body": {
+        "success": true,
+        "data": {
+          "topDonors": []
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/analytics/growth",
+      "status": 200,
+      "durationMs": 6.582,
+      "body": {
+        "success": true,
+        "data": {
+          "userGrowth": [
+            {
+              "_id": {
+                "year": 2026,
+                "month": 5
+              },
+              "count": 4,
+              "donors": 1,
+              "hospitals": 1
+            }
+          ],
+          "requestGrowth": [
+            {
+              "_id": {
+                "year": 2026,
+                "month": 5
+              },
+              "count": 1
+            }
+          ],
+          "donationGrowth": []
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/emergency/broadcast",
+      "status": 200,
+      "durationMs": 18.114,
+      "body": {
+        "success": true,
+        "data": {
+          "donorsNotified": 1,
+          "fcmTokens": [],
+          "governorate": "all",
+          "city": "all"
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/emergency/critical",
+      "status": 200,
+      "durationMs": 7.383,
+      "body": {
+        "success": true,
+        "data": {
+          "requests": [
+            {
+              "_id": "69f55c3d908a188f6830f282",
+              "hospitalId": {
+                "location": {
+                  "city": "Cairo",
+                  "governorate": "Cairo",
+                  "lastUpdated": "2026-05-02T02:06:53.388Z"
+                },
+                "_id": "69f55c3d908a188f6830f27e",
+                "fullName": "Sweep Hospital",
+                "__t": "hospital",
+                "hospitalName": "Sweep Hospital",
+                "contactNumber": "0100000001"
+              },
+              "type": "blood",
+              "bloodType": "O+",
+              "urgency": "high",
+              "status": "pending",
+              "requiredBy": "2026-05-09T02:06:53.621Z",
+              "quantity": 2,
+              "notes": "Endpoint sweep request",
+              "hospitalContact": "0100000001",
+              "hospitalName": "Sweep Hospital",
+              "createdAt": "2026-05-02T02:06:53.627Z",
+              "updatedAt": "2026-05-02T02:06:53.627Z",
+              "__v": 0
+            }
+          ]
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/emergency/shortage-alerts",
+      "status": 200,
+      "durationMs": 8.249,
+      "body": {
+        "success": true,
+        "data": {
+          "alerts": [
+            {
+              "bloodType": "A+",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "A-",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "B+",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "B-",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "AB+",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "AB-",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "O+",
+              "activeRequests": 1,
+              "availableDonors": 1,
+              "ratio": "1.00",
+              "status": "ok"
+            },
+            {
+              "bloodType": "O-",
+              "activeRequests": 0,
+              "availableDonors": 0,
+              "ratio": "0.00",
+              "status": "ok"
+            }
+          ]
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/donations/book-appointment",
+      "status": 401,
+      "durationMs": 6.122,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/donations/book-appointment/my-appointments",
+      "status": 401,
+      "durationMs": 3.631,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "DELETE",
+      "path": "/donations/book-appointment/undefined",
+      "status": 401,
+      "durationMs": 3.187,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/signup",
+      "status": 400,
+      "durationMs": 3.775,
+      "body": {
+        "success": false,
+        "code": "EMAIL_ALREADY_EXISTS",
+        "message": "Email is already registered"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "status": 401,
+      "durationMs": 4.192,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Invalid credentials"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/admin/login",
+      "status": 200,
+      "durationMs": 5.515,
+      "body": {
+        "success": true,
+        "data": {
+          "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OWY1NWMzZDkwOGExODhmNjgzMGYyN2YiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3Nzc2ODc2MTQsImV4cCI6MTc3ODI5MjQxNH0.7nH35jiJ5r0YNbVKu5Dq5Atob6lqlEbs1MenKqpdAL4",
+          "refreshToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiI2OWY1NWMzZDkwOGExODhmNjgzMGYyN2YiLCJyb2xlIjoiYWRtaW4iLCJpYXQiOjE3Nzc2ODc2MTQsImV4cCI6MTc4MDI3OTYxNH0.OfB8quOokJ06dnTuWbUmkpdG9guC9cgOyknrdgW_tT4",
+          "admin": {
+            "_id": "69f55c3d908a188f6830f27f",
+            "fullName": "Sweep Admin",
+            "email": "admin.1777687613253.361c59@example.com",
+            "role": "admin",
+            "phone": null,
+            "address": null
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/validate-token",
+      "status": 401,
+      "durationMs": 3.09,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/send-otp",
+      "status": 200,
+      "durationMs": 11.152,
+      "body": {
+        "success": true,
+        "data": {
+          "success": true,
+          "purpose": "password_reset",
+          "expires_in_seconds": 600,
+          "otp": "878726"
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/verify-otp",
+      "status": 400,
+      "durationMs": 6.926,
+      "body": {
+        "success": false,
+        "code": "BAD_REQUEST",
+        "message": "Invalid OTP"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/2fa/setup",
+      "status": 401,
+      "durationMs": 3.425,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/2fa/confirm-setup",
+      "status": 401,
+      "durationMs": 3.091,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/2fa/verify",
+      "status": 400,
+      "durationMs": 2.03,
+      "body": {
+        "success": false,
+        "code": "VALIDATION_ERROR",
+        "message": "tempToken is required"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/2fa/disable",
+      "status": 401,
+      "durationMs": 2.856,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospitals",
+      "status": 200,
+      "durationMs": 3.981,
+      "body": {
+        "success": true,
+        "data": {
+          "hospitals": [],
+          "pagination": {
+            "total": 0,
+            "page": 1,
+            "limit": 20,
+            "totalPages": 1,
+            "hasNextPage": false,
+            "hasPrevPage": false
+          }
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospitals/nearby",
+      "status": 200,
+      "durationMs": 3.339,
+      "body": {
+        "success": true,
+        "data": {
+          "hospitals": [],
+          "total": 0
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospitals/69f55c3d908a188f6830f27e",
+      "status": 404,
+      "durationMs": 3.192,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Hospital not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/donations/my-appointments",
+      "status": 401,
+      "durationMs": 5.956,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/donations/complete",
+      "status": 401,
+      "durationMs": 5.883,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/donor/profile",
+      "status": 401,
+      "durationMs": 4.424,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/donor/profile",
+      "status": 401,
+      "durationMs": 4.939,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/donor/requests?urgency=high",
+      "status": 401,
+      "durationMs": 5.11,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/donor/matches",
+      "status": 401,
+      "durationMs": 4.278,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/donor/respond/69f55c3d908a188f6830f282",
+      "status": 401,
+      "durationMs": 3.998,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/donor/history",
+      "status": 401,
+      "durationMs": 3.863,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/donor/availability",
+      "status": 401,
+      "durationMs": 4.625,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/donor/health-history",
+      "status": 401,
+      "durationMs": 5.772,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/donor/health-history",
+      "status": 401,
+      "durationMs": 3.931,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/help/faq",
+      "status": 200,
+      "durationMs": 2.378,
+      "body": {
+        "success": true,
+        "data": {
+          "faqs": [
+            {
+              "category": "DONATION",
+              "question": "How often can I donate blood?",
+              "answer": "Whole blood donation is generally allowed every 56 days."
+            },
+            {
+              "category": "HEALTH",
+              "question": "Can I donate if I am feeling unwell?",
+              "answer": "No. Please wait until you are fully recovered and meet eligibility requirements."
+            },
+            {
+              "category": "REWARDS",
+              "question": "How do points work?",
+              "answer": "You earn points from successful donations, emergency responses, profile completion, and badges."
+            },
+            {
+              "category": "TECHNICAL",
+              "question": "How do I reset my password?",
+              "answer": "Use the password reset option from the login screen."
+            }
+          ]
+        }
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/help/documents/{type}",
+      "status": 404,
+      "durationMs": 3.48,
+      "body": {
+        "success": false,
+        "code": "NOT_FOUND",
+        "message": "Document not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/profile",
+      "status": 401,
+      "durationMs": 3.665,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/hospital/profile",
+      "status": 401,
+      "durationMs": 3.349,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/hospital/request",
+      "status": 401,
+      "durationMs": 3.495,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/requests",
+      "status": 401,
+      "durationMs": 3.474,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/requests/69f55c3d908a188f6830f282",
+      "status": 401,
+      "durationMs": 3.196,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/hospital/requests/69f55c3d908a188f6830f282",
+      "status": 401,
+      "durationMs": 3.54,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "DELETE",
+      "path": "/hospital/requests/69f55c3d908a188f6830f282",
+      "status": 401,
+      "durationMs": 3.175,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/donations",
+      "status": 401,
+      "durationMs": 3.025,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/blood-inventory",
+      "status": 401,
+      "durationMs": 3.148,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/blood-bank-settings",
+      "status": 401,
+      "durationMs": 3.306,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/hospital/blood-bank-settings",
+      "status": 401,
+      "durationMs": 2.992,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/notification-preferences",
+      "status": 401,
+      "durationMs": 3.283,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PUT",
+      "path": "/hospital/notification-preferences",
+      "status": 401,
+      "durationMs": 4.085,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/reports/monthly",
+      "status": 401,
+      "durationMs": 4.062,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/hospital/staff",
+      "status": 401,
+      "durationMs": 4.985,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/hospital/staff",
+      "status": 401,
+      "durationMs": 4.388,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "DELETE",
+      "path": "/hospital/staff/69f55c3d908a188f6830f27e",
+      "status": 401,
+      "durationMs": 4.539,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Account not found"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/notifications",
+      "status": 401,
+      "durationMs": 3.692,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/notifications/69f55c3d908a188f6830f27e/read",
+      "status": 401,
+      "durationMs": 3.789,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/notifications/read-all",
+      "status": 401,
+      "durationMs": 4.884,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/notifications/69f55c3d908a188f6830f27e",
+      "status": 401,
+      "durationMs": 3.744,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "DELETE",
+      "path": "/notifications/69f55c3d908a188f6830f27e",
+      "status": 401,
+      "durationMs": 4.284,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/rewards/points",
+      "status": 401,
+      "durationMs": 3.83,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/rewards/points/history",
+      "status": 401,
+      "durationMs": 4.152,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/rewards/badges",
+      "status": 401,
+      "durationMs": 4.878,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/rewards/catalog",
+      "status": 401,
+      "durationMs": 5.264,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/rewards/history",
+      "status": 401,
+      "durationMs": 4.898,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/rewards/catalog/undefined/redeem",
+      "status": 401,
+      "durationMs": 5.046,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/rewards/redemptions",
+      "status": 429,
+      "durationMs": 2.982,
+      "body": {
+        "success": false,
+        "code": "TOO_MANY_REQUESTS",
+        "message": "Too many requests, please try again later"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/rewards/leaderboard",
+      "status": 429,
+      "durationMs": 2.644,
+      "body": {
+        "success": false,
+        "code": "TOO_MANY_REQUESTS",
+        "message": "Too many requests, please try again later"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/rewards/admin/users/69f55c3d908a188f6830f27d/points/adjust",
+      "status": 429,
+      "durationMs": 3.206,
+      "body": {
+        "success": false,
+        "code": "TOO_MANY_REQUESTS",
+        "message": "Too many requests, please try again later"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "PATCH",
+      "path": "/rewards/admin/catalog/undefined/status",
+      "status": 429,
+      "durationMs": 3.049,
+      "body": {
+        "success": false,
+        "code": "TOO_MANY_REQUESTS",
+        "message": "Too many requests, please try again later"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "GET",
+      "path": "/rewards/admin/analytics",
+      "status": 429,
+      "durationMs": 2.663,
+      "body": {
+        "success": false,
+        "code": "TOO_MANY_REQUESTS",
+        "message": "Too many requests, please try again later"
+      },
+      "error": null,
+      "category": "working"
+    },
+    {
+      "method": "POST",
+      "path": "/support/contact",
+      "status": 401,
+      "durationMs": 4.98,
+      "body": {
+        "success": false,
+        "code": "UNAUTHORIZED",
+        "message": "Token is no longer valid. Please log in again"
+      },
+      "error": null,
+      "category": "working"
+    }
+  ]
+}

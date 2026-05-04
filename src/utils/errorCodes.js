@@ -11,17 +11,37 @@
  */
 
 export const ERR = Object.freeze({
+  // ── Validation ──────────────────────────────
+  VALIDATION_ERROR:                'Validation failed',
+  VALIDATION_FAILED:               'One or more fields failed validation',
+
   // ── Authentication ──────────────────────────
   AUTH_INVALID_CREDENTIALS:        'Invalid credentials',
   AUTH_ACCOUNT_SUSPENDED:          'Account is suspended. Contact support.',
   AUTH_EMAIL_NOT_VERIFIED:         'Email address is not verified',
+  AUTH_INVALID_ROLE:               'Invalid role for this account',
+  AUTH_INVALID_LICENSE:            'Invalid hospital license number',
+  AUTH_INVALID_ADMIN_CODE:         'Invalid admin code',
   AUTH_REFRESH_TOKEN_REQUIRED:     'Refresh token is required',
   AUTH_REFRESH_TOKEN_INVALID:      'Invalid refresh token',
   AUTH_RESET_TOKEN_INVALID:        'Invalid or expired reset token',
   AUTH_INVALID_PASSWORD:           'Invalid password',
+  AUTH_INVALID_ADMIN_KEY:          'Invalid admin key',
   AUTH_USER_NOT_FOUND:             'User not found',
   AUTH_ACCOUNT_NOT_FOUND:          'Account not found',
   AUTH_VERIFICATION_TOKEN_INVALID: 'Invalid or expired verification token',
+
+  // ── Registration ────────────────────────────
+  EMAIL_ALREADY_EXISTS:            'Email is already registered',
+  UNDERAGE_DONOR:                  'You must be at least 17 years old to donate',
+
+  // ── Donor Eligibility ───────────────────────
+  DONOR_NOT_ELIGIBLE:              'Donor is not eligible to donate',
+  DONOR_LOW_HEMOGLOBIN:            'Low hemoglobin level',
+  DONOR_TRAVEL_DEFERRAL:           'Travel to high-risk country',
+  DONOR_TEMPORARY_DEFERRAL:        'Temporarily deferred',
+  DONOR_DONATION_INTERVAL:         'Need to wait before donating again',
+  DONOR_UNDERAGE:                  'Must be at least 17 years old',
 
   // ── FCM ─────────────────────────────────────
   FCM_TOKEN_REQUIRED:              'fcmToken is required',
@@ -62,6 +82,7 @@ export const ERR = Object.freeze({
   NOT_FOUND:                       'Resource not found',
   UNAUTHORIZED:                    'Unauthorized',
   FORBIDDEN:                       'Forbidden',
+
   // ── Appointments ──────────────────────────────
   APPOINTMENT_NOT_FOUND:           'Appointment not found',
   APPOINTMENT_ALREADY_EXISTS:      'You already have an active appointment at this hospital',

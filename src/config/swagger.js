@@ -22,8 +22,7 @@ const swaggerOptions = {
       version: '1.0.0',
       description:
         'OpenAPI documentation for the LifeLink donation platform API. ' +
-        'Primary routes are mounted at root paths and compatibility aliases ' +
-        'are also available under /api/v1/*.',
+        'All routes are mounted at root paths.',
     },
     servers: [
       {

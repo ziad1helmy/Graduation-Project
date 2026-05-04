@@ -13,8 +13,8 @@ import { validateLogin, validateRegister } from '../../src/validation/auth.valid
 // ──────────────────────────────────────────────
 
 describe('validateLogin', () => {
-  it('should pass with valid email and password', () => {
-    const result = validateLogin({ email: 'user@example.com', password: 'SecurePass@123' });
+  it('should pass with valid email, password, and role', () => {
+    const result = validateLogin({ email: 'user@example.com', password: 'SecurePass@123', role: 'donor' });
     expect(result.valid).toBe(true);
     expect(Object.keys(result.errors)).toHaveLength(0);
   });
@@ -53,9 +53,11 @@ describe('validateRegister — donor', () => {
     fullName: 'Aya Hassan',
     email: 'aya@example.com',
     password: 'SecurePass@123',
+    confirmPassword: 'SecurePass@123',
     role: 'donor',
-    phoneNumber: '1011111111',
+    phoneNumber: '01011111111',
     dateOfBirth: '1996-03-12',
+    bloodType: 'A+',
   };
 
   it('should pass with all valid donor fields', () => {
@@ -63,11 +65,11 @@ describe('validateRegister — donor', () => {
     expect(result.valid).toBe(true);
   });
 
-  it('should pass without phoneNumber (optional in validation layer)', () => {
+  it('should fail without phoneNumber', () => {
     const { phoneNumber, ...missingPhone } = validDonor;
     const result = validateRegister(missingPhone);
-    // phoneNumber is not required in validation rules — Mongoose schema enforces it
-    expect(result.valid).toBe(true);
+    expect(result.valid).toBe(false);
+    expect(result.errors.phoneNumber).toBeDefined();
   });
 
   it('should fail with invalid phoneNumber format', () => {
@@ -90,7 +92,7 @@ describe('validateRegister — donor', () => {
   });
 
   it('should fail with invalid role', () => {
-    const result = validateRegister({ ...validDonor, role: 'admin' });
+    const result = validateRegister({ ...validDonor, role: 'superadmin' });
     expect(result.valid).toBe(false);
     expect(result.errors.role).toBeDefined();
   });
@@ -116,9 +118,9 @@ describe('validateRegister — hospital', () => {
     fullName: 'Cairo Care Operations',
     email: 'ops@cairocare.com',
     password: 'SecurePass@123',
+    confirmPassword: 'SecurePass@123',
     role: 'hospital',
     hospitalName: 'Cairo Care Hospital',
-    hospitalId: 1001,
     licenseNumber: 'LIC-CAIRO-1001',
   };
 
@@ -134,11 +136,9 @@ describe('validateRegister — hospital', () => {
     expect(result.errors.hospitalName).toBeDefined();
   });
 
-  it('should fail without hospitalId', () => {
-    const { hospitalId, ...missing } = validHospital;
-    const result = validateRegister(missing);
-    expect(result.valid).toBe(false);
-    expect(result.errors.hospitalId).toBeDefined();
+  it('should pass without hospitalId because validation no longer requires it', () => {
+    const result = validateRegister(validHospital);
+    expect(result.valid).toBe(true);
   });
 
   it('should fail without licenseNumber', () => {

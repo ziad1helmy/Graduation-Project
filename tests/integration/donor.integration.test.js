@@ -44,7 +44,7 @@ describe('Donor Routes Integration', () => {
 
     const updateData = {
       fullName: 'Ahmed Updated',
-      phoneNumber: '0109876543',
+      phoneNumber: '01098765432',
       gender: 'male',
     };
 
@@ -56,7 +56,7 @@ describe('Donor Routes Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data.fullName).toBe('Ahmed Updated');
-    expect(response.body.data.phoneNumber).toBe('0109876543');
+    expect(response.body.data.phoneNumber).toBe('01098765432');
   });
 
   it('GET /donor/requests returns available donation requests', async () => {

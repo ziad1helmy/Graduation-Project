@@ -1,6 +1,7 @@
 import { env } from '../config/env.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { logger } from './logger.js';
 
 /**
  * FCM (Firebase Cloud Messaging) utility for push notifications.
@@ -40,12 +41,16 @@ const initFirebase = async () => {
         clientEmail = clientEmail || parsed.client_email;
         privateKey = privateKey || parsed.private_key;
       } catch (fileError) {
-        console.warn('[FCM] Failed to load FIREBASE_SERVICE_ACCOUNT_PATH. Falling back to direct env credentials.');
+        logger.warn('Failed to load Firebase service account file', {
+          path: env.FIREBASE_SERVICE_ACCOUNT_PATH,
+        });
       }
     }
 
     if (!projectId || !clientEmail || !privateKey) {
-      console.warn('[FCM] Firebase credentials not configured. Push notifications disabled.');
+      logger.warn('Firebase credentials not configured', {
+        message: 'Push notifications disabled',
+      });
       firebaseInitialized = true;
       return false;
     }
@@ -62,10 +67,12 @@ const initFirebase = async () => {
 
     firebaseAdmin = admin.default;
     firebaseInitialized = true;
-    console.log('[FCM] Firebase Admin initialized successfully');
+    logger.info('Firebase Admin initialized', {});
     return true;
   } catch (error) {
-    console.warn('[FCM] Firebase init failed:', error.message);
+    logger.warn('Firebase initialization failed', {
+      message: error.message,
+    });
     firebaseInitialized = true;
     return false;
   }
@@ -85,7 +92,9 @@ export const sendToDevice = async (fcmToken, title, body, data = {}) => {
 
   if (!initialized || !firebaseAdmin) {
     if (env.NODE_ENV === 'development') {
-      console.log('[FCM-DEV] Push skipped because Firebase is unavailable.');
+      logger.debug('Push notification skipped', {
+        reason: 'Firebase unavailable',
+      });
     }
     return null;
   }
@@ -102,7 +111,9 @@ export const sendToDevice = async (fcmToken, title, body, data = {}) => {
     const response = await firebaseAdmin.messaging().send(message);
     return response;
   } catch (error) {
-    console.error('[FCM] Send error:', error.message);
+    logger.error('FCM send error', {
+      message: error.message,
+    });
     return null;
   }
 };
@@ -127,7 +138,10 @@ export const sendToMultiple = async (fcmTokens, title, body, data = {}) => {
 
   if (!initialized || !firebaseAdmin) {
     if (env.NODE_ENV === 'development') {
-      console.log(`[FCM-DEV] Batch push skipped for ${uniqueTokens.length} devices because Firebase is unavailable.`);
+      logger.debug('Batch push skipped', {
+        deviceCount: uniqueTokens.length,
+        reason: 'Firebase unavailable',
+      });
     }
     return { successCount: 0, failureCount: 0, skipped: true };
   }
@@ -147,7 +161,10 @@ export const sendToMultiple = async (fcmTokens, title, body, data = {}) => {
       failureCount: response.failureCount,
     };
   } catch (error) {
-    console.error('[FCM] Batch send error:', error.message);
+    logger.error('FCM batch send error', {
+      message: error.message,
+      tokenCount: uniqueTokens.length,
+    });
     return { successCount: 0, failureCount: uniqueTokens.length };
   }
 };

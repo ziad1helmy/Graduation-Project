@@ -23,10 +23,10 @@ describe('Matching Service — pure helpers', () => {
     expect(matchingService.isBloodTypeCompatible(null, 'A+')).toBe(false);
   });
 
-  it('checks eligibility with missing blood type', () => {
-    const donor = { isAvailable: true, bloodType: null, healthHistory: {} };
+  it('checks eligibility with missing blood type', async () => {
+    const donor = { isAvailable: true, bloodType: null, healthHistory: {}, dateOfBirth: new Date('1990-01-01') };
     const request = { type: 'blood', bloodType: 'A+' };
-    const res = matchingService.checkEligibility(donor, request);
+    const res = await matchingService.checkEligibility(donor, request);
     expect(res.eligible).toBe(false);
     expect(res.reason).toMatch(/has not provided blood type/i);
   });

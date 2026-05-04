@@ -1,32 +1,45 @@
 import mongoose from 'mongoose';
 import { env } from './env.js';
+import { logger } from '../utils/logger.js';
 
 async function connectDB() {
   try {
+    // Prevent Mongoose from attempting to build indexes on startup.
+    // This avoids duplicate-index warnings in development where models
+    // may be loaded multiple times or indexes are created elsewhere.
+    mongoose.set('autoIndex', false);
+
     const options = {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
+      autoIndex: false,
     };
 
     await mongoose.connect(env.MONGO_URI, options);
 
     mongoose.connection.on('error', (err) => {
-      console.error('MongoDB connection error:', err);
+      logger.error('MongoDB connection error', {
+        message: err.message,
+      });
     });
 
     mongoose.connection.on('disconnected', () => {
-      console.warn('MongoDB disconnected');
+      logger.warn('MongoDB disconnected', {});
     });
 
     if (env.NODE_ENV !== 'test') {
-      console.log(`MongoDB connected: ${mongoose.connection.name}`);
+      logger.info('MongoDB connected', {
+        database: mongoose.connection.name,
+      });
     }
   } catch (err) {
-    console.error('MongoDB connection failed:', err.message);
+    logger.error('MongoDB connection failed', {
+      message: err.message,
+    });
     if (env.NODE_ENV === 'production') {
       process.exit(1);
     }
-    console.warn('Continuing without database (development mode).');
+    logger.warn('Continuing without database (development mode)', {});
   }
 }
 
@@ -34,10 +47,12 @@ async function disconnectDB() {
   try {
     await mongoose.connection.close();
     if (env.NODE_ENV !== 'test') {
-      console.log('MongoDB connection closed');
+      logger.info('MongoDB connection closed', {});
     }
   } catch (err) {
-    console.error('Error closing MongoDB connection:', err.message);
+    logger.error('Error closing MongoDB connection', {
+      message: err.message,
+    });
   }
 }
 

@@ -9,6 +9,7 @@ import {
   validateListUsersQuery,
   validateSuspendBody,
   validateCreateHospitalBody,
+  validateCreateAdminBody,
   validateListRequestsQuery,
   validateCancelRequestBody,
   validateEmergencyBroadcastBody,
@@ -19,9 +20,19 @@ import {
 // ──────────────────────────────────────────────
 
 /** GET /admin/profile */
-export const getProfile = (req, res) => {
-  return response.success(res, 200, 'Admin profile', { user: req.user });
+export const getAdminProfile = async (req, res, next) => {
+  try {
+    const admin = await adminService.getAdminProfile(req.user._id);
+    if (!admin) {
+      return response.error(res, 404, 'Admin profile not found');
+    }
+    return response.success(res, 200, 'Admin profile', { admin });
+  } catch (error) {
+    next(error);
+  }
 };
+
+export const getProfile = getAdminProfile;
 
 /** GET /admin/system/health */
 export const getSystemHealth = async (req, res, next) => {
@@ -154,30 +165,40 @@ export const listAdmins = async (req, res, next) => {
       return response.error(res, 400, validation.errors.join(', '));
     }
 
-    const { verified, suspended, search } = req.query;
-    const { page, limit, skip } = parsePagination(req.query, 20);
-    const query = { deletedAt: null, role: { $in: ['admin', 'superadmin'] } };
+    const { page, limit } = parsePagination(req.query, 20);
+    const result = await adminService.getAllAdmins({ page, limit });
+    return response.success(res, 200, 'Admins list', result);
+  } catch (error) {
+    next(error);
+  }
+};
 
-    if (verified !== undefined) query.isEmailVerified = verified === 'true' || verified === true;
-    if (suspended !== undefined) query.isSuspended = suspended === 'true' || suspended === true;
-    if (search) {
-      query.$or = [
-        { fullName: { $regex: search, $options: 'i' } },
-        { email: { $regex: search, $options: 'i' } },
-      ];
+export const getAllAdmins = listAdmins;
+
+export const loginAdmin = async (req, res, next) => {
+  try {
+    const { email, password, adminKey } = req.body || {};
+
+    if (!email || !password || !adminKey) {
+      return response.error(res, 400, 'email, password and adminKey are required');
     }
 
-    const [users, total] = await Promise.all([
-      User.find(query)
-        .select('-password -emailVerificationToken -emailVerificationExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt')
-        .sort({ createdAt: -1 })
-        .skip(skip)
-        .limit(limit),
-      User.countDocuments(query),
-    ]);
+    const result = await adminService.loginAdmin(email, password, adminKey);
+    if (result.requires2FA) {
+      return response.success(res, 200, '2FA verification required', result);
+    }
 
-    return response.success(res, 200, 'Admins list', { users, total, page, limit });
+    return response.success(res, 200, 'Admin login successful', result);
   } catch (error) {
+    if (error.message === ERR.AUTH_INVALID_ADMIN_KEY) {
+      return response.error(res, 401, error.message);
+    }
+    if (error.message === ERR.AUTH_ACCOUNT_SUSPENDED) {
+      return response.error(res, 403, error.message);
+    }
+    if (error.message === ERR.AUTH_EMAIL_NOT_VERIFIED || error.message === ERR.AUTH_INVALID_CREDENTIALS) {
+      return response.error(res, 401, error.message);
+    }
     next(error);
   }
 };
@@ -376,16 +397,19 @@ export const updateHospitalStatus = async (req, res, next) => {
 
 export const createAdmin = async (req, res, next) => {
   try {
-    const { fullName, email, password, role, location } = req.body;
-    if (!fullName || !email || !password) {
-      return response.error(res, 400, 'fullName, email and password are required');
+    const validation = validateCreateAdminBody(req.body);
+    if (!validation.valid) {
+      return response.error(res, 400, validation.errors.join(', '));
     }
 
-    const admin = await adminService.createAdmin({ fullName, email, password, role, location }, req.user._id);
+    const admin = await adminService.createAdmin(req.body, req.user._id);
     return response.success(res, 201, 'Admin created successfully', { admin });
   } catch (error) {
     if (error.message === ERR.ADMIN_EMAIL_EXISTS) {
       return response.error(res, 409, error.message);
+    }
+    if (error.message === 'Only superadmin can create admin accounts') {
+      return response.error(res, 403, error.message);
     }
     next(error);
   }
@@ -471,6 +495,21 @@ export const updateRolePermissions = async (req, res, next) => {
     return response.success(res, 200, 'Role permissions updated successfully', { role: updated });
   } catch (error) {
     if (error.message === 'Cannot modify a system role') {
+      return response.error(res, 403, ERR.ADMIN_ROLE_IS_SYSTEM);
+    }
+    next(error);
+  }
+};
+
+export const deleteRolePermission = async (req, res, next) => {
+  try {
+    const deleted = await adminService.deleteRolePermission(req.params.role, req.user._id);
+    if (!deleted) {
+      return response.error(res, 404, ERR.ADMIN_ROLE_NOT_FOUND);
+    }
+    return response.success(res, 200, 'Role deleted successfully', { role: deleted });
+  } catch (error) {
+    if (error.message === 'Cannot delete a system role') {
       return response.error(res, 403, ERR.ADMIN_ROLE_IS_SYSTEM);
     }
     next(error);

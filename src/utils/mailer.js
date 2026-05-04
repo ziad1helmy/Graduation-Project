@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { env } from '../config/env.js';
+import { logger } from './logger.js';
 import { confirmEmailTemplate, resetPasswordOtpTemplate, resetPasswordTemplate } from './emailTemplates.js';
 
 function hasSmtpConfig() {
@@ -105,12 +106,19 @@ async function sendMail({ to, subject, text, html }) {
       html,
     });
 
-    console.log(`[Mail] Sent "${subject}" to ${to}`);
+    logger.info('Email sent', {
+      subject,
+      to,
+    });
 
     return { sent: true };
   } catch (error) {
     if (!isProduction()) {
-      console.warn(`[Mail] Unable to send "${subject}" to ${to}: ${error.message}`);
+      logger.warn('Email send failed in development', {
+        subject,
+        to,
+        message: error.message,
+      });
       return {
         skipped: true,
         reason: 'SMTP send failed in development',
@@ -151,7 +159,11 @@ export async function sendPasswordResetOtpEmail({ to, fullName, otp, expiresInMi
   const html = resetPasswordOtpTemplate({ otp, expiresInMinutes, name: fullName || 'LifeLink user' });
 
   if (!hasSmtpConfig() && !isProduction()) {
-    console.log(`[LifeLink][Password Reset OTP Email] ${to}: ${otp} (expires in ${expiresInMinutes} minutes)`);
+    logger.debug('Password reset OTP', {
+      email: to,
+      otp,
+      expiresInMinutes,
+    });
     return { skipped: true, reason: 'SMTP is not configured' };
   }
 
@@ -183,8 +195,11 @@ export async function sendEmailVerificationEmail({ to, fullName, token }) {
     template: confirmEmailTemplate,
     onDevNoSmtp: ({ token: verificationToken, url: verificationUrl }) => {
       // Development-only visibility for local testing when SMTP is not configured.
-      console.log(`[LifeLink][Verification Email] token for ${to}: ${verificationToken}`);
-      console.log(`[LifeLink][Verification Email] url for ${to}: ${verificationUrl}`);
+      logger.debug('Email verification token', {
+        email: to,
+        token: verificationToken,
+        url: verificationUrl,
+      });
 
       return { skipped: true };
     },

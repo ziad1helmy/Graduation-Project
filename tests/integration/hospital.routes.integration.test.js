@@ -62,7 +62,7 @@ afterAll(async () => {
 // ═════════════════════════════════════════════════════════════════════════════
 describe('Auth enforcement on hospital routes', () => {
   it('rejects unauthenticated requests with 401', async () => {
-    const res = await request(app).get('/api/v1/hospital/profile');
+    const res = await request(app).get('/hospital/profile');
     expect(res.status).toBe(401);
   });
 
@@ -70,7 +70,7 @@ describe('Auth enforcement on hospital routes', () => {
     const donor = await createDonor();
     const token = tokenFor(donor);
     const res = await request(app)
-      .get('/api/v1/hospital/profile')
+      .get('/hospital/profile')
       .set('Authorization', `Bearer ${token}`);
     expect(res.status).toBe(403);
   });
@@ -85,7 +85,7 @@ describe('GET /hospital/profile', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .get('/api/v1/hospital/profile')
+      .get('/hospital/profile')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -102,7 +102,7 @@ describe('PUT /hospital/profile', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .put('/api/v1/hospital/profile')
+      .put('/hospital/profile')
       .set('Authorization', `Bearer ${token}`)
       .send({ fullName: 'Updated Hospital Name' });
 
@@ -111,7 +111,7 @@ describe('PUT /hospital/profile', () => {
 
   it('returns 401 without a token', async () => {
     const res = await request(app)
-      .put('/api/v1/hospital/profile')
+      .put('/hospital/profile')
       .send({ fullName: 'Hacker' });
     expect(res.status).toBe(401);
   });
@@ -126,7 +126,7 @@ describe('POST /hospital/request', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .post('/api/v1/hospital/request')
+      .post('/hospital/request')
       .set('Authorization', `Bearer ${token}`)
       .send(validRequestBody());
 
@@ -142,7 +142,7 @@ describe('POST /hospital/request', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .post('/api/v1/hospital/request')
+      .post('/hospital/request')
       .set('Authorization', `Bearer ${token}`)
       .send({
         type: 'organ',
@@ -164,7 +164,7 @@ describe('POST /hospital/request', () => {
     delete body.bloodType;
 
     const res = await request(app)
-      .post('/api/v1/hospital/request')
+      .post('/hospital/request')
       .set('Authorization', `Bearer ${token}`)
       .send(body);
 
@@ -177,7 +177,7 @@ describe('POST /hospital/request', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .post('/api/v1/hospital/request')
+      .post('/hospital/request')
       .set('Authorization', `Bearer ${token}`)
       .send({ ...validRequestBody(), requiredBy: '2020-01-01T00:00:00.000Z' });
 
@@ -189,7 +189,7 @@ describe('POST /hospital/request', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .post('/api/v1/hospital/requests/create-emergency')
+      .post('/hospital/requests/create-emergency')
       .set('Authorization', `Bearer ${token}`)
       .send({ ...validRequestBody(), urgency: 'critical' });
 
@@ -212,7 +212,7 @@ describe('GET /hospital/requests', () => {
     await createRequest(h2._id);
 
     const res = await request(app)
-      .get('/api/v1/hospital/requests')
+      .get('/hospital/requests')
       .set('Authorization', `Bearer ${t1}`);
 
     expect(res.status).toBe(200);
@@ -235,7 +235,7 @@ describe('GET /hospital/requests', () => {
     await createRequest(hospital._id, { status: 'cancelled' });
 
     const res = await request(app)
-      .get('/api/v1/hospital/requests?status=pending')
+      .get('/hospital/requests?status=pending')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -250,7 +250,7 @@ describe('GET /hospital/requests', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .get('/api/v1/hospital/requests')
+      .get('/hospital/requests')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -264,7 +264,7 @@ describe('GET /hospital/requests/:requestId', () => {
     const req = await createRequest(hospital._id);
 
     const res = await request(app)
-      .get(`/api/v1/hospital/requests/${req._id}`)
+      .get(`/hospital/requests/${req._id}`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -277,7 +277,7 @@ describe('GET /hospital/requests/:requestId', () => {
     const fakeId = '64a1b2c3d4e5f6a7b8c9d0e1';
 
     const res = await request(app)
-      .get(`/api/v1/hospital/requests/${fakeId}`)
+      .get(`/hospital/requests/${fakeId}`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(404);
@@ -289,7 +289,7 @@ describe('GET /hospital/requests/:requestId', () => {
     const req = await createRequest(h1._id);
 
     const res = await request(app)
-      .get(`/api/v1/hospital/requests/${req._id}`)
+      .get(`/hospital/requests/${req._id}`)
       .set('Authorization', `Bearer ${tokenFor(h2)}`);
 
     expect([403, 404]).toContain(res.status);
@@ -306,7 +306,7 @@ describe('PUT /hospital/requests/:requestId', () => {
     const req = await createRequest(hospital._id);
 
     const res = await request(app)
-      .put(`/api/v1/hospital/requests/${req._id}`)
+      .put(`/hospital/requests/${req._id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'in-progress' });
 
@@ -319,7 +319,7 @@ describe('PUT /hospital/requests/:requestId', () => {
     const req = await createRequest(hospital._id);
 
     const res = await request(app)
-      .put(`/api/v1/hospital/requests/${req._id}`)
+      .put(`/hospital/requests/${req._id}`)
       .set('Authorization', `Bearer ${token}`)
       .send({ status: 'magic' });
 
@@ -332,7 +332,7 @@ describe('PUT /hospital/requests/:requestId', () => {
     const req = await createRequest(h1._id);
 
     const res = await request(app)
-      .put(`/api/v1/hospital/requests/${req._id}`)
+      .put(`/hospital/requests/${req._id}`)
       .set('Authorization', `Bearer ${tokenFor(h2)}`)
       .send({ status: 'in-progress' });
 
@@ -350,7 +350,7 @@ describe('DELETE /hospital/requests/:requestId', () => {
     const req = await createRequest(hospital._id, { status: 'pending' });
 
     const res = await request(app)
-      .delete(`/api/v1/hospital/requests/${req._id}`)
+      .delete(`/hospital/requests/${req._id}`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -361,7 +361,7 @@ describe('DELETE /hospital/requests/:requestId', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .delete('/api/v1/hospital/requests/64a1b2c3d4e5f6a7b8c9d0e1')
+      .delete('/hospital/requests/64a1b2c3d4e5f6a7b8c9d0e1')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(404);
@@ -378,7 +378,7 @@ describe('POST /hospital/requests/:requestId/close', () => {
     const req = await createRequest(hospital._id, { status: 'in-progress' });
 
     const res = await request(app)
-      .post(`/api/v1/hospital/requests/${req._id}/close`)
+      .post(`/hospital/requests/${req._id}/close`)
       .set('Authorization', `Bearer ${token}`);
 
     // Accepting 200 or 400 — close may have business rules (e.g. requires active donations)
@@ -400,7 +400,7 @@ describe('GET /hospital/donations', () => {
     await createDonation(donor._id, req._id, { status: 'pending' });
 
     const res = await request(app)
-      .get('/api/v1/hospital/donations')
+      .get('/hospital/donations')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -412,7 +412,7 @@ describe('GET /hospital/donations', () => {
     const token = tokenFor(hospital);
 
     const res = await request(app)
-      .get('/api/v1/hospital/donations')
+      .get('/hospital/donations')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -428,7 +428,7 @@ describe('GET /hospital/donations', () => {
     await createDonation(donor._id, req._id, { status: 'pending' });
 
     const res = await request(app)
-      .get('/api/v1/hospital/donations?status=completed')
+      .get('/hospital/donations?status=completed')
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
@@ -446,7 +446,7 @@ describe('Blood bank settings', () => {
   it('GET /hospital/blood-bank-settings returns 200', async () => {
     const hospital = await createHospital();
     const res = await request(app)
-      .get('/api/v1/hospital/blood-bank-settings')
+      .get('/hospital/blood-bank-settings')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`);
     expect(res.status).toBe(200);
   });
@@ -454,7 +454,7 @@ describe('Blood bank settings', () => {
   it('PUT /hospital/blood-bank-settings returns 200', async () => {
     const hospital = await createHospital();
     const res = await request(app)
-      .put('/api/v1/hospital/blood-bank-settings')
+      .put('/hospital/blood-bank-settings')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`)
       .send({ acceptingDonations: true });
     expect(res.status).toBe(200);
@@ -465,7 +465,7 @@ describe('GET /hospital/blood-inventory', () => {
   it('returns 200 for authenticated hospital', async () => {
     const hospital = await createHospital();
     const res = await request(app)
-      .get('/api/v1/hospital/blood-inventory')
+      .get('/hospital/blood-inventory')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`);
     expect(res.status).toBe(200);
   });
@@ -475,7 +475,7 @@ describe('Notification preferences', () => {
   it('GET /hospital/notification-preferences returns 200', async () => {
     const hospital = await createHospital();
     const res = await request(app)
-      .get('/api/v1/hospital/notification-preferences')
+      .get('/hospital/notification-preferences')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`);
     expect(res.status).toBe(200);
   });
@@ -483,7 +483,7 @@ describe('Notification preferences', () => {
   it('PUT /hospital/notification-preferences returns 200', async () => {
     const hospital = await createHospital();
     const res = await request(app)
-      .put('/api/v1/hospital/notification-preferences')
+      .put('/hospital/notification-preferences')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`)
       .send({ emailAlerts: true });
     expect(res.status).toBe(200);
@@ -497,7 +497,7 @@ describe('GET /hospital/reports/monthly', () => {
   it('returns monthly report for authenticated hospital', async () => {
     const hospital = await createHospital();
     const res = await request(app)
-      .get('/api/v1/hospital/reports/monthly?month=2026-04')
+      .get('/hospital/reports/monthly?month=2026-04')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`);
     expect(res.status).toBe(200);
   });
@@ -510,7 +510,7 @@ describe('Staff endpoints', () => {
   it('GET /hospital/staff returns 200 with empty or populated list', async () => {
     const hospital = await createHospital();
     const res = await request(app)
-      .get('/api/v1/hospital/staff')
+      .get('/hospital/staff')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`);
     expect(res.status).toBe(200);
   });
@@ -518,7 +518,7 @@ describe('Staff endpoints', () => {
   it('POST /hospital/staff creates a staff member', async () => {
     const hospital = await createHospital();
     const res = await request(app)
-      .post('/api/v1/hospital/staff')
+      .post('/hospital/staff')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`)
       .send({ name: 'Dr. Amira', position: 'DOCTOR' });
     expect([200, 201]).toContain(res.status);
@@ -530,7 +530,7 @@ describe('Staff endpoints', () => {
 
     // Create one first so we have an ID to delete
     const createRes = await request(app)
-      .post('/api/v1/hospital/staff')
+      .post('/hospital/staff')
       .set('Authorization', `Bearer ${token}`)
       .send({ name: 'Dr. Omar', position: 'DOCTOR' });
 
@@ -539,7 +539,7 @@ describe('Staff endpoints', () => {
       createRes.body?.data?._id ?? createRes.body?.data?.id ?? '64a1b2c3d4e5f6a7b8c9d0e1';
 
     const res = await request(app)
-      .delete(`/api/v1/hospital/staff/${staffId}`)
+      .delete(`/hospital/staff/${staffId}`)
       .set('Authorization', `Bearer ${token}`);
 
     // 200 = deleted, 404 = controller uses in-memory store or id mismatch — both are acceptable
@@ -547,7 +547,7 @@ describe('Staff endpoints', () => {
   });
 
   it('staff endpoints reject unauthenticated requests', async () => {
-    const res = await request(app).get('/api/v1/hospital/staff');
+    const res = await request(app).get('/hospital/staff');
     expect(res.status).toBe(401);
   });
 });

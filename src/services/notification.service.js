@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Notification from '../models/Notification.model.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Notification Service - Manages user notifications for matches, requests, and milestones
@@ -30,7 +31,9 @@ export const notifyMatch = async (userId, donation, request) => {
 
     return notification;
   } catch (error) {
-    console.error('Error creating match notification:', error);
+    logger.error('Error creating match notification', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -67,7 +70,9 @@ export const notifyRequest = async (donorIds, request) => {
 
     return notifications;
   } catch (error) {
-    console.error('Error creating request notifications:', error);
+    logger.error('Error creating request notifications', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -96,7 +101,9 @@ export const notifyMilestone = async (userId, achievement) => {
 
     return notification;
   } catch (error) {
-    console.error('Error creating milestone notification:', error);
+    logger.error('Error creating milestone notification', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -116,7 +123,9 @@ export const markAsRead = async (notificationId) => {
 
     return notification;
   } catch (error) {
-    console.error('Error marking notification as read:', error);
+    logger.error('Error marking notification as read', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -136,7 +145,9 @@ export const markAsReadForUser = async (userId, notificationId) => {
     );
     return notification;
   } catch (error) {
-    console.error('Error marking user notification as read:', error);
+    logger.error('Error marking user notification as read', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -158,7 +169,9 @@ export const markMultipleAsRead = async (userId, notificationIds = null) => {
 
     return result;
   } catch (error) {
-    console.error('Error marking notifications as read:', error);
+    logger.error('Error marking notifications as read', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -176,7 +189,9 @@ export const getUnreadNotifications = async (userId) => {
 
     return notifications;
   } catch (error) {
-    console.error('Error fetching unread notifications:', error);
+    logger.error('Error fetching unread notifications', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -204,7 +219,9 @@ export const getUserNotifications = async (userId, options = {}) => {
 
     return { notifications, total };
   } catch (error) {
-    console.error('Error fetching user notifications:', error);
+    logger.error('Error fetching user notifications', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -219,7 +236,9 @@ export const getNotificationForUser = async (userId, notificationId) => {
   try {
     return await Notification.findOne({ _id: notificationId, userId });
   } catch (error) {
-    console.error('Error fetching user notification:', error);
+    logger.error('Error fetching user notification', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -235,7 +254,9 @@ export const deleteNotification = async (notificationId) => {
 
     return notification;
   } catch (error) {
-    console.error('Error deleting notification:', error);
+    logger.error('Error deleting notification', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -251,7 +272,9 @@ export const deleteNotificationForUser = async (userId, notificationId) => {
     const notification = await Notification.findOneAndDelete({ _id: notificationId, userId });
     return notification;
   } catch (error) {
-    console.error('Error deleting user notification:', error);
+    logger.error('Error deleting user notification', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -267,7 +290,9 @@ export const clearAllNotifications = async (userId) => {
 
     return result;
   } catch (error) {
-    console.error('Error clearing notifications:', error);
+    logger.error('Error clearing notifications', {
+      message: error.message,
+    });
     throw error;
   }
 };
@@ -296,7 +321,9 @@ export const getNotificationStats = async (userId) => {
       }, {}),
     };
   } catch (error) {
-    console.error('Error getting notification stats:', error);
+    logger.error('Error getting notification stats', {
+      message: error.message,
+    });
     throw error;
   }
 };

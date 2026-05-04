@@ -8,6 +8,8 @@ import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import HospitalStaff from '../models/HospitalStaff.model.js';
 import * as adminService from '../services/admin.service.js';
+import * as hospitalService from '../services/hospital.service.js';
+import { validateCreateHospitalByAdminBody } from '../validation/admin.validation.js';
 
 const normalizeLocationInput = (location) => {
   if (!location || typeof location !== 'object') return null;
@@ -489,6 +491,26 @@ export const listStaff = async (req, res, next) => {
       pagination: paginationMeta(total, page, limit),
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const createHospital = async (req, res, next) => {
+  try {
+    const validation = validateCreateHospitalByAdminBody(req.body);
+    if (!validation.valid) {
+      return response.error(res, 400, validation.errors.join(', '));
+    }
+
+    const result = await hospitalService.createHospitalByAdmin(req.body, req.user._id);
+    return response.success(res, 201, 'Hospital created successfully', result);
+  } catch (error) {
+    if (error.message === 'Email already registered') {
+      return response.error(res, 409, error.message);
+    }
+    if (error.message === 'License number already registered') {
+      return response.error(res, 409, error.message);
+    }
     next(error);
   }
 };
