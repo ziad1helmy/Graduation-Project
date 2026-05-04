@@ -61,7 +61,16 @@ export const findNearby = (donors, location, radius = 50) => {
       (donor.location.latitude !== undefined && donor.location.longitude !== undefined)
     );
     
-   Supports both formats: {lat, long} and {latitude, longitude}
+    if (!donorHasLocation) return false;
+    
+    const distance = calculateDistance(location, donor.location);
+    return distance <= radius;
+  });
+};
+
+/**
+ * Sort donors by proximity to a location
+ * Supports both formats: {lat, long} and {latitude, longitude}
  * @param {Array} donors - Array of donor documents
  * @param {Object} location - {lat, long} or {latitude, longitude}
  * @returns {Array} - Sorted donors by distance ascending
@@ -84,18 +93,7 @@ export const sortByProximity = (donors, location) => {
       (donor.location.latitude !== undefined && donor.location.longitude !== undefined)
     );
 
-    if (donorHasLocation
- * @returns {Array} - Sorted donors by distance ascending
- */
-export const sortByProximity = (donors, location) => {
-  if (!location || !location.latitude || !location.longitude) {
-    return donors;
-  }
-
-  const donorsWithDistance = donors.map((donor) => {
-    let distance = Infinity;
-
-    if (donor.location && donor.location.latitude && donor.location.longitude) {
+    if (donorHasLocation) {
       distance = calculateDistance(location, donor.location);
     }
 
