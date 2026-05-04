@@ -8,12 +8,20 @@ import * as notificationController from '../controllers/notification.controller.
 const router = Router();
 
 /**
+ * @swagger
+ * tags:
+ *   - name: Donor
+ *     description: Donor profile, requests, and donation management (Role: donor)
+ */
+
+/**
  * @openapi
  * /donor/profile:
  *   get:
  *     tags:
  *       - Donor
  *     summary: Get the authenticated donor profile
+ *     description: Retrieve the authenticated donor's profile information including blood type, availability status, and location
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -33,16 +41,18 @@ const router = Router();
  *                 bloodType: O+
  *                 gender: male
  *                 isAvailable: true
+ *                 dateOfBirth: '1995-05-15'
  *       '401':
- *         description: Missing or invalid JWT
+ *         description: Missing or invalid JWT token
  *       '403':
- *         description: Role not allowed
+ *         description: Access denied - donor role required
  *       '404':
  *         description: Donor profile not found
  *   put:
  *     tags:
  *       - Donor
  *     summary: Update the authenticated donor profile
+ *     description: Update donor profile information such as name, phone, blood type, gender, location, and availability
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -54,20 +64,29 @@ const router = Router();
  *             properties:
  *               fullName:
  *                 type: string
+ *                 description: Donor full name
  *                 example: Ahmed Hassan
  *               phoneNumber:
  *                 type: string
+ *                 description: Donor phone number
  *                 example: '01012345678'
  *               gender:
  *                 type: string
- *                 enum: [male, female]
+ *                 enum: [male, female, other]
+ *                 description: Donor gender
  *                 example: male
  *               bloodType:
  *                 type: string
  *                 enum: [A+, A-, B+, B-, AB+, AB-, O+, O-]
+ *                 description: Blood type of the donor
  *                 example: O+
+ *               isAvailable:
+ *                 type: boolean
+ *                 description: Donation availability status
+ *                 example: true
  *               location:
  *                 type: object
+ *                 description: Donor location information
  *                 properties:
  *                   city:
  *                     type: string
@@ -88,17 +107,19 @@ const router = Router();
  *                 fullName: Ahmed Hassan
  *                 email: ahmed@example.com
  *                 role: donor
+ *                 isAvailable: true
  *       '400':
- *         description: Invalid profile data
+ *         description: Invalid profile data or validation error
  *       '401':
- *         description: Missing or invalid JWT
+ *         description: Missing or invalid JWT token
  *       '403':
- *         description: Role not allowed
+ *         description: Access denied - donor role required
  * /donor/requests:
  *   get:
  *     tags:
  *       - Donor
  *     summary: List active donation requests available to donors
+ *     description: Retrieve paginated list of blood and organ donation requests that match donor eligibility criteria. Filters by type and urgency
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -107,27 +128,25 @@ const router = Router();
  *         schema:
  *           type: string
  *           enum: [blood, organ]
+ *         description: Request type filter
  *       - in: query
  *         name: urgency
  *         schema:
  *           type: string
  *           enum: [low, medium, high, critical]
- *       - in: query
- *         name: skip
- *         schema:
- *           type: integer
- *           example: 0
- *         description: Legacy pagination alias still supported.
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           example: 10
+ *         description: Urgency level filter
  *       - in: query
  *         name: page
  *         schema:
  *           type: integer
  *           example: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 20
+ *         description: Items per page
  *     responses:
  *       '200':
  *         description: Requests retrieved successfully
@@ -140,12 +159,12 @@ const router = Router();
  *                 requests: []
  *                 pagination:
  *                   page: 1
- *                   limit: 10
+ *                   limit: 20
  *                   total: 0
  *       '401':
- *         description: Missing or invalid JWT
+ *         description: Missing or invalid JWT token
  *       '403':
- *         description: Role not allowed
+ *         description: Access denied - donor role required
  * /donor/matches:
  *   get:
  *     tags:

@@ -90,6 +90,18 @@ export const validateCreateHospitalBody = (body) => {
     errors.push('licenseNumber is required');
   }
 
+  if (body.lat === undefined || body.lat === null || typeof body.lat !== 'number') {
+    errors.push('lat (number) is required');
+  } else if (body.lat < -90 || body.lat > 90) {
+    errors.push('lat must be between -90 and 90');
+  }
+
+  if (body.long === undefined || body.long === null || typeof body.long !== 'number') {
+    errors.push('long (number) is required');
+  } else if (body.long < -180 || body.long > 180) {
+    errors.push('long must be between -180 and 180');
+  }
+
   return { valid: errors.length === 0, errors };
 };
 

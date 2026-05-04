@@ -5,6 +5,17 @@ import authMiddleware from '../middlewares/auth.middleware.js';
 const router = Router();
 
 /**
+ * @swagger
+ * tags:
+ *   - name: Auth - Donor
+ *     description: Donor registration and authentication (signup, email verification, login)
+ *   - name: Auth - Hospital
+ *     description: Hospital registration and authentication (signup, email verification, login)
+ *   - name: Auth
+ *     description: General authentication (logout, refresh token, password reset, 2FA)
+ */
+
+/**
  * @openapi
  * components:
  *   schemas:
@@ -132,8 +143,9 @@ const router = Router();
  *
  * /auth/signup:
  *   post:
- *     tags: [Auth]
- *     summary: Create a new donor or hospital account
+ *     tags: [Auth - General]
+ *     summary: Register a new donor or hospital account
+ *     description: Create a new account as donor or hospital. Donor signup requires phoneNumber, dateOfBirth, bloodType. Hospital signup requires hospitalName, licenseNumber
  *     requestBody:
  *       required: true
  *       content:
@@ -144,14 +156,17 @@ const router = Router();
  *               - $ref: '#/components/schemas/SignupHospitalRequest'
  *     responses:
  *       '201':
- *         description: User registered successfully
+ *         description: User registered successfully - Email verification required
  *       '400':
  *         description: Validation or registration error
+ *       '409':
+ *         description: Email already registered
  *
  * /auth/login:
  *   post:
- *     tags: [Auth]
- *     summary: Login with email and password for donor users (donor-only)
+ *     tags: [Auth - Donor]
+ *     summary: Donor login with email and password
+ *     description: Authenticate as a donor user. Returns JWT token. Supports optional 2FA
  *     requestBody:
  *       required: true
  *       content:
@@ -163,11 +178,33 @@ const router = Router();
  *         description: Login successful or 2FA verification required
  *       '400':
  *         description: Validation error or invalid credentials
+ *       '403':
+ *         description: Email not verified or account suspended
+
+ * /auth/hospital/login:
+ *   post:
+ *     tags: [Auth - Hospital]
+ *     summary: Hospital login with email and password
+ *     description: Authenticate as a hospital user. Returns JWT token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/LoginRequest'
+ *     responses:
+ *       '200':
+ *         description: Hospital login successful
+ *       '400':
+ *         description: Validation error or invalid credentials
+ *       '403':
+ *         description: Email not verified or hospital not approved
 
  * /auth/admin/login:
  *   post:
  *     tags: [Auth]
- *     summary: Login with email, password, and adminKey for the admin UI
+ *     summary: Admin/Superadmin login with email, password, and adminKey
+ *     description: Authenticate as admin or superadmin. Requires email, password, and adminKey secret
  *     requestBody:
  *       required: true
  *       content:

@@ -72,6 +72,18 @@ const hospitalSchema = new mongoose.Schema({
         default: null,
         min: 0,
     },
+    lat: {
+        type: Number,
+        default: null,
+        min: -90,
+        max: 90,
+    },
+    long: {
+        type: Number,
+        default: null,
+        min: -180,
+        max: 180,
+    },
 
     // Backward-compatible legacy fields still used by older controllers and selectors.
     hospitalName: {

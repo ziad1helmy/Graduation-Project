@@ -501,6 +501,21 @@ export const updateRolePermissions = async (req, res, next) => {
   }
 };
 
+export const deleteRolePermission = async (req, res, next) => {
+  try {
+    const deleted = await adminService.deleteRolePermission(req.params.role, req.user._id);
+    if (!deleted) {
+      return response.error(res, 404, ERR.ADMIN_ROLE_NOT_FOUND);
+    }
+    return response.success(res, 200, 'Role deleted successfully', { role: deleted });
+  } catch (error) {
+    if (error.message === 'Cannot delete a system role') {
+      return response.error(res, 403, ERR.ADMIN_ROLE_IS_SYSTEM);
+    }
+    next(error);
+  }
+};
+
 // ──────────────────────────────────────────────
 //  Phase 3: Request Management
 // ──────────────────────────────────────────────

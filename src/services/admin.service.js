@@ -348,6 +348,8 @@ export const createHospital = async (data, adminId) => {
       emergencyContact: data.emergencyContact,
       bloodBanksAvailable: data.bloodBanksAvailable,
       capacity: data.capacity,
+      lat: data.lat,
+      long: data.long,
       password: data.password,
     },
     adminId
@@ -708,6 +710,27 @@ export const updateRolePermissions = async (role, data, adminId) => {
 
   await logAudit(adminId, 'permissions.update_role', 'RolePermission', updated._id);
   return updated;
+};
+
+export const deleteRolePermission = async (role, adminId) => {
+  const normalizedRole = String(role || '').toLowerCase();
+  if (['admin', 'superadmin', 'donor', 'hospital'].includes(normalizedRole)) {
+    throw new Error('Cannot delete a system role');
+  }
+
+  const rolePermission = await RolePermission.findOne({ role: normalizedRole });
+  if (!rolePermission) return null;
+  if (rolePermission.isSystemRole || ['admin', 'superadmin', 'donor', 'hospital'].includes(rolePermission.role)) {
+    throw new Error('Cannot delete a system role');
+  }
+
+  const deleted = await RolePermission.findOneAndDelete({ role: normalizedRole });
+  
+  if (deleted) {
+    await logAudit(adminId, 'permissions.delete_role', 'RolePermission', deleted._id);
+  }
+  
+  return deleted;
 };
 
 // ──────────────────────────────────────────────

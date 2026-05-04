@@ -8,10 +8,32 @@ const router = Router();
 
 /**
  * @swagger
+ * tags:
+ *   - name: Admin
+ *     description: Admin authentication and profile
+ *   - name: Admin - System
+ *     description: System health, maintenance mode, and monitoring (Admin/Superadmin roles)
+ *   - name: Admin - Audit
+ *     description: Audit logging and system activity tracking (Admin/Superadmin roles)
+ *   - name: Admin - Analytics
+ *     description: Dashboard analytics, statistics, and reports (Admin/Superadmin roles)
+ *   - name: Admin - Users
+ *     description: User management - create, update, verify, suspend users (Admin/Superadmin roles)
+ *   - name: Admin - Requests
+ *     description: Blood and organ request management (Admin/Superadmin roles)
+ *   - name: Admin - Emergency
+ *     description: Emergency broadcasts and critical request management (Admin/Superadmin roles)
+ *   - name: Admin - Roles
+ *     description: Role-based access control and permission management (Superadmin only)
+ */
+
+/**
+ * @swagger
  * /admin/login:
  *   post:
  *     summary: Login for admin and superadmin accounts
  *     tags: [Admin]
+ *     description: Authenticate admin or superadmin user. Returns JWT token for subsequent requests
  *     requestBody:
  *       required: true
  *       content:
@@ -22,13 +44,25 @@ const router = Router();
  *             properties:
  *               email:
  *                 type: string
+ *                 format: email
+ *                 description: Admin email address
+ *                 example: admin@lifelink.com
  *               password:
  *                 type: string
+ *                 format: password
+ *                 description: Admin password
+ *                 example: SecurePassword123!
  *               adminKey:
  *                 type: string
+ *                 description: Admin secret key for authentication
+ *                 example: admin-secret-key-2026
  *     responses:
  *       200:
- *         description: Admin login successful
+ *         description: Admin login successful - returns JWT token
+ *       401:
+ *         description: Invalid credentials
+ *       403:
+ *         description: Admin key invalid or account not authorized
  */
 router.post('/login', adminController.loginAdmin);
 
@@ -45,6 +79,7 @@ router.use(authMiddleware, requireRole('admin', 'superadmin'));
  *   get:
  *     summary: Get admin profile
  *     tags: [Admin]
+ *     description: Retrieve the authenticated admin's profile information
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -594,11 +629,34 @@ router.get('/permissions/roles/:role', adminController.getRolePermissionDetails)
  *     summary: Create a role permission record
  *     security:
  *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [role, displayName]
+ *             properties:
+ *               role:
+ *                 type: string
+ *                 description: Unique role identifier
+ *               displayName:
+ *                 type: string
+ *                 description: Human-readable role name
+ *               description:
+ *                 type: string
+ *                 description: Role description
+ *               isSystemRole:
+ *                 type: boolean
+ *                 description: Whether this is a system role (cannot be modified)
+ *               permissions:
+ *                 type: object
+ *                 description: Role permissions object
  *     responses:
  *       '201':
  *         description: Role created successfully
  *       '400':
- *         description: Invalid payload
+ *         description: Invalid payload - role and displayName are required
  *       '403':
  *         description: System roles cannot be created or modified
  *       '409':
@@ -611,7 +669,7 @@ router.post('/permissions/roles', requireRole('superadmin'), adminController.cre
  *   put:
  *     tags:
  *       - Admin
- *     summary: Update role permissions
+ *     summary: Update role permissions - Only allows updating displayName, description, and permissions
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -620,6 +678,7 @@ router.post('/permissions/roles', requireRole('superadmin'), adminController.cre
  *         required: true
  *         schema:
  *           type: string
+ *         description: Role identifier (cannot be changed)
  *     requestBody:
  *       required: true
  *       content:
@@ -629,19 +688,92 @@ router.post('/permissions/roles', requireRole('superadmin'), adminController.cre
  *             properties:
  *               displayName:
  *                 type: string
+ *                 description: Human-readable role name - CAN BE UPDATED
+ *                 example: Senior Moderator
  *               description:
  *                 type: string
+ *                 description: Role description - CAN BE UPDATED
+ *                 example: Manages content and escalates issues
  *               permissions:
  *                 type: object
+ *                 description: Role permissions object - CAN BE UPDATED
+ *                 properties:
+ *                   donor_management:
+ *                     type: object
+ *                     properties:
+ *                       view: { type: boolean }
+ *                       manage: { type: boolean }
+ *                       ban: { type: boolean }
+ *                       suspend: { type: boolean }
+ *                       create: { type: boolean }
+ *                       delete: { type: boolean }
+ *                       export: { type: boolean }
+ *                   hospital_management:
+ *                     type: object
+ *                     properties:
+ *                       view: { type: boolean }
+ *                       manage: { type: boolean }
+ *                       ban: { type: boolean }
+ *                       suspend: { type: boolean }
+ *                       create: { type: boolean }
+ *                       delete: { type: boolean }
+ *                       export: { type: boolean }
+ *                   admin_management:
+ *                     type: object
+ *                     properties:
+ *                       view: { type: boolean }
+ *                       manage: { type: boolean }
+ *                       create: { type: boolean }
+ *                       delete: { type: boolean }
+ *                   system_settings:
+ *                     type: object
+ *                     properties:
+ *                       view: { type: boolean }
+ *                       manage: { type: boolean }
+ *                   audit_logging:
+ *                     type: object
+ *                     properties:
+ *                       view: { type: boolean }
+ *                       export: { type: boolean }
+ *                   reporting:
+ *                     type: object
+ *                     properties:
+ *                       view: { type: boolean }
+ *                       export: { type: boolean }
  *     responses:
  *       '200':
  *         description: Role permissions updated successfully
  *       '403':
- *         description: System roles cannot be modified
+ *         description: System roles (admin, superadmin, donor, hospital) cannot be modified
  *       '404':
  *         description: Role not found
  */
 router.put('/permissions/roles/:role', requireRole('superadmin'), adminController.updateRolePermissions);
+/**
+ * @swagger
+ * /admin/permissions/roles/{role}:
+ *   delete:
+ *     tags:
+ *       - Admin
+ *     summary: Delete a role permission record
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: role
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Role identifier to delete
+ *     responses:
+ *       '200':
+ *         description: Role deleted successfully
+ *       '403':
+ *         description: System roles (admin, superadmin, donor, hospital) cannot be deleted
+ *       '404':
+ *         description: Role not found
+ */
+router.delete('/permissions/roles/:role', requireRole('superadmin'), adminController.deleteRolePermission);
 
 // ──────────────────────────────────────────────
 //  User Management
@@ -714,7 +846,7 @@ router.get('/users/stats', adminController.getUserStats);
  *         application/json:
  *           schema:
  *             type: object
- *             required: [fullName, email, password, hospitalName, hospitalId, licenseNumber]
+ *             required: [fullName, email, password, hospitalName, hospitalId, licenseNumber, lat, long]
  *             properties:
  *               fullName:
  *                 type: string
@@ -737,11 +869,23 @@ router.get('/users/stats', adminController.getUserStats);
  *                     type: string
  *               contactNumber:
  *                 type: string
+ *               lat:
+ *                 type: number
+ *                 format: double
+ *                 description: Hospital latitude coordinate (-90 to 90)
+ *                 example: 30.0444
+ *               long:
+ *                 type: number
+ *                 format: double
+ *                 description: Hospital longitude coordinate (-180 to 180)
+ *                 example: 31.2357
  *     responses:
  *       201:
  *         description: Hospital created
  *       409:
  *         description: Email already registered
+ *       400:
+ *         description: Invalid lat/long coordinates
  */
 router.post('/hospitals', hospitalController.createHospital);
 router.post('/users/hospital', adminController.createHospital);

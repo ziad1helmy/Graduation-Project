@@ -6,27 +6,51 @@ import * as hospitalController from '../controllers/hospital.controller.js';
 const router = Router();
 
 /**
+ * @swagger
+ * tags:
+ *   - name: Hospital
+ *     description: Hospital profile, donation requests, and blood inventory management (Role: hospital)
+ */
+
+/**
  * @openapi
  * /hospital/profile:
  *   get:
  *     tags:
  *       - Hospital
  *     summary: Get the authenticated hospital profile
+ *     description: Retrieve the authenticated hospital's profile information including license, contact details, blood inventory, and location coordinates
  *     security:
  *       - bearerAuth: []
  *     responses:
  *       '200':
  *         description: Hospital profile retrieved successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Hospital profile retrieved successfully
+ *               data:
+ *                 _id: 66f100000000000000000001
+ *                 fullName: Cairo General Hospital
+ *                 hospitalName: Cairo General Hospital
+ *                 email: info@cairohospital.com
+ *                 role: hospital
+ *                 licenseNumber: LIC-2026-001
+ *                 contactNumber: '01099998888'
+ *                 lat: 30.0444
+ *                 long: 31.2357
  *       '401':
- *         description: Missing or invalid JWT
+ *         description: Missing or invalid JWT token
  *       '403':
- *         description: Role not allowed
+ *         description: Access denied - hospital role required
  *       '404':
  *         description: Hospital profile not found
  *   put:
  *     tags:
  *       - Hospital
  *     summary: Update the authenticated hospital profile
+ *     description: Update hospital information including name, contact number, address, location coordinates (lat/long), and license number
  *     security:
  *       - bearerAuth: []
  *     requestBody:
@@ -38,15 +62,19 @@ const router = Router();
  *             properties:
  *               fullName:
  *                 type: string
- *                 example: City Care Hospital
+ *                 description: Hospital full name
+ *                 example: Cairo General Hospital
  *               hospitalName:
  *                 type: string
- *                 example: City Care Hospital
+ *                 description: Hospital display name
+ *                 example: Cairo General Hospital
  *               contactNumber:
  *                 type: string
+ *                 description: Hospital contact phone number
  *                 example: '01099998888'
  *               address:
  *                 type: object
+ *                 description: Hospital address information
  *                 properties:
  *                   city:
  *                     type: string
@@ -54,39 +82,42 @@ const router = Router();
  *                   governorate:
  *                     type: string
  *                     example: Cairo
- *               location:
- *                 type: object
- *                 properties:
- *                   city:
- *                     type: string
- *                   governorate:
- *                     type: string
- *                   coordinates:
- *                     type: object
- *                     properties:
- *                       lat:
- *                         type: number
- *                         example: 30.0444
- *                       lng:
- *                         type: number
- *                         example: 31.2357
+ *               lat:
+ *                 type: number
+ *                 description: Hospital latitude coordinate (-90 to 90)
+ *                 example: 30.0444
+ *               long:
+ *                 type: number
+ *                 description: Hospital longitude coordinate (-180 to 180)
+ *                 example: 31.2357
  *               licenseNumber:
  *                 type: string
+ *                 description: Hospital license number
  *                 example: LIC-2026-001
  *     responses:
  *       '200':
  *         description: Hospital profile updated successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Hospital profile updated successfully
+ *               data:
+ *                 _id: 66f100000000000000000001
+ *                 fullName: Cairo General Hospital
+ *                 role: hospital
  *       '400':
- *         description: Invalid profile data
+ *         description: Invalid profile data or validation error
  *       '401':
- *         description: Missing or invalid JWT
+ *         description: Missing or invalid JWT token
  *       '403':
- *         description: Role not allowed
+ *         description: Access denied - hospital role required
  * /hospital/request:
  *   post:
  *     tags:
  *       - Hospital
- *     summary: Create a donation request
+ *     summary: Create a new donation request
+ *     description: Create a blood or organ donation request with type, urgency, required blood types, and deadline
  *     security:
  *       - bearerAuth: []
  *     requestBody:
