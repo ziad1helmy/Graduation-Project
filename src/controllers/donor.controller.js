@@ -55,6 +55,24 @@ export const updateProfile = async (req, res, next) => {
       runValidators: true,
     }).select('-password');
 
+    // Log profile update activity (fire-and-forget)
+    const updatedFields = Object.keys(updateData).join(', ');
+    activityService.logActivity(req.user.userId, {
+      type: 'profile_update',
+      action: 'updated_profile',
+      title: 'Profile Updated',
+      description: `Updated profile fields: ${updatedFields}`,
+      referenceId: req.user.userId,
+      referenceType: 'Donor',
+      metadata: {
+        updatedFields: Object.keys(updateData),
+        updateCount: Object.keys(updateData).length,
+        updatedAt: new Date()
+      }
+    }).catch((error) => {
+      console.error('Activity log error:', error.message);
+    });
+
     response.success(res, 200, 'Donor profile updated successfully', donor);
   } catch (error) {
     if (error.name === 'ValidationError') {
@@ -160,6 +178,42 @@ export const respondToRequest = async (req, res, next) => {
       requestId,
       quantity: quantity || 1,
       status: 'pending',
+    });
+
+    // Log activity based on request urgency (fire-and-forget)
+    const isUrgent = ['high', 'critical'].includes(request.urgency);
+    const activityPayload = isUrgent ? {
+      type: 'emergency_response',
+      action: 'accepted_urgent_request',
+      title: 'Urgent Request Accepted',
+      description: `Accepted urgent ${request.type} request with ${request.urgency} urgency`,
+      referenceId: donation._id.toString(),
+      referenceType: 'Donation',
+      metadata: {
+        requestType: request.type,
+        urgency: request.urgency,
+        quantity: quantity || 1,
+        requestId: requestId,
+        acceptedAt: new Date()
+      }
+    } : {
+      type: 'donation',
+      action: 'accepted_request',
+      title: 'Request Accepted',
+      description: `Accepted ${request.type} request`,
+      referenceId: donation._id.toString(),
+      referenceType: 'Donation',
+      metadata: {
+        requestType: request.type,
+        urgency: request.urgency || 'normal',
+        quantity: quantity || 1,
+        requestId: requestId,
+        acceptedAt: new Date()
+      }
+    };
+    
+    activityService.logActivity(req.user.userId, activityPayload).catch((error) => {
+      console.error('Activity log error:', error.message);
     });
 
     // Notify hospital
@@ -341,6 +395,27 @@ export const updateHealthHistory = async (req, res, next) => {
 
     await donor.save({ validateBeforeSave: true });
 
+    // Log health history update activity (fire-and-forget)
+    const updatedHistoryFields = Object.keys(normalized.payload);
+    activityService.logActivity(req.user.userId, {
+      type: 'profile_update',
+      action: 'updated_health_history',
+      title: 'Health History Updated',
+      description: `Updated health history fields: ${updatedHistoryFields.join(', ')}`,
+      referenceId: req.user.userId,
+      referenceType: 'HealthHistory',
+      metadata: {
+        updatedFields: updatedHistoryFields,
+        updateCount: updatedHistoryFields.length,
+        hasChronicConditions: !!normalized.payload.chronicConditions,
+        hasMedications: !!normalized.payload.medications,
+        hasAllergies: !!normalized.payload.allergies,
+        updatedAt: new Date()
+      }
+    }).catch((error) => {
+      console.error('Activity log error:', error.message);
+    });
+
     return response.success(res, 200, 'Health history updated successfully', {
       healthHistory: donor.healthHistory,
     });
@@ -462,6 +537,25 @@ export const declineUrgentRequest = async (req, res, next) => {
       quantity: request.quantity || 1,
       status: 'cancelled',
       notes: reason ? `Declined urgent request: ${reason}` : 'Declined urgent request',
+    });
+
+    // Log urgent request decline activity (fire-and-forget)
+    activityService.logActivity(req.user.userId, {
+      type: 'emergency_response',
+      action: 'declined_urgent_request',
+      title: 'Urgent Request Declined',
+      description: `Declined urgent ${request.type} request with ${request.urgency} urgency${reason ? `: ${reason}` : ''}`,
+      referenceId: declinedResponse._id.toString(),
+      referenceType: 'Donation',
+      metadata: {
+        requestType: request.type,
+        urgency: request.urgency,
+        declineReason: reason || 'Not specified',
+        requestId: requestId,
+        declinedAt: new Date()
+      }
+    }).catch((error) => {
+      console.error('Activity log error:', error.message);
     });
 
     return response.success(res, 201, 'Urgent request declined successfully', declinedResponse);

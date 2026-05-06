@@ -7,6 +7,7 @@ import Badge from '../models/Badge.model.js';
 import UserBadge from '../models/UserBadge.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
+import * as activityService from './activity.service.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 
@@ -127,13 +128,30 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
     session.endSession();
   }
 
-  // Award tier bonus outside transaction (non-critical)
+  // Award tier bonus and log tier promotion outside transaction (non-critical)
   if (result?.tierChanged) {
     const tierBonusMap = { silver: POINTS_CONFIG.TIER_BONUS_SILVER, gold: POINTS_CONFIG.TIER_BONUS_GOLD, platinum: POINTS_CONFIG.TIER_BONUS_PLATINUM };
     const bonus = tierBonusMap[result.newTier];
     if (bonus) {
       await awardPoints(donorId, bonus, 'TIER_BONUS', `Tier promotion bonus: ${result.newTier}`, `tier_${result.newTier}_${donorId}`);
     }
+
+    // Log tier promotion activity (fire-and-forget)
+    activityService
+      .logActivity(donorId, {
+        type: 'reward',
+        action: 'tier_promoted',
+        title: 'Tier Promoted',
+        description: `Congratulations! You've reached ${result.newTier} tier.`,
+        referenceId: `tier_${result.newTier}_${donorId}`,
+        referenceType: 'TierPromotion',
+        metadata: {
+          previousTier: account.tier,
+          newTier: result.newTier,
+          bonusPoints: bonus,
+        },
+      })
+      .catch((error) => logger.error('Activity log error', { message: error.message }));
 
     // Notify donor of tier promotion
     Notification.create({
@@ -142,6 +160,25 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
       title: `🎉 Tier Upgraded to ${result.newTier.charAt(0).toUpperCase() + result.newTier.slice(1)}!`,
       message: `Congratulations! You've reached ${result.newTier} tier. Keep donating to unlock more rewards!`,
     }).catch(() => {});
+  }
+
+  // Log points earned activity (fire-and-forget) for non-tier-bonus awards
+  if (type !== 'TIER_BONUS') {
+    activityService
+      .logActivity(donorId, {
+        type: 'reward',
+        action: 'earned_points',
+        title: 'Points Earned',
+        description: description,
+        referenceId: normalizedReferenceId || `points_${donorId}_${Date.now()}`,
+        referenceType: 'PointsTransaction',
+        metadata: {
+          pointsAmount: amount,
+          transactionType: type,
+          balanceAfter: result?.account?.pointsBalance || account?.pointsBalance,
+        },
+      })
+      .catch((error) => logger.error('Activity log error', { message: error.message }));
   }
 
   return result;
@@ -250,7 +287,7 @@ export const checkAndUpdateBadges = async (donorId) => {
       { upsert: true, new: true }
     );
 
-    // If just unlocked (wasn't before), award badge points and notify
+    // If just unlocked (wasn't before), award badge points, log activity, and notify
     if (isUnlocked && updated.unlockStatus === 'UNLOCKED' && updated.unlockedAt) {
       const wasAlreadyUnlocked = await PointsTransaction.exists({
         donorId,
@@ -263,6 +300,26 @@ export const checkAndUpdateBadges = async (donorId) => {
 
       if (!wasAlreadyUnlocked) {
         newlyUnlocked.push(badge.badgeName);
+
+        // Log badge unlock activity (fire-and-forget)
+        activityService
+          .logActivity(donorId, {
+            type: 'reward',
+            action: 'badge_unlocked',
+            title: 'Badge Unlocked',
+            description: `You've unlocked the ${badge.badgeName} badge: ${badge.badgeDescription}`,
+            referenceId: badge._id.toString(),
+            referenceType: 'Badge',
+            metadata: {
+              badgeName: badge.badgeName,
+              badgeCategory: badge.category,
+              badgeRarity: badge.rarity,
+              pointsReward: badge.pointsReward,
+              unlockedAt: updated.unlockedAt,
+            },
+          })
+          .catch((error) => logger.error('Activity log error', { message: error.message }));
+
         Notification.create({
           userId: donorId,
           type: 'system',
@@ -468,6 +525,26 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
 
   // Increment reward redemption count
   RewardCatalog.findByIdAndUpdate(rewardId, { $inc: { redemptionCount: 1 } }).exec().catch(() => {});
+
+  // Log reward redemption activity (fire-and-forget)
+  activityService
+    .logActivity(donorId, {
+      type: 'reward',
+      action: 'redeemed_reward',
+      title: 'Reward Redeemed',
+      description: `Redeemed ${reward.name} for ${reward.pointsCost} points`,
+      referenceId: redemption._id.toString(),
+      referenceType: 'RewardRedemption',
+      metadata: {
+        rewardName: reward.name,
+        rewardCategory: reward.category,
+        pointsSpent: reward.pointsCost,
+        deliveryMethod: deliveryMethod,
+        confirmationCode: redemption.confirmationCode,
+        remainingPoints: updatedAccount.pointsBalance,
+      },
+    })
+    .catch((error) => logger.error('Activity log error', { message: error.message }));
 
   // In-app notification
   Notification.create({

@@ -3,6 +3,7 @@ import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import * as matchingService from './matching.service.js';
 import * as rewardService from './reward.service.js';
+import * as activityService from './activity.service.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -68,6 +69,22 @@ export const createDonation = async (donorId, requestId, data = {}) => {
       notes: data.notes || '',
     });
 
+    // Log activity (fire-and-forget)
+    activityService
+      .logActivity(donorId, {
+        type: 'donation',
+        action: 'created_donation',
+        title: 'Donation Created',
+        description: `Started donating ${donation.quantity} unit(s) of blood`,
+        referenceId: donation._id.toString(),
+        referenceType: 'Donation',
+        metadata: {
+          quantity: donation.quantity,
+          requestId: requestId,
+        },
+      })
+      .catch((error) => logger.error('Activity log error', { message: error.message }));
+
     return donation;
   } catch (error) {
     throw error;
@@ -115,11 +132,27 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
       runValidators: true,
     });
 
-    // If completed, update donor's last donation date and award reward points
+    // If completed or cancelled, log activity (fire-and-forget)
     if (status === 'completed') {
       await Donor.findByIdAndUpdate(donation.donorId, {
         lastDonationDate: new Date(),
       });
+
+      // Log completion activity
+      activityService
+        .logActivity(donation.donorId, {
+          type: 'donation',
+          action: 'completed_donation',
+          title: 'Donation Completed',
+          description: `Successfully completed donation of ${donation.quantity} unit(s)`,
+          referenceId: donation._id.toString(),
+          referenceType: 'Donation',
+          metadata: {
+            quantity: donation.quantity,
+            completedDate: updateData.completedDate,
+          },
+        })
+        .catch((error) => logger.error('Activity log error', { message: error.message }));
 
       // Fetch request to detect emergency urgency — fire-and-forget
       Request.findById(donation.requestId)
@@ -131,6 +164,22 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
         .catch((e) => logger.error('Reward trigger error', {
           message: e.message,
         }));
+    } else if (status === 'cancelled') {
+      // Log cancellation activity
+      activityService
+        .logActivity(donation.donorId, {
+          type: 'donation',
+          action: 'cancelled_donation',
+          title: 'Donation Cancelled',
+          description: `Donation cancelled (${donation.quantity} unit(s))`,
+          referenceId: donation._id.toString(),
+          referenceType: 'Donation',
+          metadata: {
+            quantity: donation.quantity,
+            previousStatus: currentDonation.status,
+          },
+        })
+        .catch((error) => logger.error('Activity log error', { message: error.message }));
     }
 
     return donation;
@@ -237,11 +286,32 @@ export const getDonationsForRequest = async (requestId, filters = {}) => {
  */
 export const cancelDonation = async (donationId) => {
   try {
+    const currentDonation = await Donation.findById(donationId);
+    if (!currentDonation) {
+      throw new Error('Donation not found');
+    }
+
     const donation = await Donation.findByIdAndUpdate(
       donationId,
       { status: 'cancelled' },
       { new: true }
     );
+
+    // Log cancellation activity (fire-and-forget)
+    activityService
+      .logActivity(donation.donorId, {
+        type: 'donation',
+        action: 'cancelled_donation',
+        title: 'Donation Cancelled',
+        description: `Donation cancelled (${donation.quantity} unit(s))`,
+        referenceId: donation._id.toString(),
+        referenceType: 'Donation',
+        metadata: {
+          quantity: donation.quantity,
+          previousStatus: currentDonation.status,
+        },
+      })
+      .catch((error) => logger.error('Activity log error', { message: error.message }));
 
     return donation;
   } catch (error) {
