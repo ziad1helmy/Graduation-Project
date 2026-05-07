@@ -1,8 +1,10 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 import Appointment from '../models/Appointment.model.js';
 import User from '../models/User.model.js';
 import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
+import Hospital from '../models/Hospital.model.js';
 import Notification from '../models/Notification.model.js';
 import * as donationService from './donation.service.js';
 import { paginationMeta } from '../utils/pagination.js';
@@ -52,12 +54,6 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       throw new Error('Appointment date must be in the future');
     }
 
-    // Normalize slot window (hourly slot)
-    const slotStart = new Date(apptDate);
-    slotStart.setMinutes(0, 0, 0);
-    const slotEnd = new Date(slotStart);
-    slotEnd.setHours(slotStart.getHours() + 1);
-
     // Prevent duplicate active appointment for same donor + hospital
     const existing = await Appointment.findOne({
       donorId,
@@ -68,38 +64,19 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       throw new Error('You already have an active appointment at this hospital');
     }
 
-    // Use transaction to ensure slot capacity not exceeded
-    const session = await mongoose.startSession();
-    let appointment = null;
-    try {
-      await session.withTransaction(async () => {
-        const hospital = await User.findById(hospitalId).session(session);
-        const capacityPerSlot = hospital?.capacity || 5;
+    // Generate unique QR token
+    const qrToken = crypto.randomBytes(32).toString('hex');
 
-        const count = await Appointment.countDocuments({
-          hospitalId,
-          appointmentDate: { $gte: slotStart, $lt: slotEnd },
-          status: { $in: ['pending', 'confirmed'] },
-        }).session(session);
-
-        if (count >= capacityPerSlot) {
-          throw new Error('Selected slot is fully booked');
-        }
-
-        appointment = await Appointment.create([
-          {
-            donorId,
-            hospitalId,
-            requestId,
-            appointmentDate: apptDate,
-            notes,
-          },
-        ], { session });
-        appointment = appointment[0];
-      });
-    } finally {
-      session.endSession();
-    }
+    const appointment = await Appointment.create({
+      donorId,
+      hospitalId,
+      requestId,
+      appointmentDate: apptDate,
+      notes,
+      status: 'confirmed',
+      qrToken,
+      qrExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
+    });
 
     // Fire-and-forget notification to hospital
     Notification.create({
@@ -118,62 +95,6 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
   } catch (error) {
     throw error;
   }
-};
-
-/**
- * Get available hourly slots for a hospital on a date
- * @param {string} hospitalId
- * @param {string|Date} dateStr - YYYY-MM-DD
- */
-export const getAvailableSlots = async (hospitalId, dateStr) => {
-  if (!mongoose.Types.ObjectId.isValid(hospitalId)) throw new Error('Invalid hospital id');
-  const hospital = await User.findById(hospitalId).select('capacity');
-  if (!hospital || hospital.role !== 'hospital') throw new Error('Hospital not found');
-
-  const date = new Date(dateStr);
-  if (Number.isNaN(date.getTime())) throw new Error('Invalid date');
-
-  const baseDate = new Date(date);
-  baseDate.setHours(0, 0, 0, 0);
-
-  // Default working hours 08:00 - 17:00 (9 slots)
-  const startHour = 8;
-  const endHour = 17;
-  const capacityPerSlot = hospital.capacity || 5;
-
-  const slots = [];
-  for (let h = startHour; h < endHour; h++) {
-    const slotStart = new Date(baseDate);
-    slotStart.setHours(h, 0, 0, 0);
-    const slotEnd = new Date(slotStart);
-    slotEnd.setHours(h + 1);
-
-    // Skip past slots when date is today
-    if (slotEnd <= new Date()) continue;
-
-    const count = await Appointment.countDocuments({
-      hospitalId,
-      appointmentDate: { $gte: slotStart, $lt: slotEnd },
-      status: { $in: ['pending', 'confirmed'] },
-    });
-
-    const remaining = Math.max(0, capacityPerSlot - count);
-    if (remaining > 0) {
-      slots.push({
-        slotStart: slotStart.toISOString(),
-        slotEnd: slotEnd.toISOString(),
-        remainingCapacity: remaining,
-      });
-    }
-  }
-
-  return slots;
-};
-
-export const getAppointmentById = async (appointmentId) => {
-  if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
-  const appt = await Appointment.findById(appointmentId).populate('hospitalId', 'hospitalName fullName address contactNumber location');
-  return appt;
 };
 
 export const getMyAppointments = async (donorId, filters = {}) => {
@@ -212,6 +133,108 @@ export const cancelAppointment = async (appointmentId, donorId) => {
     await appointment.save();
 
     return appointment;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getAppointmentById = async (appointmentId, donorId) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
+
+    const appointment = await Appointment.findOne({ _id: appointmentId, donorId })
+      .populate('hospitalId', 'hospitalName fullName address contactNumber');
+
+    if (!appointment) throw new Error('Appointment not found');
+
+    return appointment;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const rescheduleAppointment = async (appointmentId, donorId, newDate) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
+
+    const appointment = await Appointment.findOne({ _id: appointmentId, donorId });
+    if (!appointment) throw new Error('Appointment not found');
+
+    if (!['pending', 'confirmed'].includes(appointment.status)) {
+      throw new Error('Only pending or confirmed appointments can be rescheduled');
+    }
+
+    const apptDate = new Date(newDate);
+    if (isNaN(apptDate.getTime()) || apptDate <= new Date()) {
+      throw new Error('New appointment date must be in the future');
+    }
+
+    appointment.appointmentDate = apptDate;
+    await appointment.save();
+
+    return appointment;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const formatHourLabel = (hour) => {
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${String(displayHour).padStart(2, '0')}:00 ${period}`;
+};
+
+export const getAvailableSlots = async (hospitalId, date) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(hospitalId)) {
+      throw new Error('Invalid hospital id');
+    }
+
+    const targetDate = new Date(date);
+    if (Number.isNaN(targetDate.getTime())) {
+      throw new Error('Invalid date');
+    }
+
+    const hospital = await Hospital.findById(hospitalId).select('slotsPerHour workingHoursStart workingHoursEnd');
+    if (!hospital) {
+      throw new Error('Hospital not found');
+    }
+
+    const dayStart = new Date(targetDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const nextDay = new Date(dayStart);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const appointments = await Appointment.find({
+      hospitalId,
+      appointmentDate: { $gte: dayStart, $lt: nextDay },
+      status: { $in: ['pending', 'confirmed'] },
+    }).select('appointmentDate');
+
+    const countsByHour = appointments.reduce((accumulator, appointment) => {
+      const hour = new Date(appointment.appointmentDate).getHours();
+      accumulator[hour] = (accumulator[hour] || 0) + 1;
+      return accumulator;
+    }, {});
+
+    const startHour = Number(hospital.workingHoursStart ?? 9);
+    const endHour = Number(hospital.workingHoursEnd ?? 17);
+    const capacity = Number(hospital.slotsPerHour ?? 5);
+    const timeSlots = [];
+
+    for (let hour = startHour; hour < endHour; hour += 1) {
+      const bookedCount = countsByHour[hour] || 0;
+      if (bookedCount < capacity) {
+        timeSlots.push(formatHourLabel(hour));
+      }
+    }
+
+    return {
+      timeSlots,
+      hospitalId: hospital._id,
+      date: dayStart,
+      slotsPerHour: capacity,
+    };
   } catch (error) {
     throw error;
   }

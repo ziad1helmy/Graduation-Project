@@ -11,7 +11,7 @@ const router = Router();
  * @swagger
  * tags:
  *   - name: Donor
- *     description: Donor profile, requests, and donation management (Role: donor)
+ *     description: "Donor profile, requests, and donation management (Role: donor)"
  */
 
 /**
@@ -374,6 +374,8 @@ router.use(authMiddleware, requireRole('donor'));
 // Profile routes
 router.get('/profile', donorController.getProfile);
 router.put('/profile', donorController.updateProfile);
+router.get('/stats', donorController.getDonorStats);
+router.get('/rewards', donorController.getDonorRewards);
 
 // Donor settings
 router.get('/settings', donorController.getSettings);
@@ -421,4 +423,176 @@ router.get('/history', donorController.getDonationHistory);
 // Availability management
 router.put('/availability', donorController.updateAvailability);
 
+/**
+ * @swagger
+ * /donor/settings:
+ *   get:
+ *     tags:
+ *       - Donor
+ *     summary: Get donor notification and preference settings
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Settings retrieved successfully
+ *       '401':
+ *         description: Missing or invalid JWT
+ *       '403':
+ *         description: Role not allowed
+ *       '404':
+ *         description: Donor profile not found
+ *   put:
+ *     tags:
+ *       - Donor
+ *     summary: Update donor settings
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               pushNotifications:
+ *                 type: boolean
+ *               emergencyAlerts:
+ *                 type: boolean
+ *               privacyMode:
+ *                 type: boolean
+ *               language:
+ *                 type: string
+ *                 enum: [en, ar]
+ *           example:
+ *             pushNotifications: true
+ *             emergencyAlerts: true
+ *             privacyMode: false
+ *             language: en
+ *     responses:
+ *       '200':
+ *         description: Settings updated successfully
+ *       '400':
+ *         description: Invalid settings payload
+ *       '401':
+ *         description: Missing or invalid JWT
+ *       '403':
+ *         description: Role not allowed
+ *       '404':
+ *         description: Donor profile not found
+ */
+router.get('/settings', donorController.getSettings);
+router.put('/settings', donorController.updateSettings);
+
+/**
+ * @openapi
+ * /donor/stats:
+ *   get:
+ *     tags:
+ *       - Donor
+ *     summary: Get lightweight donor statistics
+ *     description: Returns totalDonations, points balance, and livesSaved. Used in home header and profile stats row.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Donor stats retrieved
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Donor stats retrieved
+ *               data:
+ *                 totalDonations: 5
+ *                 points: 1200
+ *                 livesSaved: 15
+ *       '401':
+ *         description: Unauthorized
+ */
+router.get('/stats', donorController.getDonorStats);
+
+/**
+ * @openapi
+ * /donor/rewards:
+ *   get:
+ *     tags:
+ *       - Donor
+ *     summary: Get donor rewards and badge progress
+ *     description: Returns current points, earned badges, locked badges with progress, and next milestone.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Donor rewards retrieved
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Donor rewards retrieved
+ *               data:
+ *                 currentPoints: 1200
+ *                 earnedBadges:
+ *                   - id: "664a0f1a2b3c4d5e6f7a8b9c"
+ *                     title: "First Timer"
+ *                     description: "Completed your first blood donation"
+ *                 lockedBadges:
+ *                   - id: "664a0f1a2b3c4d5e6f7a8b9d"
+ *                     title: "Regular Donor"
+ *                     progress: 2
+ *                     target: 5
+ *                 nextMilestone: 1800
+ *       '401':
+ *         description: Unauthorized
+ */
+router.get('/rewards', donorController.getDonorRewards);
+
+/**
+ * @openapi
+ * /donor/donations:
+ *   get:
+ *     tags:
+ *       - Donor
+ *     summary: Get donor donation history with pointsEarned
+ *     description: |
+ *       Paginated donation history for the authenticated donor.
+ *       Each record includes `pointsEarned` calculated from the points transaction log.
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 10 }
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, scheduled, completed, cancelled, rejected]
+ *     responses:
+ *       '200':
+ *         description: Donation history retrieved
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Donation history retrieved successfully
+ *               data:
+ *                 donations:
+ *                   - _id: "664a0f1a2b3c4d5e6f7a8b9c"
+ *                     status: "completed"
+ *                     quantity: 1
+ *                     pointsEarned: 100
+ *                     createdAt: "2026-05-01T10:00:00Z"
+ *                 pagination:
+ *                   total: 1
+ *                   page: 1
+ *                   limit: 10
+ *                   pages: 1
+ *       '401':
+ *         description: Unauthorized
+ */
+router.get('/donations', donorController.getDonationHistory);
+
 export default router;
+

@@ -12,7 +12,7 @@ router.use(authMiddleware, requireRole('donor'));
  * /donations/book-appointment:
  *   post:
  *     tags:
- *       - Appointments
+ *       - Donor
  *     summary: Book a donor appointment with a hospital
  *     security:
  *       - bearerAuth: []
@@ -58,10 +58,22 @@ router.post('/', ctrl.bookAppointment);
 
 /**
  * @swagger
+ * /donations/book-appointment/available-slots:
+ *   get:
+ *     tags:
+ *       - Donor
+ *     summary: Get available appointment slots for a hospital on a given date
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/available-slots', ctrl.getAvailableSlots);
+
+/**
+ * @swagger
  * /donations/book-appointment/my-appointments:
  *   get:
  *     tags:
- *       - Appointments
+ *       - Donor
  *     summary: Get the authenticated donor appointments
  *     security:
  *       - bearerAuth: []
@@ -95,9 +107,78 @@ router.get('/:appointmentId', ctrl.getAppointmentById);
 /**
  * @swagger
  * /donations/book-appointment/{appointmentId}:
+ *   get:
+ *     tags:
+ *       - Donor
+ *     summary: Get appointment details
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: appointmentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       '200':
+ *         description: Appointment retrieved
+ *       '401':
+ *         description: Missing or invalid JWT
+ *       '403':
+ *         description: Role not allowed
+ *       '404':
+ *         description: Appointment not found
+ */
+router.get('/:appointmentId', ctrl.getAppointmentById);
+
+/**
+ * @swagger
+ * /donations/book-appointment/{appointmentId}:
+ *   patch:
+ *     tags:
+ *       - Donor
+ *     summary: Reschedule a donor appointment
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: appointmentId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [date]
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 format: date-time
+ *           example:
+ *             date: 2026-05-15T14:00:00.000Z
+ *     responses:
+ *       '200':
+ *         description: Appointment rescheduled
+ *       '400':
+ *         description: Invalid appointment payload
+ *       '401':
+ *         description: Missing or invalid JWT
+ *       '403':
+ *         description: Role not allowed
+ *       '404':
+ *         description: Appointment not found
+ */
+router.patch('/:appointmentId', ctrl.rescheduleAppointment);
+
+/**
+ * @swagger
+ * /donations/book-appointment/{appointmentId}:
  *   delete:
  *     tags:
- *       - Appointments
+ *       - Donor
  *     summary: Cancel a donor appointment
  *     security:
  *       - bearerAuth: []

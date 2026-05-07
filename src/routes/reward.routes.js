@@ -11,20 +11,20 @@ router.use(authMiddleware);
 /**
  * @swagger
  * tags:
- *   - name: Rewards - Donor
- *     description: Donor-facing reward endpoints
- *   - name: Rewards - Admin
- *     description: Admin reward management
+ *   - name: Donor
+ *     description: All donor-facing endpoints
+ *   - name: Admin
+ *     description: All admin endpoints
  */
 
 // ── Donor routes ──────────────────────────────────────────
 
 /**
- * @swagger
+ * @openapi
  * /rewards/points:
  *   get:
  *     summary: Get donor's points summary and tier
- *     tags: [Rewards - Donor]
+ *     tags: [Donor]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -32,6 +32,86 @@ router.use(authMiddleware);
  *         description: Points summary with tier info
  */
 router.get('/points', requireRole('donor'), rc.getPoints);
+
+/**
+ * @openapi
+ * /rewards/dashboard:
+ *   get:
+ *     tags: [Donor]
+ *     summary: Get full rewards screen data in one request
+ *     description: |
+ *       Returns all data needed to render the Rewards screen in a single call:
+ *       current points, rewards catalog, points history (last 10), and badge progress.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Rewards dashboard retrieved
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Rewards dashboard retrieved
+ *               data:
+ *                 points: 2340
+ *                 nextRewardPoints: 500
+ *                 pointsToNextReward: 160
+ *                 rewards:
+ *                   - id: "664a..."
+ *                     title: "Coffee Voucher"
+ *                     pointsRequired: 500
+ *                     isAvailable: true
+ *                 history:
+ *                   - id: "664b..."
+ *                     type: "BLOOD_DONATION"
+ *                     title: "Blood Donation - Successful"
+ *                     points: 100
+ *                     createdAt: "2026-05-01T10:00:00Z"
+ *                 badges:
+ *                   unlocked: 2
+ *                   total: 7
+ *                   completion: 28
+ *                   list:
+ *                     - id: "664c..."
+ *                       title: "First Timer"
+ *                       description: "Completed your first blood donation"
+ *                       isUnlocked: true
+ *                       progress: 1
+ *                       target: 1
+ *       '401':
+ *         description: Unauthorized
+ */
+router.get('/dashboard', requireRole('donor'), rc.getRewardsDashboard);
+
+/**
+ * @openapi
+ * /rewards/stats:
+ *   get:
+ *     tags: [Donor]
+ *     summary: Get rewards screen header stats
+ *     description: Returns current points, next reward distance, badge counts, and completion percentage.
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Rewards stats retrieved
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Rewards stats retrieved
+ *               data:
+ *                 points: 2340
+ *                 nextReward:
+ *                   pointsToGo: 160
+ *                 badgesUnlocked: 3
+ *                 totalBadges: 7
+ *                 completionPercent: 43
+ *       '401':
+ *         description: Unauthorized
+ */
+router.get('/stats', requireRole('donor'), rc.getRewardsStats);
+
 
 // Compatibility alias: allow listing catalog at the base `/rewards` path
 router.get('/', requireRole('donor'), rc.getRewards);
@@ -41,7 +121,7 @@ router.get('/', requireRole('donor'), rc.getRewards);
  * /rewards/points/history:
  *   get:
  *     summary: Get donor's points transaction history
- *     tags: [Rewards - Donor]
+ *     tags: [Donor]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -71,7 +151,7 @@ router.get('/points/history', requireRole('donor'), rc.getPointsHistory);
  * /rewards/badges:
  *   get:
  *     summary: Get all badges and donor's progress
- *     tags: [Rewards - Donor]
+ *     tags: [Donor]
  *     security:
  *       - bearerAuth: []
  *     responses:
@@ -85,7 +165,7 @@ router.get('/badges', requireRole('donor'), rc.getBadges);
  * /rewards/catalog:
  *   get:
  *     summary: Get available rewards catalog
- *     tags: [Rewards - Donor]
+ *     tags: [Donor]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -106,7 +186,7 @@ router.get('/catalog', requireRole('donor'), rc.getRewards);
  * /rewards/history:
  *   get:
  *     summary: Get donor reward history
- *     tags: [Rewards - Donor]
+ *     tags: [Donor]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -130,7 +210,7 @@ router.get('/history', requireRole('donor'), rc.getHistory);
  * /rewards/catalog/{rewardId}/redeem:
  *   post:
  *     summary: Redeem a reward using points
- *     tags: [Rewards - Donor]
+ *     tags: [Donor]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -162,12 +242,18 @@ router.post('/catalog/:rewardId/redeem', requireRole('donor'), rc.redeemReward);
 // Compatibility alias: support `/rewards/:rewardId/redeem` alongside `/rewards/catalog/:rewardId/redeem`
 router.post('/:rewardId/redeem', requireRole('donor'), rc.redeemReward);
 
+// Flutter body-param alias: POST /rewards/redeem with { rewardId } in body
+router.post('/redeem', requireRole('donor'), async (req, res, next) => {
+  req.params.rewardId = req.body.rewardId;
+  return rc.redeemReward(req, res, next);
+});
+
 /**
  * @swagger
  * /rewards/redemptions:
  *   get:
  *     summary: Get donor's redemption history
- *     tags: [Rewards - Donor]
+ *     tags: [Donor]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -191,7 +277,7 @@ router.get('/redemptions', requireRole('donor'), rc.getRedemptions);
  * /rewards/leaderboard:
  *   get:
  *     summary: Get the top donors leaderboard
- *     tags: [Rewards - Donor]
+ *     tags: [Donor]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -212,7 +298,7 @@ router.get('/leaderboard', rc.getLeaderboard);
  * /rewards/admin/users/{userId}/points/adjust:
  *   post:
  *     summary: Manually adjust a donor's points (admin only)
- *     tags: [Rewards - Admin]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -244,7 +330,7 @@ router.post('/admin/users/:userId/points/adjust', requireRole('admin', 'superadm
  * /rewards/admin/catalog/{rewardId}/status:
  *   patch:
  *     summary: Update a reward's status (admin only)
- *     tags: [Rewards - Admin]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -274,7 +360,7 @@ router.patch('/admin/catalog/:rewardId/status', requireRole('admin', 'superadmin
  * /rewards/admin/analytics:
  *   get:
  *     summary: Get rewards system analytics (admin only)
- *     tags: [Rewards - Admin]
+ *     tags: [Admin]
  *     security:
  *       - bearerAuth: []
  *     responses:

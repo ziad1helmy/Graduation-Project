@@ -15,7 +15,7 @@ const router = Router();
  * /help/faq:
  *   get:
  *     summary: Get FAQ list
- *     tags: [Help]
+ *     tags: [Donor]
  *     responses:
  *       200:
  *         description: FAQ retrieved successfully
@@ -27,7 +27,7 @@ router.get('/faq', helpController.getFaq);
  * /help/documents/{type}:
  *   get:
  *     summary: Get help document by type
- *     tags: [Help]
+ *     tags: [Donor]
  *     description: Returns a stored help document, or 404 if that document has not been configured.
  *     parameters:
  *       - in: path

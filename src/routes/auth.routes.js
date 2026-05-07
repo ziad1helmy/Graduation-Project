@@ -7,13 +7,10 @@ const router = Router();
 /**
  * @swagger
  * tags:
- *   - name: Auth - Donor
- *     description: Donor registration and authentication (signup, email verification, login)
- *   - name: Auth - Hospital
- *     description: Hospital registration and authentication (signup, email verification, login)
  *   - name: Auth
- *     description: General authentication (logout, refresh token, password reset, 2FA)
+ *     description: Registration, login, email verification, password reset, 2FA, and token management for all roles
  */
+
 
 /**
  * @openapi
@@ -143,7 +140,7 @@ const router = Router();
  *
  * /auth/signup:
  *   post:
- *     tags: [Auth - General]
+ *     tags: [Auth]
  *     summary: Register a new donor or hospital account
  *     description: Create a new account as donor or hospital. Donor signup requires phoneNumber, dateOfBirth, bloodType. Hospital signup requires hospitalName, licenseNumber
  *     requestBody:
@@ -164,7 +161,7 @@ const router = Router();
  *
  * /auth/login:
  *   post:
- *     tags: [Auth - Donor]
+ *     tags: [Auth]
  *     summary: Donor login with email and password
  *     description: Authenticate as a donor user. Returns JWT token. Supports optional 2FA
  *     requestBody:
@@ -183,7 +180,7 @@ const router = Router();
 
  * /auth/hospital/login:
  *   post:
- *     tags: [Auth - Hospital]
+ *     tags: [Auth]
  *     summary: Hospital login with email and password
  *     description: Authenticate as a hospital user. Returns JWT token
  *     requestBody:

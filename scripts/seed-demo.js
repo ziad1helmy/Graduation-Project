@@ -9,7 +9,9 @@ import Donation from '../src/models/Donation.model.js';
 import Notification from '../src/models/Notification.model.js';
 import HelpDocument from '../src/models/HelpDocument.model.js';
 import SupportMessage from '../src/models/SupportMessage.model.js';
+import Appointment from '../src/models/Appointment.model.js';
 import DonorPoints from '../src/models/DonorPoints.model.js';
+import crypto from 'crypto';
 import PointsTransaction from '../src/models/PointsTransaction.model.js';
 import RewardCatalog from '../src/models/RewardCatalog.model.js';
 import RewardRedemption from '../src/models/RewardRedemption.model.js';
@@ -509,6 +511,98 @@ async function main() {
     });
   }
 
+  // ── Seed Appointments (Dev 1 Task 3 & 4) ──────────────────────
+  const appointmentQrToken1 = crypto.randomBytes(32).toString('hex');
+  const appointmentQrToken2 = crypto.randomBytes(32).toString('hex');
+
+  await Appointment.findOneAndUpdate(
+    {
+      donorId: donors['aya.hassan@lifelink.demo']._id,
+      hospitalId: hospitals['ops@cairocare.demo']._id,
+      notes: '[demo-seed] appointment-1',
+    },
+    {
+      $set: {
+        donorId: donors['aya.hassan@lifelink.demo']._id,
+        hospitalId: hospitals['ops@cairocare.demo']._id,
+        appointmentDate: futureDate(3),
+        status: 'pending',
+        notes: '[demo-seed] appointment-1',
+        qrToken: appointmentQrToken1,
+        donationType: 'Whole Blood',
+      },
+    },
+    { upsert: true, new: true }
+  );
+
+  await Appointment.findOneAndUpdate(
+    {
+      donorId: donors['omar.nabil@lifelink.demo']._id,
+      hospitalId: hospitals['bloodbank@nilehope.demo']._id,
+      notes: '[demo-seed] appointment-2',
+    },
+    {
+      $set: {
+        donorId: donors['omar.nabil@lifelink.demo']._id,
+        hospitalId: hospitals['bloodbank@nilehope.demo']._id,
+        appointmentDate: futureDate(5),
+        status: 'confirmed',
+        notes: '[demo-seed] appointment-2',
+        qrToken: appointmentQrToken2,
+        donationType: 'Platelets',
+      },
+    },
+    { upsert: true, new: true }
+  );
+
+  // ── Update Donor Settings (Dev 1 Task 5) ──────────────────────
+  await Donor.updateOne(
+    { email: 'aya.hassan@lifelink.demo' },
+    {
+      $set: {
+        'settings.pushNotifications': true,
+        'settings.emergencyAlerts': true,
+        'settings.privacyMode': false,
+        'settings.language': 'en',
+      },
+    }
+  );
+
+  await Donor.updateOne(
+    { email: 'omar.nabil@lifelink.demo' },
+    {
+      $set: {
+        'settings.pushNotifications': true,
+        'settings.emergencyAlerts': false,
+        'settings.privacyMode': true,
+        'settings.language': 'ar',
+      },
+    }
+  );
+
+  // ── Update Hospital Config (Dev 2 Task 7) ──────────────────────
+  await Hospital.updateOne(
+    { email: 'ops@cairocare.demo' },
+    {
+      $set: {
+        slotsPerHour: 5,
+        workingHoursStart: 9,
+        workingHoursEnd: 17,
+      },
+    }
+  );
+
+  await Hospital.updateOne(
+    { email: 'bloodbank@nilehope.demo' },
+    {
+      $set: {
+        slotsPerHour: 6,
+        workingHoursStart: 8,
+        workingHoursEnd: 18,
+      },
+    }
+  );
+
   console.log('');
   console.log('LifeLink demo seed completed successfully.');
   console.log('');
@@ -517,7 +611,12 @@ async function main() {
     console.log(`- ${entry.role}: ${entry.email} / ${entry.password}`);
   });
   console.log('');
-  console.log('Seeded demo data includes donors, hospitals, admin, requests, donations, notifications, rewards, help documents, support messages, and reward examples.');
+  console.log('Seeded demo data includes:');
+  console.log('- Donors with updated settings (pushNotifications, emergencyAlerts, privacyMode, language)');
+  console.log('- Hospitals with time slot configurations (slotsPerHour, workingHoursStart, workingHoursEnd)');
+  console.log('- Appointments with QR tokens for donation scanning');
+  console.log('- Requests, donations, notifications, rewards, help documents, and support messages');
+  console.log('');
   console.log('FAQ content is served from the built-in help controller and does not require database seeding.');
 }
 

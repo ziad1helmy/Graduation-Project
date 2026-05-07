@@ -15,6 +15,16 @@ const hospitalSchema = new mongoose.Schema({
         trim: true,
         default: 'hospital',
     },
+    hospitalType: {
+        type: String,
+        default: 'General Hospital',
+        trim: true,
+    },
+    workingHours: {
+        type: String,
+        default: '9AM - 5PM',
+        trim: true,
+    },
     phone: {
         type: String,
         trim: true,
@@ -112,6 +122,25 @@ const hospitalSchema = new mongoose.Schema({
         type: String,
         trim: true,
         default: null,
+    },
+
+    // Dev 2 Task 7: Appointment slot configuration
+    slotsPerHour: {
+        type: Number,
+        default: 5,
+        min: [1, 'Must have at least 1 slot per hour'],
+    },
+    workingHoursStart: {
+        type: Number,
+        default: 9,
+        min: [0, 'Working hours start must be between 0-23'],
+        max: [23, 'Working hours start must be between 0-23'],
+    },
+    workingHoursEnd: {
+        type: Number,
+        default: 17,
+        min: [0, 'Working hours end must be between 0-23'],
+        max: [23, 'Working hours end must be between 0-23'],
     },
 });
 

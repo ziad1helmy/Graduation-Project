@@ -73,7 +73,14 @@ export const getTimeline = async (req, res, next) => {
     });
 
     response.success(res, 200, 'Activity timeline retrieved successfully', {
-      activities: result.activities,
+      activities: result.activities.map(a => ({
+        id: a._id,
+        type: a.type,
+        title: a.title,
+        subTitle: a.description,
+        points: a.metadata?.pointsAmount || 0,
+        createdAt: a.createdAt,
+      })),
       pagination: result.pagination,
     });
   } catch (error) {

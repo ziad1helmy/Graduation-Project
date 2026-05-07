@@ -26,14 +26,14 @@ const donationSchema = new mongoose.Schema(
     requestId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Request',
-      required: [true, 'Request ID is required'],
+      default: null,
     },
     
     status: {
       type: String,
       enum: {
-        values: ['pending', 'scheduled', 'completed', 'cancelled'],
-        message: 'Status must be pending, scheduled, completed, or cancelled',
+        values: ['pending', 'scheduled', 'completed', 'cancelled', 'rejected'],
+        message: 'Status must be pending, scheduled, completed, cancelled, or rejected',
       },
       default: 'pending',
     },

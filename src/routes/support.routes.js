@@ -16,7 +16,7 @@ const router = Router();
  * /support/contact:
  *   post:
  *     summary: Submit a support request
- *     tags: [Support]
+ *     tags: [Donor]
  *     security: [{ bearerAuth: [] }]
  *     description: Authenticated submissions are linked to the current user id, email, and role for traceability.
  *     requestBody:

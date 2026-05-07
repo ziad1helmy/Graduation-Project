@@ -1170,31 +1170,200 @@ Each record:
 
 ---
 
-# 📷 5. QR DONATION CONFIRMATION FLOW
+We already implemented the Hospital QR Scanner screen in Flutter using:
 
-## POST /donations/qr/scan
+* mobile_scanner
+* Clean Architecture
+* Bloc
 
-### Request:
+Frontend flow is completed.
 
-* qrCode
-
-### Backend must:
-
-* Validate QR
-* Check donor eligibility
-* Prevent duplicate scans
-* Assign donation record
-* Add points
-
-### Response:
-
-* donation confirmation
-* pointsEarned
-* hospital info
-* donation type
-* timestamp
+We now need backend support for the **Hospital Donation QR Verification System**.
 
 ---
+
+# 🏥 Hospital QR Scanner Flow
+
+Hospital staff opens scanner screen.
+
+The scanner reads donor QR code and sends token to backend for verification.
+
+Frontend currently sends:
+
+```json id="6q1bjp"
+{
+  "qrToken": "SECURE_QR_TOKEN"
+}
+```
+
+using:
+
+## POST /appointments/verify-qr
+
+---
+
+# ✅ Backend Verification Responsibilities
+
+Backend must:
+
+* Validate JWT token
+* Ensure authenticated user is a hospital/admin
+* Validate QR token existence
+* Check QR expiration
+* Ensure appointment exists
+* Ensure appointment status is:
+
+  * upcoming
+  * confirmed
+* Prevent reused QR tokens
+* Ensure donor has not already donated
+* Validate appointment date/time
+* Mark appointment as completed
+* Mark QR token as consumed
+* Create donation history record
+* Update donor statistics
+* Trigger rewards/badges
+* Send notifications
+
+---
+
+# 📦 Expected Success Response
+
+```json id="q8dx6t"
+{
+  "success": true,
+  "message": "Donation verified successfully",
+
+  "donation": {
+    "donationId": "DON_123",
+    "type": "Whole Blood",
+    "date": "2026-05-07T12:00:00Z",
+    "location": "City Hospital",
+    "status": "confirmed"
+  },
+
+  "pointsEarned": 50
+}
+```
+
+---
+
+# ❌ Error Handling
+
+Backend must return proper errors for:
+
+## Expired QR
+
+```json id="g4wdv8"
+{
+  "success": false,
+  "message": "QR code expired"
+}
+```
+
+---
+
+## Invalid QR
+
+```json id="icvjj0"
+{
+  "success": false,
+  "message": "Invalid QR code"
+}
+```
+
+---
+
+## Already Used QR
+
+```json id="fy8mbh"
+{
+  "success": false,
+  "message": "QR code already used"
+}
+```
+
+---
+
+## Appointment Cancelled
+
+```json id="c4m7b5"
+{
+  "success": false,
+  "message": "Appointment is cancelled"
+}
+```
+
+---
+
+# 🩸 Donation History Record
+
+After successful verification create donation record:
+
+```json id="k3om4u"
+{
+  "donationId": "DON_123",
+  "donorId": "DONOR_ID",
+  "hospitalId": "HOSPITAL_ID",
+  "appointmentId": "APT_123",
+  "donationType": "Whole Blood",
+  "pointsEarned": 50,
+  "verifiedAt": "2026-05-07T12:00:00Z"
+}
+```
+
+---
+
+# 🎖 Rewards & Gamification
+
+After successful donation:
+
+* Increase donor points
+* Update badges
+* Update streaks
+* Update total donations
+* Trigger achievements
+
+---
+
+# 🔔 Notifications
+
+Use Firebase Cloud Messaging (FCM).
+
+Send notifications when:
+
+* Donation verified successfully
+* Reward earned
+* Badge unlocked
+* Donation added to history
+
+---
+
+# 🛡 Security Requirements
+
+QR system must support:
+
+* One-time QR usage
+* QR expiration
+* Secure token generation
+* Anti-replay protection
+* Rate limiting
+* Hospital-only verification access
+
+---
+
+# ⚡ Frontend Already Implemented
+
+Frontend already supports:
+
+* QR Scanner
+* Flash toggle
+* Scan animation
+* Success dialog
+* Donation confirmation dialog
+* Donation details display
+
+Backend now only needs to implement APIs and business logic.
 
 # ⚙️ 6. SETTINGS MODULE
 

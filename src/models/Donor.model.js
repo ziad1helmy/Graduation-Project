@@ -41,6 +41,12 @@ const donorSchema = new mongoose.Schema({
 
     lastDonationDate: Date,
 
+    weight: {
+        type: Number,
+        default: null,
+        min: 0
+    },
+
     hemoglobinLevel: {
         type: Number,
         min: [0, 'Hemoglobin level must be a positive number'],
@@ -109,6 +115,32 @@ const donorSchema = new mongoose.Schema({
     isAvailable: {
         type: Boolean,
         default: true,
+    },
+
+    weight: {
+        type: Number,
+        default: null,
+        min: [0, 'Weight must be a positive number'],
+    },
+
+    settings: {
+        pushNotifications: {
+            type: Boolean,
+            default: true,
+        },
+        emergencyAlerts: {
+            type: Boolean,
+            default: true,
+        },
+        privacyMode: {
+            type: Boolean,
+            default: false,
+        },
+        language: {
+            type: String,
+            enum: ['en', 'ar'],
+            default: 'en',
+        },
     },
 
     
