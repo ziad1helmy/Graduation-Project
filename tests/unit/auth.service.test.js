@@ -25,8 +25,7 @@ describe('Auth Service', () => {
     expect(res).toHaveProperty('refreshToken');
     expect(res).toHaveProperty('user');
     expect(res.user.email).toBe(email);
-    // verification token is exposed in non-production environments
-    expect(res).toHaveProperty('verificationToken');
+    expect(res).toHaveProperty('verificationEmail');
 
     const user = await Donor.findOne({ email });
     expect(user).toBeTruthy();
@@ -48,5 +47,24 @@ describe('Auth Service', () => {
     expect(loginRes).toHaveProperty('accessToken');
     expect(loginRes).toHaveProperty('refreshToken');
     expect(loginRes.user.email).toBe(email);
+  });
+
+  it('verifies email with an otp code', async () => {
+    const email = 'carol@example.com';
+    const password = 'Secret123!';
+    const data = buildDonor({ email, password, confirmPassword: password });
+
+    await authService.register(data);
+    const user = await Donor.findOne({ email });
+    const otp = user.createEmailVerificationOtp();
+    await user.save({ validateBeforeSave: false });
+
+    const res = await authService.verifyEmailOtp({ email, otp });
+
+    expect(res).toEqual({ success: true });
+
+    const updatedUser = await Donor.findOne({ email });
+    expect(updatedUser.isEmailVerified).toBe(true);
+    expect(updatedUser.emailVerifiedAt).toBeTruthy();
   });
 });

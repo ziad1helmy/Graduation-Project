@@ -9,7 +9,7 @@
  * - resetPassword(token, password) - Reset password
  * - getMe(userId) - Get current user
  * - verifyEmail(email) - Request email verification
- * - verifyEmailToken(token) - Verify email token
+ * - verifyEmailOtp(email, otp) - Verify email OTP
  */
 
 // Auth is the Business Logic Layer for the auth routes
@@ -474,32 +474,47 @@ export const register = async (data, trace = {}) => {
         throw error;
     }
 
-    const verificationToken = user.createEmailVerificationToken();
-    logger.info('Signup verification-token save starting', {
+    const verificationOtp = user.createEmailVerificationOtp();
+    logger.info('Signup verification-code save starting', {
       traceId,
       email,
       role,
     });
     const tokenSaveStartedAt = process.hrtime.bigint();
     await user.save({ validateBeforeSave: false });
-    logger.info('Signup verification-token save finished', {
+    logger.info('Signup verification-code save finished', {
       traceId,
       email,
       role,
       saveMs: Number(hrtimeMs(tokenSaveStartedAt).toFixed(3)),
     });
 
-    // Schedule verification email asynchronously so registration is not blocked
-    // by external SMTP latency. Log failures if they occur.
-    void sendEmailVerificationEmail({
-      to: user.email,
-      fullName: user.fullName,
-      token: verificationToken,
-    }).catch((err) => {
-      logger.warn('Background verification-email send failed', { email: user.email, message: err?.message });
-    });
+    // Send the verification email now so failures can be observed and logged.
+    let verificationEmail = null;
+    try {
+      verificationEmail = await sendEmailVerificationEmail({
+        to: user.email,
+        fullName: user.fullName,
+        otp: verificationOtp,
+      });
+    } catch (err) {
+      verificationEmail = { sent: false, error: err?.message || 'Failed to send verification email' };
+      logger.warn('Verification-email send failed', {
+        traceId,
+        email: user.email,
+        message: err?.message,
+      });
+    }
 
-    logger.info('Signup completed (verification email scheduled)', {
+    if (verificationEmail?.skipped) {
+      logger.warn('Verification-email skipped', {
+        traceId,
+        email: user.email,
+        reason: verificationEmail.reason,
+      });
+    }
+
+    logger.info('Signup completed (verification email processed)', {
       traceId,
       email,
       role,
@@ -512,7 +527,7 @@ export const register = async (data, trace = {}) => {
       user,
       accessToken: authPayload.accessToken,
       refreshToken: authPayload.refreshToken,
-      verificationToken,
+      verificationEmail,
     };
 };
 
@@ -710,29 +725,18 @@ export const refreshToken = async (refreshTokenValue) => {
   return { accessToken };
 };
 
-// Forgot password
 export const forgotPassword = async (email) => {
   if (!email) {
     throw new Error('Email is required');
   }
 
-  const user = await User.findOne({ email });
-
-  // Do not reveal whether an account exists for this email.
-  if (!user) {
-    return { success: true };
+  try {
+    await sendOtp({ email });
+  } catch (error) {
+    if (error.message !== 'Account not found') {
+      throw error;
+    }
   }
-
-  const resetToken = user.createPasswordResetToken();
-  await user.save({ validateBeforeSave: false });
-  // Send password-reset email asynchronously so endpoint returns quickly.
-  void sendPasswordResetEmail({
-    to: user.email,
-    fullName: user.fullName,
-    token: resetToken,
-  }).catch((err) => {
-    logger.warn('Background password-reset email failed', { email: user.email, message: err?.message });
-  });
 
   return { success: true };
 };
@@ -837,40 +841,44 @@ export const verify2FALogin = async (tempToken, code) => {
 
 // Verify email
 export const verifyEmail = async (email) => {
-  const user = await User.findOne({ email });
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const user = await User.findOne({ email: normalizedEmail });
   if (!user) throw new Error('User not found');
 
-  const verificationToken = user.createEmailVerificationToken();
+  const verificationOtp = user.createEmailVerificationOtp();
   await user.save({ validateBeforeSave: false });
   void sendEmailVerificationEmail({
     to: user.email,
     fullName: user.fullName,
-    token: verificationToken,
+    otp: verificationOtp,
   }).catch((err) => {
     logger.warn('Background verification-email send failed', { email: user.email, message: err?.message });
   });
 
-  return { success: true, verificationToken };
+  return { success: true };
 };
 
-// Verify email token
-export const verifyEmailToken = async (token) => {
-  if (!token) throw new Error('Verification token is required');
+// Verify email OTP
+export const verifyEmailOtp = async ({ email, otp }) => {
+  if (!email) throw new Error('Email is required');
+  if (!otp) throw new Error('Verification code is required');
 
-  const hashedToken = hashToken(token);
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const hashedOtp = hashOtp(otp);
   const user = await User.findOne({
-    emailVerificationToken: hashedToken,
-    emailVerificationExpires: { $gt: Date.now() },
-  }).select('+emailVerificationToken +emailVerificationExpires');
+    email: normalizedEmail,
+    emailVerificationOtp: hashedOtp,
+    emailVerificationOtpExpires: { $gt: Date.now() },
+  }).select('+emailVerificationOtp +emailVerificationOtpExpires');
 
   if (!user) {
-    throw new Error('Invalid or expired verification token');
+    throw new Error('Invalid or expired verification code');
   }
 
   user.isEmailVerified = true;
   user.emailVerifiedAt = new Date();
-  user.emailVerificationToken = undefined;
-  user.emailVerificationExpires = undefined;
+  user.emailVerificationOtp = undefined;
+  user.emailVerificationOtpExpires = undefined;
   await user.save();
 
   void sendEmailVerificationConfirmationEmail({

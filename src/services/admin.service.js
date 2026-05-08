@@ -180,7 +180,7 @@ export const listUsers = async (filters = {}, pagination = {}) => {
 
   const [users, total] = await Promise.all([
     User.find(query)
-      .select('-password -emailVerificationToken -emailVerificationExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt')
+      .select('-password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit)),
@@ -195,7 +195,7 @@ export const listUsers = async (filters = {}, pagination = {}) => {
  */
 export const getUserById = async (id) => {
   const user = await User.findOne({ _id: id, deletedAt: null })
-    .select('-password -emailVerificationToken -emailVerificationExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt');
+    .select('-password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt');
 
   if (!user) return null;
 

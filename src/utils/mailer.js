@@ -37,6 +37,26 @@ function isProduction() {
   return env.NODE_ENV === 'production';
 }
 
+function resolveMailFrom() {
+  const configuredFrom = String(env.MAIL_FROM || '').trim();
+
+  if (!configuredFrom) {
+    return env.SMTP_USER;
+  }
+
+  const displayNameMatch = configuredFrom.match(/^(.*)<([^>]+)>$/);
+  if (displayNameMatch) {
+    const displayName = displayNameMatch[1].trim();
+    return displayName ? `${displayName} <${env.SMTP_USER}>` : env.SMTP_USER;
+  }
+
+  if (configuredFrom.toLowerCase() === String(env.SMTP_USER || '').toLowerCase()) {
+    return configuredFrom;
+  }
+
+  return env.SMTP_USER;
+}
+
 function normalizeMailResult(result) {
   if (result?.skipped) {
     return {
@@ -80,6 +100,29 @@ async function sendTokenEmail({
   return normalizeMailResult(result);
 }
 
+async function sendVerificationOtpEmail({
+  to,
+  fullName,
+  otp,
+  subject,
+  template,
+  onDevNoSmtp,
+}) {
+  const html = template({ otp, name: fullName });
+  const text = `Hello ${fullName || 'there'},\n\nUse this verification code to activate your LifeLink account: ${otp}`;
+
+  if (!hasSmtpConfig() && !isProduction()) {
+    if (typeof onDevNoSmtp === 'function') {
+      return onDevNoSmtp({ otp });
+    }
+
+    return { skipped: true };
+  }
+
+  const result = await sendMail({ to, subject, text, html });
+  return normalizeMailResult(result);
+}
+
 async function sendMail({ to, subject, text, html }) {
   const transporter = createTransporter();
 
@@ -95,7 +138,7 @@ async function sendMail({ to, subject, text, html }) {
     throw new Error('Email transport is not configured');
   }
 
-  const from = env.MAIL_FROM || env.SMTP_USER;
+  const from = resolveMailFrom();
 
   try {
     await transporter.sendMail({
@@ -184,25 +227,21 @@ export async function sendPasswordResetConfirmationEmail({ to, fullName }) {
   return normalizeMailResult(result);
 }
 
-export async function sendEmailVerificationEmail({ to, fullName, token }) {
-  return sendTokenEmail({
+export async function sendEmailVerificationEmail({ to, fullName, otp }) {
+  return sendVerificationOtpEmail({
     to,
     fullName,
-    token,
     subject: 'Verify your LifeLink email address',
-    pathname: '/verify-email',
-    actionLabel: 'verify your email address',
     template: confirmEmailTemplate,
-    onDevNoSmtp: ({ token: verificationToken, url: verificationUrl }) => {
-      // Development-only visibility for local testing when SMTP is not configured.
-      logger.debug('Email verification token', {
+    onDevNoSmtp: ({ otp: verificationOtp }) => {
+      logger.debug('Email verification code', {
         email: to,
-        token: verificationToken,
-        url: verificationUrl,
+        otp: verificationOtp,
       });
 
       return { skipped: true };
     },
+    otp,
   });
 }
 

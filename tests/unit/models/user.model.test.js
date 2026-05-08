@@ -31,17 +31,17 @@ describe('User model', () => {
     expect(u.resetPasswordExpires).toBeTruthy();
   });
 
-  it('createEmailVerificationToken sets token hash and expiry and returns token', async () => {
+  it('createEmailVerificationOtp sets otp hash and expiry and returns otp', async () => {
     const u = new User({
       fullName: 'Verify Tester',
       email: `verify${Date.now()}@test.com`,
       password: 'Password123!',
     });
 
-    const token = u.createEmailVerificationToken();
-    expect(token).toHaveLength(64);
-    expect(u.emailVerificationToken).toBeTruthy();
-    expect(u.emailVerificationExpires).toBeTruthy();
+    const otp = u.createEmailVerificationOtp();
+    expect(otp).toMatch(/^\d{6}$/);
+    expect(u.emailVerificationOtp).toBeTruthy();
+    expect(u.emailVerificationOtpExpires).toBeTruthy();
   });
 
   it('validates required fields and email format', async () => {

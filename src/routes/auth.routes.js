@@ -90,11 +90,14 @@ const router = Router();
  *         email:
  *           type: string
  *           format: email
- *     TokenRequest:
- *       type: object
- *       required: [token]
- *       properties:
- *         token:
+*     VerificationOtpRequest:
+*       type: object
+*       required: [email, otp]
+*       properties:
+*         email:
+*           type: string
+*           format: email
+*         otp:
  *           type: string
  *     OtpRequest:
  *       type: object
@@ -112,6 +115,28 @@ const router = Router();
  *           type: string
  *         refreshToken:
  *           type: string
+ *     VerificationEmailStatus:
+ *       type: object
+ *       properties:
+ *         sent:
+ *           type: boolean
+ *         skipped:
+ *           type: boolean
+ *         reason:
+ *           type: string
+ *         error:
+ *           type: string
+ *     SignupResponseData:
+ *       type: object
+ *       required: [user, tokens]
+ *       properties:
+ *         user:
+ *           type: object
+ *           description: Created user document
+ *         tokens:
+ *           $ref: '#/components/schemas/AuthTokens'
+ *         verificationEmail:
+ *           $ref: '#/components/schemas/VerificationEmailStatus'
  *     FcmTokenRequest:
  *       type: object
  *       required: [fcmToken]
@@ -153,7 +178,30 @@ const router = Router();
  *               - $ref: '#/components/schemas/SignupHospitalRequest'
  *     responses:
  *       '201':
- *         description: User registered successfully - Email verification required
+ *         description: User registered successfully - Email verification processed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               required: [success, data]
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 data:
+ *                   $ref: '#/components/schemas/SignupResponseData'
+ *             example:
+ *               success: true
+ *               data:
+ *                 user:
+ *                   fullName: ziad
+ *                   email: user@example.com
+ *                   role: donor
+ *                 tokens:
+ *                   accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                   refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *                 verificationEmail:
+ *                   sent: true
  *       '400':
  *         description: Validation or registration error
  *       '409':
@@ -234,6 +282,42 @@ const router = Router();
  *       '200':
  *         description: Token is valid
  *
+ * /auth/forgot-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Request password reset (sends OTP)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EmailRequest'
+ *     responses:
+ *       '200':
+ *         description: Password reset email sent
+ *
+ * /auth/reset-password:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Reset password using token
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [token, password]
+ *             properties:
+ *               token:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *     responses:
+ *       '200':
+ *         description: Password reset successful
+ *       '400':
+ *         description: Invalid token
+ *
  * /auth/send-otp:
  *   post:
  *     tags: [Auth]
@@ -261,6 +345,34 @@ const router = Router();
  *     responses:
  *       '200':
  *         description: Password reset OTP verified successfully
+ *
+ * /auth/verify-email:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Send an email verification code
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EmailRequest'
+ *     responses:
+ *       '200':
+ *         description: Verification code sent successfully
+ *
+ * /auth/verify-email-otp:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Verify email verification code
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/VerificationOtpRequest'
+ *     responses:
+ *       '200':
+ *         description: Email verified successfully
  *
  * /auth/2fa/setup:
  *   post:
@@ -339,7 +451,7 @@ router.post('/2fa/disable', authMiddleware, AUC.disable2FA);
 router.get('/me', authMiddleware, AUC.getMe);
 router.post('/validate-token', authMiddleware, AUC.validateToken);
 router.post('/verify-email', AUC.verifyEmail);
-router.post('/verify-email-token', AUC.verifyEmailToken);
+router.post('/verify-email-otp', AUC.verifyEmailOtp);
 router.post('/fcm-token', authMiddleware, AUC.registerFcmToken);
 router.put('/fcm-token', authMiddleware, AUC.replaceFcmToken);
 router.delete('/fcm-token', authMiddleware, AUC.removeFcmToken);

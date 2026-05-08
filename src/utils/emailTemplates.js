@@ -2,7 +2,7 @@ import { env } from '../config/env.js';
 
 const emailLogoUrl =
   env.EMAIL_LOGO_URL ||
-  'https://res.cloudinary.com/dlyhmtquc/image/upload/v1776295472/logo_u0f2pk.png';
+  'https://res.cloudinary.com/dxuzf55vz/image/upload/v1778253377/logo_2_1_l2hm9s.png';
 
 const BRAND = {
   primary: '#C62828',
@@ -14,12 +14,12 @@ const BRAND = {
   success: '#166534',
 };
 
-const renderShell = ({ title, preheader, content }) => `<!DOCTYPE html>
+const renderShell = ({  preheader, content }) => `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title}</title>
+  
 </head>
 <body style="margin:0; padding:0; background:#F3F4F6; font-family:Arial, Helvetica, sans-serif; color:${BRAND.text};">
   <div style="display:none; max-height:0; overflow:hidden; opacity:0;">${preheader}</div>
@@ -30,7 +30,6 @@ const renderShell = ({ title, preheader, content }) => `<!DOCTYPE html>
           <tr>
             <td style="padding:32px 32px 16px; text-align:center; background:linear-gradient(135deg, ${BRAND.primary} 0%, ${BRAND.primaryDark} 100%);">
               <img src="${emailLogoUrl}" alt="LifeLink" width="140" style="display:block; margin:0 auto 12px;">
-              <p style="margin:0; color:#FEE2E2; font-size:13px; letter-spacing:0.08em; text-transform:uppercase;">LifeLink</p>
             </td>
           </tr>
           <tr>
@@ -50,26 +49,22 @@ const renderShell = ({ title, preheader, content }) => `<!DOCTYPE html>
 </body>
 </html>`;
 
-export const confirmEmailTemplate = (link, name = 'LifeLink user') =>
+export const confirmEmailTemplate = ({ otp, name = 'LifeLink user', expiresInMinutes = 10 }) =>
   renderShell({
     title: 'Verify Your LifeLink Email',
-    preheader: 'Verify your email address to activate your LifeLink account.',
+    preheader: `Your LifeLink verification code is ${otp}. It expires in ${expiresInMinutes} minutes.`,
     content: `
       <p style="margin:0 0 10px; color:${BRAND.primary}; font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">Account verification</p>
-      <h1 style="margin:0 0 16px; font-size:30px; line-height:1.2;">Verify Your Email Address</h1>
+      <h1 style="margin:0 0 16px; font-size:30px; line-height:1.2;">Your Verification Code</h1>
       <p style="margin:0 0 16px; font-size:16px; line-height:1.7;">Hello ${name},</p>
       <p style="margin:0 0 24px; font-size:16px; line-height:1.7;">
-        Please confirm your email address to finish activating your LifeLink account and continue using the platform.
+        Use the one-time code below to verify your email address and activate your LifeLink account.
       </p>
-      <div style="margin:0 0 24px;">
-        <a href="${link}" style="display:inline-block; padding:14px 24px; background:${BRAND.primary}; color:#FFFFFF; text-decoration:none; border-radius:999px; font-weight:700;">
-          Verify Email
-        </a>
+      <div style="margin:0 0 20px; padding:24px; background:${BRAND.accent}; border:1px solid #FECACA; border-radius:18px; text-align:center;">
+        <div style="margin:0 0 10px; font-size:13px; color:${BRAND.muted}; text-transform:uppercase; letter-spacing:0.08em;">Verification code</div>
+        <div style="font-size:40px; line-height:1; font-weight:700; letter-spacing:0.28em; color:${BRAND.primary};">${otp}</div>
       </div>
-      <p style="margin:0 0 8px; font-size:14px; color:${BRAND.muted};">If the button does not open, copy this link into your browser:</p>
-      <p style="margin:0; word-break:break-all; font-size:14px;">
-        <a href="${link}" style="color:${BRAND.primary}; text-decoration:none;">${link}</a>
-      </p>
+      <p style="margin:0; font-size:14px; color:${BRAND.muted};">This code expires in ${expiresInMinutes} minutes.</p>
     `,
   });
 

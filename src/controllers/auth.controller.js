@@ -1,5 +1,4 @@
 import * as authService from '../services/auth.service.js';
-import { renderVerificationFailurePage, renderVerificationSuccessPage } from '../utils/verificationPages.js';
 import response from '../utils/response.js';
 import { ERR } from '../utils/errorCodes.js';
 import { logger } from '../utils/logger.js';
@@ -79,11 +78,6 @@ const normalizeLoginPayload = (body) => {
   return payload;
 };
 
-const prefersHtml = (req) => {
-  const accept = String(req.headers.accept || '').toLowerCase();
-  return accept.includes('text/html') && !accept.includes('application/json');
-};
-
 /**
  * Register a new user (donor or hospital)
  * Validates role-specific fields and returns tokens
@@ -105,7 +99,7 @@ export const register = async (req, res, next) => {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       },
-      ...(result.verificationToken ? { verificationToken: result.verificationToken } : {}),
+      ...(result.verificationEmail ? { verificationEmail: result.verificationEmail } : {}),
     });
   } catch (error) {
     // Treat validation/business errors as 400; unexpected errors go to middleware
@@ -480,7 +474,7 @@ export const verifyEmail = async (req, res, next) => {
       return response.error(res, 400, 'Email is required');
     }
     await authService.verifyEmail(email);
-    response.success(res, 200, 'Verification email sent');
+    response.success(res, 200, 'Verification code sent');
   } catch (error) {
     if (error.message === ERR.AUTH_USER_NOT_FOUND) {
       return response.error(res, 404, error.message);
@@ -489,26 +483,21 @@ export const verifyEmail = async (req, res, next) => {
   }
 };
 
-// Verify email token
-export const verifyEmailToken = async (req, res, next) => {
+// Verify email OTP
+export const verifyEmailOtp = async (req, res, next) => {
   try {
-    const token = req.body.token || req.query.token;
-    if (!token) {
-      if (prefersHtml(req)) {
-        return res.status(400).type('html').send(renderVerificationFailurePage());
-      }
-      return response.error(res, 400, 'Verification token is required');
+    const email = req.body.email || req.query.email;
+    const otp = req.body.otp || req.body.code || req.query.otp || req.query.code;
+    if (!email) {
+      return response.error(res, 400, 'Email is required');
     }
-    await authService.verifyEmailToken(token);
-    if (prefersHtml(req)) {
-      return res.status(200).type('html').send(renderVerificationSuccessPage());
+    if (!otp) {
+      return response.error(res, 400, 'Verification code is required');
     }
+    await authService.verifyEmailOtp({ email, otp });
     response.success(res, 200, 'Email verified successfully');
   } catch (error) {
-    if (error.message === ERR.AUTH_VERIFICATION_TOKEN_INVALID) {
-      if (prefersHtml(req)) {
-        return res.status(400).type('html').send(renderVerificationFailurePage());
-      }
+    if (error.message === 'Invalid or expired verification code') {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -534,7 +523,7 @@ export default {
   verify2FA,
   disable2FA,
   verifyEmail,
-  verifyEmailToken,
+  verifyEmailOtp,
   registerFcmToken,
   removeFcmToken,
   replaceFcmToken,
