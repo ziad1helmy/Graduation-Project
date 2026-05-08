@@ -90,8 +90,6 @@ router.get('/profile', adminController.getAdminProfile);
  *         description: System health status
  */
 router.get('/system/health', adminController.getSystemHealth);
-router.get('/system-health', adminController.getSystemHealth);
-router.get('/system-health/check', adminController.getSystemHealth);
 
 /**
  * @swagger
@@ -130,8 +128,6 @@ router.post('/system/maintenance', adminController.setMaintenanceMode);
  *         description: Maintenance status
  */
 router.get('/system/maintenance', adminController.getMaintenanceStatus);
-router.post('/maintenance-mode', adminController.setMaintenanceMode);
-router.get('/maintenance-mode/status', adminController.getMaintenanceStatus);
 
 /**
  * @swagger
@@ -292,7 +288,6 @@ router.get('/hospitals/:id', adminController.getUserById);
  *       '200':
  *         description: Admin list
  */
-router.get('/', requireRole('superadmin'), adminController.getAllAdmins);
 router.get('/admins', requireRole('superadmin'), adminController.getAllAdmins);
 /**
  * @swagger
@@ -500,7 +495,6 @@ router.put('/hospitals/:id/status', adminController.updateHospitalStatus);
  *       '409':
  *         description: Email already registered
  */
-router.post('/create', requireRole('superadmin'), adminController.createAdmin);
 router.post('/admins', requireRole('superadmin'), adminController.createAdmin);
 /**
  * @swagger
@@ -874,7 +868,6 @@ router.get('/users/stats', adminController.getUserStats);
  *       400:
  *         description: Invalid lat/long coordinates
  */
-router.post('/hospitals', hospitalController.createHospital);
 router.post('/users/hospital', adminController.createHospital);
 
 /**

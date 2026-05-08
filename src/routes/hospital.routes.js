@@ -443,15 +443,12 @@ router.put('/profile', hospitalController.updateProfile);
 
 // Request management routes
 router.post('/request', hospitalController.createRequest);
-// Compatibility alias for emergency-style request creation
-router.post('/requests/create-emergency', hospitalController.createRequest);
 // Hospital dashboard
 router.get('/dashboard', hospitalController.getMonthlyReports);
 // Close request (dedicated flow)
 router.post('/requests/:requestId/close', hospitalController.closeRequest);
 router.get('/requests', hospitalController.getRequests);
 router.get('/requests/:requestId', hospitalController.getRequestDetails);
-router.get('/requests/:requestId/responses', hospitalController.getRequestDetails);
 router.put('/requests/:requestId', hospitalController.updateRequest);
 router.delete('/requests/:requestId', hospitalController.deleteRequest);
 

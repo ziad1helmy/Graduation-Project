@@ -299,16 +299,18 @@ const router = Router();
  * /auth/reset-password:
  *   post:
  *     tags: [Auth]
- *     summary: Reset password using token
+ *     summary: Reset password using OTP
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required: [token, password]
+ *             required: [email, otp, password]
  *             properties:
- *               token:
+ *               email:
+ *                 type: string
+ *               otp:
  *                 type: string
  *               password:
  *                 type: string
@@ -316,22 +318,8 @@ const router = Router();
  *       '200':
  *         description: Password reset successful
  *       '400':
- *         description: Invalid token
- *
- * /auth/send-otp:
- *   post:
- *     tags: [Auth]
- *     summary: Send a password reset OTP
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             $ref: '#/components/schemas/EmailRequest'
- *     responses:
- *       '200':
- *         description: Password reset OTP sent successfully
- *
+ *         description: Invalid or expired OTP
+
  * /auth/verify-otp:
  *   post:
  *     tags: [Auth]
@@ -441,7 +429,7 @@ router.post('/admin/login', AUC.loginAdmin);
 router.post('/logout', AUC.logout);
 router.post('/refresh-token', AUC.refreshToken);
 router.post('/forgot-password', AUC.forgotPassword);
-router.post('/send-otp', AUC.sendOtp);
+
 router.post('/verify-otp', AUC.verifyOtp);
 router.post('/2fa/setup', authMiddleware, AUC.setup2FA);
 router.post('/2fa/confirm-setup', authMiddleware, AUC.confirm2FASetup);

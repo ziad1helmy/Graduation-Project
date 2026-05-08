@@ -1,15 +1,15 @@
 {
-  "generatedAt": "2026-05-08T15:36:52.383Z",
+  "generatedAt": "2026-05-08T16:11:29.662Z",
   "summary": [
     {
       "method": "GET",
       "path": "/donor/activity",
-      "status": 401,
-      "durationMs": 4.301,
+      "status": 403,
+      "durationMs": 3.779,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -18,7 +18,7 @@
       "method": "POST",
       "path": "/admin/login",
       "status": 400,
-      "durationMs": 2.861,
+      "durationMs": 2.325,
       "body": {
         "success": false,
         "code": "VALIDATION_ERROR",
@@ -31,21 +31,21 @@
       "method": "GET",
       "path": "/admin/profile",
       "status": 200,
-      "durationMs": 8.456,
+      "durationMs": 5.41,
       "body": {
         "success": true,
         "data": {
           "admin": {
-            "_id": "69fe0313de5b394cf1b7ffb6",
+            "_id": "69fe0b30e9ab597d75d857b7",
             "fullName": "Sweep Superadmin",
-            "email": "superadmin.1778254606701.9b5209@example.com",
+            "email": "superadmin.1778256684048.a58283@example.com",
             "isEmailVerified": true,
             "role": "superadmin",
             "isSuspended": false,
             "phone": null,
             "address": null,
-            "createdAt": "2026-05-08T15:36:51.472Z",
-            "updatedAt": "2026-05-08T15:36:51.472Z"
+            "createdAt": "2026-05-08T16:11:28.813Z",
+            "updatedAt": "2026-05-08T16:11:28.813Z"
           }
         }
       },
@@ -56,18 +56,18 @@
       "method": "GET",
       "path": "/admin/system/health",
       "status": 200,
-      "durationMs": 4.717,
+      "durationMs": 4.75,
       "body": {
         "success": true,
         "data": {
           "status": "healthy",
-          "uptime": 7.3075558,
+          "uptime": 7.0224518,
           "database": "connected",
           "memory": {
-            "used": "61 MB",
+            "used": "60 MB",
             "total": "108 MB"
           },
-          "timestamp": "2026-05-08T15:36:51.629Z"
+          "timestamp": "2026-05-08T16:11:28.932Z"
         }
       },
       "error": null,
@@ -77,7 +77,7 @@
       "method": "POST",
       "path": "/admin/system/maintenance",
       "status": 200,
-      "durationMs": 15.339,
+      "durationMs": 15.078,
       "body": {
         "success": true,
         "data": {
@@ -92,7 +92,7 @@
       "method": "GET",
       "path": "/admin/system/maintenance",
       "status": 200,
-      "durationMs": 6.547,
+      "durationMs": 6.105,
       "body": {
         "success": true,
         "data": {
@@ -107,7 +107,7 @@
       "method": "GET",
       "path": "/admin/statistics",
       "status": 200,
-      "durationMs": 20.579,
+      "durationMs": 8.957,
       "body": {
         "success": true,
         "data": {
@@ -138,7 +138,7 @@
       "method": "GET",
       "path": "/admin/alerts",
       "status": 200,
-      "durationMs": 16.597,
+      "durationMs": 16.173,
       "body": {
         "success": true,
         "data": {
@@ -214,7 +214,7 @@
       "method": "GET",
       "path": "/admin/blood-inventory-summary",
       "status": 200,
-      "durationMs": 12.254,
+      "durationMs": 11.638,
       "body": {
         "success": true,
         "data": {
@@ -409,23 +409,23 @@
       "method": "GET",
       "path": "/admin/audit-logs",
       "status": 200,
-      "durationMs": 10.312,
+      "durationMs": 11.425,
       "body": {
         "success": true,
         "data": {
           "logs": [
             {
-              "_id": "69fe0313de5b394cf1b7ffb8",
+              "_id": "69fe0b30e9ab597d75d857b9",
               "adminId": {
-                "_id": "69fe0313de5b394cf1b7ffb6",
+                "_id": "69fe0b30e9ab597d75d857b7",
                 "fullName": "Sweep Superadmin",
-                "email": "superadmin.1778254606701.9b5209@example.com",
+                "email": "superadmin.1778256684048.a58283@example.com",
                 "role": "superadmin"
               },
               "action": "system.maintenance",
               "targetType": "System",
               "targetId": null,
-              "createdAt": "2026-05-08T15:36:51.640Z",
+              "createdAt": "2026-05-08T16:11:28.943Z",
               "__v": 0
             }
           ],
@@ -441,7 +441,7 @@
       "method": "GET",
       "path": "/admin/donors",
       "status": 200,
-      "durationMs": 8.07,
+      "durationMs": 8.926,
       "body": {
         "success": true,
         "data": {
@@ -466,9 +466,9 @@
                 "city": "Cairo",
                 "governorate": "Cairo"
               },
-              "_id": "69fe030ede5b394cf1b7ffb3",
+              "_id": "69fe0b2ce9ab597d75d857b4",
               "fullName": "Sweep Donor",
-              "email": "donor.1778254606701.fbc42b@example.com",
+              "email": "donor.1778256684048.ca7dc1@example.com",
               "isEmailVerified": false,
               "emailVerifiedAt": null,
               "role": "donor",
@@ -490,14 +490,14 @@
               "lastDeferralReason": null,
               "isAvailable": true,
               "travelHistory": [],
-              "createdAt": "2026-05-08T15:36:46.738Z",
-              "updatedAt": "2026-05-08T15:36:51.545Z",
+              "createdAt": "2026-05-08T16:11:24.084Z",
+              "updatedAt": "2026-05-08T16:11:24.109Z",
               "fullNameNormalized": "sweep donor",
               "__v": 0,
               "isBanned": false,
               "availableToDonate": true,
               "isVerified": false,
-              "id": "69fe030ede5b394cf1b7ffb3"
+              "id": "69fe0b2ce9ab597d75d857b4"
             }
           ],
           "total": 1,
@@ -512,7 +512,7 @@
       "method": "GET",
       "path": "/admin/hospitals",
       "status": 200,
-      "durationMs": 8.37,
+      "durationMs": 7.036,
       "body": {
         "success": true,
         "data": {
@@ -521,12 +521,11 @@
               "location": {
                 "city": "Cairo",
                 "governorate": "Cairo",
-                "lastUpdated": "2026-05-08T15:36:48.340Z",
-                "type": "Point"
+                "lastUpdated": "2026-05-08T16:11:25.647Z"
               },
-              "_id": "69fe0310de5b394cf1b7ffb4",
+              "_id": "69fe0b2de9ab597d75d857b5",
               "fullName": "Sweep Hospital",
-              "email": "hospital.1778254606701.a94da6@example.com",
+              "email": "hospital.1778256684048.976af4@example.com",
               "isEmailVerified": false,
               "emailVerifiedAt": null,
               "role": "hospital",
@@ -561,8 +560,8 @@
               "slotsPerHour": 5,
               "workingHoursStart": 9,
               "workingHoursEnd": 17,
-              "createdAt": "2026-05-08T15:36:48.343Z",
-              "updatedAt": "2026-05-08T15:36:48.361Z",
+              "createdAt": "2026-05-08T16:11:25.650Z",
+              "updatedAt": "2026-05-08T16:11:25.669Z",
               "fullNameNormalized": "sweep hospital",
               "hospitalNameNormalized": "sweep hospital",
               "__v": 0
@@ -578,9 +577,9 @@
     },
     {
       "method": "GET",
-      "path": "/admin/donors/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/donors/69fe0b2de9ab597d75d857b5",
       "status": 200,
-      "durationMs": 8.693,
+      "durationMs": 8.59,
       "body": {
         "success": true,
         "data": {
@@ -588,12 +587,11 @@
             "location": {
               "city": "Cairo",
               "governorate": "Cairo",
-              "lastUpdated": "2026-05-08T15:36:48.340Z",
-              "type": "Point"
+              "lastUpdated": "2026-05-08T16:11:25.647Z"
             },
-            "_id": "69fe0310de5b394cf1b7ffb4",
+            "_id": "69fe0b2de9ab597d75d857b5",
             "fullName": "Sweep Hospital",
-            "email": "hospital.1778254606701.a94da6@example.com",
+            "email": "hospital.1778256684048.976af4@example.com",
             "isEmailVerified": false,
             "emailVerifiedAt": null,
             "role": "hospital",
@@ -628,8 +626,8 @@
             "slotsPerHour": 5,
             "workingHoursStart": 9,
             "workingHoursEnd": 17,
-            "createdAt": "2026-05-08T15:36:48.343Z",
-            "updatedAt": "2026-05-08T15:36:48.361Z",
+            "createdAt": "2026-05-08T16:11:25.650Z",
+            "updatedAt": "2026-05-08T16:11:25.669Z",
             "fullNameNormalized": "sweep hospital",
             "hospitalNameNormalized": "sweep hospital",
             "__v": 0,
@@ -642,9 +640,9 @@
     },
     {
       "method": "PUT",
-      "path": "/admin/donors/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/donors/69fe0b2de9ab597d75d857b5",
       "status": 404,
-      "durationMs": 5.755,
+      "durationMs": 7.014,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -655,9 +653,9 @@
     },
     {
       "method": "GET",
-      "path": "/admin/hospitals/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/hospitals/69fe0b2de9ab597d75d857b5",
       "status": 200,
-      "durationMs": 7.248,
+      "durationMs": 6.84,
       "body": {
         "success": true,
         "data": {
@@ -665,12 +663,11 @@
             "location": {
               "city": "Cairo",
               "governorate": "Cairo",
-              "lastUpdated": "2026-05-08T15:36:48.340Z",
-              "type": "Point"
+              "lastUpdated": "2026-05-08T16:11:25.647Z"
             },
-            "_id": "69fe0310de5b394cf1b7ffb4",
+            "_id": "69fe0b2de9ab597d75d857b5",
             "fullName": "Sweep Hospital",
-            "email": "hospital.1778254606701.a94da6@example.com",
+            "email": "hospital.1778256684048.976af4@example.com",
             "isEmailVerified": false,
             "emailVerifiedAt": null,
             "role": "hospital",
@@ -705,8 +702,8 @@
             "slotsPerHour": 5,
             "workingHoursStart": 9,
             "workingHoursEnd": 17,
-            "createdAt": "2026-05-08T15:36:48.343Z",
-            "updatedAt": "2026-05-08T15:36:48.361Z",
+            "createdAt": "2026-05-08T16:11:25.650Z",
+            "updatedAt": "2026-05-08T16:11:25.669Z",
             "fullNameNormalized": "sweep hospital",
             "hospitalNameNormalized": "sweep hospital",
             "__v": 0,
@@ -721,35 +718,35 @@
       "method": "GET",
       "path": "/admin/admins",
       "status": 200,
-      "durationMs": 6.371,
+      "durationMs": 6.351,
       "body": {
         "success": true,
         "data": {
           "admins": [
             {
-              "_id": "69fe0313de5b394cf1b7ffb6",
+              "_id": "69fe0b30e9ab597d75d857b7",
               "fullName": "Sweep Superadmin",
-              "email": "superadmin.1778254606701.9b5209@example.com",
+              "email": "superadmin.1778256684048.a58283@example.com",
               "isEmailVerified": true,
               "role": "superadmin",
               "isSuspended": false,
               "phone": null,
               "address": null,
-              "createdAt": "2026-05-08T15:36:51.472Z",
-              "updatedAt": "2026-05-08T15:36:51.472Z"
+              "createdAt": "2026-05-08T16:11:28.813Z",
+              "updatedAt": "2026-05-08T16:11:28.813Z"
             },
             {
-              "_id": "69fe0311de5b394cf1b7ffb5",
+              "_id": "69fe0b2fe9ab597d75d857b6",
               "fullName": "Sweep Admin",
-              "email": "admin.1778254606701.e5e973@example.com",
+              "email": "admin.1778256684048.ca278f@example.com",
               "isEmailVerified": false,
               "role": "admin",
               "isSuspended": false,
               "phone": null,
               "address": null,
-              "adminKey": "9e2d84ad7780795cd268f0a2a1161042",
-              "createdAt": "2026-05-08T15:36:49.731Z",
-              "updatedAt": "2026-05-08T15:36:49.747Z"
+              "adminKey": "49aca3351cebba18bad3ebaa10ca25cd",
+              "createdAt": "2026-05-08T16:11:27.425Z",
+              "updatedAt": "2026-05-08T16:11:27.431Z"
             }
           ],
           "total": 2,
@@ -764,7 +761,7 @@
       "method": "POST",
       "path": "/admin/admins",
       "status": 409,
-      "durationMs": 7.522,
+      "durationMs": 6.419,
       "body": {
         "success": false,
         "code": "EMAIL_ALREADY_EXISTS",
@@ -775,9 +772,9 @@
     },
     {
       "method": "GET",
-      "path": "/admin/admins/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/admins/69fe0b2de9ab597d75d857b5",
       "status": 404,
-      "durationMs": 7.682,
+      "durationMs": 7.437,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -788,9 +785,9 @@
     },
     {
       "method": "PUT",
-      "path": "/admin/admins/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/admins/69fe0b2de9ab597d75d857b5",
       "status": 404,
-      "durationMs": 5.882,
+      "durationMs": 5.459,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -801,9 +798,9 @@
     },
     {
       "method": "DELETE",
-      "path": "/admin/admins/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/admins/69fe0b2de9ab597d75d857b5",
       "status": 404,
-      "durationMs": 5.637,
+      "durationMs": 4.956,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -814,9 +811,9 @@
     },
     {
       "method": "POST",
-      "path": "/admin/donors/69fe0310de5b394cf1b7ffb4/ban",
+      "path": "/admin/donors/69fe0b2de9ab597d75d857b5/ban",
       "status": 404,
-      "durationMs": 5.35,
+      "durationMs": 4.436,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -827,9 +824,9 @@
     },
     {
       "method": "POST",
-      "path": "/admin/donors/69fe0310de5b394cf1b7ffb4/unban",
+      "path": "/admin/donors/69fe0b2de9ab597d75d857b5/unban",
       "status": 404,
-      "durationMs": 5.226,
+      "durationMs": 4.043,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -840,9 +837,9 @@
     },
     {
       "method": "PUT",
-      "path": "/admin/hospitals/69fe0310de5b394cf1b7ffb4/status",
+      "path": "/admin/hospitals/69fe0b2de9ab597d75d857b5/status",
       "status": 400,
-      "durationMs": 4.977,
+      "durationMs": 3.633,
       "body": {
         "success": false,
         "code": "VALIDATION_ERROR",
@@ -855,7 +852,7 @@
       "method": "GET",
       "path": "/admin/permissions/roles",
       "status": 200,
-      "durationMs": 4.882,
+      "durationMs": 5.293,
       "body": {
         "success": true,
         "data": {
@@ -869,7 +866,7 @@
       "method": "POST",
       "path": "/admin/permissions/roles",
       "status": 400,
-      "durationMs": 4.238,
+      "durationMs": 4.581,
       "body": {
         "success": false,
         "code": "VALIDATION_ERROR",
@@ -882,7 +879,7 @@
       "method": "GET",
       "path": "/admin/permissions/roles/auditor",
       "status": 404,
-      "durationMs": 5.087,
+      "durationMs": 4.999,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -895,7 +892,7 @@
       "method": "PUT",
       "path": "/admin/permissions/roles/auditor",
       "status": 404,
-      "durationMs": 4.923,
+      "durationMs": 4.732,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -908,7 +905,7 @@
       "method": "DELETE",
       "path": "/admin/permissions/roles/auditor",
       "status": 404,
-      "durationMs": 6.324,
+      "durationMs": 4.018,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -921,15 +918,15 @@
       "method": "GET",
       "path": "/admin/users",
       "status": 200,
-      "durationMs": 7.455,
+      "durationMs": 5.831,
       "body": {
         "success": true,
         "data": {
           "users": [
             {
-              "_id": "69fe0313de5b394cf1b7ffb6",
+              "_id": "69fe0b30e9ab597d75d857b7",
               "fullName": "Sweep Superadmin",
-              "email": "superadmin.1778254606701.9b5209@example.com",
+              "email": "superadmin.1778256684048.a58283@example.com",
               "isEmailVerified": true,
               "emailVerifiedAt": null,
               "role": "superadmin",
@@ -940,15 +937,15 @@
               "fcmTokens": [],
               "phone": null,
               "address": null,
-              "createdAt": "2026-05-08T15:36:51.472Z",
-              "updatedAt": "2026-05-08T15:36:51.472Z",
+              "createdAt": "2026-05-08T16:11:28.813Z",
+              "updatedAt": "2026-05-08T16:11:28.813Z",
               "fullNameNormalized": "sweep superadmin",
               "__v": 0
             },
             {
-              "_id": "69fe0311de5b394cf1b7ffb5",
+              "_id": "69fe0b2fe9ab597d75d857b6",
               "fullName": "Sweep Admin",
-              "email": "admin.1778254606701.e5e973@example.com",
+              "email": "admin.1778256684048.ca278f@example.com",
               "isEmailVerified": false,
               "emailVerifiedAt": null,
               "role": "admin",
@@ -959,8 +956,8 @@
               "fcmTokens": [],
               "phone": null,
               "address": null,
-              "createdAt": "2026-05-08T15:36:49.731Z",
-              "updatedAt": "2026-05-08T15:36:49.747Z",
+              "createdAt": "2026-05-08T16:11:27.425Z",
+              "updatedAt": "2026-05-08T16:11:27.431Z",
               "fullNameNormalized": "sweep admin",
               "__v": 0
             },
@@ -968,12 +965,11 @@
               "location": {
                 "city": "Cairo",
                 "governorate": "Cairo",
-                "lastUpdated": "2026-05-08T15:36:48.340Z",
-                "type": "Point"
+                "lastUpdated": "2026-05-08T16:11:25.647Z"
               },
-              "_id": "69fe0310de5b394cf1b7ffb4",
+              "_id": "69fe0b2de9ab597d75d857b5",
               "fullName": "Sweep Hospital",
-              "email": "hospital.1778254606701.a94da6@example.com",
+              "email": "hospital.1778256684048.976af4@example.com",
               "isEmailVerified": false,
               "emailVerifiedAt": null,
               "role": "hospital",
@@ -1008,8 +1004,8 @@
               "slotsPerHour": 5,
               "workingHoursStart": 9,
               "workingHoursEnd": 17,
-              "createdAt": "2026-05-08T15:36:48.343Z",
-              "updatedAt": "2026-05-08T15:36:48.361Z",
+              "createdAt": "2026-05-08T16:11:25.650Z",
+              "updatedAt": "2026-05-08T16:11:25.669Z",
               "fullNameNormalized": "sweep hospital",
               "hospitalNameNormalized": "sweep hospital",
               "__v": 0
@@ -1034,9 +1030,9 @@
                 "city": "Cairo",
                 "governorate": "Cairo"
               },
-              "_id": "69fe030ede5b394cf1b7ffb3",
+              "_id": "69fe0b2ce9ab597d75d857b4",
               "fullName": "Sweep Donor",
-              "email": "donor.1778254606701.fbc42b@example.com",
+              "email": "donor.1778256684048.ca7dc1@example.com",
               "isEmailVerified": false,
               "emailVerifiedAt": null,
               "role": "donor",
@@ -1058,14 +1054,14 @@
               "lastDeferralReason": null,
               "isAvailable": true,
               "travelHistory": [],
-              "createdAt": "2026-05-08T15:36:46.738Z",
-              "updatedAt": "2026-05-08T15:36:51.545Z",
+              "createdAt": "2026-05-08T16:11:24.084Z",
+              "updatedAt": "2026-05-08T16:11:24.109Z",
               "fullNameNormalized": "sweep donor",
               "__v": 0,
               "isBanned": false,
               "availableToDonate": true,
               "isVerified": false,
-              "id": "69fe030ede5b394cf1b7ffb3"
+              "id": "69fe0b2ce9ab597d75d857b4"
             }
           ],
           "total": 4,
@@ -1080,7 +1076,7 @@
       "method": "GET",
       "path": "/admin/users/stats",
       "status": 200,
-      "durationMs": 7.555,
+      "durationMs": 8.262,
       "body": {
         "success": true,
         "data": {
@@ -1100,7 +1096,7 @@
       "method": "POST",
       "path": "/admin/users/hospital",
       "status": 400,
-      "durationMs": 4.483,
+      "durationMs": 4.596,
       "body": {
         "success": false,
         "code": "VALIDATION_ERROR",
@@ -1111,9 +1107,9 @@
     },
     {
       "method": "GET",
-      "path": "/admin/users/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/users/69fe0b2de9ab597d75d857b5",
       "status": 200,
-      "durationMs": 6.566,
+      "durationMs": 6.817,
       "body": {
         "success": true,
         "data": {
@@ -1121,12 +1117,11 @@
             "location": {
               "city": "Cairo",
               "governorate": "Cairo",
-              "lastUpdated": "2026-05-08T15:36:48.340Z",
-              "type": "Point"
+              "lastUpdated": "2026-05-08T16:11:25.647Z"
             },
-            "_id": "69fe0310de5b394cf1b7ffb4",
+            "_id": "69fe0b2de9ab597d75d857b5",
             "fullName": "Sweep Hospital",
-            "email": "hospital.1778254606701.a94da6@example.com",
+            "email": "hospital.1778256684048.976af4@example.com",
             "isEmailVerified": false,
             "emailVerifiedAt": null,
             "role": "hospital",
@@ -1161,8 +1156,8 @@
             "slotsPerHour": 5,
             "workingHoursStart": 9,
             "workingHoursEnd": 17,
-            "createdAt": "2026-05-08T15:36:48.343Z",
-            "updatedAt": "2026-05-08T15:36:48.361Z",
+            "createdAt": "2026-05-08T16:11:25.650Z",
+            "updatedAt": "2026-05-08T16:11:25.669Z",
             "fullNameNormalized": "sweep hospital",
             "hospitalNameNormalized": "sweep hospital",
             "__v": 0,
@@ -1175,9 +1170,9 @@
     },
     {
       "method": "DELETE",
-      "path": "/admin/users/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/users/69fe0b2de9ab597d75d857b5",
       "status": 200,
-      "durationMs": 15.451,
+      "durationMs": 21.707,
       "body": {
         "success": true,
         "data": "User deleted successfully"
@@ -1187,9 +1182,9 @@
     },
     {
       "method": "PATCH",
-      "path": "/admin/users/69fe0310de5b394cf1b7ffb4/verify",
+      "path": "/admin/users/69fe0b2de9ab597d75d857b5/verify",
       "status": 404,
-      "durationMs": 5.602,
+      "durationMs": 9.222,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -1200,9 +1195,9 @@
     },
     {
       "method": "PATCH",
-      "path": "/admin/users/69fe0310de5b394cf1b7ffb4/unverify",
+      "path": "/admin/users/69fe0b2de9ab597d75d857b5/unverify",
       "status": 404,
-      "durationMs": 6.393,
+      "durationMs": 7.381,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -1213,9 +1208,9 @@
     },
     {
       "method": "PATCH",
-      "path": "/admin/users/69fe0310de5b394cf1b7ffb4/suspend",
+      "path": "/admin/users/69fe0b2de9ab597d75d857b5/suspend",
       "status": 404,
-      "durationMs": 5.084,
+      "durationMs": 9.156,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -1226,9 +1221,9 @@
     },
     {
       "method": "PATCH",
-      "path": "/admin/users/69fe0310de5b394cf1b7ffb4/unsuspend",
+      "path": "/admin/users/69fe0b2de9ab597d75d857b5/unsuspend",
       "status": 404,
-      "durationMs": 5.054,
+      "durationMs": 9.073,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -1241,7 +1236,7 @@
       "method": "GET",
       "path": "/admin/requests",
       "status": 200,
-      "durationMs": 4.925,
+      "durationMs": 7.57,
       "body": {
         "success": true,
         "data": {
@@ -1258,7 +1253,7 @@
       "method": "GET",
       "path": "/admin/requests/stats",
       "status": 200,
-      "durationMs": 6.262,
+      "durationMs": 12.507,
       "body": {
         "success": true,
         "data": {
@@ -1273,9 +1268,9 @@
     },
     {
       "method": "GET",
-      "path": "/admin/requests/69fe0310de5b394cf1b7ffb4",
+      "path": "/admin/requests/69fe0b2de9ab597d75d857b5",
       "status": 404,
-      "durationMs": 5.364,
+      "durationMs": 6.288,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -1286,9 +1281,9 @@
     },
     {
       "method": "GET",
-      "path": "/admin/requests/69fe0310de5b394cf1b7ffb4/donations",
+      "path": "/admin/requests/69fe0b2de9ab597d75d857b5/donations",
       "status": 200,
-      "durationMs": 6.155,
+      "durationMs": 11.37,
       "body": {
         "success": true,
         "data": {
@@ -1303,9 +1298,9 @@
     },
     {
       "method": "PATCH",
-      "path": "/admin/requests/69fe0310de5b394cf1b7ffb4/fulfill",
+      "path": "/admin/requests/69fe0b2de9ab597d75d857b5/fulfill",
       "status": 404,
-      "durationMs": 5.315,
+      "durationMs": 10.045,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -1316,9 +1311,9 @@
     },
     {
       "method": "PATCH",
-      "path": "/admin/requests/69fe0310de5b394cf1b7ffb4/cancel",
+      "path": "/admin/requests/69fe0b2de9ab597d75d857b5/cancel",
       "status": 400,
-      "durationMs": 4.167,
+      "durationMs": 7.318,
       "body": {
         "success": false,
         "code": "VALIDATION_ERROR",
@@ -1329,9 +1324,9 @@
     },
     {
       "method": "POST",
-      "path": "/admin/requests/69fe0310de5b394cf1b7ffb4/broadcast",
+      "path": "/admin/requests/69fe0b2de9ab597d75d857b5/broadcast",
       "status": 404,
-      "durationMs": 4.885,
+      "durationMs": 8.378,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -1344,7 +1339,7 @@
       "method": "GET",
       "path": "/admin/analytics/dashboard",
       "status": 200,
-      "durationMs": 6.49,
+      "durationMs": 9.368,
       "body": {
         "success": true,
         "data": {
@@ -1375,7 +1370,7 @@
       "method": "GET",
       "path": "/admin/analytics/donations",
       "status": 200,
-      "durationMs": 9.307,
+      "durationMs": 8.798,
       "body": {
         "success": true,
         "data": {
@@ -1389,7 +1384,7 @@
       "method": "GET",
       "path": "/admin/analytics/blood-types",
       "status": 200,
-      "durationMs": 7.125,
+      "durationMs": 7.817,
       "body": {
         "success": true,
         "data": {
@@ -1444,7 +1439,7 @@
       "method": "GET",
       "path": "/admin/analytics/top-donors",
       "status": 200,
-      "durationMs": 7.903,
+      "durationMs": 7.89,
       "body": {
         "success": true,
         "data": {
@@ -1458,7 +1453,7 @@
       "method": "GET",
       "path": "/admin/analytics/growth",
       "status": 200,
-      "durationMs": 7.158,
+      "durationMs": 8.083,
       "body": {
         "success": true,
         "data": {
@@ -1484,7 +1479,7 @@
       "method": "POST",
       "path": "/admin/emergency/broadcast",
       "status": 200,
-      "durationMs": 10.353,
+      "durationMs": 15.487,
       "body": {
         "success": true,
         "data": {
@@ -1501,7 +1496,7 @@
       "method": "GET",
       "path": "/admin/emergency/critical",
       "status": 200,
-      "durationMs": 5.878,
+      "durationMs": 8.157,
       "body": {
         "success": true,
         "data": {
@@ -1515,7 +1510,7 @@
       "method": "GET",
       "path": "/admin/emergency/shortage-alerts",
       "status": 200,
-      "durationMs": 9.912,
+      "durationMs": 12.523,
       "body": {
         "success": true,
         "data": {
@@ -1585,12 +1580,12 @@
     {
       "method": "POST",
       "path": "/donations/book-appointment",
-      "status": 401,
-      "durationMs": 6.79,
+      "status": 403,
+      "durationMs": 5.438,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1598,12 +1593,12 @@
     {
       "method": "GET",
       "path": "/donations/book-appointment/available-slots",
-      "status": 401,
-      "durationMs": 4.564,
+      "status": 403,
+      "durationMs": 4.626,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1611,12 +1606,12 @@
     {
       "method": "GET",
       "path": "/donations/book-appointment/my-appointments",
-      "status": 401,
-      "durationMs": 5.532,
+      "status": 403,
+      "durationMs": 4.419,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1624,12 +1619,12 @@
     {
       "method": "GET",
       "path": "/donations/book-appointment/undefined",
-      "status": 401,
-      "durationMs": 5.653,
+      "status": 403,
+      "durationMs": 4.268,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1637,12 +1632,12 @@
     {
       "method": "PATCH",
       "path": "/donations/book-appointment/undefined",
-      "status": 401,
-      "durationMs": 4.408,
+      "status": 403,
+      "durationMs": 3.523,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1650,12 +1645,12 @@
     {
       "method": "DELETE",
       "path": "/donations/book-appointment/undefined",
-      "status": 401,
-      "durationMs": 3.886,
+      "status": 403,
+      "durationMs": 3.947,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1664,7 +1659,7 @@
       "method": "POST",
       "path": "/appointments/verify-qr",
       "status": 401,
-      "durationMs": 2.487,
+      "durationMs": 2.913,
       "body": {
         "success": false,
         "code": "VALIDATION_ERROR",
@@ -1677,7 +1672,7 @@
       "method": "POST",
       "path": "/auth/signup",
       "status": 400,
-      "durationMs": 4.271,
+      "durationMs": 4.773,
       "body": {
         "success": false,
         "code": "EMAIL_ALREADY_EXISTS",
@@ -1690,7 +1685,7 @@
       "method": "POST",
       "path": "/auth/login",
       "status": 401,
-      "durationMs": 3.295,
+      "durationMs": 5.406,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -1703,7 +1698,7 @@
       "method": "POST",
       "path": "/auth/hospital/login",
       "status": 400,
-      "durationMs": 2.345,
+      "durationMs": 4.873,
       "body": {
         "success": false,
         "code": "VALIDATION_ERROR",
@@ -1716,7 +1711,7 @@
       "method": "POST",
       "path": "/auth/admin/login",
       "status": 401,
-      "durationMs": 5.315,
+      "durationMs": 10.049,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -1728,12 +1723,12 @@
     {
       "method": "POST",
       "path": "/auth/validate-token",
-      "status": 401,
-      "durationMs": 5.174,
+      "status": 403,
+      "durationMs": 4.963,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1742,7 +1737,7 @@
       "method": "POST",
       "path": "/auth/forgot-password",
       "status": 200,
-      "durationMs": 17.888,
+      "durationMs": 16.038,
       "body": {
         "success": true,
         "data": "Password reset email sent"
@@ -1754,28 +1749,11 @@
       "method": "POST",
       "path": "/auth/reset-password",
       "status": 400,
-      "durationMs": 5.485,
+      "durationMs": 2.781,
       "body": {
         "success": false,
-        "code": "BAD_REQUEST",
-        "message": "Invalid or expired reset token"
-      },
-      "error": null,
-      "category": "working"
-    },
-    {
-      "method": "POST",
-      "path": "/auth/send-otp",
-      "status": 200,
-      "durationMs": 17.187,
-      "body": {
-        "success": true,
-        "data": {
-          "success": true,
-          "purpose": "password_reset",
-          "expires_in_seconds": 600,
-          "otp": "752351"
-        }
+        "code": "VALIDATION_ERROR",
+        "message": "OTP is required"
       },
       "error": null,
       "category": "working"
@@ -1784,11 +1762,11 @@
       "method": "POST",
       "path": "/auth/verify-otp",
       "status": 400,
-      "durationMs": 8.671,
+      "durationMs": 2.14,
       "body": {
         "success": false,
-        "code": "BAD_REQUEST",
-        "message": "Invalid OTP"
+        "code": "VALIDATION_ERROR",
+        "message": "OTP is required"
       },
       "error": null,
       "category": "working"
@@ -1797,7 +1775,7 @@
       "method": "POST",
       "path": "/auth/verify-email",
       "status": 200,
-      "durationMs": 10.13,
+      "durationMs": 8.819,
       "body": {
         "success": true,
         "data": "Verification code sent"
@@ -1808,25 +1786,25 @@
     {
       "method": "POST",
       "path": "/auth/verify-email-otp",
-      "status": 500,
-      "durationMs": 3.042,
+      "status": 400,
+      "durationMs": 2.389,
       "body": {
         "success": false,
-        "code": "INTERNAL_SERVER_ERROR",
-        "message": "Internal server error"
+        "code": "BAD_REQUEST",
+        "message": "Cannot read properties of undefined (reading 'email')"
       },
       "error": null,
-      "category": "failing"
+      "category": "working"
     },
     {
       "method": "POST",
       "path": "/auth/2fa/setup",
-      "status": 401,
-      "durationMs": 3.806,
+      "status": 403,
+      "durationMs": 3.383,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1834,12 +1812,12 @@
     {
       "method": "POST",
       "path": "/auth/2fa/confirm-setup",
-      "status": 401,
-      "durationMs": 3.976,
+      "status": 403,
+      "durationMs": 3.446,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1848,7 +1826,7 @@
       "method": "POST",
       "path": "/auth/2fa/verify",
       "status": 400,
-      "durationMs": 2.536,
+      "durationMs": 2.234,
       "body": {
         "success": false,
         "code": "VALIDATION_ERROR",
@@ -1860,12 +1838,12 @@
     {
       "method": "POST",
       "path": "/auth/2fa/disable",
-      "status": 401,
-      "durationMs": 3.436,
+      "status": 403,
+      "durationMs": 3.869,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1874,7 +1852,7 @@
       "method": "GET",
       "path": "/hospitals",
       "status": 200,
-      "durationMs": 4.601,
+      "durationMs": 5.185,
       "body": {
         "success": true,
         "data": {
@@ -1896,7 +1874,7 @@
       "method": "GET",
       "path": "/hospitals/nearby",
       "status": 200,
-      "durationMs": 5.455,
+      "durationMs": 5.568,
       "body": {
         "success": true,
         "data": {
@@ -1918,7 +1896,7 @@
       "method": "GET",
       "path": "/hospitals/search",
       "status": 200,
-      "durationMs": 4.537,
+      "durationMs": 3.845,
       "body": {
         "success": true,
         "data": {
@@ -1932,7 +1910,7 @@
       "method": "GET",
       "path": "/hospitals/map",
       "status": 200,
-      "durationMs": 3.933,
+      "durationMs": 3.147,
       "body": {
         "success": true,
         "data": {
@@ -1944,9 +1922,9 @@
     },
     {
       "method": "GET",
-      "path": "/hospitals/69fe0310de5b394cf1b7ffb4",
+      "path": "/hospitals/69fe0b2de9ab597d75d857b5",
       "status": 404,
-      "durationMs": 4.348,
+      "durationMs": 3.413,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -1959,7 +1937,7 @@
       "method": "GET",
       "path": "/donations/types",
       "status": 200,
-      "durationMs": 2.708,
+      "durationMs": 2.144,
       "body": {
         "success": true,
         "data": [
@@ -1974,12 +1952,12 @@
     {
       "method": "POST",
       "path": "/donations/validate",
-      "status": 401,
-      "durationMs": 3.887,
+      "status": 403,
+      "durationMs": 3.612,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -1987,12 +1965,12 @@
     {
       "method": "POST",
       "path": "/donations/qr/scan",
-      "status": 401,
-      "durationMs": 3.627,
+      "status": 403,
+      "durationMs": 3.561,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2000,12 +1978,12 @@
     {
       "method": "POST",
       "path": "/donations/complete",
-      "status": 401,
-      "durationMs": 3.821,
+      "status": 403,
+      "durationMs": 3.58,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2013,12 +1991,12 @@
     {
       "method": "GET",
       "path": "/donations/my-appointments",
-      "status": 401,
-      "durationMs": 3.53,
+      "status": 403,
+      "durationMs": 3.164,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2026,12 +2004,12 @@
     {
       "method": "GET",
       "path": "/donor/profile",
-      "status": 401,
-      "durationMs": 3.883,
+      "status": 403,
+      "durationMs": 3.737,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2039,12 +2017,12 @@
     {
       "method": "PUT",
       "path": "/donor/profile",
-      "status": 401,
-      "durationMs": 4.092,
+      "status": 403,
+      "durationMs": 3.62,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2052,12 +2030,12 @@
     {
       "method": "GET",
       "path": "/donor/requests?urgency=high",
-      "status": 401,
-      "durationMs": 3.829,
+      "status": 403,
+      "durationMs": 3.341,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2065,12 +2043,12 @@
     {
       "method": "GET",
       "path": "/donor/matches",
-      "status": 401,
-      "durationMs": 3.986,
+      "status": 403,
+      "durationMs": 3.412,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2078,12 +2056,12 @@
     {
       "method": "POST",
       "path": "/donor/respond/undefined",
-      "status": 401,
-      "durationMs": 3.411,
+      "status": 403,
+      "durationMs": 3.133,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2091,12 +2069,12 @@
     {
       "method": "GET",
       "path": "/donor/history",
-      "status": 401,
-      "durationMs": 3.648,
+      "status": 403,
+      "durationMs": 2.912,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2104,12 +2082,12 @@
     {
       "method": "PUT",
       "path": "/donor/availability",
-      "status": 401,
-      "durationMs": 3.768,
+      "status": 403,
+      "durationMs": 3.435,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2117,12 +2095,12 @@
     {
       "method": "GET",
       "path": "/donor/health-history",
-      "status": 401,
-      "durationMs": 4.123,
+      "status": 403,
+      "durationMs": 3.313,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2130,12 +2108,12 @@
     {
       "method": "PATCH",
       "path": "/donor/health-history",
-      "status": 401,
-      "durationMs": 5.547,
+      "status": 403,
+      "durationMs": 2.894,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2143,12 +2121,12 @@
     {
       "method": "GET",
       "path": "/donor/settings",
-      "status": 401,
-      "durationMs": 4.118,
+      "status": 403,
+      "durationMs": 3.079,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2156,12 +2134,12 @@
     {
       "method": "PUT",
       "path": "/donor/settings",
-      "status": 401,
-      "durationMs": 4.102,
+      "status": 403,
+      "durationMs": 2.815,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2169,12 +2147,12 @@
     {
       "method": "GET",
       "path": "/donor/stats",
-      "status": 401,
-      "durationMs": 3.576,
+      "status": 403,
+      "durationMs": 2.685,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2182,12 +2160,12 @@
     {
       "method": "GET",
       "path": "/donor/rewards",
-      "status": 401,
-      "durationMs": 3.866,
+      "status": 403,
+      "durationMs": 2.668,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2195,12 +2173,12 @@
     {
       "method": "GET",
       "path": "/donor/donations",
-      "status": 401,
-      "durationMs": 3.615,
+      "status": 403,
+      "durationMs": 2.819,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2209,7 +2187,7 @@
       "method": "GET",
       "path": "/help/faq",
       "status": 200,
-      "durationMs": 2.466,
+      "durationMs": 1.954,
       "body": {
         "success": true,
         "data": {
@@ -2244,7 +2222,7 @@
       "method": "GET",
       "path": "/help/documents/{type}",
       "status": 404,
-      "durationMs": 4.364,
+      "durationMs": 2.882,
       "body": {
         "success": false,
         "code": "NOT_FOUND",
@@ -2257,7 +2235,7 @@
       "method": "GET",
       "path": "/hospital/profile",
       "status": 401,
-      "durationMs": 4.392,
+      "durationMs": 3.195,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2270,7 +2248,7 @@
       "method": "PUT",
       "path": "/hospital/profile",
       "status": 401,
-      "durationMs": 4.178,
+      "durationMs": 3.204,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2283,7 +2261,7 @@
       "method": "POST",
       "path": "/hospital/request",
       "status": 401,
-      "durationMs": 4.313,
+      "durationMs": 2.982,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2296,7 +2274,7 @@
       "method": "GET",
       "path": "/hospital/requests",
       "status": 401,
-      "durationMs": 3.553,
+      "durationMs": 2.774,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2309,7 +2287,7 @@
       "method": "GET",
       "path": "/hospital/requests/undefined",
       "status": 401,
-      "durationMs": 3.621,
+      "durationMs": 3.711,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2322,7 +2300,7 @@
       "method": "PUT",
       "path": "/hospital/requests/undefined",
       "status": 401,
-      "durationMs": 3.376,
+      "durationMs": 3.562,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2335,7 +2313,7 @@
       "method": "DELETE",
       "path": "/hospital/requests/undefined",
       "status": 401,
-      "durationMs": 3.694,
+      "durationMs": 3.675,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2348,7 +2326,7 @@
       "method": "GET",
       "path": "/hospital/donations",
       "status": 401,
-      "durationMs": 3.552,
+      "durationMs": 3.419,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2361,7 +2339,7 @@
       "method": "GET",
       "path": "/hospital/blood-inventory",
       "status": 401,
-      "durationMs": 3.125,
+      "durationMs": 3.206,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2374,7 +2352,7 @@
       "method": "GET",
       "path": "/hospital/blood-bank-settings",
       "status": 401,
-      "durationMs": 3.202,
+      "durationMs": 3.054,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2387,7 +2365,7 @@
       "method": "PUT",
       "path": "/hospital/blood-bank-settings",
       "status": 401,
-      "durationMs": 3.423,
+      "durationMs": 3.203,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2400,7 +2378,7 @@
       "method": "GET",
       "path": "/hospital/notification-preferences",
       "status": 401,
-      "durationMs": 3.798,
+      "durationMs": 3,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2413,7 +2391,7 @@
       "method": "PUT",
       "path": "/hospital/notification-preferences",
       "status": 401,
-      "durationMs": 3.493,
+      "durationMs": 2.771,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2426,7 +2404,7 @@
       "method": "GET",
       "path": "/hospital/reports/monthly",
       "status": 401,
-      "durationMs": 3.378,
+      "durationMs": 3.215,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2439,7 +2417,7 @@
       "method": "GET",
       "path": "/hospital/staff",
       "status": 401,
-      "durationMs": 3.399,
+      "durationMs": 3.336,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2452,7 +2430,7 @@
       "method": "POST",
       "path": "/hospital/staff",
       "status": 401,
-      "durationMs": 3.654,
+      "durationMs": 3.321,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2463,9 +2441,9 @@
     },
     {
       "method": "DELETE",
-      "path": "/hospital/staff/69fe0310de5b394cf1b7ffb4",
+      "path": "/hospital/staff/69fe0b2de9ab597d75d857b5",
       "status": 401,
-      "durationMs": 3.488,
+      "durationMs": 3.076,
       "body": {
         "success": false,
         "code": "UNAUTHORIZED",
@@ -2477,25 +2455,25 @@
     {
       "method": "GET",
       "path": "/notifications",
-      "status": 401,
-      "durationMs": 3.135,
+      "status": 403,
+      "durationMs": 2.8,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
     },
     {
       "method": "PATCH",
-      "path": "/notifications/69fe0310de5b394cf1b7ffb4/read",
-      "status": 401,
-      "durationMs": 5.388,
+      "path": "/notifications/69fe0b2de9ab597d75d857b5/read",
+      "status": 403,
+      "durationMs": 3.253,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2503,38 +2481,38 @@
     {
       "method": "PATCH",
       "path": "/notifications/read-all",
-      "status": 401,
-      "durationMs": 4.18,
+      "status": 403,
+      "durationMs": 3.469,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
     },
     {
       "method": "GET",
-      "path": "/notifications/69fe0310de5b394cf1b7ffb4",
-      "status": 401,
+      "path": "/notifications/69fe0b2de9ab597d75d857b5",
+      "status": 403,
       "durationMs": 3.643,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
     },
     {
       "method": "DELETE",
-      "path": "/notifications/69fe0310de5b394cf1b7ffb4",
-      "status": 401,
-      "durationMs": 3.217,
+      "path": "/notifications/69fe0b2de9ab597d75d857b5",
+      "status": 403,
+      "durationMs": 3.713,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2542,12 +2520,12 @@
     {
       "method": "GET",
       "path": "/rewards/points",
-      "status": 401,
-      "durationMs": 3.219,
+      "status": 403,
+      "durationMs": 3.918,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2555,12 +2533,12 @@
     {
       "method": "GET",
       "path": "/rewards/dashboard",
-      "status": 401,
-      "durationMs": 3.609,
+      "status": 403,
+      "durationMs": 2.93,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2568,12 +2546,12 @@
     {
       "method": "GET",
       "path": "/rewards/stats",
-      "status": 401,
-      "durationMs": 4.144,
+      "status": 403,
+      "durationMs": 2.701,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2581,12 +2559,12 @@
     {
       "method": "GET",
       "path": "/rewards/points/history",
-      "status": 401,
-      "durationMs": 4.84,
+      "status": 403,
+      "durationMs": 2.902,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2594,12 +2572,12 @@
     {
       "method": "GET",
       "path": "/rewards/badges",
-      "status": 401,
-      "durationMs": 3.649,
+      "status": 403,
+      "durationMs": 2.723,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2607,12 +2585,12 @@
     {
       "method": "GET",
       "path": "/rewards/catalog",
-      "status": 401,
-      "durationMs": 4.512,
+      "status": 403,
+      "durationMs": 2.688,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2620,12 +2598,12 @@
     {
       "method": "GET",
       "path": "/rewards/history",
-      "status": 401,
-      "durationMs": 4.119,
+      "status": 403,
+      "durationMs": 2.855,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2633,12 +2611,12 @@
     {
       "method": "POST",
       "path": "/rewards/catalog/undefined/redeem",
-      "status": 401,
-      "durationMs": 3.691,
+      "status": 403,
+      "durationMs": 3.018,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2646,12 +2624,12 @@
     {
       "method": "GET",
       "path": "/rewards/redemptions",
-      "status": 401,
-      "durationMs": 3.827,
+      "status": 403,
+      "durationMs": 2.874,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
@@ -2659,34 +2637,34 @@
     {
       "method": "GET",
       "path": "/rewards/leaderboard",
-      "status": 401,
-      "durationMs": 4.061,
+      "status": 403,
+      "durationMs": 3.188,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"
     },
     {
       "method": "POST",
-      "path": "/rewards/admin/users/69fe030ede5b394cf1b7ffb3/points/adjust",
+      "path": "/rewards/admin/users/69fe0b2ce9ab597d75d857b4/points/adjust",
       "status": 200,
-      "durationMs": 14.592,
+      "durationMs": 14.281,
       "body": {
         "success": true,
         "data": {
-          "_id": "69fe031403004c20857fc633",
-          "donorId": "69fe030ede5b394cf1b7ffb3",
+          "_id": "69fe0b31c159f97b78b6de6e",
+          "donorId": "69fe0b2ce9ab597d75d857b4",
           "__v": 0,
-          "createdAt": "2026-05-08T15:36:52.354Z",
+          "createdAt": "2026-05-08T16:11:29.635Z",
           "firstDonationAwarded": false,
           "lifetimePointsEarned": 250,
           "pointsBalance": 250,
           "profileCompletionAwarded": false,
           "tier": "bronze",
-          "updatedAt": "2026-05-08T15:36:52.356Z"
+          "updatedAt": "2026-05-08T16:11:29.637Z"
         }
       },
       "error": null,
@@ -2696,7 +2674,7 @@
       "method": "PATCH",
       "path": "/rewards/admin/catalog/undefined/status",
       "status": 400,
-      "durationMs": 6.804,
+      "durationMs": 6.167,
       "body": {
         "success": false,
         "code": "BAD_REQUEST",
@@ -2709,7 +2687,7 @@
       "method": "GET",
       "path": "/rewards/admin/analytics",
       "status": 200,
-      "durationMs": 6.429,
+      "durationMs": 5.403,
       "body": {
         "success": true,
         "data": {
@@ -2729,12 +2707,12 @@
     {
       "method": "POST",
       "path": "/support/contact",
-      "status": 401,
-      "durationMs": 4.246,
+      "status": 403,
+      "durationMs": 4.272,
       "body": {
         "success": false,
-        "code": "UNAUTHORIZED",
-        "message": "Token is no longer valid. Please log in again"
+        "code": "FORBIDDEN",
+        "message": "Email address is not verified"
       },
       "error": null,
       "category": "working"

@@ -45,23 +45,6 @@ router.post('/validate', requireRole('donor'), donationController.validateDonati
 
 /**
  * @swagger
- * /donations/qr/scan:
- *   post:
- *     tags:
- *       - Donor
- *     summary: Confirm a donation by scanning an appointment QR token
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *     responses:
- *       '200':
- *         description: Donation confirmed successfully
- */
-router.post('/qr/scan', requireRole('hospital', 'admin', 'superadmin'), donationController.scanQr);
-
-/**
- * @swagger
  * /donations/complete:
  *   post:
  *     tags:

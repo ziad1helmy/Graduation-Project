@@ -2111,7 +2111,7 @@ paths:
     post:
       tags:
         - Auth
-      summary: Reset password using token
+      summary: Reset password using OTP
       requestBody:
         required: true
         content:
@@ -2119,37 +2119,25 @@ paths:
             schema:
               type: object
               required:
-                - token
+                - email
+                - otp
                 - password
               properties:
-                token:
+                email:
+                  type: string
+                otp:
                   type: string
                 password:
                   type: string
             example:
-              token: string
+              email: string
+              otp: string
               password: string
       responses:
         "200":
           description: Password reset successful
         "400":
-          description: Invalid token
-  /auth/send-otp:
-    post:
-      tags:
-        - Auth
-      summary: Send a password reset OTP
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmailRequest"
-            example:
-              email: user@example.com
-      responses:
-        "200":
-          description: Password reset OTP sent successfully
+          description: Invalid or expired OTP
   /auth/verify-otp:
     post:
       tags:

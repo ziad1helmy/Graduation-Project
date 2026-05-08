@@ -113,9 +113,6 @@ router.get('/dashboard', requireRole('donor'), rc.getRewardsDashboard);
 router.get('/stats', requireRole('donor'), rc.getRewardsStats);
 
 
-// Compatibility alias: allow listing catalog at the base `/rewards` path
-router.get('/', requireRole('donor'), rc.getRewards);
-
 /**
  * @swagger
  * /rewards/points/history:
@@ -238,15 +235,6 @@ router.get('/history', requireRole('donor'), rc.getHistory);
  *         description: Insufficient points or limit exceeded
  */
 router.post('/catalog/:rewardId/redeem', requireRole('donor'), rc.redeemReward);
-
-// Compatibility alias: support `/rewards/:rewardId/redeem` alongside `/rewards/catalog/:rewardId/redeem`
-router.post('/:rewardId/redeem', requireRole('donor'), rc.redeemReward);
-
-// Flutter body-param alias: POST /rewards/redeem with { rewardId } in body
-router.post('/redeem', requireRole('donor'), async (req, res, next) => {
-  req.params.rewardId = req.body.rewardId;
-  return rc.redeemReward(req, res, next);
-});
 
 /**
  * @swagger

@@ -299,10 +299,14 @@ export const forgotPassword = async (req, res, next) => {
 // Reset password
 export const resetPassword = async (req, res, next) => {
   try {
-    await authService.resetPassword(req.body.token || req.body.reset_token, req.body.password || req.body.new_password);
+    await authService.resetPassword({
+      email: req.body.email || req.body.email_or_phone,
+      otp: req.body.otp || req.body.otp_code,
+      password: req.body.password || req.body.new_password
+    });
     response.success(res, 200, 'Password reset successful');
   } catch (error) {
-    if (error.message === ERR.AUTH_RESET_TOKEN_INVALID) {
+    if (!error.statusCode || error.message.includes('Invalid') || error.message.includes('expired')) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -372,20 +376,7 @@ export const validateToken = async (req, res, next) => {
   }
 };
 
-export const sendOtp = async (req, res, next) => {
-  try {
-    const result = await authService.sendOtp({
-      email: req.body.email || req.body.email_or_phone,
-    });
-    response.success(res, 200, 'Password reset OTP sent successfully', result);
-  } catch (error) {
-    // Always return 200 to prevent email enumeration (same pattern as forgotPassword)
-    if (error.message === ERR.AUTH_ACCOUNT_NOT_FOUND) {
-      return response.success(res, 200, 'Password reset OTP sent successfully');
-    }
-    next(error);
-  }
-};
+
 
 export const verifyOtp = async (req, res, next) => {
   try {
@@ -395,7 +386,7 @@ export const verifyOtp = async (req, res, next) => {
     });
     response.success(res, 200, 'Password reset OTP verified successfully', result);
   } catch (error) {
-    if (error.message === ERR.OTP_INVALID_OR_EXPIRED || error.message === ERR.OTP_INVALID || error.message === ERR.OTP_ATTEMPTS_EXCEEDED) {
+    if (!error.statusCode || error.message.includes('Invalid') || error.message.includes('expired') || error.message.includes('exceeded') || error.message.includes('required')) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -497,7 +488,7 @@ export const verifyEmailOtp = async (req, res, next) => {
     await authService.verifyEmailOtp({ email, otp });
     response.success(res, 200, 'Email verified successfully');
   } catch (error) {
-    if (error.message === 'Invalid or expired verification code') {
+    if (!error.statusCode || error.message.includes('Invalid') || error.message.includes('expired') || error.message.includes('required')) {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -516,7 +507,6 @@ export default {
   resetPassword,
   getMe,
   validateToken,
-  sendOtp,
   verifyOtp,
   setup2FA,
   confirm2FASetup,

@@ -395,9 +395,6 @@ router.get('/donation-eligibility', donorController.getDonationEligibility);
 router.get('/health-history', donorController.getHealthHistory);
 router.patch('/health-history', donorController.updateHealthHistory);
 
-// Compatibility alias: expose donations under donor namespace
-router.get('/donations', donorController.getDonationHistory);
-
 // Donor dashboard and activity (Medium)
 router.get('/dashboard', donorController.getDashboard);
 router.get('/recent-activity', donorController.getRecentActivity);
@@ -405,17 +402,7 @@ router.get('/recent-activity', donorController.getRecentActivity);
 // Urgent requests feed
 router.get('/urgent-requests', donorController.getUrgentRequests);
 router.get('/urgent-requests/:requestId', donorController.getUrgentRequestDetails);
-router.post('/urgent-requests/:requestId/accept', donorController.respondToRequest);
 router.post('/urgent-requests/:requestId/decline', donorController.declineUrgentRequest);
-
-// Expose rewards endpoints under donor prefix for quick-reference compatibility
-router.get('/points', rewardController.getPoints);
-router.get('/badges', rewardController.getBadges);
-router.get('/redemptions', rewardController.getRedemptions);
-
-// Notifications aliases under donor prefix
-router.get('/notifications', notificationController.getNotifications);
-router.patch('/notifications/:id/mark-read', notificationController.markNotificationRead);
 
 // Donation history
 router.get('/history', donorController.getDonationHistory);
@@ -480,8 +467,6 @@ router.put('/availability', donorController.updateAvailability);
  *       '404':
  *         description: Donor profile not found
  */
-router.get('/settings', donorController.getSettings);
-router.put('/settings', donorController.updateSettings);
 
 /**
  * @openapi
@@ -508,7 +493,6 @@ router.put('/settings', donorController.updateSettings);
  *       '401':
  *         description: Unauthorized
  */
-router.get('/stats', donorController.getDonorStats);
 
 /**
  * @openapi
@@ -543,7 +527,6 @@ router.get('/stats', donorController.getDonorStats);
  *       '401':
  *         description: Unauthorized
  */
-router.get('/rewards', donorController.getDonorRewards);
 
 /**
  * @openapi
@@ -592,7 +575,5 @@ router.get('/rewards', donorController.getDonorRewards);
  *       '401':
  *         description: Unauthorized
  */
-router.get('/donations', donorController.getDonationHistory);
 
 export default router;
-
