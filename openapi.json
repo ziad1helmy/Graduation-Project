@@ -15,6 +15,36 @@
       "description": "Development server"
     }
   ],
+  "tags": [
+    {
+      "name": "Auth",
+      "description": "Registration, login, email verification, password reset, 2FA, and token management for all roles"
+    },
+    {
+      "name": "Donor",
+      "description": "All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals"
+    },
+    {
+      "name": "Hospital",
+      "description": "Hospital self-management: profile, blood bank, capacity, QR verification, request management"
+    },
+    {
+      "name": "Admin",
+      "description": "Admin operations: user management, analytics, reward adjustments, system maintenance"
+    },
+    {
+      "name": "Help",
+      "description": "Help and document endpoints"
+    },
+    {
+      "name": "Notifications",
+      "description": "Authenticated user notifications"
+    },
+    {
+      "name": "Support",
+      "description": "Support contact endpoint"
+    }
+  ],
   "components": {
     "securitySchemes": {
       "bearerAuth": {
@@ -259,7 +289,7 @@
     "/donor/activity": {
       "get": {
         "tags": [
-          "Activity"
+          "Donor"
         ],
         "summary": "Get the authenticated user's activity timeline",
         "description": "Returns a paginated, timestamped history of all user actions (donations, rewards, urgent responses, profile updates).\nSupports optional filtering by activity type.\nResults are sorted newest-first.\n",
@@ -277,7 +307,8 @@
               "type": "integer",
               "minimum": 1,
               "default": 1
-            }
+            },
+            "example": 1
           },
           {
             "name": "limit",
@@ -288,7 +319,8 @@
               "minimum": 1,
               "maximum": 100,
               "default": 20
-            }
+            },
+            "example": 20
           },
           {
             "name": "type",
@@ -302,7 +334,8 @@
                 "emergency_response",
                 "profile_update"
               ]
-            }
+            },
+            "example": "donation"
           }
         ],
         "responses": {
@@ -412,6 +445,37 @@
                       }
                     }
                   }
+                },
+                "example": {
+                  "success": true,
+                  "data": {
+                    "activities": [
+                      {
+                        "_id": "5f9d4a1b9d7c2e3c4f5a6b7c",
+                        "type": "donation",
+                        "action": "completed_donation",
+                        "title": "Blood Donation Completed",
+                        "description": "Donated 1 unit of A+ blood to Cairo Hospital",
+                        "icon": "heart",
+                        "referenceId": "5f9d4a1b9d7c2e3c4f5a6b7c",
+                        "referenceType": "Donation",
+                        "metadata": {
+                          "bloodType": "A+",
+                          "hospitalName": "Cairo Hospital",
+                          "quantity": 1
+                        },
+                        "createdAt": "2026-05-04T12:00:00.000Z"
+                      }
+                    ],
+                    "pagination": {
+                      "total": 42,
+                      "page": 1,
+                      "limit": 20,
+                      "totalPages": 3,
+                      "hasNextPage": true,
+                      "hasPrevPage": false
+                    }
+                  }
                 }
               }
             }
@@ -465,6 +529,11 @@
                     "example": "admin-secret-key-2026"
                   }
                 }
+              },
+              "example": {
+                "email": "admin@lifelink.com",
+                "password": "SecurePassword123!",
+                "adminKey": "admin-secret-key-2026"
               }
             }
           }
@@ -496,7 +565,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Admin profile"
+            "description": "Admin profile",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -505,7 +583,7 @@
       "get": {
         "summary": "System health check",
         "tags": [
-          "Admin - System"
+          "Admin"
         ],
         "security": [
           {
@@ -514,7 +592,16 @@
         ],
         "responses": {
           "200": {
-            "description": "System health status"
+            "description": "System health status",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -523,7 +610,7 @@
       "post": {
         "summary": "Toggle maintenance mode",
         "tags": [
-          "Admin - System"
+          "Admin"
         ],
         "security": [
           {
@@ -547,6 +634,10 @@
                     "type": "string"
                   }
                 }
+              },
+              "example": {
+                "enabled": true,
+                "message": "string"
               }
             }
           }
@@ -560,7 +651,7 @@
       "get": {
         "summary": "Get maintenance mode status",
         "tags": [
-          "Admin - System"
+          "Admin"
         ],
         "security": [
           {
@@ -569,7 +660,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Maintenance status"
+            "description": "Maintenance status",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -578,7 +678,7 @@
       "get": {
         "summary": "Get admin statistics summary",
         "tags": [
-          "Admin - Analytics"
+          "Admin"
         ],
         "security": [
           {
@@ -587,7 +687,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Statistics summary"
+            "description": "Statistics summary",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -605,7 +714,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Alerts summary"
+            "description": "Alerts summary",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -623,7 +741,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Blood inventory summary"
+            "description": "Blood inventory summary",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -632,7 +759,7 @@
       "get": {
         "summary": "List audit logs",
         "tags": [
-          "Admin - Audit"
+          "Admin"
         ],
         "security": [
           {
@@ -645,7 +772,8 @@
             "name": "action",
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           },
           {
             "in": "query",
@@ -658,21 +786,24 @@
                 "Donation",
                 "System"
               ]
-            }
+            },
+            "example": "User"
           },
           {
             "in": "query",
             "name": "page",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -695,7 +826,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Donor list"
+            "description": "Donor list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -713,7 +853,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Hospital list"
+            "description": "Hospital list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -736,7 +885,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -762,7 +912,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -796,6 +947,15 @@
                     "type": "boolean"
                   }
                 }
+              },
+              "example": {
+                "fullName": "string",
+                "email": "user@example.com",
+                "phoneNumber": "string",
+                "bloodType": "string",
+                "gender": "string",
+                "dateOfBirth": "2026-05-08",
+                "isAvailable": true
               }
             }
           }
@@ -831,7 +991,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -854,7 +1015,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Admin list"
+            "description": "Admin list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       },
@@ -901,6 +1071,12 @@
                     "type": "object"
                   }
                 }
+              },
+              "example": {
+                "fullName": "string",
+                "email": "user@example.com",
+                "password": "string",
+                "role": "admin"
               }
             }
           }
@@ -939,7 +1115,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -965,7 +1142,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -999,6 +1177,14 @@
                     "type": "boolean"
                   }
                 }
+              },
+              "example": {
+                "fullName": "string",
+                "email": "user@example.com",
+                "password": "string",
+                "role": "admin",
+                "isEmailVerified": true,
+                "isSuspended": true
               }
             }
           }
@@ -1032,7 +1218,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1066,7 +1253,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -1080,6 +1268,9 @@
                     "type": "string"
                   }
                 }
+              },
+              "example": {
+                "reason": "string"
               }
             }
           }
@@ -1115,7 +1306,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1149,7 +1341,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -1173,6 +1366,10 @@
                     "type": "string"
                   }
                 }
+              },
+              "example": {
+                "action": "suspend",
+                "reason": "string"
               }
             }
           }
@@ -1203,7 +1400,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Roles retrieved successfully"
+            "description": "Roles retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       },
@@ -1249,6 +1455,12 @@
                     "description": "Role permissions object"
                   }
                 }
+              },
+              "example": {
+                "role": "string",
+                "displayName": "string",
+                "description": "string",
+                "isSystemRole": true
               }
             }
           }
@@ -1287,7 +1499,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1314,7 +1527,8 @@
             "schema": {
               "type": "string"
             },
-            "description": "Role identifier (cannot be changed)"
+            "description": "Role identifier (cannot be changed)",
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -1443,6 +1657,48 @@
                     }
                   }
                 }
+              },
+              "example": {
+                "displayName": "Senior Moderator",
+                "description": "Manages content and escalates issues",
+                "permissions": {
+                  "donor_management": {
+                    "view": true,
+                    "manage": true,
+                    "ban": true,
+                    "suspend": true,
+                    "create": true,
+                    "delete": true,
+                    "export": true
+                  },
+                  "hospital_management": {
+                    "view": true,
+                    "manage": true,
+                    "ban": true,
+                    "suspend": true,
+                    "create": true,
+                    "delete": true,
+                    "export": true
+                  },
+                  "admin_management": {
+                    "view": true,
+                    "manage": true,
+                    "create": true,
+                    "delete": true
+                  },
+                  "system_settings": {
+                    "view": true,
+                    "manage": true
+                  },
+                  "audit_logging": {
+                    "view": true,
+                    "export": true
+                  },
+                  "reporting": {
+                    "view": true,
+                    "export": true
+                  }
+                }
               }
             }
           }
@@ -1477,7 +1733,8 @@
             "schema": {
               "type": "string"
             },
-            "description": "Role identifier to delete"
+            "description": "Role identifier to delete",
+            "example": "string"
           }
         ],
         "responses": {
@@ -1497,7 +1754,7 @@
       "get": {
         "summary": "List all users with filters and pagination",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1516,7 +1773,8 @@
                 "admin",
                 "superadmin"
               ]
-            }
+            },
+            "example": "donor"
           },
           {
             "in": "query",
@@ -1527,7 +1785,8 @@
                 "true",
                 "false"
               ]
-            }
+            },
+            "example": "true"
           },
           {
             "in": "query",
@@ -1538,28 +1797,32 @@
                 "true",
                 "false"
               ]
-            }
+            },
+            "example": "true"
           },
           {
             "in": "query",
             "name": "search",
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           },
           {
             "in": "query",
             "name": "page",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -1573,7 +1836,7 @@
       "get": {
         "summary": "Get user statistics",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1582,7 +1845,16 @@
         ],
         "responses": {
           "200": {
-            "description": "User statistics"
+            "description": "User statistics",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -1591,7 +1863,7 @@
       "post": {
         "summary": "Create a new hospital (admin-created, pre-verified)",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1660,6 +1932,21 @@
                     "example": 31.2357
                   }
                 }
+              },
+              "example": {
+                "fullName": "string",
+                "email": "string",
+                "password": "string",
+                "hospitalName": "string",
+                "hospitalId": 1,
+                "licenseNumber": "string",
+                "address": {
+                  "city": "string",
+                  "governorate": "string"
+                },
+                "contactNumber": "string",
+                "lat": 30.0444,
+                "long": 31.2357
               }
             }
           }
@@ -1681,7 +1968,7 @@
       "get": {
         "summary": "Get user details by ID",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1695,7 +1982,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1710,7 +1998,7 @@
       "delete": {
         "summary": "Soft-delete a user account",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1724,7 +2012,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1741,7 +2030,7 @@
       "patch": {
         "summary": "Verify a user's email",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1755,7 +2044,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1769,7 +2059,7 @@
       "patch": {
         "summary": "Unverify a user's email",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1783,7 +2073,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1797,7 +2088,7 @@
       "patch": {
         "summary": "Suspend a user account",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1811,7 +2102,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -1828,6 +2120,9 @@
                     "type": "string"
                   }
                 }
+              },
+              "example": {
+                "reason": "string"
               }
             }
           }
@@ -1846,7 +2141,7 @@
       "patch": {
         "summary": "Unsuspend a user account",
         "tags": [
-          "Admin - Users"
+          "Admin"
         ],
         "security": [
           {
@@ -1860,7 +2155,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1874,7 +2170,7 @@
       "get": {
         "summary": "List all blood/organ requests",
         "tags": [
-          "Admin - Requests"
+          "Admin"
         ],
         "security": [
           {
@@ -1893,7 +2189,8 @@
                 "completed",
                 "cancelled"
               ]
-            }
+            },
+            "example": "pending"
           },
           {
             "in": "query",
@@ -1906,14 +2203,16 @@
                 "high",
                 "critical"
               ]
-            }
+            },
+            "example": "low"
           },
           {
             "in": "query",
             "name": "bloodType",
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           },
           {
             "in": "query",
@@ -1924,21 +2223,24 @@
                 "blood",
                 "organ"
               ]
-            }
+            },
+            "example": "blood"
           },
           {
             "in": "query",
             "name": "page",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -1952,7 +2254,7 @@
       "get": {
         "summary": "Get request statistics",
         "tags": [
-          "Admin - Requests"
+          "Admin"
         ],
         "security": [
           {
@@ -1961,7 +2263,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Request statistics"
+            "description": "Request statistics",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -1970,7 +2281,7 @@
       "get": {
         "summary": "Get full request details with donations",
         "tags": [
-          "Admin - Requests"
+          "Admin"
         ],
         "security": [
           {
@@ -1984,7 +2295,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -1998,7 +2310,7 @@
       "get": {
         "summary": "Get donations for a specific request",
         "tags": [
-          "Admin - Requests"
+          "Admin"
         ],
         "security": [
           {
@@ -2012,7 +2324,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -2026,7 +2339,7 @@
       "patch": {
         "summary": "Mark a request as fulfilled",
         "tags": [
-          "Admin - Requests"
+          "Admin"
         ],
         "security": [
           {
@@ -2040,7 +2353,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -2054,7 +2368,7 @@
       "patch": {
         "summary": "Cancel a request",
         "tags": [
-          "Admin - Requests"
+          "Admin"
         ],
         "security": [
           {
@@ -2068,7 +2382,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -2085,6 +2400,9 @@
                     "type": "string"
                   }
                 }
+              },
+              "example": {
+                "reason": "string"
               }
             }
           }
@@ -2100,7 +2418,7 @@
       "post": {
         "summary": "Broadcast request to eligible donors",
         "tags": [
-          "Admin - Requests"
+          "Admin"
         ],
         "security": [
           {
@@ -2114,7 +2432,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -2128,7 +2447,7 @@
       "get": {
         "summary": "Dashboard summary with key metrics",
         "tags": [
-          "Admin - Analytics"
+          "Admin"
         ],
         "security": [
           {
@@ -2137,7 +2456,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Dashboard summary"
+            "description": "Dashboard summary",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -2146,7 +2474,7 @@
       "get": {
         "summary": "Monthly donation trends",
         "tags": [
-          "Admin - Analytics"
+          "Admin"
         ],
         "security": [
           {
@@ -2160,7 +2488,8 @@
             "schema": {
               "type": "integer",
               "default": 6
-            }
+            },
+            "example": 6
           }
         ],
         "responses": {
@@ -2174,7 +2503,7 @@
       "get": {
         "summary": "Blood type distribution",
         "tags": [
-          "Admin - Analytics"
+          "Admin"
         ],
         "security": [
           {
@@ -2183,7 +2512,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Blood type distribution"
+            "description": "Blood type distribution",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -2192,7 +2530,7 @@
       "get": {
         "summary": "Top donors leaderboard",
         "tags": [
-          "Admin - Analytics"
+          "Admin"
         ],
         "security": [
           {
@@ -2206,7 +2544,8 @@
             "schema": {
               "type": "integer",
               "default": 10
-            }
+            },
+            "example": 10
           }
         ],
         "responses": {
@@ -2220,7 +2559,7 @@
       "get": {
         "summary": "Growth metrics over time",
         "tags": [
-          "Admin - Analytics"
+          "Admin"
         ],
         "security": [
           {
@@ -2234,7 +2573,8 @@
             "schema": {
               "type": "integer",
               "default": 6
-            }
+            },
+            "example": 6
           }
         ],
         "responses": {
@@ -2248,7 +2588,7 @@
       "post": {
         "summary": "Send emergency broadcast to donors",
         "tags": [
-          "Admin - Emergency"
+          "Admin"
         ],
         "security": [
           {
@@ -2295,6 +2635,15 @@
                     }
                   }
                 }
+              },
+              "example": {
+                "title": "string",
+                "message": "string",
+                "governorate": "string",
+                "city": "string",
+                "bloodTypes": [
+                  "A+"
+                ]
               }
             }
           }
@@ -2310,7 +2659,7 @@
       "get": {
         "summary": "List critical and high urgency active requests",
         "tags": [
-          "Admin - Emergency"
+          "Admin"
         ],
         "security": [
           {
@@ -2319,7 +2668,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Critical requests"
+            "description": "Critical requests",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -2328,7 +2686,7 @@
       "get": {
         "summary": "Blood shortage alerts",
         "tags": [
-          "Admin - Emergency"
+          "Admin"
         ],
         "security": [
           {
@@ -2337,7 +2695,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Shortage alerts by blood type"
+            "description": "Shortage alerts by blood type",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -2345,7 +2712,7 @@
     "/donations/book-appointment": {
       "post": {
         "tags": [
-          "Appointments"
+          "Donor"
         ],
         "summary": "Book a donor appointment with a hospital",
         "security": [
@@ -2415,20 +2782,34 @@
     "/donations/book-appointment/available-slots": {
       "get": {
         "tags": [
-          "Appointments"
+          "Donor"
         ],
         "summary": "Get available appointment slots for a hospital on a given date",
         "security": [
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/donations/book-appointment/my-appointments": {
       "get": {
         "tags": [
-          "Appointments"
+          "Donor"
         ],
         "summary": "Get the authenticated donor appointments",
         "security": [
@@ -2443,7 +2824,8 @@
             "schema": {
               "type": "integer",
               "minimum": 0
-            }
+            },
+            "example": 1
           },
           {
             "in": "query",
@@ -2451,7 +2833,8 @@
             "schema": {
               "type": "integer",
               "minimum": 1
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -2470,7 +2853,7 @@
     "/donations/book-appointment/{appointmentId}": {
       "get": {
         "tags": [
-          "Appointments"
+          "Donor"
         ],
         "summary": "Get appointment details",
         "security": [
@@ -2485,7 +2868,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -2505,7 +2889,7 @@
       },
       "patch": {
         "tags": [
-          "Appointments"
+          "Donor"
         ],
         "summary": "Reschedule a donor appointment",
         "security": [
@@ -2520,7 +2904,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -2565,7 +2950,7 @@
       },
       "delete": {
         "tags": [
-          "Appointments"
+          "Donor"
         ],
         "summary": "Cancel a donor appointment",
         "security": [
@@ -2580,7 +2965,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -2602,10 +2988,82 @@
         }
       }
     },
+    "/appointments/verify-qr": {
+      "post": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Verify donor QR code at hospital check-in",
+        "description": "Hospital staff scans the donor's QR code to confirm the donation.\n- Validates the QR token, checks expiry and one-time usage\n- Marks the appointment as completed\n- Creates a Donation record\n- Updates donor statistics and triggers reward/badge flow\n\n**Role required:** hospital | admin | superadmin\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "qrToken"
+                ],
+                "properties": {
+                  "qrToken": {
+                    "type": "string",
+                    "description": "The secure QR token scanned from the donor's device",
+                    "example": "a3f9c1e82b4d..."
+                  }
+                }
+              },
+              "example": {
+                "qrToken": "a3f9c1e82b4d7890abcd1234ef567890"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Donation verified successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Donation verified successfully",
+                  "data": {
+                    "donation": {
+                      "donationId": "664a0f1a2b3c4d5e6f7a8b9c",
+                      "type": "Whole Blood",
+                      "date": "2026-05-07T12:00:00.000Z",
+                      "location": "City General Hospital",
+                      "status": "confirmed"
+                    },
+                    "pointsEarned": 100
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "One of:\n- qrToken is required\n- QR code expired\n- Appointment is cancelled\n- Appointment is not active\n"
+          },
+          "403": {
+            "description": "Donor is not eligible to donate"
+          },
+          "404": {
+            "description": "Invalid QR code (token not found)"
+          },
+          "409": {
+            "description": "QR code already used"
+          }
+        }
+      }
+    },
     "/auth/signup": {
       "post": {
         "tags": [
-          "Auth - General"
+          "Auth"
         ],
         "summary": "Register a new donor or hospital account",
         "description": "Create a new account as donor or hospital. Donor signup requires phoneNumber, dateOfBirth, bloodType. Hospital signup requires hospitalName, licenseNumber",
@@ -2622,6 +3080,16 @@
                     "$ref": "#/components/schemas/SignupHospitalRequest"
                   }
                 ]
+              },
+              "example": {
+                "fullName": "string",
+                "email": "user@example.com",
+                "password": "P@ssw0rd123",
+                "role": "donor",
+                "phoneNumber": "string",
+                "dateOfBirth": "2026-05-08",
+                "bloodType": "string",
+                "confirmPassword": "P@ssw0rd123"
               }
             }
           }
@@ -2642,7 +3110,7 @@
     "/auth/login": {
       "post": {
         "tags": [
-          "Auth - Donor"
+          "Auth"
         ],
         "summary": "Donor login with email and password",
         "description": "Authenticate as a donor user. Returns JWT token. Supports optional 2FA",
@@ -2652,6 +3120,11 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "user@example.com",
+                "password": "P@ssw0rd123",
+                "role": "donor"
               }
             }
           }
@@ -2672,7 +3145,7 @@
     "/auth/hospital/login": {
       "post": {
         "tags": [
-          "Auth - Hospital"
+          "Auth"
         ],
         "summary": "Hospital login with email and password",
         "description": "Authenticate as a hospital user. Returns JWT token",
@@ -2682,6 +3155,11 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/LoginRequest"
+              },
+              "example": {
+                "email": "user@example.com",
+                "password": "P@ssw0rd123",
+                "role": "donor"
               }
             }
           }
@@ -2730,6 +3208,11 @@
                     "type": "string"
                   }
                 }
+              },
+              "example": {
+                "email": "user@example.com",
+                "password": "P@ssw0rd123",
+                "adminKey": "string"
               }
             }
           }
@@ -2757,7 +3240,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Token is valid"
+            "description": "Token is valid",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -2774,6 +3266,9 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/EmailRequest"
+              },
+              "example": {
+                "email": "user@example.com"
               }
             }
           }
@@ -2797,6 +3292,10 @@
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/OtpRequest"
+              },
+              "example": {
+                "email": "user@example.com",
+                "otp": "string"
               }
             }
           }
@@ -2821,7 +3320,16 @@
         ],
         "responses": {
           "200": {
-            "description": "2FA setup initialized"
+            "description": "2FA setup initialized",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -2846,7 +3354,8 @@
                 "required": [
                   "code"
                 ]
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -2873,7 +3382,8 @@
                   "tempToken",
                   "code"
                 ]
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -2904,7 +3414,8 @@
                 "required": [
                   "password"
                 ]
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -2919,7 +3430,7 @@
       "get": {
         "summary": "List hospitals for discovery",
         "tags": [
-          "Discovery"
+          "Donor"
         ],
         "description": "Public endpoint to discover hospitals. Search and filter by city, governorate, or keywords. Results include hospital contact information and blood inventory status",
         "parameters": [
@@ -2929,7 +3440,8 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter by city name"
+            "description": "Filter by city name",
+            "example": "string"
           },
           {
             "in": "query",
@@ -2937,7 +3449,8 @@
             "schema": {
               "type": "string"
             },
-            "description": "Filter by governorate/region"
+            "description": "Filter by governorate/region",
+            "example": "string"
           },
           {
             "in": "query",
@@ -2945,7 +3458,8 @@
             "schema": {
               "type": "string"
             },
-            "description": "Search hospitals by name or keywords"
+            "description": "Search hospitals by name or keywords",
+            "example": "string"
           },
           {
             "in": "query",
@@ -2954,7 +3468,8 @@
               "type": "integer",
               "default": 1
             },
-            "description": "Page number for pagination"
+            "description": "Page number for pagination",
+            "example": 1
           },
           {
             "in": "query",
@@ -2963,7 +3478,8 @@
               "type": "integer",
               "default": 20
             },
-            "description": "Items per page (max 100)"
+            "description": "Items per page (max 100)",
+            "example": 20
           },
           {
             "in": "query",
@@ -2971,7 +3487,8 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Legacy pagination - number of items to skip. Still supported for compatibility"
+            "description": "Legacy pagination - number of items to skip. Still supported for compatibility",
+            "example": 1
           }
         ],
         "responses": {
@@ -3000,7 +3517,7 @@
       "get": {
         "summary": "List nearby hospitals by GPS coordinates",
         "tags": [
-          "Discovery"
+          "Donor"
         ],
         "description": "Find hospitals within a specified radius from given GPS coordinates. Returns hospitals sorted by distance. Supports both lat/long and legacy latitude/longitude parameters",
         "parameters": [
@@ -3010,7 +3527,8 @@
             "schema": {
               "type": "number"
             },
-            "description": "Hospital latitude coordinate (-90 to 90). Alias for latitude."
+            "description": "Hospital latitude coordinate (-90 to 90). Alias for latitude.",
+            "example": 1
           },
           {
             "in": "query",
@@ -3018,7 +3536,8 @@
             "schema": {
               "type": "number"
             },
-            "description": "Hospital longitude coordinate (-180 to 180). Alias for longitude."
+            "description": "Hospital longitude coordinate (-180 to 180). Alias for longitude.",
+            "example": 1
           },
           {
             "in": "query",
@@ -3026,7 +3545,8 @@
             "schema": {
               "type": "number"
             },
-            "description": "Hospital latitude coordinate (deprecated, use lat instead)"
+            "description": "Hospital latitude coordinate (deprecated, use lat instead)",
+            "example": 1
           },
           {
             "in": "query",
@@ -3034,14 +3554,16 @@
             "schema": {
               "type": "number"
             },
-            "description": "Hospital longitude coordinate (deprecated, use long instead)"
+            "description": "Hospital longitude coordinate (deprecated, use long instead)",
+            "example": 1
           },
           {
             "in": "query",
             "name": "radius_km",
             "schema": {
               "type": "number"
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -3055,23 +3577,51 @@
       "get": {
         "summary": "Search hospitals by keyword, blood type, and availability",
         "tags": [
-          "Discovery"
-        ]
+          "Donor"
+        ],
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/hospitals/map": {
       "get": {
         "summary": "Get hospitals for map markers",
         "tags": [
-          "Discovery"
-        ]
+          "Donor"
+        ],
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/hospitals/{id}": {
       "get": {
         "summary": "Get hospital details by id",
         "tags": [
-          "Discovery"
+          "Donor"
         ],
         "parameters": [
           {
@@ -3080,7 +3630,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -3093,12 +3644,21 @@
     "/donations/types": {
       "get": {
         "tags": [
-          "Donations"
+          "Donor"
         ],
         "summary": "Get supported donation types",
         "responses": {
           "200": {
-            "description": "Donation types retrieved successfully"
+            "description": "Donation types retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -3106,7 +3666,7 @@
     "/donations/validate": {
       "post": {
         "tags": [
-          "Donations"
+          "Donor"
         ],
         "summary": "Validate if a donor can donate for a given hospital and date",
         "security": [
@@ -3124,7 +3684,8 @@
                   "hospitalId",
                   "date"
                 ]
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -3138,7 +3699,7 @@
     "/donations/qr/scan": {
       "post": {
         "tags": [
-          "Donations"
+          "Donor"
         ],
         "summary": "Confirm a donation by scanning an appointment QR token",
         "security": [
@@ -3151,7 +3712,16 @@
         },
         "responses": {
           "200": {
-            "description": "Donation confirmed successfully"
+            "description": "Donation confirmed successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -3159,27 +3729,55 @@
     "/donations/complete": {
       "post": {
         "tags": [
-          "Donations"
+          "Donor"
         ],
         "summary": "Mark a donation as completed",
         "security": [
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/donations/my-appointments": {
       "get": {
         "tags": [
-          "Appointments"
+          "Donor"
         ],
         "summary": "Get donor appointments via the donations compatibility alias",
         "security": [
           {
             "bearerAuth": []
           }
-        ]
+        ],
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/donor/profile": {
@@ -3301,6 +3899,17 @@
                     }
                   }
                 }
+              },
+              "example": {
+                "fullName": "Ahmed Hassan",
+                "phoneNumber": "01012345678",
+                "gender": "male",
+                "bloodType": "O+",
+                "isAvailable": true,
+                "location": {
+                  "city": "Cairo",
+                  "governorate": "Cairo"
+                }
               }
             }
           }
@@ -3359,7 +3968,8 @@
                 "organ"
               ]
             },
-            "description": "Request type filter"
+            "description": "Request type filter",
+            "example": "blood"
           },
           {
             "in": "query",
@@ -3373,7 +3983,8 @@
                 "critical"
               ]
             },
-            "description": "Urgency level filter"
+            "description": "Urgency level filter",
+            "example": "low"
           },
           {
             "in": "query",
@@ -3382,7 +3993,8 @@
               "type": "integer",
               "example": 1
             },
-            "description": "Page number for pagination"
+            "description": "Page number for pagination",
+            "example": 1
           },
           {
             "in": "query",
@@ -3391,7 +4003,8 @@
               "type": "integer",
               "example": 20
             },
-            "description": "Items per page"
+            "description": "Items per page",
+            "example": 20
           }
         ],
         "responses": {
@@ -3442,7 +4055,8 @@
               "type": "integer",
               "example": 0
             },
-            "description": "Legacy pagination alias still supported."
+            "description": "Legacy pagination alias still supported.",
+            "example": 0
           },
           {
             "in": "query",
@@ -3450,7 +4064,8 @@
             "schema": {
               "type": "integer",
               "example": 10
-            }
+            },
+            "example": 10
           },
           {
             "in": "query",
@@ -3458,7 +4073,8 @@
             "schema": {
               "type": "integer",
               "example": 1
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -3508,7 +4124,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -3523,6 +4140,9 @@
                     "example": 1
                   }
                 }
+              },
+              "example": {
+                "quantity": 1
               }
             }
           }
@@ -3584,7 +4204,8 @@
                 "completed",
                 "cancelled"
               ]
-            }
+            },
+            "example": "pending"
           },
           {
             "in": "query",
@@ -3593,7 +4214,8 @@
               "type": "integer",
               "example": 0
             },
-            "description": "Legacy pagination alias still supported."
+            "description": "Legacy pagination alias still supported.",
+            "example": 0
           },
           {
             "in": "query",
@@ -3601,7 +4223,8 @@
             "schema": {
               "type": "integer",
               "example": 10
-            }
+            },
+            "example": 10
           },
           {
             "in": "query",
@@ -3609,7 +4232,8 @@
             "schema": {
               "type": "integer",
               "example": 1
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -3667,6 +4291,9 @@
                     "example": true
                   }
                 }
+              },
+              "example": {
+                "isAvailable": true
               }
             }
           }
@@ -3708,7 +4335,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Health history retrieved successfully"
+            "description": "Health history retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -3734,7 +4370,8 @@
             "application/json": {
               "schema": {
                 "type": "object"
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -3767,7 +4404,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Settings retrieved successfully"
+            "description": "Settings retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -3843,15 +4489,190 @@
         }
       }
     },
+    "/donor/stats": {
+      "get": {
+        "tags": [
+          "Donor"
+        ],
+        "summary": "Get lightweight donor statistics",
+        "description": "Returns totalDonations, points balance, and livesSaved. Used in home header and profile stats row.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Donor stats retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Donor stats retrieved",
+                  "data": {
+                    "totalDonations": 5,
+                    "points": 1200,
+                    "livesSaved": 15
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/donor/rewards": {
+      "get": {
+        "tags": [
+          "Donor"
+        ],
+        "summary": "Get donor rewards and badge progress",
+        "description": "Returns current points, earned badges, locked badges with progress, and next milestone.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Donor rewards retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Donor rewards retrieved",
+                  "data": {
+                    "currentPoints": 1200,
+                    "earnedBadges": [
+                      {
+                        "id": "664a0f1a2b3c4d5e6f7a8b9c",
+                        "title": "First Timer",
+                        "description": "Completed your first blood donation"
+                      }
+                    ],
+                    "lockedBadges": [
+                      {
+                        "id": "664a0f1a2b3c4d5e6f7a8b9d",
+                        "title": "Regular Donor",
+                        "progress": 2,
+                        "target": 5
+                      }
+                    ],
+                    "nextMilestone": 1800
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/donor/donations": {
+      "get": {
+        "tags": [
+          "Donor"
+        ],
+        "summary": "Get donor donation history with pointsEarned",
+        "description": "Paginated donation history for the authenticated donor.\nEach record includes `pointsEarned` calculated from the points transaction log.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "example": 1
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "example": 10
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "scheduled",
+                "completed",
+                "cancelled",
+                "rejected"
+              ]
+            },
+            "example": "pending"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Donation history retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Donation history retrieved successfully",
+                  "data": {
+                    "donations": [
+                      {
+                        "_id": "664a0f1a2b3c4d5e6f7a8b9c",
+                        "status": "completed",
+                        "quantity": 1,
+                        "pointsEarned": 100,
+                        "createdAt": "2026-05-01T10:00:00Z"
+                      }
+                    ],
+                    "pagination": {
+                      "total": 1,
+                      "page": 1,
+                      "limit": 10,
+                      "pages": 1
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
     "/help/faq": {
       "get": {
         "summary": "Get FAQ list",
         "tags": [
-          "Help"
+          "Donor"
         ],
         "responses": {
           "200": {
-            "description": "FAQ retrieved successfully"
+            "description": "FAQ retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -3860,7 +4681,7 @@
       "get": {
         "summary": "Get help document by type",
         "tags": [
-          "Help"
+          "Donor"
         ],
         "description": "Returns a stored help document, or 404 if that document has not been configured.",
         "parameters": [
@@ -3870,7 +4691,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -3989,6 +4811,18 @@
                     "example": "LIC-2026-001"
                   }
                 }
+              },
+              "example": {
+                "fullName": "Cairo General Hospital",
+                "hospitalName": "Cairo General Hospital",
+                "contactNumber": "01099998888",
+                "address": {
+                  "city": "Cairo",
+                  "governorate": "Cairo"
+                },
+                "lat": 30.0444,
+                "long": 31.2357,
+                "licenseNumber": "LIC-2026-001"
               }
             }
           }
@@ -4104,6 +4938,15 @@
                     "example": "Need compatible donors urgently"
                   }
                 }
+              },
+              "example": {
+                "type": "blood",
+                "bloodType": "O+",
+                "organType": "kidney",
+                "urgency": "high",
+                "requiredBy": "2026-04-15T00:00:00.000Z",
+                "quantity": 2,
+                "notes": "Need compatible donors urgently"
               }
             }
           }
@@ -4147,7 +4990,8 @@
                 "completed",
                 "cancelled"
               ]
-            }
+            },
+            "example": "pending"
           },
           {
             "in": "query",
@@ -4158,7 +5002,8 @@
                 "blood",
                 "organ"
               ]
-            }
+            },
+            "example": "blood"
           },
           {
             "in": "query",
@@ -4167,7 +5012,8 @@
               "type": "integer",
               "example": 0
             },
-            "description": "Legacy pagination alias still supported."
+            "description": "Legacy pagination alias still supported.",
+            "example": 0
           },
           {
             "in": "query",
@@ -4175,7 +5021,8 @@
             "schema": {
               "type": "integer",
               "example": 10
-            }
+            },
+            "example": 10
           },
           {
             "in": "query",
@@ -4183,7 +5030,8 @@
             "schema": {
               "type": "integer",
               "example": 1
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -4217,7 +5065,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -4252,7 +5101,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -4276,6 +5126,9 @@
                     "example": "in-progress"
                   }
                 }
+              },
+              "example": {
+                "status": "in-progress"
               }
             }
           }
@@ -4315,7 +5168,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -4357,7 +5211,8 @@
                 "completed",
                 "cancelled"
               ]
-            }
+            },
+            "example": "pending"
           },
           {
             "in": "query",
@@ -4366,7 +5221,8 @@
               "type": "integer",
               "example": 0
             },
-            "description": "Legacy pagination alias still supported."
+            "description": "Legacy pagination alias still supported.",
+            "example": 0
           },
           {
             "in": "query",
@@ -4374,7 +5230,8 @@
             "schema": {
               "type": "integer",
               "example": 10
-            }
+            },
+            "example": 10
           },
           {
             "in": "query",
@@ -4382,7 +5239,8 @@
             "schema": {
               "type": "integer",
               "example": 1
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -4411,7 +5269,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Blood inventory retrieved successfully"
+            "description": "Blood inventory retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -4435,7 +5302,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Blood bank settings retrieved successfully"
+            "description": "Blood bank settings retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       },
@@ -4455,7 +5331,8 @@
             "application/json": {
               "schema": {
                 "type": "object"
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -4479,7 +5356,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Notification preferences retrieved successfully"
+            "description": "Notification preferences retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       },
@@ -4499,7 +5385,8 @@
             "application/json": {
               "schema": {
                 "type": "object"
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -4528,7 +5415,8 @@
             "schema": {
               "type": "string",
               "example": "2026-04"
-            }
+            },
+            "example": "2026-04"
           }
         ],
         "responses": {
@@ -4551,7 +5439,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Staff retrieved successfully"
+            "description": "Staff retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       },
@@ -4575,7 +5472,8 @@
                   "name",
                   "position"
                 ]
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -4604,7 +5502,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -4618,7 +5517,7 @@
       "get": {
         "summary": "List notifications for authenticated user",
         "tags": [
-          "Notifications"
+          "Donor"
         ],
         "security": [
           {
@@ -4632,7 +5531,8 @@
             "schema": {
               "type": "integer",
               "default": 1
-            }
+            },
+            "example": 1
           },
           {
             "in": "query",
@@ -4640,21 +5540,24 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "example": 20
           },
           {
             "in": "query",
             "name": "read",
             "schema": {
               "type": "boolean"
-            }
+            },
+            "example": true
           },
           {
             "in": "query",
             "name": "type",
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -4668,7 +5571,7 @@
       "patch": {
         "summary": "Mark one notification as read",
         "tags": [
-          "Notifications"
+          "Donor"
         ],
         "security": [
           {
@@ -4682,7 +5585,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -4696,7 +5600,7 @@
       "patch": {
         "summary": "Mark all notifications as read",
         "tags": [
-          "Notifications"
+          "Donor"
         ],
         "security": [
           {
@@ -4705,7 +5609,16 @@
         ],
         "responses": {
           "200": {
-            "description": "All notifications marked as read"
+            "description": "All notifications marked as read",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -4714,7 +5627,7 @@
       "get": {
         "summary": "Get one notification",
         "tags": [
-          "Notifications"
+          "Donor"
         ],
         "security": [
           {
@@ -4728,7 +5641,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -4746,7 +5660,7 @@
       "delete": {
         "summary": "Delete one notification",
         "tags": [
-          "Notifications"
+          "Donor"
         ],
         "security": [
           {
@@ -4760,7 +5674,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "responses": {
@@ -4774,7 +5689,7 @@
       "get": {
         "summary": "Get donor's points summary and tier",
         "tags": [
-          "Rewards - Donor"
+          "Donor"
         ],
         "security": [
           {
@@ -4783,7 +5698,122 @@
         ],
         "responses": {
           "200": {
-            "description": "Points summary with tier info"
+            "description": "Points summary with tier info",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/rewards/dashboard": {
+      "get": {
+        "tags": [
+          "Donor"
+        ],
+        "summary": "Get full rewards screen data in one request",
+        "description": "Returns all data needed to render the Rewards screen in a single call:\ncurrent points, rewards catalog, points history (last 10), and badge progress.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rewards dashboard retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Rewards dashboard retrieved",
+                  "data": {
+                    "points": 2340,
+                    "nextRewardPoints": 500,
+                    "pointsToNextReward": 160,
+                    "rewards": [
+                      {
+                        "id": "664a...",
+                        "title": "Coffee Voucher",
+                        "pointsRequired": 500,
+                        "isAvailable": true
+                      }
+                    ],
+                    "history": [
+                      {
+                        "id": "664b...",
+                        "type": "BLOOD_DONATION",
+                        "title": "Blood Donation - Successful",
+                        "points": 100,
+                        "createdAt": "2026-05-01T10:00:00Z"
+                      }
+                    ],
+                    "badges": {
+                      "unlocked": 2,
+                      "total": 7,
+                      "completion": 28,
+                      "list": [
+                        {
+                          "id": "664c...",
+                          "title": "First Timer",
+                          "description": "Completed your first blood donation",
+                          "isUnlocked": true,
+                          "progress": 1,
+                          "target": 1
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
+          }
+        }
+      }
+    },
+    "/rewards/stats": {
+      "get": {
+        "tags": [
+          "Donor"
+        ],
+        "summary": "Get rewards screen header stats",
+        "description": "Returns current points, next reward distance, badge counts, and completion percentage.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Rewards stats retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Rewards stats retrieved",
+                  "data": {
+                    "points": 2340,
+                    "nextReward": {
+                      "pointsToGo": 160
+                    },
+                    "badgesUnlocked": 3,
+                    "totalBadges": 7,
+                    "completionPercent": 43
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized"
           }
         }
       }
@@ -4792,7 +5822,7 @@
       "get": {
         "summary": "Get donor's points transaction history",
         "tags": [
-          "Rewards - Donor"
+          "Donor"
         ],
         "security": [
           {
@@ -4806,7 +5836,8 @@
             "schema": {
               "type": "integer",
               "default": 1
-            }
+            },
+            "example": 1
           },
           {
             "in": "query",
@@ -4814,7 +5845,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "example": 20
           },
           {
             "in": "query",
@@ -4828,7 +5860,8 @@
                 "ADJUSTMENTS"
               ],
               "default": "ALL"
-            }
+            },
+            "example": "ALL"
           },
           {
             "in": "query",
@@ -4836,7 +5869,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-05-08T12:00:00.000Z"
           },
           {
             "in": "query",
@@ -4844,7 +5878,8 @@
             "schema": {
               "type": "string",
               "format": "date-time"
-            }
+            },
+            "example": "2026-05-08T12:00:00.000Z"
           }
         ],
         "responses": {
@@ -4858,7 +5893,7 @@
       "get": {
         "summary": "Get all badges and donor's progress",
         "tags": [
-          "Rewards - Donor"
+          "Donor"
         ],
         "security": [
           {
@@ -4867,7 +5902,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Badge list with unlock status and progress"
+            "description": "Badge list with unlock status and progress",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -4876,7 +5920,7 @@
       "get": {
         "summary": "Get available rewards catalog",
         "tags": [
-          "Rewards - Donor"
+          "Donor"
         ],
         "security": [
           {
@@ -4896,7 +5940,8 @@
                 "HEALTH",
                 "STATUS"
               ]
-            }
+            },
+            "example": "ALL"
           },
           {
             "in": "query",
@@ -4908,7 +5953,8 @@
                 "COST_DESC",
                 "POPULARITY"
               ]
-            }
+            },
+            "example": "COST_ASC"
           }
         ],
         "responses": {
@@ -4922,7 +5968,7 @@
       "get": {
         "summary": "Get donor reward history",
         "tags": [
-          "Rewards - Donor"
+          "Donor"
         ],
         "security": [
           {
@@ -4943,21 +5989,24 @@
                 "CANCELLED",
                 "EXPIRED"
               ]
-            }
+            },
+            "example": "ALL"
           },
           {
             "in": "query",
             "name": "page",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -4971,7 +6020,7 @@
       "post": {
         "summary": "Redeem a reward using points",
         "tags": [
-          "Rewards - Donor"
+          "Donor"
         ],
         "security": [
           {
@@ -4985,7 +6034,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -5007,6 +6057,10 @@
                     "description": "Email address if delivery_preference is EMAIL"
                   }
                 }
+              },
+              "example": {
+                "delivery_preference": "IN_APP",
+                "delivery_contact": "string"
               }
             }
           }
@@ -5025,7 +6079,7 @@
       "get": {
         "summary": "Get donor's redemption history",
         "tags": [
-          "Rewards - Donor"
+          "Donor"
         ],
         "security": [
           {
@@ -5046,21 +6100,24 @@
                 "CANCELLED",
                 "EXPIRED"
               ]
-            }
+            },
+            "example": "ALL"
           },
           {
             "in": "query",
             "name": "page",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           },
           {
             "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer"
-            }
+            },
+            "example": 1
           }
         ],
         "responses": {
@@ -5074,7 +6131,7 @@
       "get": {
         "summary": "Get the top donors leaderboard",
         "tags": [
-          "Rewards - Donor"
+          "Donor"
         ],
         "security": [
           {
@@ -5090,7 +6147,8 @@
               "default": 20,
               "maximum": 50
             },
-            "description": "Number of top donors to return"
+            "description": "Number of top donors to return",
+            "example": 20
           }
         ],
         "responses": {
@@ -5104,7 +6162,7 @@
       "post": {
         "summary": "Manually adjust a donor's points (admin only)",
         "tags": [
-          "Rewards - Admin"
+          "Admin"
         ],
         "security": [
           {
@@ -5118,7 +6176,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -5140,6 +6199,10 @@
                     "type": "string"
                   }
                 }
+              },
+              "example": {
+                "amount": 1,
+                "reason": "string"
               }
             }
           }
@@ -5155,7 +6218,7 @@
       "patch": {
         "summary": "Update a reward's status (admin only)",
         "tags": [
-          "Rewards - Admin"
+          "Admin"
         ],
         "security": [
           {
@@ -5169,7 +6232,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "example": "string"
           }
         ],
         "requestBody": {
@@ -5191,6 +6255,9 @@
                     ]
                   }
                 }
+              },
+              "example": {
+                "status": "ACTIVE"
               }
             }
           }
@@ -5206,7 +6273,7 @@
       "get": {
         "summary": "Get rewards system analytics (admin only)",
         "tags": [
-          "Rewards - Admin"
+          "Admin"
         ],
         "security": [
           {
@@ -5215,7 +6282,16 @@
         ],
         "responses": {
           "200": {
-            "description": "Top rewards, tier distribution, total points issued"
+            "description": "Top rewards, tier distribution, total points issued",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
           }
         }
       }
@@ -5224,7 +6300,7 @@
       "post": {
         "summary": "Submit a support request",
         "tags": [
-          "Support"
+          "Donor"
         ],
         "security": [
           {
@@ -5242,7 +6318,8 @@
                   "subject",
                   "message"
                 ]
-              }
+              },
+              "example": {}
             }
           }
         },
@@ -5253,83 +6330,5 @@
         }
       }
     }
-  },
-  "tags": [
-    {
-      "name": "Admin",
-      "description": "Admin authentication and profile"
-    },
-    {
-      "name": "Admin - System",
-      "description": "System health, maintenance mode, and monitoring (Admin/Superadmin roles)"
-    },
-    {
-      "name": "Admin - Audit",
-      "description": "Audit logging and system activity tracking (Admin/Superadmin roles)"
-    },
-    {
-      "name": "Admin - Analytics",
-      "description": "Dashboard analytics, statistics, and reports (Admin/Superadmin roles)"
-    },
-    {
-      "name": "Admin - Users",
-      "description": "User management - create, update, verify, suspend users (Admin/Superadmin roles)"
-    },
-    {
-      "name": "Admin - Requests",
-      "description": "Blood and organ request management (Admin/Superadmin roles)"
-    },
-    {
-      "name": "Admin - Emergency",
-      "description": "Emergency broadcasts and critical request management (Admin/Superadmin roles)"
-    },
-    {
-      "name": "Admin - Roles",
-      "description": "Role-based access control and permission management (Superadmin only)"
-    },
-    {
-      "name": "Auth - Donor",
-      "description": "Donor registration and authentication (signup, email verification, login)"
-    },
-    {
-      "name": "Auth - Hospital",
-      "description": "Hospital registration and authentication (signup, email verification, login)"
-    },
-    {
-      "name": "Auth",
-      "description": "General authentication (logout, refresh token, password reset, 2FA)"
-    },
-    {
-      "name": "Discovery",
-      "description": "Public hospital discovery APIs - No authentication required. Find and browse hospitals by location and services"
-    },
-    {
-      "name": "Donor",
-      "description": "Donor profile, requests, and donation management (Role: donor)"
-    },
-    {
-      "name": "Help",
-      "description": "Help and document endpoints"
-    },
-    {
-      "name": "Hospital",
-      "description": "Hospital profile, donation requests, and blood inventory management (Role: hospital)"
-    },
-    {
-      "name": "Notifications",
-      "description": "Authenticated user notifications"
-    },
-    {
-      "name": "Rewards - Donor",
-      "description": "Donor-facing reward endpoints"
-    },
-    {
-      "name": "Rewards - Admin",
-      "description": "Admin reward management"
-    },
-    {
-      "name": "Support",
-      "description": "Support contact endpoint"
-    }
-  ]
+  }
 }

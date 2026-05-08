@@ -10,6 +10,8 @@ import Notification from '../src/models/Notification.model.js';
 import HelpDocument from '../src/models/HelpDocument.model.js';
 import SupportMessage from '../src/models/SupportMessage.model.js';
 import Appointment from '../src/models/Appointment.model.js';
+import Activity from '../src/models/Activity.model.js';
+import AuditLog from '../src/models/AuditLog.model.js';
 import DonorPoints from '../src/models/DonorPoints.model.js';
 import crypto from 'crypto';
 import PointsTransaction from '../src/models/PointsTransaction.model.js';
@@ -17,6 +19,8 @@ import RewardCatalog from '../src/models/RewardCatalog.model.js';
 import RewardRedemption from '../src/models/RewardRedemption.model.js';
 import Badge from '../src/models/Badge.model.js';
 import UserBadge from '../src/models/UserBadge.model.js';
+import HospitalSettings from '../src/models/HospitalSettings.model.js';
+import TwoFactor from '../src/models/TwoFactor.model.js';
 import { seedDefaultSettings, seedDefaultRolePermissions } from '../src/services/admin.service.js';
 import { seedRewardData } from '../src/services/reward.service.js';
 
@@ -132,15 +136,19 @@ const helpDocuments = [
 ];
 
 async function ensureUser(model, payload) {
-  const existingBase = await User.findOne({ email: payload.email }).select('+password');
+  const normalizedPayload = payload.role === 'hospital' && !payload.name
+    ? { ...payload, name: payload.hospitalName }
+    : payload;
 
-  if (existingBase && existingBase.role !== payload.role) {
-    throw new Error(`Existing user role mismatch for ${payload.email}: expected ${payload.role}, found ${existingBase.role}`);
+  const existingBase = await User.findOne({ email: normalizedPayload.email }).select('+password');
+
+  if (existingBase && existingBase.role !== normalizedPayload.role) {
+    throw new Error(`Existing user role mismatch for ${normalizedPayload.email}: expected ${normalizedPayload.role}, found ${existingBase.role}`);
   }
 
   if (!existingBase) {
     return model.create({
-      ...payload,
+      ...normalizedPayload,
       isEmailVerified: true,
       emailVerifiedAt: now,
       isSuspended: false,
@@ -149,14 +157,14 @@ async function ensureUser(model, payload) {
   }
 
   const doc = await model.findById(existingBase._id).select('+password');
-  Object.entries(payload).forEach(([key, value]) => {
+  Object.entries(normalizedPayload).forEach(([key, value]) => {
     doc[key] = value;
   });
   doc.isEmailVerified = true;
   doc.emailVerifiedAt = now;
   doc.isSuspended = false;
   doc.deletedAt = null;
-  doc.password = payload.password;
+  doc.password = normalizedPayload.password;
   await doc.save();
   return doc;
 }
@@ -226,6 +234,43 @@ async function ensureUserBadge(payload) {
     { donorId: payload.donorId, badgeId: payload.badgeId },
     { $set: payload },
     { upsert: true, new: true }
+  );
+}
+
+async function ensureActivity(userId, payload) {
+  return Activity.findOneAndUpdate(
+    { userId, action: payload.action, referenceId: payload.referenceId },
+    { $set: { userId, ...payload } },
+    { upsert: true, new: true, runValidators: true }
+  );
+}
+
+async function ensureAuditLog(payload) {
+  return AuditLog.findOneAndUpdate(
+    {
+      adminId: payload.adminId,
+      action: payload.action,
+      targetType: payload.targetType || null,
+      targetId: payload.targetId || null,
+    },
+    { $set: payload },
+    { upsert: true, new: true, runValidators: true }
+  );
+}
+
+async function ensureHospitalSettings(hospitalId, payload) {
+  return HospitalSettings.findOneAndUpdate(
+    { hospitalId },
+    { $set: { hospitalId, ...payload } },
+    { upsert: true, new: true, runValidators: true }
+  );
+}
+
+async function ensureTwoFactor(payload) {
+  return TwoFactor.findOneAndUpdate(
+    { userId: payload.userId },
+    { $set: payload },
+    { upsert: true, new: true, runValidators: true }
   );
 }
 
@@ -511,6 +556,140 @@ async function main() {
     });
   }
 
+  await ensureActivity(donors['aya.hassan@lifelink.demo']._id, {
+    type: 'profile_update',
+    action: 'profile_completed',
+    title: 'Profile Completed',
+    description: 'Aya Hassan completed her donor profile and enabled donation alerts.',
+    referenceId: 'activity_profile_aya_hassan',
+    referenceType: 'User',
+    icon: 'user-check',
+    metadata: {
+      completedFields: ['phoneNumber', 'location', 'availability', 'healthHistory'],
+    },
+  });
+
+  await ensureActivity(donors['omar.nabil@lifelink.demo']._id, {
+    type: 'emergency_response',
+    action: 'responded_to_urgent_request',
+    title: 'Urgent Request Accepted',
+    description: 'Omar Nabil responded to a critical A- request for ICU support.',
+    referenceId: `activity_request_${gizaActiveRequest._id}`,
+    referenceType: 'Request',
+    icon: 'zap',
+    metadata: {
+      requestId: gizaActiveRequest._id.toString(),
+      bloodType: 'A-',
+      urgency: 'critical',
+    },
+  });
+
+  await ensureActivity(donors['mariam.adel@lifelink.demo']._id, {
+    type: 'donation',
+    action: 'completed_donation',
+    title: 'Blood Donation Completed',
+    description: 'Mariam Adel completed a B+ donation for routine ward support.',
+    referenceId: `activity_donation_${completedRequest._id}`,
+    referenceType: 'Donation',
+    icon: 'heart',
+    metadata: {
+      requestId: completedRequest._id.toString(),
+      bloodType: 'B+',
+      quantity: 1,
+    },
+  });
+
+  await ensureActivity(donors['mariam.adel@lifelink.demo']._id, {
+    type: 'reward',
+    action: 'reward_redeemed',
+    title: 'Reward Redeemed',
+    description: 'Mariam Adel redeemed the Coffee Voucher reward.',
+    referenceId: 'activity_reward_mariam_coffee',
+    referenceType: 'RewardRedemption',
+    icon: 'gift',
+    metadata: {
+      rewardName: coffeeVoucher?.name || 'Coffee Voucher',
+      pointsSpent: coffeeVoucher?.pointsCost || 500,
+      confirmationCode: 'RWD-2026-DEMO01',
+    },
+  });
+
+  if (firstTimerBadge) {
+    await ensureActivity(donors['mariam.adel@lifelink.demo']._id, {
+      type: 'reward',
+      action: 'badge_unlocked',
+      title: 'Badge Unlocked',
+      description: 'Mariam Adel unlocked the First Timer badge.',
+      referenceId: `activity_badge_${firstTimerBadge._id}`,
+      referenceType: 'Badge',
+      icon: 'award',
+      metadata: {
+        badgeName: firstTimerBadge.badgeName,
+        category: firstTimerBadge.category,
+      },
+    });
+  }
+
+  await ensureAuditLog({
+    adminId: admin._id,
+    action: 'user.verify',
+    targetType: 'User',
+    targetId: donors['aya.hassan@lifelink.demo']._id,
+  });
+
+  await ensureAuditLog({
+    adminId: admin._id,
+    action: 'request.fulfill',
+    targetType: 'Request',
+    targetId: completedRequest._id,
+  });
+
+  await ensureAuditLog({
+    adminId: admin._id,
+    action: 'system.maintenance',
+    targetType: 'System',
+    targetId: null,
+  });
+
+  await ensureTwoFactor({
+    userId: admin._id,
+    enabled: true,
+    secret: 'JBSWY3DPEHPK3PXP',
+    backupCodes: ['LL-DEMO-1', 'LL-DEMO-2', 'LL-DEMO-3', 'LL-DEMO-4'],
+    verifiedAt: pastDate(1),
+    disabledAt: null,
+    pendingSecret: null,
+    pendingBackupCodes: [],
+  });
+
+  await ensureHospitalSettings(hospitals['ops@cairocare.demo']._id, {
+    bloodBankSettings: {
+      criticalThreshold: { 'O+': 4, 'A-': 2 },
+      lowThreshold: { 'O+': 12, 'A-': 8 },
+      automaticNotifications: true,
+      notificationEmail: 'ops@cairocare.demo',
+    },
+    notificationPreferences: {
+      email: true,
+      push: true,
+      sms: false,
+    },
+  });
+
+  await ensureHospitalSettings(hospitals['bloodbank@nilehope.demo']._id, {
+    bloodBankSettings: {
+      criticalThreshold: { 'B+': 3, 'A-': 2 },
+      lowThreshold: { 'B+': 10, 'A-': 7 },
+      automaticNotifications: true,
+      notificationEmail: 'bloodbank@nilehope.demo',
+    },
+    notificationPreferences: {
+      email: true,
+      push: true,
+      sms: true,
+    },
+  });
+
   // ── Seed Appointments (Dev 1 Task 3 & 4) ──────────────────────
   const appointmentQrToken1 = crypto.randomBytes(32).toString('hex');
   const appointmentQrToken2 = crypto.randomBytes(32).toString('hex');
@@ -615,7 +794,7 @@ async function main() {
   console.log('- Donors with updated settings (pushNotifications, emergencyAlerts, privacyMode, language)');
   console.log('- Hospitals with time slot configurations (slotsPerHour, workingHoursStart, workingHoursEnd)');
   console.log('- Appointments with QR tokens for donation scanning');
-  console.log('- Requests, donations, notifications, rewards, help documents, and support messages');
+  console.log('- Requests, donations, notifications, rewards, help documents, support messages, activities, audit logs, hospital settings, and 2FA data');
   console.log('');
   console.log('FAQ content is served from the built-in help controller and does not require database seeding.');
 }

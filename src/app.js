@@ -2,9 +2,8 @@ import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
 import { env } from './config/env.js';
+import swaggerSpec from './config/swagger.js';
 import { logger, requestLogger, securityLogger } from './utils/logger.js';
 import authRoutes from './routes/auth.routes.js';
 import donorRoutes from './routes/donor.routes.js';
@@ -27,10 +26,6 @@ import * as activityController from './controllers/activity.controller.js';
 import * as rc from './controllers/reward.controller.js';
 import { authLimiter, limiter } from './middlewares/rateLimit.middleware.js';
 import maintenanceMiddleware from './middlewares/maintenance.middleware.js';
-
-// ─── Resolve __dirname for ESM ────────────────────────────────────────────────
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 const app = express();
 const startedAt = new Date().toISOString();
@@ -134,63 +129,6 @@ app.use(maintenanceMiddleware);
 if (env.NODE_ENV !== 'test') {
   try {
     const swaggerUi = (await import('swagger-ui-express')).default;
-    const swaggerJsdoc = (await import('swagger-jsdoc')).default;
-
-    const swaggerOptions = {
-      definition: {
-        openapi: '3.0.0',
-        info: {
-          title: 'LifeLink API',
-          version: '1.0.0',
-          description: 'Blood donation matching platform — REST API documentation',
-        },
-        servers: [
-          {
-            url: 'https://graduation-project-cy61.onrender.com',
-            description: 'Production (Render)',
-          },
-          {
-            url: 'http://localhost:5000',
-            description: 'Local development',
-          },
-        ],
-        // ── Canonical tag order shown in Swagger UI ────────────────────────
-        tags: [
-          {
-            name: 'Auth',
-            description: 'Registration, login, email verification, password reset',
-          },
-          {
-            name: 'Donor',
-            description:
-              'All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals',
-          },
-          {
-            name: 'Hospital',
-            description:
-              'Hospital self-management: profile, blood bank, capacity, QR verification, request management',
-          },
-          {
-            name: 'Admin',
-            description:
-              'Admin operations: user management, analytics, reward adjustments, system maintenance',
-          },
-        ],
-        components: {
-          securitySchemes: {
-            bearerAuth: {
-              type: 'http',
-              scheme: 'bearer',
-              bearerFormat: 'JWT',
-            },
-          },
-        },
-        security: [{ bearerAuth: [] }],
-      },
-      apis: [join(__dirname, './routes/*.js')],
-    };
-
-    const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
       explorer: true,

@@ -9,12 +9,12 @@ const isDev = process.env.NODE_ENV !== 'production';
  */
 const devConfig = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100,
+  max: 200,
 };
 
 const prodConfig = {
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10,
+  max: 60,
 };
 
 const rateLimitConfig = isDev ? devConfig : prodConfig;
@@ -69,11 +69,11 @@ const limiter = createLimiter();
 /**
  * Auth-specific rate limiter
  * Stricter limits for authentication endpoints (login, signup)
- * Config: 15 minutes, max 10 requests per requirement
+ * Config: 15 minutes, higher ceiling than the general limiter to reduce lockouts
  */
 const authLimiter = createLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isDev ? 100 : 10, // 10 requests max in production
+  max: isDev ? 150 : 20,
 });
 
 export { limiter, authLimiter };
