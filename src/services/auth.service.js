@@ -243,7 +243,7 @@ export const verifyOtp = async ({ email, otp }) => {
   const record = await OneTimeOtp.findOne({
     email: normalizedEmail,
     purpose: PASSWORD_RESET_OTP_PURPOSE,
-    verifiedAt: null,
+    resetTokenUsedAt: null,
     expiresAt: { $gt: new Date() },
   }).sort({ createdAt: -1 });
 
@@ -257,14 +257,9 @@ export const verifyOtp = async ({ email, otp }) => {
   }
 
   record.verifiedAt = new Date();
-  const resetToken = crypto.randomBytes(32).toString('hex');
-  record.resetTokenHash = hashToken(resetToken);
-  record.resetTokenExpiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
-  record.resetTokenUsedAt = null;
   await record.save();
   return {
     verified: true,
-    resetToken,
   };
 };
 
@@ -742,34 +737,33 @@ export const forgotPassword = async (email) => {
 };
 
 // Reset password
-export const resetPassword = async (token, password) => {
-  if (!token) throw new Error('Reset token is required');
+export const resetPassword = async ({ email, otp, password }) => {
+  if (!email) throw new Error('Email is required');
+  if (!otp) throw new Error('OTP is required');
   if (!password) throw new Error('Password is required');
 
-  const hashedToken = hashToken(token);
-  let user = await User.findOne({
-    resetPasswordToken: hashedToken,
-    resetPasswordExpires: { $gt: Date.now() },
-  }).select('+resetPasswordToken +resetPasswordExpires +password');
+  const normalizedEmail = String(email).trim().toLowerCase();
+  const record = await OneTimeOtp.findOne({
+    email: normalizedEmail,
+    purpose: PASSWORD_RESET_OTP_PURPOSE,
+    resetTokenUsedAt: null,
+  }).sort({ createdAt: -1 });
 
-  let otpRecord = null;
+  if (!record) throw new Error('Invalid or expired OTP');
+
+  if (record.otpHash !== hashOtp(otp)) {
+    record.attempts += 1;
+    await record.save();
+    throw new Error('Invalid OTP');
+  }
+
+  if (!record.verifiedAt && record.expiresAt < new Date()) {
+    throw new Error('Invalid or expired OTP');
+  }
+
+  const user = await User.findById(record.userId).select('+password');
   if (!user) {
-    otpRecord = await OneTimeOtp.findOne({
-      resetTokenHash: hashedToken,
-      resetTokenExpiresAt: { $gt: new Date() },
-      resetTokenUsedAt: null,
-      purpose: PASSWORD_RESET_OTP_PURPOSE,
-      verifiedAt: { $ne: null },
-    }).sort({ createdAt: -1 });
-
-    if (!otpRecord) {
-      throw new Error('Invalid or expired reset token');
-    }
-
-    user = await User.findById(otpRecord.userId).select('+password');
-    if (!user) {
-      throw new Error('Invalid or expired reset token');
-    }
+    throw new Error('Invalid or expired OTP');
   }
 
   user.password = password;
@@ -779,10 +773,9 @@ export const resetPassword = async (token, password) => {
   user.resetPasswordExpires = undefined;
   await user.save();
 
-  if (otpRecord) {
-    otpRecord.resetTokenUsedAt = new Date();
-    await otpRecord.save();
-  }
+  record.verifiedAt = record.verifiedAt || new Date();
+  record.resetTokenUsedAt = new Date();
+  await record.save();
 
   if (process.env.NODE_ENV !== 'production') {
     logger.info('All sessions invalidated for user', {

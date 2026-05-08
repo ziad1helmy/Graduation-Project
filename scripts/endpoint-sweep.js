@@ -93,7 +93,7 @@ const bodyFor = (path, ctx) => {
   if (path === '/auth/admin/login') return { email: ctx.signupBodies.admin.email, password: PASSWORD, adminKey: ctx.adminKey };
   if (path === '/auth/send-otp' || path === '/auth/verify-email' || path === '/auth/forgot-password') return { email: ctx.signupBodies.donor.email };
   if (path === '/auth/verify-otp') return { email: ctx.signupBodies.donor.email, otp: ctx.otpCode };
-  if (path === '/auth/reset-password') return { token: ctx.resetToken, password: NEXT_PASSWORD };
+  if (path === '/auth/reset-password') return { email: ctx.signupBodies.donor.email, otp: ctx.otpCode, password: NEXT_PASSWORD };
   if (path === '/auth/verify-email-token') return { token: ctx.verificationToken };
   if (path === '/auth/logout' || path === '/auth/refresh-token') return { refreshToken: ctx.refreshToken };
   if (path === '/auth/fcm-token') return { fcmToken: 'fcm-test-token-1' };
@@ -282,12 +282,10 @@ const main = async () => {
   ctx.donorLoginStatus = donorLogin.status;
   ctx.hospitalLoginStatus = hospitalLogin.status;
 
-  const donorOtp = await request(app).post('/auth/send-otp').send({ email: donorEmail });
+  const donorOtp = await request(app).post('/auth/forgot-password').send({ email: donorEmail });
   ctx.otpCode = donorOtp.body?.data?.otp;
   const otpVerify = await request(app).post('/auth/verify-otp').send({ email: donorEmail, otp: ctx.otpCode });
-  ctx.resetToken = otpVerify.body?.data?.resetToken;
-
-  const donorReset = await request(app).post('/auth/reset-password').send({ token: ctx.resetToken, password: NEXT_PASSWORD });
+  const donorReset = await request(app).post('/auth/reset-password').send({ email: donorEmail, otp: ctx.otpCode, password: NEXT_PASSWORD });
   ctx.resetStatus = donorReset.status;
   const donorLoginAfterReset = await request(app).post('/auth/login').send({ email: donorEmail, password: NEXT_PASSWORD, role: 'donor' });
   ctx.donorLoginAfterResetStatus = donorLoginAfterReset.status;
