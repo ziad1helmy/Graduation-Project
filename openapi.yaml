@@ -3,7 +3,9 @@ info:
   title: LifeLink API
   version: 1.0.0
   description: OpenAPI documentation for the LifeLink donation platform API. All
-    routes are mounted at root paths.
+    routes are mounted at root paths. For realistic data and examples, run `npm
+    run seed-demo` and use the seeded demo credentials, QR tokens, and printed
+    IDs.
 servers:
   - url: http://localhost:5000
     description: Production server
@@ -218,13 +220,19 @@ paths:
       tags:
         - Donor
       summary: Get the authenticated user's activity timeline
-      description: >
+      description: >-
         Returns a paginated, timestamped history of all user actions (donations,
         rewards, urgent responses, profile updates).
 
         Supports optional filtering by activity type.
 
         Results are sorted newest-first.
+
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       parameters:
@@ -244,7 +252,7 @@ paths:
             minimum: 1
             maximum: 100
             default: 20
-          example: 20
+          example: 10
         - name: type
           in: query
           description: Optional activity type filter
@@ -255,7 +263,7 @@ paths:
               - reward
               - emergency_response
               - profile_update
-          example: donation
+          example: blood
       responses:
         "200":
           description: Activity timeline retrieved successfully
@@ -368,8 +376,14 @@ paths:
       summary: Login for admin and superadmin accounts
       tags:
         - Admin
-      description: Authenticate admin or superadmin user. Returns JWT token for
-        subsequent requests
+      description: >-
+        Authenticate admin or superadmin user. Returns JWT token for subsequent
+        requests
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       requestBody:
         required: true
         content:
@@ -411,7 +425,13 @@ paths:
       summary: Get admin profile
       tags:
         - Admin
-      description: Retrieve the authenticated admin's profile information
+      description: >-
+        Retrieve the authenticated admin's profile information
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -436,6 +456,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/system/maintenance:
     post:
       summary: Toggle maintenance mode
@@ -457,11 +480,14 @@ paths:
                 message:
                   type: string
             example:
-              enabled: true
-              message: string
+              enabled: false
+              message: Demo mode active
       responses:
         "200":
           description: Maintenance mode updated
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
     get:
       summary: Get maintenance mode status
       tags:
@@ -474,6 +500,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/statistics:
     get:
       summary: Get admin statistics summary
@@ -487,6 +516,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/alerts:
     get:
       tags:
@@ -500,6 +532,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/blood-inventory-summary:
     get:
       tags:
@@ -513,6 +548,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/audit-logs:
     get:
       summary: List audit logs
@@ -525,7 +563,7 @@ paths:
           name: action
           schema:
             type: string
-          example: string
+          example: suspend
         - in: query
           name: targetType
           schema:
@@ -545,10 +583,13 @@ paths:
           name: limit
           schema:
             type: integer
-          example: 1
+          example: 10
       responses:
         "200":
           description: Audit logs list
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/donors:
     get:
       tags:
@@ -562,6 +603,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/hospitals:
     get:
       tags:
@@ -575,6 +619,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/donors/{id}:
     get:
       tags:
@@ -588,10 +635,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
           description: Donor details
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     put:
       tags:
         - Admin
@@ -604,7 +654,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       requestBody:
         required: true
         content:
@@ -629,12 +679,9 @@ paths:
                 isAvailable:
                   type: boolean
             example:
-              fullName: string
-              email: user@example.com
-              phoneNumber: string
-              bloodType: string
-              gender: string
-              dateOfBirth: 2026-05-08
+              fullName: Aya Hassan
+              phoneNumber: "01011111111"
+              bloodType: O+
               isAvailable: true
       responses:
         "200":
@@ -643,6 +690,9 @@ paths:
           description: Donor not found
         "409":
           description: Email already registered
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /admin/hospitals/{id}:
     get:
       tags:
@@ -656,10 +706,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb1b
       responses:
         "200":
           description: Hospital details
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/admins:
     get:
       tags:
@@ -673,6 +726,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     post:
       tags:
         - Admin
@@ -718,6 +774,9 @@ paths:
           description: Only superadmin can create admins
         "409":
           description: Email already registered
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/admins/{id}:
     get:
       tags:
@@ -731,10 +790,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       responses:
         "200":
           description: Admin details
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     put:
       tags:
         - Admin
@@ -747,7 +809,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       requestBody:
         required: true
         content:
@@ -785,6 +847,9 @@ paths:
           description: Admin not found
         "409":
           description: Email already registered
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     delete:
       tags:
         - Admin
@@ -797,7 +862,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       responses:
         "200":
           description: Admin deleted successfully
@@ -805,6 +870,9 @@ paths:
           description: Cannot delete own account or insufficient role
         "404":
           description: Admin not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/donors/{id}/ban:
     post:
       tags:
@@ -818,7 +886,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       requestBody:
         required: false
         content:
@@ -829,7 +897,7 @@ paths:
                 reason:
                   type: string
             example:
-              reason: string
+              reason: Temporary compliance review
       responses:
         "200":
           description: Donor banned successfully
@@ -837,6 +905,9 @@ paths:
           description: Donor already banned
         "404":
           description: Donor not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /admin/donors/{id}/unban:
     post:
       tags:
@@ -850,7 +921,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
           description: Donor unbanned successfully
@@ -858,6 +929,9 @@ paths:
           description: Donor is not banned
         "404":
           description: Donor not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/hospitals/{id}/status:
     put:
       tags:
@@ -871,7 +945,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb1b
       requestBody:
         required: true
         content:
@@ -890,7 +964,7 @@ paths:
                   type: string
             example:
               action: suspend
-              reason: string
+              reason: Compliance audit
       responses:
         "200":
           description: Hospital status updated successfully
@@ -898,6 +972,9 @@ paths:
           description: Invalid action payload
         "404":
           description: Hospital not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /admin/permissions/roles:
     get:
       tags:
@@ -911,6 +988,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     post:
       tags:
         - Admin
@@ -956,6 +1036,9 @@ paths:
           description: System roles cannot be created or modified
         "409":
           description: Role already exists
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/permissions/roles/{role}:
     get:
       tags:
@@ -969,10 +1052,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: custom-ops
       responses:
         "200":
           description: Role retrieved successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     put:
       tags:
         - Admin
@@ -987,7 +1073,7 @@ paths:
           schema:
             type: string
           description: Role identifier (cannot be changed)
-          example: string
+          example: custom-ops
       requestBody:
         required: true
         content:
@@ -1114,6 +1200,9 @@ paths:
           description: System roles (admin, superadmin, donor, hospital) cannot be modified
         "404":
           description: Role not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     delete:
       tags:
         - Admin
@@ -1127,7 +1216,7 @@ paths:
           schema:
             type: string
           description: Role identifier to delete
-          example: string
+          example: custom-ops
       responses:
         "200":
           description: Role deleted successfully
@@ -1135,6 +1224,9 @@ paths:
           description: System roles (admin, superadmin, donor, hospital) cannot be deleted
         "404":
           description: Role not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/users:
     get:
       summary: List all users with filters and pagination
@@ -1152,7 +1244,7 @@ paths:
               - hospital
               - admin
               - superadmin
-          example: donor
+          example: custom-ops
         - in: query
           name: verified
           schema:
@@ -1173,7 +1265,7 @@ paths:
           name: search
           schema:
             type: string
-          example: string
+          example: Cairo Care
         - in: query
           name: page
           schema:
@@ -1183,10 +1275,13 @@ paths:
           name: limit
           schema:
             type: integer
-          example: 1
+          example: 10
       responses:
         "200":
           description: Users list
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/users/stats:
     get:
       summary: Get user statistics
@@ -1200,6 +1295,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/users/hospital:
     post:
       summary: Create a new hospital (admin-created, pre-verified)
@@ -1255,18 +1353,17 @@ paths:
                   description: Hospital longitude coordinate (-180 to 180)
                   example: 31.2357
             example:
-              fullName: string
-              email: string
-              password: string
-              hospitalName: string
-              hospitalId: 1
-              licenseNumber: string
+              fullName: Alexandria Demo Hospital
+              email: alex.demo@lifelink.demo
+              password: HospitalPass@123
+              hospitalName: Alexandria Demo Hospital
+              licenseNumber: LIC-ALEX-2001
+              contactNumber: "1066666666"
+              lat: 31.2001
+              long: 29.9187
               address:
-                city: string
-                governorate: string
-              contactNumber: string
-              lat: 30.0444
-              long: 31.2357
+                city: Alexandria
+                governorate: Alexandria
       responses:
         "201":
           description: Hospital created
@@ -1274,6 +1371,9 @@ paths:
           description: Invalid lat/long coordinates
         "409":
           description: Email already registered
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /admin/users/{id}:
     get:
       summary: Get user details by ID
@@ -1287,12 +1387,15 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
           description: User details
         "404":
           description: User not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     delete:
       summary: Soft-delete a user account
       tags:
@@ -1305,12 +1408,15 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
           description: User deleted
         "403":
           description: Cannot delete admin accounts
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/users/{id}/verify:
     patch:
       summary: Verify a user's email
@@ -1324,10 +1430,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
           description: User verified
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/users/{id}/unverify:
     patch:
       summary: Unverify a user's email
@@ -1341,10 +1450,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
           description: User unverified
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/users/{id}/suspend:
     patch:
       summary: Suspend a user account
@@ -1358,7 +1470,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       requestBody:
         required: true
         content:
@@ -1371,12 +1483,15 @@ paths:
                 reason:
                   type: string
             example:
-              reason: string
+              reason: Repeated policy violation
       responses:
         "200":
           description: User suspended
         "403":
           description: Cannot suspend admin accounts
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /admin/users/{id}/unsuspend:
     patch:
       summary: Unsuspend a user account
@@ -1390,10 +1505,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
           description: User unsuspended
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/requests:
     get:
       summary: List all blood/organ requests
@@ -1421,12 +1539,12 @@ paths:
               - medium
               - high
               - critical
-          example: low
+          example: critical
         - in: query
           name: bloodType
           schema:
             type: string
-          example: string
+          example: O+
         - in: query
           name: type
           schema:
@@ -1444,10 +1562,13 @@ paths:
           name: limit
           schema:
             type: integer
-          example: 1
+          example: 10
       responses:
         "200":
           description: Requests list
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/requests/stats:
     get:
       summary: Get request statistics
@@ -1461,6 +1582,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/requests/{id}:
     get:
       summary: Get full request details with donations
@@ -1474,10 +1598,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       responses:
         "200":
           description: Request details
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/requests/{id}/donations:
     get:
       summary: Get donations for a specific request
@@ -1491,10 +1618,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       responses:
         "200":
           description: Request donations
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/requests/{id}/fulfill:
     patch:
       summary: Mark a request as fulfilled
@@ -1508,10 +1638,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       responses:
         "200":
           description: Request fulfilled
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/requests/{id}/cancel:
     patch:
       summary: Cancel a request
@@ -1525,7 +1658,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       requestBody:
         required: true
         content:
@@ -1538,10 +1671,13 @@ paths:
                 reason:
                   type: string
             example:
-              reason: string
+              reason: Transferred to another hospital
       responses:
         "200":
           description: Request cancelled
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /admin/requests/{id}/broadcast:
     post:
       summary: Broadcast request to eligible donors
@@ -1555,10 +1691,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       responses:
         "200":
           description: Broadcast sent
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/analytics/dashboard:
     get:
       summary: Dashboard summary with key metrics
@@ -1572,6 +1711,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/analytics/donations:
     get:
       summary: Monthly donation trends
@@ -1589,6 +1731,9 @@ paths:
       responses:
         "200":
           description: Donation trends
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/analytics/blood-types:
     get:
       summary: Blood type distribution
@@ -1602,6 +1747,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/analytics/top-donors:
     get:
       summary: Top donors leaderboard
@@ -1619,6 +1767,9 @@ paths:
       responses:
         "200":
           description: Top donors
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/analytics/growth:
     get:
       summary: Growth metrics over time
@@ -1636,6 +1787,9 @@ paths:
       responses:
         "200":
           description: Growth metrics
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/emergency/broadcast:
     post:
       summary: Send emergency broadcast to donors
@@ -1675,15 +1829,18 @@ paths:
                       - O+
                       - O-
             example:
-              title: string
-              message: string
-              governorate: string
-              city: string
+              title: Emergency O+ Need
+              message: Critical O+ blood request in Cairo.
+              governorate: Cairo
+              city: Cairo
               bloodTypes:
-                - A+
+                - O+
       responses:
         "200":
           description: Emergency broadcast sent
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /admin/emergency/critical:
     get:
       summary: List critical and high urgency active requests
@@ -1697,6 +1854,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /admin/emergency/shortage-alerts:
     get:
       summary: Blood shortage alerts
@@ -1710,6 +1870,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /donations/book-appointment:
     post:
       tags:
@@ -1739,10 +1902,10 @@ paths:
                   type: string
                   maxLength: 500
             example:
-              hospitalId: 66f100000000000000000010
-              requestId: 66f100000000000000000020
-              appointmentDate: 2026-05-10T10:00:00.000Z
-              notes: First-time donor, available in the morning.
+              hospitalId: 69f3df915f42685cbbbcbb1b
+              requestId: 69fe540565ff7785a031314f
+              appointmentDate: 2026-05-12T10:00:00.000Z
+              notes: Available in the morning.
       responses:
         "201":
           description: Appointment booked
@@ -1756,6 +1919,9 @@ paths:
           description: Hospital, donor, or request not found
         "409":
           description: Active appointment already exists for this hospital
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /donations/book-appointment/available-slots:
     get:
       tags:
@@ -1763,6 +1929,9 @@ paths:
       summary: Get available appointment slots for a hospital on a given date
       security:
         - bearerAuth: []
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
       responses:
         "200":
           description: Example response
@@ -1782,13 +1951,13 @@ paths:
           schema:
             type: integer
             minimum: 0
-          example: 1
+          example: 0
         - in: query
           name: limit
           schema:
             type: integer
             minimum: 1
-          example: 1
+          example: 10
       responses:
         "200":
           description: Appointments fetched successfully
@@ -1796,6 +1965,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /donations/book-appointment/{appointmentId}:
     get:
       tags:
@@ -1809,7 +1981,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031315c
       responses:
         "200":
           description: Appointment retrieved
@@ -1819,6 +1991,9 @@ paths:
           description: Role not allowed
         "404":
           description: Appointment not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     patch:
       tags:
         - Donor
@@ -1831,7 +2006,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031315c
       requestBody:
         required: true
         content:
@@ -1845,7 +2020,8 @@ paths:
                   type: string
                   format: date-time
             example:
-              date: 2026-05-15T14:00:00.000Z
+              date: 2026-05-13
+              time: 11:00 AM
       responses:
         "200":
           description: Appointment rescheduled
@@ -1857,6 +2033,9 @@ paths:
           description: Role not allowed
         "404":
           description: Appointment not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
     delete:
       tags:
         - Donor
@@ -1869,7 +2048,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031315c
       responses:
         "200":
           description: Appointment cancelled
@@ -1881,19 +2060,33 @@ paths:
           description: Role not allowed
         "404":
           description: Appointment not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /appointments/verify-qr:
     post:
       tags:
         - Hospital
       summary: Verify donor QR code at hospital check-in
-      description: |
+      description: >-
         Hospital staff scans the donor's QR code to confirm the donation.
+
         - Validates the QR token, checks expiry and one-time usage
+
         - Marks the appointment as completed
+
         - Creates a Donation record
+
         - Updates donor statistics and triggers reward/badge flow
 
+
         **Role required:** hospital | admin | superadmin
+
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example.
       security:
         - bearerAuth: []
       requestBody:
@@ -1910,7 +2103,7 @@ paths:
                   description: The secure QR token scanned from the donor's device
                   example: a3f9c1e82b4d...
             example:
-              qrToken: a3f9c1e82b4d7890abcd1234ef567890
+              qrToken: demo-qr-noor-verify
       responses:
         "200":
           description: Donation verified successfully
@@ -1945,9 +2138,15 @@ paths:
       tags:
         - Auth
       summary: Register a new donor or hospital account
-      description: Create a new account as donor or hospital. Donor signup requires
+      description: >-
+        Create a new account as donor or hospital. Donor signup requires
         phoneNumber, dateOfBirth, bloodType. Hospital signup requires
         hospitalName, licenseNumber
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       requestBody:
         required: true
         content:
@@ -2002,7 +2201,13 @@ paths:
       tags:
         - Auth
       summary: Donor login with email and password
-      description: Authenticate as a donor user. Returns JWT token. Supports optional 2FA
+      description: >-
+        Authenticate as a donor user. Returns JWT token. Supports optional 2FA
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example.
       requestBody:
         required: true
         content:
@@ -2010,9 +2215,8 @@ paths:
             schema:
               $ref: "#/components/schemas/LoginRequest"
             example:
-              email: user@example.com
-              password: P@ssw0rd123
-              role: donor
+              email: aya.hassan@lifelink.demo
+              password: DonorPass@123
       responses:
         "200":
           description: Login successful or 2FA verification required
@@ -2025,7 +2229,13 @@ paths:
       tags:
         - Auth
       summary: Hospital login with email and password
-      description: Authenticate as a hospital user. Returns JWT token
+      description: >-
+        Authenticate as a hospital user. Returns JWT token
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example.
       requestBody:
         required: true
         content:
@@ -2033,9 +2243,8 @@ paths:
             schema:
               $ref: "#/components/schemas/LoginRequest"
             example:
-              email: user@example.com
-              password: P@ssw0rd123
-              role: donor
+              email: ops@cairocare.demo
+              password: HospitalPass@123
       responses:
         "200":
           description: Hospital login successful
@@ -2048,8 +2257,14 @@ paths:
       tags:
         - Auth
       summary: Admin/Superadmin login with email, password, and adminKey
-      description: Authenticate as admin or superadmin. Requires email, password, and
+      description: >-
+        Authenticate as admin or superadmin. Requires email, password, and
         adminKey secret
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example.
       requestBody:
         required: true
         content:
@@ -2070,9 +2285,9 @@ paths:
                 adminKey:
                   type: string
             example:
-              email: user@example.com
-              password: P@ssw0rd123
-              adminKey: string
+              email: admin@lifelink.demo
+              password: AdminPass@123
+              adminKey: ADMIN-DEMO-KEY-2026
       responses:
         "200":
           description: Admin login successful or 2FA verification required
@@ -2091,6 +2306,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /auth/forgot-password:
     post:
       tags:
@@ -2103,10 +2321,13 @@ paths:
             schema:
               $ref: "#/components/schemas/EmailRequest"
             example:
-              email: user@example.com
+              email: aya.hassan@lifelink.demo
       responses:
         "200":
           description: Password reset email sent
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /auth/reset-password:
     post:
       tags:
@@ -2130,14 +2351,17 @@ paths:
                 password:
                   type: string
             example:
-              email: string
-              otp: string
-              password: string
+              email: aya.hassan@lifelink.demo
+              otp: "123456"
+              password: NewPass@123
       responses:
         "200":
           description: Password reset successful
         "400":
           description: Invalid or expired OTP
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /auth/verify-otp:
     post:
       tags:
@@ -2150,11 +2374,14 @@ paths:
             schema:
               $ref: "#/components/schemas/OtpRequest"
             example:
-              email: user@example.com
-              otp: string
+              email: aya.hassan@lifelink.demo
+              otp: "123456"
       responses:
         "200":
           description: Password reset OTP verified successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /auth/verify-email:
     post:
       tags:
@@ -2167,10 +2394,13 @@ paths:
             schema:
               $ref: "#/components/schemas/EmailRequest"
             example:
-              email: user@example.com
+              email: aya.hassan@lifelink.demo
       responses:
         "200":
           description: Verification code sent successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /auth/verify-email-otp:
     post:
       tags:
@@ -2183,11 +2413,14 @@ paths:
             schema:
               $ref: "#/components/schemas/VerificationOtpRequest"
             example:
-              email: user@example.com
-              otp: string
+              email: aya.hassan@lifelink.demo
+              otp: "123456"
       responses:
         "200":
           description: Email verified successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /auth/2fa/setup:
     post:
       tags:
@@ -2201,6 +2434,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /auth/2fa/confirm-setup:
     post:
       tags:
@@ -2220,6 +2456,9 @@ paths:
       responses:
         "200":
           description: 2FA setup verified successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /auth/2fa/verify:
     post:
       tags:
@@ -2234,10 +2473,15 @@ paths:
               required:
                 - tempToken
                 - code
-            example: {}
+            example:
+              tempToken: <TEMP_2FA_TOKEN>
+              code: "123456"
       responses:
         "200":
           description: 2FA verified successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /auth/2fa/disable:
     post:
       tags:
@@ -2253,37 +2497,47 @@ paths:
               type: object
               required:
                 - password
-            example: {}
+            example:
+              password: AdminPass@123
       responses:
         "200":
           description: 2FA disabled successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /hospitals:
     get:
       summary: List hospitals for discovery
       tags:
         - Donor
-      description: Public endpoint to discover hospitals. Search and filter by city,
+      description: >-
+        Public endpoint to discover hospitals. Search and filter by city,
         governorate, or keywords. Results include hospital contact information
         and blood inventory status
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       parameters:
         - in: query
           name: city
           schema:
             type: string
           description: Filter by city name
-          example: string
+          example: Cairo
         - in: query
           name: governorate
           schema:
             type: string
           description: Filter by governorate/region
-          example: string
+          example: Cairo
         - in: query
           name: search
           schema:
             type: string
           description: Search hospitals by name or keywords
-          example: string
+          example: Cairo Care
         - in: query
           name: page
           schema:
@@ -2297,14 +2551,14 @@ paths:
             type: integer
             default: 20
           description: Items per page (max 100)
-          example: 20
+          example: 10
         - in: query
           name: skip
           schema:
             type: integer
           description: Legacy pagination - number of items to skip. Still supported for
             compatibility
-          example: 1
+          example: 0
       responses:
         "200":
           description: Hospitals list retrieved successfully
@@ -2323,9 +2577,15 @@ paths:
       summary: List nearby hospitals by GPS coordinates
       tags:
         - Donor
-      description: Find hospitals within a specified radius from given GPS
-        coordinates. Returns hospitals sorted by distance. Supports both
-        lat/long and legacy latitude/longitude parameters
+      description: >-
+        Find hospitals within a specified radius from given GPS coordinates.
+        Returns hospitals sorted by distance. Supports both lat/long and legacy
+        latitude/longitude parameters
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       parameters:
         - in: query
           name: lat
@@ -2364,6 +2624,9 @@ paths:
       summary: Search hospitals by keyword, blood type, and availability
       tags:
         - Donor
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
       responses:
         "200":
           description: Example response
@@ -2375,6 +2638,9 @@ paths:
       summary: Get hospitals for map markers
       tags:
         - Donor
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
       responses:
         "200":
           description: Example response
@@ -2392,10 +2658,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb1b
       responses:
         "200":
           description: Hospital details
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /donations/types:
     get:
       tags:
@@ -2407,6 +2676,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /donations/validate:
     post:
       tags:
@@ -2423,25 +2695,15 @@ paths:
               required:
                 - hospitalId
                 - date
-            example: {}
+            example:
+              hospitalId: 69f3df915f42685cbbbcbb1b
+              date: 2026-05-12T10:00:00.000Z
       responses:
         "200":
           description: Donation eligibility checked successfully
-  /donations/qr/scan:
-    post:
-      tags:
-        - Donor
-      summary: Confirm a donation by scanning an appointment QR token
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-      responses:
-        "200":
-          description: Donation confirmed successfully
-          content:
-            application/json:
-              example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /donations/complete:
     post:
       tags:
@@ -2449,6 +2711,9 @@ paths:
       summary: Mark a donation as completed
       security:
         - bearerAuth: []
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
       responses:
         "200":
           description: Example response
@@ -2462,6 +2727,9 @@ paths:
       summary: Get donor appointments via the donations compatibility alias
       security:
         - bearerAuth: []
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
       responses:
         "200":
           description: Example response
@@ -2473,8 +2741,14 @@ paths:
       tags:
         - Donor
       summary: Get the authenticated donor profile
-      description: Retrieve the authenticated donor's profile information including
-        blood type, availability status, and location
+      description: >-
+        Retrieve the authenticated donor's profile information including blood
+        type, availability status, and location
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -2505,8 +2779,14 @@ paths:
       tags:
         - Donor
       summary: Update the authenticated donor profile
-      description: Update donor profile information such as name, phone, blood type,
+      description: >-
+        Update donor profile information such as name, phone, blood type,
         gender, location, and availability
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example.
       security:
         - bearerAuth: []
       requestBody:
@@ -2560,11 +2840,10 @@ paths:
                       type: string
                       example: Cairo
             example:
-              fullName: Ahmed Hassan
-              phoneNumber: "01012345678"
-              gender: male
-              bloodType: O+
-              isAvailable: true
+              fullName: Aya Hassan
+              phoneNumber: "01011111111"
+              gender: female
+              weight: 60
               location:
                 city: Cairo
                 governorate: Cairo
@@ -2593,8 +2872,14 @@ paths:
       tags:
         - Donor
       summary: List active donation requests available to donors
-      description: Retrieve paginated list of blood and organ donation requests that
-        match donor eligibility criteria. Filters by type and urgency
+      description: >-
+        Retrieve paginated list of blood and organ donation requests that match
+        donor eligibility criteria. Filters by type and urgency
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       parameters:
@@ -2617,7 +2902,7 @@ paths:
               - high
               - critical
           description: Urgency level filter
-          example: low
+          example: critical
         - in: query
           name: page
           schema:
@@ -2631,7 +2916,7 @@ paths:
             type: integer
             example: 20
           description: Items per page
-          example: 20
+          example: 10
       responses:
         "200":
           description: Requests retrieved successfully
@@ -2695,6 +2980,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /donor/respond/{requestId}:
     post:
       tags:
@@ -2708,7 +2996,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a031314f
       requestBody:
         required: true
         content:
@@ -2743,6 +3031,9 @@ paths:
           description: Role not allowed
         "404":
           description: Request or donor not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /donor/history:
     get:
       tags:
@@ -2798,6 +3089,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /donor/availability:
     put:
       tags:
@@ -2833,6 +3127,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /donor/health-history:
     get:
       tags:
@@ -2850,6 +3147,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     patch:
       tags:
         - Donor
@@ -2862,7 +3162,14 @@ paths:
           application/json:
             schema:
               type: object
-            example: {}
+            example:
+              chronicConditions: []
+              medications:
+                - Iron supplement
+              allergies:
+                - Penicillin
+              notes: Healthy and ready for donation.
+              lastCheckupDate: 2026-04-20
       responses:
         "200":
           description: Health history updated successfully
@@ -2872,6 +3179,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /donor/settings:
     get:
       tags:
@@ -2891,6 +3201,9 @@ paths:
           description: Role not allowed
         "404":
           description: Donor profile not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     put:
       tags:
         - Donor
@@ -2931,13 +3244,22 @@ paths:
           description: Role not allowed
         "404":
           description: Donor profile not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /donor/stats:
     get:
       tags:
         - Donor
       summary: Get lightweight donor statistics
-      description: Returns totalDonations, points balance, and livesSaved. Used in
-        home header and profile stats row.
+      description: >-
+        Returns totalDonations, points balance, and livesSaved. Used in home
+        header and profile stats row.
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -2959,8 +3281,14 @@ paths:
       tags:
         - Donor
       summary: Get donor rewards and badge progress
-      description: Returns current points, earned badges, locked badges with progress,
-        and next milestone.
+      description: >-
+        Returns current points, earned badges, locked badges with progress, and
+        next milestone.
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -2990,11 +3318,17 @@ paths:
       tags:
         - Donor
       summary: Get donor donation history with pointsEarned
-      description: >
+      description: >-
         Paginated donation history for the authenticated donor.
 
         Each record includes `pointsEarned` calculated from the points
         transaction log.
+
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       parameters:
@@ -3054,20 +3388,29 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /help/documents/{type}:
     get:
       summary: Get help document by type
       tags:
         - Donor
-      description: Returns a stored help document, or 404 if that document has not
-        been configured.
+      description: >-
+        Returns a stored help document, or 404 if that document has not been
+        configured.
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       parameters:
         - in: path
           name: type
           required: true
           schema:
             type: string
-          example: string
+          example: blood
       responses:
         "200":
           description: Document retrieved successfully
@@ -3076,8 +3419,14 @@ paths:
       tags:
         - Hospital
       summary: Get the authenticated hospital profile
-      description: Retrieve the authenticated hospital's profile information including
+      description: >-
+        Retrieve the authenticated hospital's profile information including
         license, contact details, blood inventory, and location coordinates
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -3108,8 +3457,14 @@ paths:
       tags:
         - Hospital
       summary: Update the authenticated hospital profile
-      description: Update hospital information including name, contact number,
-        address, location coordinates (lat/long), and license number
+      description: >-
+        Update hospital information including name, contact number, address,
+        location coordinates (lat/long), and license number
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example.
       security:
         - bearerAuth: []
       requestBody:
@@ -3154,15 +3509,18 @@ paths:
                   description: Hospital license number
                   example: LIC-2026-001
             example:
-              fullName: Cairo General Hospital
-              hospitalName: Cairo General Hospital
-              contactNumber: "01099998888"
+              fullName: Cairo Care Operations
+              hospitalName: Cairo Care Hospital
+              contactNumber: "1044444444"
               address:
                 city: Cairo
                 governorate: Cairo
-              lat: 30.0444
-              long: 31.2357
-              licenseNumber: LIC-2026-001
+              location:
+                city: Cairo
+                governorate: Cairo
+                coordinates:
+                  lat: 30.0511
+                  lng: 31.2435
       responses:
         "200":
           description: Hospital profile updated successfully
@@ -3186,8 +3544,14 @@ paths:
       tags:
         - Hospital
       summary: Create a new donation request
-      description: Create a blood or organ donation request with type, urgency,
-        required blood types, and deadline
+      description: >-
+        Create a blood or organ donation request with type, urgency, required
+        blood types, and deadline
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example.
       security:
         - bearerAuth: []
       requestBody:
@@ -3250,11 +3614,10 @@ paths:
             example:
               type: blood
               bloodType: O+
-              organType: kidney
-              urgency: high
-              requiredBy: 2026-04-15T00:00:00.000Z
-              quantity: 2
-              notes: Need compatible donors urgently
+              urgency: critical
+              requiredBy: 2026-05-12T10:00:00.000Z
+              quantity: 3
+              notes: Emergency surgery support
       responses:
         "201":
           description: Donation request created successfully
@@ -3316,6 +3679,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /hospital/requests/{requestId}:
     get:
       tags:
@@ -3329,7 +3695,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313150
       responses:
         "200":
           description: Request details retrieved successfully
@@ -3339,6 +3705,9 @@ paths:
           description: Role not allowed or unauthorized access
         "404":
           description: Request not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     put:
       tags:
         - Hospital
@@ -3351,7 +3720,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313150
       requestBody:
         required: true
         content:
@@ -3382,6 +3751,9 @@ paths:
           description: Role not allowed or unauthorized access
         "404":
           description: Request not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
     delete:
       tags:
         - Hospital
@@ -3394,7 +3766,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313150
       responses:
         "200":
           description: Request cancelled successfully
@@ -3404,6 +3776,9 @@ paths:
           description: Role not allowed or unauthorized access
         "404":
           description: Request not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /hospital/donations:
     get:
       tags:
@@ -3448,6 +3823,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /hospital/blood-inventory:
     get:
       tags:
@@ -3465,6 +3843,9 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /hospital/blood-bank-settings:
     get:
       tags:
@@ -3478,6 +3859,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     put:
       tags:
         - Hospital
@@ -3490,10 +3874,21 @@ paths:
           application/json:
             schema:
               type: object
-            example: {}
+            example:
+              criticalThreshold:
+                O+: 4
+                A-: 2
+              lowThreshold:
+                O+: 12
+                A-: 8
+              automaticNotifications: true
+              notificationEmail: ops@cairocare.demo
       responses:
         "200":
           description: Blood bank settings updated successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /hospital/notification-preferences:
     get:
       tags:
@@ -3507,6 +3902,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     put:
       tags:
         - Hospital
@@ -3519,10 +3917,16 @@ paths:
           application/json:
             schema:
               type: object
-            example: {}
+            example:
+              email: true
+              push: true
+              sms: false
       responses:
         "200":
           description: Notification preferences updated successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /hospital/reports/monthly:
     get:
       tags:
@@ -3536,10 +3940,13 @@ paths:
           schema:
             type: string
             example: 2026-04
-          example: 2026-04
+          example: 2026-05
       responses:
         "200":
           description: Monthly report retrieved successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /hospital/staff:
     get:
       tags:
@@ -3553,6 +3960,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     post:
       tags:
         - Hospital
@@ -3568,10 +3978,19 @@ paths:
               required:
                 - name
                 - position
-            example: {}
+            example:
+              name: Sara Fawzy
+              position: PHLEBOTOMIST
+              status: ON_DUTY
+              phone: "01170000001"
+              shiftStart: 09:00
+              shiftEnd: 17:00
       responses:
         "201":
           description: Staff created successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /hospital/staff/{id}:
     delete:
       tags:
@@ -3585,10 +4004,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313180
       responses:
         "200":
           description: Staff deleted successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /notifications:
     get:
       summary: List notifications for authenticated user
@@ -3608,20 +4030,23 @@ paths:
           schema:
             type: integer
             default: 20
-          example: 20
+          example: 10
         - in: query
           name: read
           schema:
             type: boolean
-          example: true
+          example: false
         - in: query
           name: type
           schema:
             type: string
-          example: string
+          example: blood
       responses:
         "200":
           description: Notifications list
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /notifications/{id}/read:
     patch:
       summary: Mark one notification as read
@@ -3635,10 +4060,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313170
       responses:
         "200":
           description: Notification marked as read
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /notifications/read-all:
     patch:
       summary: Mark all notifications as read
@@ -3652,6 +4080,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /notifications/{id}:
     get:
       summary: Get one notification
@@ -3665,7 +4096,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313170
       responses:
         "200":
           description: Notification retrieved successfully
@@ -3673,6 +4104,9 @@ paths:
           description: Invalid notification id
         "404":
           description: Notification not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
     delete:
       summary: Delete one notification
       tags:
@@ -3685,10 +4119,13 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313170
       responses:
         "200":
           description: Notification deleted
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /rewards/points:
     get:
       summary: Get donor's points summary and tier
@@ -3702,16 +4139,25 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /rewards/dashboard:
     get:
       tags:
         - Donor
       summary: Get full rewards screen data in one request
-      description: >
+      description: >-
         Returns all data needed to render the Rewards screen in a single call:
 
         current points, rewards catalog, points history (last 10), and badge
         progress.
+
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -3755,8 +4201,14 @@ paths:
       tags:
         - Donor
       summary: Get rewards screen header stats
-      description: Returns current points, next reward distance, badge counts, and
+      description: >-
+        Returns current points, next reward distance, badge counts, and
         completion percentage.
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -3795,7 +4247,7 @@ paths:
           schema:
             type: integer
             default: 20
-          example: 20
+          example: 10
         - in: query
           name: filter
           schema:
@@ -3812,16 +4264,19 @@ paths:
           schema:
             type: string
             format: date-time
-          example: 2026-05-08T12:00:00.000Z
+          example: 2026-05-01T00:00:00.000Z
         - in: query
           name: date_to
           schema:
             type: string
             format: date-time
-          example: 2026-05-08T12:00:00.000Z
+          example: 2026-05-31T23:59:59.000Z
       responses:
         "200":
           description: Paginated points history
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /rewards/badges:
     get:
       summary: Get all badges and donor's progress
@@ -3835,6 +4290,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /rewards/catalog:
     get:
       summary: Get available rewards catalog
@@ -3853,7 +4311,7 @@ paths:
               - ENTERTAINMENT
               - HEALTH
               - STATUS
-          example: ALL
+          example: FOOD
         - in: query
           name: sort_by
           schema:
@@ -3866,6 +4324,9 @@ paths:
       responses:
         "200":
           description: Rewards catalog
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /rewards/history:
     get:
       summary: Get donor reward history
@@ -3885,7 +4346,7 @@ paths:
               - DELIVERED
               - CANCELLED
               - EXPIRED
-          example: ALL
+          example: pending
         - in: query
           name: page
           schema:
@@ -3895,10 +4356,13 @@ paths:
           name: limit
           schema:
             type: integer
-          example: 1
+          example: 10
       responses:
         "200":
           description: Reward history retrieved successfully
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /rewards/catalog/{rewardId}/redeem:
     post:
       summary: Redeem a reward using points
@@ -3912,7 +4376,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313165
       requestBody:
         content:
           application/json:
@@ -3930,12 +4394,15 @@ paths:
                   description: Email address if delivery_preference is EMAIL
             example:
               delivery_preference: IN_APP
-              delivery_contact: string
+              delivery_contact: null
       responses:
         "200":
           description: Redemption confirmed with confirmation code
         "409":
           description: Insufficient points or limit exceeded
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /rewards/redemptions:
     get:
       summary: Get donor's redemption history
@@ -3955,7 +4422,7 @@ paths:
               - DELIVERED
               - CANCELLED
               - EXPIRED
-          example: ALL
+          example: pending
         - in: query
           name: page
           schema:
@@ -3965,10 +4432,13 @@ paths:
           name: limit
           schema:
             type: integer
-          example: 1
+          example: 10
       responses:
         "200":
           description: Paginated redemption history
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /rewards/leaderboard:
     get:
       summary: Get the top donors leaderboard
@@ -3984,10 +4454,13 @@ paths:
             default: 20
             maximum: 50
           description: Number of top donors to return
-          example: 20
+          example: 10
       responses:
         "200":
           description: Ranked list of top donors by lifetime points
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /rewards/admin/users/{userId}/points/adjust:
     post:
       summary: Manually adjust a donor's points (admin only)
@@ -4001,7 +4474,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69f3df915f42685cbbbcbb18
       requestBody:
         required: true
         content:
@@ -4018,11 +4491,14 @@ paths:
                 reason:
                   type: string
             example:
-              amount: 1
-              reason: string
+              amount: 100
+              reason: Demo bonus points
       responses:
         "200":
           description: Points adjusted and transaction logged
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /rewards/admin/catalog/{rewardId}/status:
     patch:
       summary: Update a reward's status (admin only)
@@ -4036,7 +4512,7 @@ paths:
           required: true
           schema:
             type: string
-          example: string
+          example: 69fe540565ff7785a0313165
       requestBody:
         required: true
         content:
@@ -4057,6 +4533,9 @@ paths:
       responses:
         "200":
           description: Reward status updated
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example."
   /rewards/admin/analytics:
     get:
       summary: Get rewards system analytics (admin only)
@@ -4070,6 +4549,9 @@ paths:
           content:
             application/json:
               example: *a2
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 Parameter examples are aligned with the seeded
+        demo dataset where possible."
   /support/contact:
     post:
       summary: Submit a support request
@@ -4077,8 +4559,14 @@ paths:
         - Donor
       security:
         - bearerAuth: []
-      description: Authenticated submissions are linked to the current user id, email,
-        and role for traceability.
+      description: >-
+        Authenticated submissions are linked to the current user id, email, and
+        role for traceability.
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        http://localhost:5000 This operation includes a seeded demo request
+        example.
       requestBody:
         required: true
         content:
@@ -4088,7 +4576,9 @@ paths:
               required:
                 - subject
                 - message
-            example: {}
+            example:
+              subject: Need help with reward redemption
+              message: I want to confirm when the Coffee Voucher becomes available.
       responses:
         "201":
           description: Support request submitted successfully

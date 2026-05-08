@@ -4,6 +4,7 @@ import { connectDB, disconnectDB } from '../src/config/db.js';
 import User from '../src/models/User.model.js';
 import Donor from '../src/models/Donor.model.js';
 import Hospital from '../src/models/Hospital.model.js';
+import HospitalStaff from '../src/models/HospitalStaff.model.js';
 import Request from '../src/models/Request.model.js';
 import Donation from '../src/models/Donation.model.js';
 import Notification from '../src/models/Notification.model.js';
@@ -13,7 +14,6 @@ import Appointment from '../src/models/Appointment.model.js';
 import Activity from '../src/models/Activity.model.js';
 import AuditLog from '../src/models/AuditLog.model.js';
 import DonorPoints from '../src/models/DonorPoints.model.js';
-import crypto from 'crypto';
 import PointsTransaction from '../src/models/PointsTransaction.model.js';
 import RewardCatalog from '../src/models/RewardCatalog.model.js';
 import RewardRedemption from '../src/models/RewardRedemption.model.js';
@@ -25,21 +25,33 @@ import { seedDefaultSettings, seedDefaultRolePermissions } from '../src/services
 import { seedRewardData } from '../src/services/reward.service.js';
 
 const now = new Date();
-const futureDate = (days) => new Date(Date.now() + days * 24 * 60 * 60 * 1000);
-const pastDate = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+const futureDate = (days, hour = 10) => {
+  const date = new Date(Date.now() + days * 24 * 60 * 60 * 1000);
+  date.setHours(hour, 0, 0, 0);
+  return date;
+};
+const pastDate = (days, hour = 10) => {
+  const date = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+  date.setHours(hour, 0, 0, 0);
+  return date;
+};
+const demoBaseUrl = `http://localhost:${process.env.PORT || 5000}`;
 
 const demoCredentials = [
-  { role: 'admin', email: 'admin@lifelink.demo', password: 'AdminPass@123' },
-  { role: 'superadmin', email: 'root@lifelink.demo', password: 'SuperAdminPass@123' },
+  { role: 'admin', email: 'admin@lifelink.demo', password: 'AdminPass@123', adminKey: 'ADMIN-DEMO-KEY-2026' },
+  { role: 'superadmin', email: 'root@lifelink.demo', password: 'SuperAdminPass@123', adminKey: 'SUPERADMIN-DEMO-KEY-2026' },
   { role: 'donor', email: 'aya.hassan@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'omar.nabil@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'mariam.adel@lifelink.demo', password: 'DonorPass@123' },
+  { role: 'donor', email: 'leila.mansour@lifelink.demo', password: 'DonorPass@123' },
+  { role: 'donor', email: 'noor.tarek@lifelink.demo', password: 'DonorPass@123' },
   { role: 'hospital', email: 'ops@cairocare.demo', password: 'HospitalPass@123' },
   { role: 'hospital', email: 'bloodbank@nilehope.demo', password: 'HospitalPass@123' },
 ];
 
 const donorsData = [
   {
+    key: 'aya',
     fullName: 'Aya Hassan',
     email: 'aya.hassan@lifelink.demo',
     password: 'DonorPass@123',
@@ -49,6 +61,23 @@ const donorsData = [
     gender: 'female',
     bloodType: 'O+',
     isAvailable: true,
+    weight: 60,
+    hemoglobinLevel: 13.5,
+    healthHistory: {
+      chronicConditions: [],
+      medications: [],
+      allergies: ['Penicillin'],
+      recentIllness: '',
+      notes: 'Healthy demo donor for urgent blood requests.',
+      lastCheckupDate: pastDate(20),
+      updatedAt: now,
+    },
+    settings: {
+      pushNotifications: true,
+      emergencyAlerts: true,
+      privacy: 'public',
+      language: 'en',
+    },
     location: {
       city: 'Cairo',
       governorate: 'Cairo',
@@ -57,6 +86,7 @@ const donorsData = [
     },
   },
   {
+    key: 'omar',
     fullName: 'Omar Nabil',
     email: 'omar.nabil@lifelink.demo',
     password: 'DonorPass@123',
@@ -66,6 +96,23 @@ const donorsData = [
     gender: 'male',
     bloodType: 'A-',
     isAvailable: true,
+    weight: 78,
+    hemoglobinLevel: 14.4,
+    healthHistory: {
+      chronicConditions: [],
+      medications: [],
+      allergies: [],
+      recentIllness: '',
+      notes: 'Regular donor with upcoming booked donation.',
+      lastCheckupDate: pastDate(35),
+      updatedAt: now,
+    },
+    settings: {
+      pushNotifications: true,
+      emergencyAlerts: false,
+      privacy: 'private',
+      language: 'ar',
+    },
     location: {
       city: 'Giza',
       governorate: 'Giza',
@@ -74,6 +121,7 @@ const donorsData = [
     },
   },
   {
+    key: 'mariam',
     fullName: 'Mariam Adel',
     email: 'mariam.adel@lifelink.demo',
     password: 'DonorPass@123',
@@ -83,6 +131,24 @@ const donorsData = [
     gender: 'female',
     bloodType: 'B+',
     isAvailable: true,
+    weight: 64,
+    hemoglobinLevel: 13.9,
+    lastDonationDate: pastDate(90),
+    healthHistory: {
+      chronicConditions: [],
+      medications: ['Iron supplement'],
+      allergies: [],
+      recentIllness: '',
+      notes: 'Completed donor with points, rewards, and badge history.',
+      lastCheckupDate: pastDate(50),
+      updatedAt: now,
+    },
+    settings: {
+      pushNotifications: true,
+      emergencyAlerts: true,
+      privacy: 'friends',
+      language: 'en',
+    },
     location: {
       city: 'Nasr City',
       governorate: 'Cairo',
@@ -90,42 +156,134 @@ const donorsData = [
       lastUpdated: now,
     },
   },
+  {
+    key: 'leila',
+    fullName: 'Leila Mansour',
+    email: 'leila.mansour@lifelink.demo',
+    password: 'DonorPass@123',
+    role: 'donor',
+    phoneNumber: '01044444444',
+    dateOfBirth: new Date('1994-06-18'),
+    gender: 'female',
+    bloodType: 'AB+',
+    isAvailable: false,
+    weight: 57,
+    hemoglobinLevel: 12.8,
+    healthHistory: {
+      chronicConditions: [],
+      medications: [],
+      allergies: [],
+      recentIllness: 'Recovered from a cold two weeks ago.',
+      notes: 'Unavailable donor used for declined and cancelled scenarios.',
+      lastCheckupDate: pastDate(15),
+      updatedAt: now,
+    },
+    settings: {
+      pushNotifications: false,
+      emergencyAlerts: false,
+      privacy: 'private',
+      language: 'en',
+    },
+    location: {
+      city: 'Dokki',
+      governorate: 'Giza',
+      coordinates: { lat: 30.0384, lng: 31.2109 },
+      lastUpdated: now,
+    },
+  },
+  {
+    key: 'noor',
+    fullName: 'Noor Tarek',
+    email: 'noor.tarek@lifelink.demo',
+    password: 'DonorPass@123',
+    role: 'donor',
+    phoneNumber: '01055555555',
+    dateOfBirth: new Date('1997-01-27'),
+    gender: 'female',
+    bloodType: 'O-',
+    isAvailable: true,
+    weight: 62,
+    hemoglobinLevel: 14.0,
+    healthHistory: {
+      chronicConditions: [],
+      medications: [],
+      allergies: ['Dust'],
+      recentIllness: '',
+      notes: 'Fresh donor reserved for appointment QR verification demos.',
+      lastCheckupDate: pastDate(10),
+      updatedAt: now,
+    },
+    settings: {
+      pushNotifications: true,
+      emergencyAlerts: true,
+      privacy: 'public',
+      language: 'en',
+    },
+    location: {
+      city: 'Heliopolis',
+      governorate: 'Cairo',
+      coordinates: { lat: 30.091, lng: 31.3214 },
+      lastUpdated: now,
+    },
+  },
 ];
 
 const hospitalsData = [
   {
+    key: 'cairoCare',
     fullName: 'Cairo Care Operations',
     email: 'ops@cairocare.demo',
     password: 'HospitalPass@123',
     role: 'hospital',
     hospitalName: 'Cairo Care Hospital',
-    hospitalId: 1001,
+    name: 'Cairo Care Hospital',
     licenseNumber: 'LIC-CAIRO-1001',
     contactNumber: '1044444444',
-    address: { city: 'Cairo', governorate: 'Cairo' },
+    phone: '1044444444',
+    city: 'Cairo',
+    state: 'Cairo',
+    lat: 30.0511,
+    long: 31.2435,
+    bloodBanksAvailable: ['O+', 'O-', 'A+', 'A-', 'B+', 'AB+'],
+    capacity: 30,
+    address: { city: 'Cairo', governorate: 'Cairo', district: 'Garden City' },
     location: {
       city: 'Cairo',
       governorate: 'Cairo',
       coordinates: { lat: 30.0511, lng: 31.2435 },
       lastUpdated: now,
     },
+    slotsPerHour: 5,
+    workingHoursStart: 9,
+    workingHoursEnd: 17,
   },
   {
+    key: 'nileHope',
     fullName: 'Nile Hope Blood Bank',
     email: 'bloodbank@nilehope.demo',
     password: 'HospitalPass@123',
     role: 'hospital',
     hospitalName: 'Nile Hope Medical Center',
-    hospitalId: 1002,
+    name: 'Nile Hope Medical Center',
     licenseNumber: 'LIC-GIZA-1002',
     contactNumber: '1055555555',
-    address: { city: 'Giza', governorate: 'Giza' },
+    phone: '1055555555',
+    city: 'Giza',
+    state: 'Giza',
+    lat: 29.9953,
+    long: 31.2087,
+    bloodBanksAvailable: ['O-', 'A-', 'B-', 'AB-', 'O+'],
+    capacity: 24,
+    address: { city: 'Giza', governorate: 'Giza', district: 'Mohandessin' },
     location: {
       city: 'Giza',
       governorate: 'Giza',
       coordinates: { lat: 29.9953, lng: 31.2087 },
       lastUpdated: now,
     },
+    slotsPerHour: 6,
+    workingHoursStart: 8,
+    workingHoursEnd: 18,
   },
 ];
 
@@ -140,7 +298,7 @@ async function ensureUser(model, payload) {
     ? { ...payload, name: payload.hospitalName }
     : payload;
 
-  const existingBase = await User.findOne({ email: normalizedPayload.email }).select('+password');
+  const existingBase = await User.findOne({ email: normalizedPayload.email }).select('+password +adminKey');
 
   if (existingBase && existingBase.role !== normalizedPayload.role) {
     throw new Error(`Existing user role mismatch for ${normalizedPayload.email}: expected ${normalizedPayload.role}, found ${existingBase.role}`);
@@ -151,20 +309,18 @@ async function ensureUser(model, payload) {
       ...normalizedPayload,
       isEmailVerified: true,
       emailVerifiedAt: now,
-      isSuspended: false,
+      isSuspended: normalizedPayload.isSuspended || false,
       deletedAt: null,
     });
   }
 
-  const doc = await model.findById(existingBase._id).select('+password');
+  const doc = await model.findById(existingBase._id).select('+password +adminKey');
   Object.entries(normalizedPayload).forEach(([key, value]) => {
     doc[key] = value;
   });
   doc.isEmailVerified = true;
   doc.emailVerifiedAt = now;
-  doc.isSuspended = false;
   doc.deletedAt = null;
-  doc.password = normalizedPayload.password;
   await doc.save();
   return doc;
 }
@@ -177,23 +333,23 @@ async function ensureDocument(document) {
   return HelpDocument.findOneAndUpdate(
     { type: document.type },
     { $set: { ...document, updatedAt: now } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
 async function ensureRequest(filter, data) {
-  return Request.findOneAndUpdate(filter, { $set: data }, { upsert: true, new: true, runValidators: true });
+  return Request.findOneAndUpdate(filter, { $set: data }, { upsert: true, returnDocument: 'after', runValidators: true });
 }
 
 async function ensureDonation(filter, data) {
-  return Donation.findOneAndUpdate(filter, { $set: data }, { upsert: true, new: true, runValidators: true });
+  return Donation.findOneAndUpdate(filter, { $set: data }, { upsert: true, returnDocument: 'after', runValidators: true });
 }
 
 async function ensureNotification(data) {
   return Notification.findOneAndUpdate(
     { userId: data.userId, title: data.title, 'data.demoKey': data.data?.demoKey || null },
     { $set: data },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
@@ -201,7 +357,7 @@ async function ensureSupportMessage(data) {
   return SupportMessage.findOneAndUpdate(
     { email: data.email, subject: data.subject },
     { $set: data },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
@@ -209,7 +365,7 @@ async function ensurePointsAccount(donorId, payload) {
   return DonorPoints.findOneAndUpdate(
     { donorId },
     { $set: { donorId, ...payload } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
@@ -217,7 +373,7 @@ async function ensurePointsTransaction(payload) {
   return PointsTransaction.findOneAndUpdate(
     { donorId: payload.donorId, transactionType: payload.transactionType, referenceId: payload.referenceId },
     { $setOnInsert: payload },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
@@ -225,7 +381,7 @@ async function ensureRedemption(payload) {
   return RewardRedemption.findOneAndUpdate(
     { confirmationCode: payload.confirmationCode },
     { $set: payload },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, returnDocument: 'after', runValidators: true }
   );
 }
 
@@ -233,7 +389,7 @@ async function ensureUserBadge(payload) {
   return UserBadge.findOneAndUpdate(
     { donorId: payload.donorId, badgeId: payload.badgeId },
     { $set: payload },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 }
 
@@ -241,7 +397,7 @@ async function ensureActivity(userId, payload) {
   return Activity.findOneAndUpdate(
     { userId, action: payload.action, referenceId: payload.referenceId },
     { $set: { userId, ...payload } },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, returnDocument: 'after', runValidators: true }
   );
 }
 
@@ -254,7 +410,7 @@ async function ensureAuditLog(payload) {
       targetId: payload.targetId || null,
     },
     { $set: payload },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, returnDocument: 'after', runValidators: true }
   );
 }
 
@@ -262,7 +418,7 @@ async function ensureHospitalSettings(hospitalId, payload) {
   return HospitalSettings.findOneAndUpdate(
     { hospitalId },
     { $set: { hospitalId, ...payload } },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, returnDocument: 'after', runValidators: true }
   );
 }
 
@@ -270,8 +426,41 @@ async function ensureTwoFactor(payload) {
   return TwoFactor.findOneAndUpdate(
     { userId: payload.userId },
     { $set: payload },
-    { upsert: true, new: true, runValidators: true }
+    { upsert: true, returnDocument: 'after', runValidators: true }
   );
+}
+
+async function ensureAppointment(filter, data) {
+  return Appointment.findOneAndUpdate(filter, { $set: data }, { upsert: true, returnDocument: 'after', runValidators: true });
+}
+
+async function ensureStaff(filter, data) {
+  return HospitalStaff.findOneAndUpdate(filter, { $set: data }, { upsert: true, returnDocument: 'after', runValidators: true });
+}
+
+function printCredentials() {
+  console.log('');
+  console.log('Demo credentials:');
+  demoCredentials.forEach((entry) => {
+    const adminInfo = entry.adminKey ? ` | adminKey: ${entry.adminKey}` : '';
+    console.log(`- ${entry.role}: ${entry.email} / ${entry.password}${adminInfo}`);
+  });
+}
+
+function printReferenceBlock(label, lines) {
+  console.log('');
+  console.log(label);
+  lines.forEach((line) => console.log(`- ${line}`));
+}
+
+function printSnippetBlock(label, snippets) {
+  console.log('');
+  console.log(label);
+  snippets.forEach((snippet) => {
+    console.log('');
+    console.log(snippet.title);
+    console.log(snippet.command);
+  });
 }
 
 async function main() {
@@ -291,6 +480,7 @@ async function main() {
     email: 'admin@lifelink.demo',
     password: 'AdminPass@123',
     role: 'admin',
+    adminKey: 'ADMIN-DEMO-KEY-2026',
     location: {
       city: 'Cairo',
       governorate: 'Cairo',
@@ -299,11 +489,12 @@ async function main() {
     },
   });
 
-  await ensureAdmin({
+  const superAdmin = await ensureAdmin({
     fullName: 'LifeLink Super Admin',
     email: 'root@lifelink.demo',
     password: 'SuperAdminPass@123',
     role: 'superadmin',
+    adminKey: 'SUPERADMIN-DEMO-KEY-2026',
     location: {
       city: 'Cairo',
       governorate: 'Cairo',
@@ -314,24 +505,27 @@ async function main() {
 
   const donors = {};
   for (const donorData of donorsData) {
-    const donor = await ensureUser(Donor, donorData);
-    donors[donor.email] = donor;
+    const { key, ...payload } = donorData;
+    const donor = await ensureUser(Donor, payload);
+    donors[key] = donor;
   }
 
   const hospitals = {};
   for (const hospitalData of hospitalsData) {
-    const hospital = await ensureUser(Hospital, hospitalData);
-    hospitals[hospital.email] = hospital;
+    const { key, ...payload } = hospitalData;
+    const hospital = await ensureUser(Hospital, payload);
+    hospitals[key] = hospital;
   }
 
   for (const document of helpDocuments) {
     await ensureDocument(document);
   }
 
-  const cairoUrgentRequest = await ensureRequest(
-    { hospitalId: hospitals['ops@cairocare.demo']._id, notes: '[demo-seed] cairo-o-positive-critical' },
+  const requests = {};
+  requests.cairoCriticalBlood = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-critical-o-positive' },
     {
-      hospitalId: hospitals['ops@cairocare.demo']._id,
+      hospitalId: hospitals.cairoCare._id,
       type: 'blood',
       bloodType: 'O+',
       urgency: 'critical',
@@ -339,15 +533,17 @@ async function main() {
       requiredBy: futureDate(2),
       quantity: 3,
       cause: 'Emergency surgery support',
-      notes: '[demo-seed] cairo-o-positive-critical',
-      hospitalContact: '1044444444',
+      notes: '[demo-seed] cairo-critical-o-positive',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
     }
   );
 
-  const gizaActiveRequest = await ensureRequest(
-    { hospitalId: hospitals['bloodbank@nilehope.demo']._id, notes: '[demo-seed] giza-a-negative-high' },
+  requests.gizaHighBlood = await ensureRequest(
+    { hospitalId: hospitals.nileHope._id, notes: '[demo-seed] giza-high-a-negative' },
     {
-      hospitalId: hospitals['bloodbank@nilehope.demo']._id,
+      hospitalId: hospitals.nileHope._id,
       type: 'blood',
       bloodType: 'A-',
       urgency: 'high',
@@ -355,15 +551,17 @@ async function main() {
       requiredBy: futureDate(3),
       quantity: 2,
       cause: 'ICU demand spike',
-      notes: '[demo-seed] giza-a-negative-high',
-      hospitalContact: '1055555555',
+      notes: '[demo-seed] giza-high-a-negative',
+      hospitalContact: hospitals.nileHope.contactNumber,
+      hospitalLocation: hospitals.nileHope.location.coordinates,
+      hospitalName: hospitals.nileHope.hospitalName,
     }
   );
 
-  const completedRequest = await ensureRequest(
-    { hospitalId: hospitals['ops@cairocare.demo']._id, notes: '[demo-seed] completed-b-plus-medium' },
+  requests.cairoCompletedBlood = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-completed-b-plus' },
     {
-      hospitalId: hospitals['ops@cairocare.demo']._id,
+      hospitalId: hospitals.cairoCare._id,
       type: 'blood',
       bloodType: 'B+',
       urgency: 'medium',
@@ -371,78 +569,293 @@ async function main() {
       requiredBy: futureDate(1),
       quantity: 1,
       cause: 'Routine ward support',
-      notes: '[demo-seed] completed-b-plus-medium',
-      hospitalContact: '1044444444',
+      notes: '[demo-seed] cairo-completed-b-plus',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
     }
   );
 
-  await ensureDonation(
-    { donorId: donors['aya.hassan@lifelink.demo']._id, requestId: cairoUrgentRequest._id, status: 'pending' },
+  requests.gizaCancelledBlood = await ensureRequest(
+    { hospitalId: hospitals.nileHope._id, notes: '[demo-seed] giza-cancelled-ab-positive' },
     {
-      donorId: donors['aya.hassan@lifelink.demo']._id,
-      requestId: cairoUrgentRequest._id,
+      hospitalId: hospitals.nileHope._id,
+      type: 'blood',
+      bloodType: 'AB+',
+      urgency: 'low',
+      status: 'cancelled',
+      requiredBy: futureDate(4),
+      quantity: 1,
+      cause: 'Case resolved by transfer',
+      notes: '[demo-seed] giza-cancelled-ab-positive',
+      hospitalContact: hospitals.nileHope.contactNumber,
+      hospitalLocation: hospitals.nileHope.location.coordinates,
+      hospitalName: hospitals.nileHope.hospitalName,
+    }
+  );
+
+  requests.cairoOrgan = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-organ-kidney-high' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      type: 'organ',
+      organType: 'kidney',
+      urgency: 'high',
+      status: 'pending',
+      requiredBy: futureDate(5),
+      quantity: 1,
+      cause: 'Urgent transplant waiting list',
+      notes: '[demo-seed] cairo-organ-kidney-high',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
+    }
+  );
+
+  requests.gizaOminus = await ensureRequest(
+    { hospitalId: hospitals.nileHope._id, notes: '[demo-seed] giza-medium-o-negative' },
+    {
+      hospitalId: hospitals.nileHope._id,
+      type: 'blood',
+      bloodType: 'O-',
+      urgency: 'medium',
+      status: 'pending',
+      requiredBy: futureDate(6),
+      quantity: 2,
+      cause: 'NICU reserve replenishment',
+      notes: '[demo-seed] giza-medium-o-negative',
+      hospitalContact: hospitals.nileHope.contactNumber,
+      hospitalLocation: hospitals.nileHope.location.coordinates,
+      hospitalName: hospitals.nileHope.hospitalName,
+    }
+  );
+
+  const donations = {};
+  donations.ayaPending = await ensureDonation(
+    { donorId: donors.aya._id, requestId: requests.cairoCriticalBlood._id, status: 'pending' },
+    {
+      donorId: donors.aya._id,
+      requestId: requests.cairoCriticalBlood._id,
       status: 'pending',
       quantity: 1,
-      notes: 'Confirmed availability for urgent demo request.',
+      notes: 'Confirmed availability for urgent O+ request.',
     }
   );
 
-  await ensureDonation(
-    { donorId: donors['omar.nabil@lifelink.demo']._id, requestId: gizaActiveRequest._id, status: 'scheduled' },
+  donations.omarScheduled = await ensureDonation(
+    { donorId: donors.omar._id, requestId: requests.gizaHighBlood._id, status: 'scheduled' },
     {
-      donorId: donors['omar.nabil@lifelink.demo']._id,
-      requestId: gizaActiveRequest._id,
+      donorId: donors.omar._id,
+      requestId: requests.gizaHighBlood._id,
       status: 'scheduled',
       quantity: 1,
-      scheduledDate: futureDate(1),
+      scheduledDate: futureDate(1, 11),
       notes: 'Scheduled for tomorrow morning.',
     }
   );
 
-  await ensureDonation(
-    { donorId: donors['mariam.adel@lifelink.demo']._id, requestId: completedRequest._id, status: 'completed' },
+  donations.mariamCompleted = await ensureDonation(
+    { donorId: donors.mariam._id, requestId: requests.cairoCompletedBlood._id, status: 'completed' },
     {
-      donorId: donors['mariam.adel@lifelink.demo']._id,
-      requestId: completedRequest._id,
+      donorId: donors.mariam._id,
+      requestId: requests.cairoCompletedBlood._id,
       status: 'completed',
       quantity: 1,
       completedDate: pastDate(5),
-      notes: 'Completed donation used for seeded history and rewards.',
+      notes: 'Completed donation used for rewards and history.',
+    }
+  );
+
+  donations.leilaDeclined = await ensureDonation(
+    { donorId: donors.leila._id, requestId: requests.cairoOrgan._id, status: 'cancelled' },
+    {
+      donorId: donors.leila._id,
+      requestId: requests.cairoOrgan._id,
+      status: 'cancelled',
+      quantity: 1,
+      notes: 'Declined urgent request due to temporary unavailability.',
+    }
+  );
+
+  donations.noorRejected = await ensureDonation(
+    { donorId: donors.noor._id, requestId: requests.gizaOminus._id, status: 'rejected' },
+    {
+      donorId: donors.noor._id,
+      requestId: requests.gizaOminus._id,
+      status: 'rejected',
+      quantity: 1,
+      notes: 'Hospital rejected after duplicate offline booking.',
+    }
+  );
+
+  donations.leilaCancelled = await ensureDonation(
+    { donorId: donors.leila._id, requestId: requests.gizaCancelledBlood._id, status: 'cancelled' },
+    {
+      donorId: donors.leila._id,
+      requestId: requests.gizaCancelledBlood._id,
+      status: 'cancelled',
+      quantity: 1,
+      notes: 'Auto-cancelled because request was resolved elsewhere.',
+    }
+  );
+
+  const appointments = {};
+  appointments.ayaUrgent = await ensureAppointment(
+    { donorId: donors.aya._id, notes: '[demo-seed] appointment-aya-urgent' },
+    {
+      donorId: donors.aya._id,
+      hospitalId: hospitals.cairoCare._id,
+      requestId: requests.cairoCriticalBlood._id,
+      appointmentDate: futureDate(3, 10),
+      status: 'pending',
+      notes: '[demo-seed] appointment-aya-urgent',
+      qrToken: 'demo-qr-aya-critical',
+      qrExpiresAt: futureDate(4, 10),
+      donationType: 'Whole Blood',
+    }
+  );
+
+  appointments.omarScheduled = await ensureAppointment(
+    { donorId: donors.omar._id, notes: '[demo-seed] appointment-omar-request' },
+    {
+      donorId: donors.omar._id,
+      hospitalId: hospitals.nileHope._id,
+      requestId: requests.gizaHighBlood._id,
+      appointmentDate: futureDate(4, 9),
+      status: 'confirmed',
+      notes: '[demo-seed] appointment-omar-request',
+      qrToken: 'demo-qr-omar-request',
+      qrExpiresAt: futureDate(5, 9),
+      donationType: 'Platelets',
+    }
+  );
+
+  appointments.noorVerify = await ensureAppointment(
+    { donorId: donors.noor._id, notes: '[demo-seed] appointment-noor-verify' },
+    {
+      donorId: donors.noor._id,
+      hospitalId: hospitals.cairoCare._id,
+      requestId: null,
+      appointmentDate: futureDate(2, 12),
+      status: 'confirmed',
+      notes: '[demo-seed] appointment-noor-verify',
+      qrToken: 'demo-qr-noor-verify',
+      qrExpiresAt: futureDate(3, 12),
+      donationType: 'Plasma',
+    }
+  );
+
+  appointments.leilaCancelled = await ensureAppointment(
+    { donorId: donors.leila._id, notes: '[demo-seed] appointment-leila-cancelled' },
+    {
+      donorId: donors.leila._id,
+      hospitalId: hospitals.nileHope._id,
+      requestId: requests.gizaCancelledBlood._id,
+      appointmentDate: futureDate(5, 14),
+      status: 'cancelled',
+      notes: '[demo-seed] appointment-leila-cancelled',
+      cancelledAt: pastDate(1),
+      qrToken: 'demo-qr-leila-cancelled',
+      qrExpiresAt: futureDate(6, 14),
+      donationType: 'Whole Blood',
+    }
+  );
+
+  await ensureStaff(
+    { hospitalId: hospitals.cairoCare._id, name: 'Sara Fawzy' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      name: 'Sara Fawzy',
+      position: 'PHLEBOTOMIST',
+      status: 'ON_DUTY',
+      phone: '01170000001',
+      shiftStart: '09:00',
+      shiftEnd: '17:00',
+    }
+  );
+
+  await ensureStaff(
+    { hospitalId: hospitals.cairoCare._id, name: 'Ahmed Samir' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      name: 'Ahmed Samir',
+      position: 'DOCTOR',
+      status: 'AVAILABLE',
+      phone: '01170000002',
+      shiftStart: '10:00',
+      shiftEnd: '18:00',
+    }
+  );
+
+  await ensureStaff(
+    { hospitalId: hospitals.nileHope._id, name: 'Mona Hany' },
+    {
+      hospitalId: hospitals.nileHope._id,
+      name: 'Mona Hany',
+      position: 'NURSE',
+      status: 'ON_DUTY',
+      phone: '01180000001',
+      shiftStart: '08:00',
+      shiftEnd: '16:00',
+    }
+  );
+
+  await ensureStaff(
+    { hospitalId: hospitals.nileHope._id, name: 'Khaled Adel' },
+    {
+      hospitalId: hospitals.nileHope._id,
+      name: 'Khaled Adel',
+      position: 'PHLEBOTOMIST',
+      status: 'OFF_DUTY',
+      phone: '01180000002',
+      shiftStart: '12:00',
+      shiftEnd: '20:00',
     }
   );
 
   await ensureNotification({
-    userId: donors['aya.hassan@lifelink.demo']._id,
+    userId: donors.aya._id,
     type: 'request',
     title: 'Urgent O+ Request Nearby',
     message: 'Cairo Care Hospital needs O+ blood donors for an urgent case.',
-    relatedId: cairoUrgentRequest._id,
+    relatedId: requests.cairoCriticalBlood._id,
     relatedType: 'Request',
-    data: { demoKey: 'notif_urgent_request_aya', requestId: cairoUrgentRequest._id.toString() },
+    data: { demoKey: 'notif_aya_urgent_request', requestId: requests.cairoCriticalBlood._id.toString() },
     read: false,
   });
 
   await ensureNotification({
-    userId: donors['mariam.adel@lifelink.demo']._id,
+    userId: donors.omar._id,
     type: 'system',
+    title: 'Appointment Confirmed',
+    message: 'Your Nile Hope donation appointment is confirmed.',
+    relatedId: appointments.omarScheduled._id,
+    relatedType: 'Appointment',
+    data: { demoKey: 'notif_omar_appointment', appointmentId: appointments.omarScheduled._id.toString() },
+    read: false,
+  });
+
+  await ensureNotification({
+    userId: donors.mariam._id,
+    type: 'milestone',
     title: 'Reward Ready To Redeem',
     message: 'You have enough points to redeem a Coffee Voucher.',
-    data: { demoKey: 'notif_rewards_mariam' },
+    data: { demoKey: 'notif_mariam_reward_ready' },
     read: false,
   });
 
   await ensureNotification({
-    userId: hospitals['ops@cairocare.demo']._id,
+    userId: hospitals.cairoCare._id,
     type: 'admin',
     title: 'Demo Dashboard Ready',
-    message: 'Your seeded hospital requests and donation data are ready for the demo.',
+    message: 'Your seeded hospital requests, appointments, and donation data are ready.',
     data: { demoKey: 'notif_hospital_dashboard' },
     read: false,
   });
 
   await ensureSupportMessage({
-    userId: donors['aya.hassan@lifelink.demo']._id,
-    email: 'aya.hassan@lifelink.demo',
+    userId: donors.aya._id,
+    email: donors.aya.email,
     role: 'donor',
     subject: 'Need help with reward redemption',
     message: 'I can see my points balance but I want to confirm when the Coffee Voucher becomes available.',
@@ -451,11 +864,21 @@ async function main() {
   });
 
   await ensureSupportMessage({
-    userId: hospitals['ops@cairocare.demo']._id,
-    email: 'ops@cairocare.demo',
+    userId: hospitals.cairoCare._id,
+    email: hospitals.cairoCare.email,
     role: 'hospital',
     subject: 'Nearby donors list check',
-    message: 'Please confirm our updated hospital coordinates are reflected in nearby discovery results.',
+    message: 'Please confirm our updated coordinates are reflected in nearby discovery results.',
+    attachmentUrls: [],
+    status: 'REVIEWED',
+  });
+
+  await ensureSupportMessage({
+    userId: donors.noor._id,
+    email: donors.noor.email,
+    role: 'donor',
+    subject: 'QR verification question',
+    message: 'Can I use the same QR code twice if my first check-in fails?',
     attachmentUrls: [],
     status: 'REVIEWED',
   });
@@ -463,7 +886,7 @@ async function main() {
   const coffeeVoucher = await RewardCatalog.findOne({ name: 'Coffee Voucher' });
   const firstTimerBadge = await Badge.findOne({ badgeName: 'First Timer' });
 
-  await ensurePointsAccount(donors['aya.hassan@lifelink.demo']._id, {
+  await ensurePointsAccount(donors.aya._id, {
     pointsBalance: 850,
     lifetimePointsEarned: 950,
     tier: 'bronze',
@@ -471,7 +894,7 @@ async function main() {
     firstDonationAwarded: true,
   });
 
-  await ensurePointsAccount(donors['omar.nabil@lifelink.demo']._id, {
+  await ensurePointsAccount(donors.omar._id, {
     pointsBalance: 1600,
     lifetimePointsEarned: 1750,
     tier: 'silver',
@@ -479,7 +902,7 @@ async function main() {
     firstDonationAwarded: true,
   });
 
-  await ensurePointsAccount(donors['mariam.adel@lifelink.demo']._id, {
+  await ensurePointsAccount(donors.mariam._id, {
     pointsBalance: 850,
     lifetimePointsEarned: 1350,
     tier: 'silver',
@@ -487,8 +910,16 @@ async function main() {
     firstDonationAwarded: true,
   });
 
+  await ensurePointsAccount(donors.noor._id, {
+    pointsBalance: 200,
+    lifetimePointsEarned: 200,
+    tier: 'bronze',
+    profileCompletionAwarded: true,
+    firstDonationAwarded: false,
+  });
+
   await ensurePointsTransaction({
-    donorId: donors['mariam.adel@lifelink.demo']._id,
+    donorId: donors.mariam._id,
     pointsAmount: 50,
     transactionType: 'PROFILE_COMPLETION',
     description: 'Profile completed',
@@ -497,16 +928,16 @@ async function main() {
   });
 
   await ensurePointsTransaction({
-    donorId: donors['mariam.adel@lifelink.demo']._id,
+    donorId: donors.mariam._id,
     pointsAmount: 200,
     transactionType: 'BLOOD_DONATION',
     description: 'Completed donation',
-    referenceId: 'demo_donation_mariam',
+    referenceId: 'donation_' + donations.mariamCompleted._id.toString(),
     balanceAfter: 250,
   });
 
   await ensurePointsTransaction({
-    donorId: donors['mariam.adel@lifelink.demo']._id,
+    donorId: donors.mariam._id,
     pointsAmount: 100,
     transactionType: 'FIRST_DONATION',
     description: 'First donation bonus',
@@ -514,9 +945,27 @@ async function main() {
     balanceAfter: 350,
   });
 
+  await ensurePointsTransaction({
+    donorId: donors.mariam._id,
+    pointsAmount: 1000,
+    transactionType: 'ADMIN_ADJUSTMENT',
+    description: 'Demo bonus points for rewards showcase',
+    referenceId: 'demo_bonus_mariam',
+    balanceAfter: 1350,
+  });
+
+  await ensurePointsTransaction({
+    donorId: donors.noor._id,
+    pointsAmount: 200,
+    transactionType: 'PROFILE_COMPLETION',
+    description: 'Profile completed',
+    referenceId: 'demo_profile_noor',
+    balanceAfter: 200,
+  });
+
   if (coffeeVoucher) {
     await ensureRedemption({
-      donorId: donors['mariam.adel@lifelink.demo']._id,
+      donorId: donors.mariam._id,
       rewardId: coffeeVoucher._id,
       pointsSpent: coffeeVoucher.pointsCost,
       confirmationCode: 'RWD-2026-DEMO01',
@@ -526,28 +975,19 @@ async function main() {
       expiresAt: futureDate(30),
     });
 
-  await ensurePointsTransaction({
-    donorId: donors['mariam.adel@lifelink.demo']._id,
-    pointsAmount: 1000,
-    transactionType: 'ADMIN_ADJUSTMENT',
-    description: 'Demo bonus points for rewards showcase',
-    referenceId: 'demo_bonus_mariam',
-    balanceAfter: 1350,
-  });
-
-  await ensurePointsTransaction({
-    donorId: donors['mariam.adel@lifelink.demo']._id,
-    pointsAmount: -coffeeVoucher.pointsCost,
-    transactionType: 'REWARD_REDEEMED',
-    description: `Reward redeemed: ${coffeeVoucher.name}`,
-    referenceId: 'demo_redemption_mariam',
+    await ensurePointsTransaction({
+      donorId: donors.mariam._id,
+      pointsAmount: -coffeeVoucher.pointsCost,
+      transactionType: 'REWARD_REDEEMED',
+      description: `Reward redeemed: ${coffeeVoucher.name}`,
+      referenceId: 'demo_redemption_mariam',
       balanceAfter: 850,
     });
   }
 
   if (firstTimerBadge) {
     await ensureUserBadge({
-      donorId: donors['mariam.adel@lifelink.demo']._id,
+      donorId: donors.mariam._id,
       badgeId: firstTimerBadge._id,
       unlockStatus: 'UNLOCKED',
       progressCurrent: 1,
@@ -556,7 +996,7 @@ async function main() {
     });
   }
 
-  await ensureActivity(donors['aya.hassan@lifelink.demo']._id, {
+  await ensureActivity(donors.aya._id, {
     type: 'profile_update',
     action: 'profile_completed',
     title: 'Profile Completed',
@@ -569,53 +1009,69 @@ async function main() {
     },
   });
 
-  await ensureActivity(donors['omar.nabil@lifelink.demo']._id, {
+  await ensureActivity(donors.omar._id, {
     type: 'emergency_response',
     action: 'responded_to_urgent_request',
     title: 'Urgent Request Accepted',
-    description: 'Omar Nabil responded to a critical A- request for ICU support.',
-    referenceId: `activity_request_${gizaActiveRequest._id}`,
+    description: 'Omar Nabil responded to a high-priority A- request for ICU support.',
+    referenceId: `activity_request_${requests.gizaHighBlood._id}`,
     referenceType: 'Request',
     icon: 'zap',
     metadata: {
-      requestId: gizaActiveRequest._id.toString(),
+      requestId: requests.gizaHighBlood._id.toString(),
       bloodType: 'A-',
-      urgency: 'critical',
+      urgency: 'high',
     },
   });
 
-  await ensureActivity(donors['mariam.adel@lifelink.demo']._id, {
+  await ensureActivity(donors.mariam._id, {
     type: 'donation',
     action: 'completed_donation',
     title: 'Blood Donation Completed',
     description: 'Mariam Adel completed a B+ donation for routine ward support.',
-    referenceId: `activity_donation_${completedRequest._id}`,
+    referenceId: donations.mariamCompleted._id.toString(),
     referenceType: 'Donation',
     icon: 'heart',
     metadata: {
-      requestId: completedRequest._id.toString(),
+      requestId: requests.cairoCompletedBlood._id.toString(),
       bloodType: 'B+',
       quantity: 1,
     },
   });
 
-  await ensureActivity(donors['mariam.adel@lifelink.demo']._id, {
-    type: 'reward',
-    action: 'reward_redeemed',
-    title: 'Reward Redeemed',
-    description: 'Mariam Adel redeemed the Coffee Voucher reward.',
-    referenceId: 'activity_reward_mariam_coffee',
-    referenceType: 'RewardRedemption',
-    icon: 'gift',
+  await ensureActivity(donors.leila._id, {
+    type: 'emergency_response',
+    action: 'declined_urgent_request',
+    title: 'Urgent Request Declined',
+    description: 'Leila Mansour declined the emergency kidney request while unavailable.',
+    referenceId: donations.leilaDeclined._id.toString(),
+    referenceType: 'Donation',
+    icon: 'x-circle',
     metadata: {
-      rewardName: coffeeVoucher?.name || 'Coffee Voucher',
-      pointsSpent: coffeeVoucher?.pointsCost || 500,
-      confirmationCode: 'RWD-2026-DEMO01',
+      requestId: requests.cairoOrgan._id.toString(),
+      urgency: 'high',
     },
   });
 
+  if (coffeeVoucher) {
+    await ensureActivity(donors.mariam._id, {
+      type: 'reward',
+      action: 'reward_redeemed',
+      title: 'Reward Redeemed',
+      description: 'Mariam Adel redeemed the Coffee Voucher reward.',
+      referenceId: 'activity_reward_mariam_coffee',
+      referenceType: 'RewardRedemption',
+      icon: 'gift',
+      metadata: {
+        rewardName: coffeeVoucher.name,
+        pointsSpent: coffeeVoucher.pointsCost,
+        confirmationCode: 'RWD-2026-DEMO01',
+      },
+    });
+  }
+
   if (firstTimerBadge) {
-    await ensureActivity(donors['mariam.adel@lifelink.demo']._id, {
+    await ensureActivity(donors.mariam._id, {
       type: 'reward',
       action: 'badge_unlocked',
       title: 'Badge Unlocked',
@@ -634,18 +1090,25 @@ async function main() {
     adminId: admin._id,
     action: 'user.verify',
     targetType: 'User',
-    targetId: donors['aya.hassan@lifelink.demo']._id,
+    targetId: donors.aya._id,
   });
 
   await ensureAuditLog({
     adminId: admin._id,
     action: 'request.fulfill',
     targetType: 'Request',
-    targetId: completedRequest._id,
+    targetId: requests.cairoCompletedBlood._id,
   });
 
   await ensureAuditLog({
-    adminId: admin._id,
+    adminId: superAdmin._id,
+    action: 'request.broadcast',
+    targetType: 'Request',
+    targetId: requests.cairoCriticalBlood._id,
+  });
+
+  await ensureAuditLog({
+    adminId: superAdmin._id,
     action: 'system.maintenance',
     targetType: 'System',
     targetId: null,
@@ -662,10 +1125,10 @@ async function main() {
     pendingBackupCodes: [],
   });
 
-  await ensureHospitalSettings(hospitals['ops@cairocare.demo']._id, {
+  await ensureHospitalSettings(hospitals.cairoCare._id, {
     bloodBankSettings: {
-      criticalThreshold: { 'O+': 4, 'A-': 2 },
-      lowThreshold: { 'O+': 12, 'A-': 8 },
+      criticalThreshold: { 'O+': 4, 'A-': 2, 'O-': 2 },
+      lowThreshold: { 'O+': 12, 'A-': 8, 'O-': 5 },
       automaticNotifications: true,
       notificationEmail: 'ops@cairocare.demo',
     },
@@ -676,10 +1139,10 @@ async function main() {
     },
   });
 
-  await ensureHospitalSettings(hospitals['bloodbank@nilehope.demo']._id, {
+  await ensureHospitalSettings(hospitals.nileHope._id, {
     bloodBankSettings: {
-      criticalThreshold: { 'B+': 3, 'A-': 2 },
-      lowThreshold: { 'B+': 10, 'A-': 7 },
+      criticalThreshold: { 'B+': 3, 'A-': 2, 'O-': 2 },
+      lowThreshold: { 'B+': 10, 'A-': 7, 'O-': 5 },
       automaticNotifications: true,
       notificationEmail: 'bloodbank@nilehope.demo',
     },
@@ -690,113 +1153,81 @@ async function main() {
     },
   });
 
-  // ── Seed Appointments (Dev 1 Task 3 & 4) ──────────────────────
-  const appointmentQrToken1 = crypto.randomBytes(32).toString('hex');
-  const appointmentQrToken2 = crypto.randomBytes(32).toString('hex');
-
-  await Appointment.findOneAndUpdate(
-    {
-      donorId: donors['aya.hassan@lifelink.demo']._id,
-      hospitalId: hospitals['ops@cairocare.demo']._id,
-      notes: '[demo-seed] appointment-1',
-    },
-    {
-      $set: {
-        donorId: donors['aya.hassan@lifelink.demo']._id,
-        hospitalId: hospitals['ops@cairocare.demo']._id,
-        appointmentDate: futureDate(3),
-        status: 'pending',
-        notes: '[demo-seed] appointment-1',
-        qrToken: appointmentQrToken1,
-        donationType: 'Whole Blood',
-      },
-    },
-    { upsert: true, new: true }
-  );
-
-  await Appointment.findOneAndUpdate(
-    {
-      donorId: donors['omar.nabil@lifelink.demo']._id,
-      hospitalId: hospitals['bloodbank@nilehope.demo']._id,
-      notes: '[demo-seed] appointment-2',
-    },
-    {
-      $set: {
-        donorId: donors['omar.nabil@lifelink.demo']._id,
-        hospitalId: hospitals['bloodbank@nilehope.demo']._id,
-        appointmentDate: futureDate(5),
-        status: 'confirmed',
-        notes: '[demo-seed] appointment-2',
-        qrToken: appointmentQrToken2,
-        donationType: 'Platelets',
-      },
-    },
-    { upsert: true, new: true }
-  );
-
-  // ── Update Donor Settings (Dev 1 Task 5) ──────────────────────
-  await Donor.updateOne(
-    { email: 'aya.hassan@lifelink.demo' },
-    {
-      $set: {
-        'settings.pushNotifications': true,
-        'settings.emergencyAlerts': true,
-        'settings.privacyMode': false,
-        'settings.language': 'en',
-      },
-    }
-  );
-
-  await Donor.updateOne(
-    { email: 'omar.nabil@lifelink.demo' },
-    {
-      $set: {
-        'settings.pushNotifications': true,
-        'settings.emergencyAlerts': false,
-        'settings.privacyMode': true,
-        'settings.language': 'ar',
-      },
-    }
-  );
-
-  // ── Update Hospital Config (Dev 2 Task 7) ──────────────────────
-  await Hospital.updateOne(
-    { email: 'ops@cairocare.demo' },
-    {
-      $set: {
-        slotsPerHour: 5,
-        workingHoursStart: 9,
-        workingHoursEnd: 17,
-      },
-    }
-  );
-
-  await Hospital.updateOne(
-    { email: 'bloodbank@nilehope.demo' },
-    {
-      $set: {
-        slotsPerHour: 6,
-        workingHoursStart: 8,
-        workingHoursEnd: 18,
-      },
-    }
-  );
-
   console.log('');
   console.log('LifeLink demo seed completed successfully.');
+  printCredentials();
+
+  printReferenceBlock('Seeded demo coverage:', [
+    '5 donors with varied blood types, availability, settings, health history, points, and activity',
+    '2 hospitals with discovery-ready coordinates, slot configuration, blood bank settings, and staff',
+    '6 requests covering blood + organ and pending/in-progress/completed/cancelled states',
+    '6 donations covering pending/scheduled/completed/cancelled/rejected states',
+    '4 appointments covering pending/confirmed/cancelled and QR verification flows',
+    'Notifications, rewards, badges, support messages, audit logs, and 2FA seed data',
+  ]);
+
+  printReferenceBlock('Key request IDs for manual API testing:', [
+    `critical blood request: ${requests.cairoCriticalBlood._id}`,
+    `high blood request: ${requests.gizaHighBlood._id}`,
+    `completed blood request: ${requests.cairoCompletedBlood._id}`,
+    `cancelled blood request: ${requests.gizaCancelledBlood._id}`,
+    `organ request: ${requests.cairoOrgan._id}`,
+    `pending O- request: ${requests.gizaOminus._id}`,
+  ]);
+
+  printReferenceBlock('Key appointment / QR tokens:', [
+    `aya pending request-linked appointment: ${appointments.ayaUrgent._id} | qrToken: demo-qr-aya-critical`,
+    `omar confirmed request-linked appointment: ${appointments.omarScheduled._id} | qrToken: demo-qr-omar-request`,
+    `noor standalone verification appointment: ${appointments.noorVerify._id} | qrToken: demo-qr-noor-verify`,
+    `leila cancelled appointment: ${appointments.leilaCancelled._id} | qrToken: demo-qr-leila-cancelled`,
+  ]);
+
+  printReferenceBlock('Useful IDs for role-specific endpoints:', [
+    `Aya donorId: ${donors.aya._id}`,
+    `Omar donorId: ${donors.omar._id}`,
+    `Mariam donorId: ${donors.mariam._id}`,
+    `Cairo Care hospitalId: ${hospitals.cairoCare._id}`,
+    `Nile Hope hospitalId: ${hospitals.nileHope._id}`,
+    `Mariam completed donationId: ${donations.mariamCompleted._id}`,
+  ]);
+
+  printSnippetBlock('Quick test snippets:', [
+    {
+      title: 'Donor login',
+      command: `curl -X POST ${demoBaseUrl}/auth/login -H "Content-Type: application/json" -d "{\\"email\\":\\"aya.hassan@lifelink.demo\\",\\"password\\":\\"DonorPass@123\\"}"`,
+    },
+    {
+      title: 'Hospital login',
+      command: `curl -X POST ${demoBaseUrl}/auth/hospital/login -H "Content-Type: application/json" -d "{\\"email\\":\\"ops@cairocare.demo\\",\\"password\\":\\"HospitalPass@123\\"}"`,
+    },
+    {
+      title: 'Admin login',
+      command: `curl -X POST ${demoBaseUrl}/auth/admin/login -H "Content-Type: application/json" -d "{\\"email\\":\\"admin@lifelink.demo\\",\\"password\\":\\"AdminPass@123\\",\\"adminKey\\":\\"ADMIN-DEMO-KEY-2026\\"}"`,
+    },
+    {
+      title: 'Donor requests feed after login',
+      command: `curl ${demoBaseUrl}/donor/requests -H "Authorization: Bearer <DONOR_ACCESS_TOKEN>"`,
+    },
+    {
+      title: 'Hospital request details',
+      command: `curl ${demoBaseUrl}/hospital/requests/${requests.gizaHighBlood._id} -H "Authorization: Bearer <HOSPITAL_ACCESS_TOKEN>"`,
+    },
+    {
+      title: 'Admin request details',
+      command: `curl ${demoBaseUrl}/admin/requests/${requests.cairoCriticalBlood._id} -H "Authorization: Bearer <ADMIN_ACCESS_TOKEN>"`,
+    },
+    {
+      title: 'QR verification demo',
+      command: `curl -X POST ${demoBaseUrl}/appointments/verify-qr -H "Authorization: Bearer <HOSPITAL_ACCESS_TOKEN>" -H "Content-Type: application/json" -d "{\\"qrToken\\":\\"demo-qr-noor-verify\\"}"`,
+    },
+    {
+      title: 'Appointment slots demo',
+      command: `curl "${demoBaseUrl}/appointments/available-slots?hospitalId=${hospitals.cairoCare._id}&date=${futureDate(3, 10).toISOString().slice(0, 10)}" -H "Authorization: Bearer <DONOR_ACCESS_TOKEN>"`,
+    },
+  ]);
+
   console.log('');
-  console.log('Demo credentials:');
-  demoCredentials.forEach((entry) => {
-    console.log(`- ${entry.role}: ${entry.email} / ${entry.password}`);
-  });
-  console.log('');
-  console.log('Seeded demo data includes:');
-  console.log('- Donors with updated settings (pushNotifications, emergencyAlerts, privacyMode, language)');
-  console.log('- Hospitals with time slot configurations (slotsPerHour, workingHoursStart, workingHoursEnd)');
-  console.log('- Appointments with QR tokens for donation scanning');
-  console.log('- Requests, donations, notifications, rewards, help documents, support messages, activities, audit logs, hospital settings, and 2FA data');
-  console.log('');
-  console.log('FAQ content is served from the built-in help controller and does not require database seeding.');
+  console.log('FAQ content is served by the help controller and does not require database seeding.');
 }
 
 try {

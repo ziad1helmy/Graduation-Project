@@ -100,14 +100,14 @@ export const setMaintenanceMode = async (enabled, message, adminId) => {
   await SystemSettings.findOneAndUpdate(
     { key: 'maintenance_mode' },
     { value: enabled, updatedBy: adminId },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 
   if (message !== undefined) {
     await SystemSettings.findOneAndUpdate(
       { key: 'maintenance_message' },
       { value: message, updatedBy: adminId },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
 
@@ -387,7 +387,7 @@ export const updateDonor = async (donorId, data, adminId) => {
     }
   }
 
-  const updated = await Donor.findByIdAndUpdate(donorId, updateData, { new: true, runValidators: true });
+  const updated = await Donor.findByIdAndUpdate(donorId, updateData, { returnDocument: 'after', runValidators: true });
   await logAudit(adminId, 'user.update_donor', 'User', donorId);
   return updated;
 };
@@ -646,7 +646,7 @@ export const seedDefaultRolePermissions = async () => {
     await RolePermission.findOneAndUpdate(
       { role: rolePermission.role },
       { $setOnInsert: rolePermission },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
   }
 };
@@ -705,7 +705,7 @@ export const updateRolePermissions = async (role, data, adminId) => {
   const updated = await RolePermission.findOneAndUpdate(
     { role: normalizedRole },
     { $set: updateData },
-    { new: true, runValidators: true }
+    { returnDocument: 'after', runValidators: true }
   );
 
   await logAudit(adminId, 'permissions.update_role', 'RolePermission', updated._id);

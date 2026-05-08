@@ -40,6 +40,46 @@ const GENERIC_JSON_EXAMPLE = {
   data: {},
 };
 
+const DEMO_EXAMPLE_IDS = {
+  donorId: '69f3df915f42685cbbbcbb18',
+  donorIdAlt: '69f3df915f42685cbbbcbb19',
+  donorIdCompleted: '69f3df915f42685cbbbcbb1a',
+  hospitalId: '69f3df915f42685cbbbcbb1b',
+  hospitalIdAlt: '69f3df925f42685cbbbcbb1c',
+  requestIdCritical: '69fe540565ff7785a031314f',
+  requestIdHigh: '69fe540565ff7785a0313150',
+  requestIdCompleted: '69fe540565ff7785a0313151',
+  requestIdCancelled: '69fe540565ff7785a0313152',
+  requestIdOrgan: '69fe540565ff7785a0313153',
+  requestIdONegative: '69fe540565ff7785a0313154',
+  donationIdCompleted: '69fe540565ff7785a0313157',
+  appointmentIdPending: '69fe540565ff7785a031315b',
+  appointmentIdConfirmed: '69fe540565ff7785a031315c',
+  appointmentIdVerify: '69fe540565ff7785a031315d',
+  rewardId: '69fe540565ff7785a0313165',
+  notificationId: '69fe540565ff7785a0313170',
+  staffId: '69fe540565ff7785a0313180',
+};
+
+const DEMO_EXAMPLES = {
+  baseUrl: env.API_BASE_URL || 'http://localhost:5000',
+  donorLogin: {
+    email: 'aya.hassan@lifelink.demo',
+    password: 'DonorPass@123',
+  },
+  hospitalLogin: {
+    email: 'ops@cairocare.demo',
+    password: 'HospitalPass@123',
+  },
+  adminLogin: {
+    email: 'admin@lifelink.demo',
+    password: 'AdminPass@123',
+    adminKey: 'ADMIN-DEMO-KEY-2026',
+  },
+  supportEmail: 'aya.hassan@lifelink.demo',
+  qrToken: 'demo-qr-noor-verify',
+};
+
 const isPlainObject = (value) => Boolean(value) && typeof value === 'object' && !Array.isArray(value);
 
 const resolveRef = (ref, spec) => {
@@ -173,8 +213,72 @@ const sampleFromSchema = (schema, spec, visited = new Set()) => {
   }
 };
 
-const enrichParameter = (parameter, spec) => {
-  if (!parameter || parameter.example !== undefined || !parameter.schema) {
+const getDemoParameterExample = (path, parameter) => {
+  const name = parameter?.name;
+  if (!name) return undefined;
+
+  const parameterExamples = {
+    page: 1,
+    limit: 10,
+    skip: 0,
+    read: false,
+    month: '2026-05',
+    months: 6,
+    date: '2026-05-12',
+    date_from: '2026-05-01T00:00:00.000Z',
+    date_to: '2026-05-31T23:59:59.000Z',
+    city: 'Cairo',
+    governorate: 'Cairo',
+    search: 'Cairo Care',
+    urgency: 'critical',
+    status: 'pending',
+    type: 'blood',
+    bloodType: 'O+',
+    category: 'FOOD',
+    sort_by: 'COST_ASC',
+    role: 'custom-ops',
+    action: 'suspend',
+  };
+
+  if (parameterExamples[name] !== undefined) {
+    return parameterExamples[name];
+  }
+
+  if (name === 'hospitalId') return DEMO_EXAMPLE_IDS.hospitalId;
+  if (name === 'appointmentId') return DEMO_EXAMPLE_IDS.appointmentIdConfirmed;
+  if (name === 'requestId') {
+    if (path.includes('/urgent-requests/')) return DEMO_EXAMPLE_IDS.requestIdCritical;
+    if (path.includes('/hospital/requests/')) return DEMO_EXAMPLE_IDS.requestIdHigh;
+    return DEMO_EXAMPLE_IDS.requestIdCritical;
+  }
+  if (name === 'rewardId') return DEMO_EXAMPLE_IDS.rewardId;
+  if (name === 'userId') return DEMO_EXAMPLE_IDS.donorId;
+  if (name === 'id') {
+    if (path.includes('/admin/requests/')) return DEMO_EXAMPLE_IDS.requestIdCritical;
+    if (path.includes('/admin/donors/')) return DEMO_EXAMPLE_IDS.donorId;
+    if (path.includes('/admin/hospitals/')) return DEMO_EXAMPLE_IDS.hospitalId;
+    if (path.includes('/admin/users/')) return DEMO_EXAMPLE_IDS.donorId;
+    if (path.includes('/hospital/staff/')) return DEMO_EXAMPLE_IDS.staffId;
+    if (path.includes('/notifications/')) return DEMO_EXAMPLE_IDS.notificationId;
+    if (path.includes('/hospitals/')) return DEMO_EXAMPLE_IDS.hospitalId;
+    return DEMO_EXAMPLE_IDS.requestIdCritical;
+  }
+
+  return undefined;
+};
+
+const enrichParameter = (parameter, spec, path) => {
+  if (!parameter || !parameter.schema) {
+    return;
+  }
+
+  const demoExample = getDemoParameterExample(path, parameter);
+  if (demoExample !== undefined) {
+    parameter.example = demoExample;
+    return;
+  }
+
+  if (parameter.example !== undefined) {
     return;
   }
 
@@ -184,8 +288,143 @@ const enrichParameter = (parameter, spec) => {
   }
 };
 
-const enrichMediaType = (mediaType, spec, fallbackExample = GENERIC_JSON_EXAMPLE) => {
-  if (!mediaType || mediaType.example !== undefined || mediaType.examples) {
+const getDemoRequestExample = (path, method) => {
+  const requestExamples = {
+    'POST /auth/login': DEMO_EXAMPLES.donorLogin,
+    'POST /auth/hospital/login': DEMO_EXAMPLES.hospitalLogin,
+    'POST /auth/admin/login': DEMO_EXAMPLES.adminLogin,
+    'POST /auth/forgot-password': { email: DEMO_EXAMPLES.supportEmail },
+    'POST /auth/reset-password': { email: DEMO_EXAMPLES.supportEmail, otp: '123456', password: 'NewPass@123' },
+    'POST /auth/verify-otp': { email: DEMO_EXAMPLES.supportEmail, otp: '123456' },
+    'POST /auth/verify-email': { email: DEMO_EXAMPLES.supportEmail },
+    'POST /auth/verify-email-otp': { email: DEMO_EXAMPLES.supportEmail, otp: '123456' },
+    'POST /auth/2fa/verify': { tempToken: '<TEMP_2FA_TOKEN>', code: '123456' },
+    'POST /auth/2fa/disable': { password: 'AdminPass@123' },
+    'POST /donations/validate': { hospitalId: DEMO_EXAMPLE_IDS.hospitalId, date: '2026-05-12T10:00:00.000Z' },
+    'POST /donations/complete': { donationId: DEMO_EXAMPLE_IDS.donationIdCompleted, notes: 'Donation completed successfully.' },
+    'POST /donations/book-appointment': {
+      hospitalId: DEMO_EXAMPLE_IDS.hospitalId,
+      requestId: DEMO_EXAMPLE_IDS.requestIdCritical,
+      appointmentDate: '2026-05-12T10:00:00.000Z',
+      notes: 'Available in the morning.',
+    },
+    'PATCH /donations/book-appointment/{appointmentId}': { date: '2026-05-13', time: '11:00 AM' },
+    'POST /appointments/verify-qr': { qrToken: DEMO_EXAMPLES.qrToken },
+    'PUT /donor/profile': {
+      fullName: 'Aya Hassan',
+      phoneNumber: '01011111111',
+      gender: 'female',
+      weight: 60,
+      location: { city: 'Cairo', governorate: 'Cairo' },
+    },
+    'POST /donor/respond/{requestId}': { quantity: 1 },
+    'PUT /donor/availability': { isAvailable: true },
+    'PATCH /donor/health-history': {
+      chronicConditions: [],
+      medications: ['Iron supplement'],
+      allergies: ['Penicillin'],
+      notes: 'Healthy and ready for donation.',
+      lastCheckupDate: '2026-04-20',
+    },
+    'PUT /donor/settings': {
+      pushNotifications: true,
+      emergencyAlerts: true,
+      privacyMode: false,
+      language: 'en',
+    },
+    'PUT /hospital/profile': {
+      fullName: 'Cairo Care Operations',
+      hospitalName: 'Cairo Care Hospital',
+      contactNumber: '1044444444',
+      address: { city: 'Cairo', governorate: 'Cairo' },
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0511, lng: 31.2435 },
+      },
+    },
+    'POST /hospital/request': {
+      type: 'blood',
+      bloodType: 'O+',
+      urgency: 'critical',
+      requiredBy: '2026-05-12T10:00:00.000Z',
+      quantity: 3,
+      notes: 'Emergency surgery support',
+    },
+    'PUT /hospital/requests/{requestId}': { status: 'in-progress' },
+    'PUT /hospital/blood-bank-settings': {
+      criticalThreshold: { 'O+': 4, 'A-': 2 },
+      lowThreshold: { 'O+': 12, 'A-': 8 },
+      automaticNotifications: true,
+      notificationEmail: 'ops@cairocare.demo',
+    },
+    'PUT /hospital/notification-preferences': { email: true, push: true, sms: false },
+    'POST /hospital/staff': {
+      name: 'Sara Fawzy',
+      position: 'PHLEBOTOMIST',
+      status: 'ON_DUTY',
+      phone: '01170000001',
+      shiftStart: '09:00',
+      shiftEnd: '17:00',
+    },
+    'POST /admin/system/maintenance': { enabled: false, message: 'Demo mode active' },
+    'PUT /admin/donors/{id}': {
+      fullName: 'Aya Hassan',
+      phoneNumber: '01011111111',
+      bloodType: 'O+',
+      isAvailable: true,
+    },
+    'POST /admin/donors/{id}/ban': { reason: 'Temporary compliance review' },
+    'PUT /admin/hospitals/{id}/status': { action: 'suspend', reason: 'Compliance audit' },
+    'POST /admin/users/hospital': {
+      fullName: 'Alexandria Demo Hospital',
+      email: 'alex.demo@lifelink.demo',
+      password: 'HospitalPass@123',
+      hospitalName: 'Alexandria Demo Hospital',
+      licenseNumber: 'LIC-ALEX-2001',
+      contactNumber: '1066666666',
+      lat: 31.2001,
+      long: 29.9187,
+      address: { city: 'Alexandria', governorate: 'Alexandria' },
+    },
+    'PATCH /admin/users/{id}/suspend': { reason: 'Repeated policy violation' },
+    'PATCH /admin/requests/{id}/cancel': { reason: 'Transferred to another hospital' },
+    'POST /admin/emergency/broadcast': {
+      title: 'Emergency O+ Need',
+      message: 'Critical O+ blood request in Cairo.',
+      governorate: 'Cairo',
+      city: 'Cairo',
+      bloodTypes: ['O+'],
+    },
+    'POST /rewards/catalog/{rewardId}/redeem': {
+      delivery_preference: 'IN_APP',
+      delivery_contact: null,
+    },
+    'POST /rewards/admin/users/{userId}/points/adjust': {
+      amount: 100,
+      reason: 'Demo bonus points',
+    },
+    'PATCH /rewards/admin/catalog/{rewardId}/status': { status: 'ACTIVE' },
+    'POST /support/contact': {
+      subject: 'Need help with reward redemption',
+      message: 'I want to confirm when the Coffee Voucher becomes available.',
+    },
+  };
+
+  return requestExamples[`${method.toUpperCase()} ${path}`];
+};
+
+const enrichMediaType = (mediaType, spec, fallbackExample = GENERIC_JSON_EXAMPLE, explicitExample) => {
+  if (!mediaType) {
+    return;
+  }
+
+  if (explicitExample !== undefined) {
+    mediaType.example = explicitExample;
+    return;
+  }
+
+  if (mediaType.example !== undefined || mediaType.examples) {
     return;
   }
 
@@ -193,22 +432,37 @@ const enrichMediaType = (mediaType, spec, fallbackExample = GENERIC_JSON_EXAMPLE
   mediaType.example = example !== undefined ? example : fallbackExample;
 };
 
-const enrichOperation = (operation, spec) => {
+const appendDemoDescription = (operation, path, method) => {
+  const demoRequestExample = getDemoRequestExample(path, method);
+  const demoNote = [
+    'Demo seed available via `npm run seed-demo`.',
+    `Base URL example: ${DEMO_EXAMPLES.baseUrl}`,
+    demoRequestExample ? 'This operation includes a seeded demo request example.' : 'Parameter examples are aligned with the seeded demo dataset where possible.',
+  ].join(' ');
+
+  operation.description = operation.description
+    ? `${operation.description}\n\n${demoNote}`
+    : demoNote;
+};
+
+const enrichOperation = (operation, spec, path, method) => {
   if (!operation || typeof operation !== 'object') {
     return;
   }
 
   let hasExample = false;
+  appendDemoDescription(operation, path, method);
 
   for (const parameter of operation.parameters || []) {
-    enrichParameter(parameter, spec);
+    enrichParameter(parameter, spec, path);
     hasExample = hasExample || parameter.example !== undefined;
   }
 
+  const demoRequestExample = getDemoRequestExample(path, method);
   if (operation.requestBody?.content) {
     for (const [contentType, mediaType] of Object.entries(operation.requestBody.content)) {
       if (contentType === 'application/json' || contentType.endsWith('+json')) {
-        enrichMediaType(mediaType, spec, {});
+        enrichMediaType(mediaType, spec, {}, demoRequestExample);
         hasExample = hasExample || mediaType.example !== undefined;
       }
     }
@@ -271,9 +525,9 @@ const enrichOperation = (operation, spec) => {
 };
 
 const enrichSwaggerExamples = (spec) => {
-  for (const pathItem of Object.values(spec.paths || {})) {
-    for (const operation of Object.values(pathItem || {})) {
-      enrichOperation(operation, spec);
+  for (const [path, pathItem] of Object.entries(spec.paths || {})) {
+    for (const [method, operation] of Object.entries(pathItem || {})) {
+      enrichOperation(operation, spec, path, method);
     }
   }
 
@@ -288,7 +542,8 @@ const swaggerOptions = {
       version: '1.0.0',
       description:
         'OpenAPI documentation for the LifeLink donation platform API. ' +
-        'All routes are mounted at root paths.',
+        'All routes are mounted at root paths. ' +
+        'For realistic data and examples, run `npm run seed-demo` and use the seeded demo credentials, QR tokens, and printed IDs.',
     },
     servers: [
       {

@@ -60,7 +60,7 @@ const getOrCreateAccount = async (donorId) => {
   return DonorPoints.findOneAndUpdate(
     { donorId },
     { $setOnInsert: { donorId } },
-    { upsert: true, new: true }
+    { upsert: true, returnDocument: 'after' }
   );
 };
 
@@ -93,7 +93,7 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
           $inc: { pointsBalance: amount, lifetimePointsEarned: amount },
           $setOnInsert: { donorId },
         },
-        { upsert: true, new: true, session }
+        { upsert: true, returnDocument: 'after', session }
       );
 
       // Recalculate tier
@@ -284,7 +284,7 @@ export const checkAndUpdateBadges = async (donorId) => {
         },
         $setOnInsert: { donorId, badgeId: badge._id },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     // If just unlocked (wasn't before), award badge points, log activity, and notify
@@ -489,7 +489,7 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
       updatedAccount = await DonorPoints.findOneAndUpdate(
         { donorId, pointsBalance: { $gte: reward.pointsCost } },
         { $inc: { pointsBalance: -reward.pointsCost } },
-        { new: true, session }
+        { returnDocument: 'after', session }
       );
       if (!updatedAccount) throw Object.assign(new Error('Insufficient points'), { statusCode: 409 });
 
@@ -596,7 +596,7 @@ export const adminAdjustPoints = async (donorId, amount, reason, adminId) => {
       const account = await DonorPoints.findOneAndUpdate(
         { donorId },
         { $setOnInsert: { donorId } },
-        { upsert: true, new: true, session }
+        { upsert: true, returnDocument: 'after', session }
       );
 
       if (amount < 0 && account.pointsBalance + amount < 0) {
@@ -607,7 +607,7 @@ export const adminAdjustPoints = async (donorId, amount, reason, adminId) => {
       updatedAccount = await DonorPoints.findOneAndUpdate(
         { donorId, ...balanceGuard },
         { $inc: { pointsBalance: amount, ...(amount > 0 ? { lifetimePointsEarned: amount } : {}) } },
-        { new: true, session }
+        { returnDocument: 'after', session }
       );
 
       if (!updatedAccount) {
@@ -634,7 +634,7 @@ export const adminAdjustPoints = async (donorId, amount, reason, adminId) => {
 };
 
 export const adminUpdateRewardStatus = async (rewardId, status, adminId) => {
-  const reward = await RewardCatalog.findByIdAndUpdate(rewardId, { status }, { new: true });
+  const reward = await RewardCatalog.findByIdAndUpdate(rewardId, { status }, { returnDocument: 'after' });
   if (!reward) throw Object.assign(new Error('Reward not found'), { statusCode: 404 });
   return reward;
 };
