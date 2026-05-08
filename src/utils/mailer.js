@@ -19,10 +19,16 @@ function createTransporter() {
     connectionTimeout: 10000,
     greetingTimeout: 10000,
     socketTimeout: 10000,
+    family: 4, // Force IPv4 to fix ENETUNREACH IPv6 errors
+    ignoreTLS: false,
+    requireTLS: true,
     auth: {
       user: env.SMTP_USER,
       pass: env.SMTP_PASS,
     },
+    tls: {
+      rejectUnauthorized: false
+    }
   });
 }
 
