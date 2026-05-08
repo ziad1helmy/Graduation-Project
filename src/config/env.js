@@ -44,12 +44,7 @@ const getEnv = () => ({
     `http://localhost:${parseInt(process.env.PORT, 10) || 5000}`,
 
   // Mail
-  SMTP_HOST: process.env.SMTP_HOST,
-  SMTP_PORT: parseInt(process.env.SMTP_PORT, 10) || 587,
-  SMTP_SECURE: process.env.SMTP_SECURE === 'true',
-  SMTP_USER: process.env.SMTP_USER,
-  SMTP_PASS: process.env.SMTP_PASS,
-  MAIL_FROM: process.env.MAIL_FROM,
+  RESEND_API_KEY: process.env.RESEND_API_KEY,
   EMAIL_LOGO_URL: process.env.EMAIL_LOGO_URL, // ✅ FIXED
 
   // Bcrypt
