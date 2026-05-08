@@ -484,45 +484,33 @@ export const register = async (data, trace = {}) => {
       saveMs: Number(hrtimeMs(tokenSaveStartedAt).toFixed(3)),
     });
 
-    // Send the verification email now so failures can be observed and logged.
-    let verificationEmail = null;
-    try {
-      verificationEmail = await sendEmailVerificationEmail({
-        to: user.email,
-        fullName: user.fullName,
-        otp: verificationOtp,
-      });
-    } catch (err) {
-      verificationEmail = { sent: false, error: err?.message || 'Failed to send verification email' };
+    // Send the verification email asynchronously to avoid blocking the signup request
+    void sendEmailVerificationEmail({
+      to: user.email,
+      fullName: user.fullName,
+      otp: verificationOtp,
+    }).catch((err) => {
       logger.warn('Verification-email send failed', {
         traceId,
         email: user.email,
         message: err?.message,
       });
-    }
+    });
 
-    if (verificationEmail?.skipped) {
-      logger.warn('Verification-email skipped', {
-        traceId,
-        email: user.email,
-        reason: verificationEmail.reason,
-      });
-    }
-
-    logger.info('Signup completed (verification email processed)', {
+    logger.info('Signup completed (verification email scheduled)', {
       traceId,
       email,
       role,
       totalMs: Number(hrtimeMs(requestStartedAt).toFixed(3)),
     });
 
-    // Return created user and tokens; verification email was scheduled.
+    // Return created user and tokens.
     const authPayload = buildAuthPayload(user);
     return {
       user,
       accessToken: authPayload.accessToken,
       refreshToken: authPayload.refreshToken,
-      verificationEmail,
+      verificationEmail: { sent: true },
     };
 };
 
