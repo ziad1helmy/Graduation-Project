@@ -12,7 +12,7 @@
  *  - location            : { city, governorate, coordinates: {lat, lng}, lastUpdated }
  *  - fcmTokens           : string[] — FCM device tokens for push notifications
  *  - passwordChangedAt   : Date, select: false — invalidates older JWTs
- *  - Email verification  : token + expiry fields, select: false
+ *  - Email verification  : OTP code + expiry fields, select: false
  *  - Password reset      : token + expiry fields, select: false
  *  - timestamps          : createdAt, updatedAt (auto)
  *
@@ -70,11 +70,11 @@ const userSchema = new Schema(
       default: null,
       select: false,
     },
-    emailVerificationToken: {
+    emailVerificationOtp: {
       type: String,
       select: false,
     },
-    emailVerificationExpires: {
+    emailVerificationOtpExpires: {
       type: Date,
       select: false,
     },
@@ -207,16 +207,16 @@ userSchema.methods.createPasswordResetToken = function () {
   return resetToken;
 };
 
-userSchema.methods.createEmailVerificationToken = function () {
-  const verificationToken = crypto.randomBytes(32).toString('hex');
+userSchema.methods.createEmailVerificationOtp = function () {
+  const verificationOtp = String(Math.floor(100000 + Math.random() * 900000));
 
-  this.emailVerificationToken = crypto
+  this.emailVerificationOtp = crypto
     .createHash('sha256')
-    .update(verificationToken)
+    .update(verificationOtp)
     .digest('hex');
-  this.emailVerificationExpires = Date.now() + 24 * 60 * 60 * 1000;
+  this.emailVerificationOtpExpires = Date.now() + 10 * 60 * 1000;
 
-  return verificationToken;
+  return verificationOtp;
 };
 
 const User = mongoose.model('User', userSchema);

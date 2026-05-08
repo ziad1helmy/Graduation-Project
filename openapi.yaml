@@ -131,12 +131,16 @@ components:
         email:
           type: string
           format: email
-    TokenRequest:
+    VerificationOtpRequest:
       type: object
       required:
-        - token
+        - email
+        - otp
       properties:
-        token:
+        email:
+          type: string
+          format: email
+        otp:
           type: string
     OtpRequest:
       type: object
@@ -156,6 +160,30 @@ components:
           type: string
         refreshToken:
           type: string
+    VerificationEmailStatus:
+      type: object
+      properties:
+        sent:
+          type: boolean
+        skipped:
+          type: boolean
+        reason:
+          type: string
+        error:
+          type: string
+    SignupResponseData:
+      type: object
+      required:
+        - user
+        - tokens
+      properties:
+        user:
+          type: object
+          description: Created user document
+        tokens:
+          $ref: "#/components/schemas/AuthTokens"
+        verificationEmail:
+          $ref: "#/components/schemas/VerificationEmailStatus"
     FcmTokenRequest:
       type: object
       required:
@@ -1939,7 +1967,32 @@ paths:
               confirmPassword: P@ssw0rd123
       responses:
         "201":
-          description: User registered successfully - Email verification required
+          description: User registered successfully - Email verification processed
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: "#/components/schemas/SignupResponseData"
+              example:
+                success: true
+                data:
+                  user:
+                    fullName: ziad
+                    email: user@example.com
+                    role: donor
+                  tokens:
+                    accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                    refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  verificationEmail:
+                    sent: true
         "400":
           description: Validation or registration error
         "409":
@@ -2038,6 +2091,49 @@ paths:
           content:
             application/json:
               example: *a2
+  /auth/forgot-password:
+    post:
+      tags:
+        - Auth
+      summary: Request password reset (sends OTP)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+            example:
+              email: user@example.com
+      responses:
+        "200":
+          description: Password reset email sent
+  /auth/reset-password:
+    post:
+      tags:
+        - Auth
+      summary: Reset password using token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - token
+                - password
+              properties:
+                token:
+                  type: string
+                password:
+                  type: string
+            example:
+              token: string
+              password: string
+      responses:
+        "200":
+          description: Password reset successful
+        "400":
+          description: Invalid token
   /auth/send-otp:
     post:
       tags:
@@ -2071,6 +2167,39 @@ paths:
       responses:
         "200":
           description: Password reset OTP verified successfully
+  /auth/verify-email:
+    post:
+      tags:
+        - Auth
+      summary: Send an email verification code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+            example:
+              email: user@example.com
+      responses:
+        "200":
+          description: Verification code sent successfully
+  /auth/verify-email-otp:
+    post:
+      tags:
+        - Auth
+      summary: Verify email verification code
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerificationOtpRequest"
+            example:
+              email: user@example.com
+              otp: string
+      responses:
+        "200":
+          description: Email verified successfully
   /auth/2fa/setup:
     post:
       tags:
