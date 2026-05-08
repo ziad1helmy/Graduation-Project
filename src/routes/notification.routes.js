@@ -16,7 +16,7 @@ const router = Router();
  * /notifications:
  *   get:
  *     summary: List notifications for authenticated user
- *     tags: [Notifications]
+ *     tags: [Donor]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: query
@@ -42,7 +42,7 @@ router.get('/', authMiddleware, notificationController.getNotifications);
  * /notifications/{id}/read:
  *   patch:
  *     summary: Mark one notification as read
- *     tags: [Notifications]
+ *     tags: [Donor]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -60,7 +60,7 @@ router.patch('/:id/read', authMiddleware, notificationController.markNotificatio
  * /notifications/read-all:
  *   patch:
  *     summary: Mark all notifications as read
- *     tags: [Notifications]
+ *     tags: [Donor]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -73,7 +73,7 @@ router.patch('/read-all', authMiddleware, notificationController.markAllNotifica
  * /notifications/{id}:
  *   get:
  *     summary: Get one notification
- *     tags: [Notifications]
+ *     tags: [Donor]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -95,7 +95,7 @@ router.get('/:id', authMiddleware, notificationController.getNotificationById);
  * /notifications/{id}:
  *   delete:
  *     summary: Delete one notification
- *     tags: [Notifications]
+ *     tags: [Donor]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path

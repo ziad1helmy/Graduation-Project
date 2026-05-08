@@ -47,6 +47,31 @@ const appointmentSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Dev 1: QR Token for donation scanning
+    qrToken: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+
+    qrScannedAt: {
+      type: Date,
+      default: null,
+    },
+
+    qrExpiresAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Dev 1: Donation type selection
+    donationType: {
+      type: String,
+      enum: ['Whole Blood', 'Platelets', 'Plasma'],
+      default: 'Whole Blood',
+    },
   },
   { timestamps: true }
 );

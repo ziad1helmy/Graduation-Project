@@ -1,5 +1,13 @@
 import response from '../utils/response.js';
+import Appointment from '../models/Appointment.model.js';
+import Donation from '../models/Donation.model.js';
+import Donor from '../models/Donor.model.js';
+import * as activityService from '../services/activity.service.js';
+import * as eligibilityService from '../services/eligibility.service.js';
 import * as donationService from '../services/donation.service.js';
+import * as rewardService from '../services/reward.service.js';
+
+const getUserId = (req) => req?.user?.userId || req?.user?._id;
 
 export const completeDonation = async (req, res, next) => {
   try {
@@ -22,6 +30,215 @@ export const completeDonation = async (req, res, next) => {
     if (error.message === 'Invalid donation status') {
       return response.error(res, 400, error.message);
     }
+    next(error);
+  }
+};
+
+export const getDonationTypes = (req, res) => {
+  return response.success(res, 200, 'Donation types retrieved successfully', [
+    'Whole Blood',
+    'Platelets',
+    'Plasma',
+  ]);
+};
+
+export const validateDonationEligibility = async (req, res, next) => {
+  try {
+    const donorId = getUserId(req);
+    const { hospitalId, date } = req.body;
+
+    if (!hospitalId || !date) {
+      return response.error(res, 400, 'hospitalId and date are required');
+    }
+
+    const donor = await Donor.findById(donorId);
+    if (!donor) {
+      return response.error(res, 404, 'Donor not found');
+    }
+
+    const requestedDate = new Date(date);
+    if (Number.isNaN(requestedDate.getTime())) {
+      return response.error(res, 400, 'Invalid date');
+    }
+
+    const eligibility = await eligibilityService.canDonate(donor, { persistTravelDeferral: false });
+    if (!eligibility.eligible) {
+      return response.success(res, 200, 'Donation eligibility checked', {
+        canDonate: false,
+        reason: eligibility.reason || 'Donor is not eligible',
+      });
+    }
+
+    const duplicateAppointment = await Appointment.findOne({
+      donorId,
+      hospitalId,
+      appointmentDate: requestedDate,
+      status: { $in: ['pending', 'confirmed'] },
+    });
+
+    if (duplicateAppointment) {
+      return response.success(res, 200, 'Donation eligibility checked', {
+        canDonate: false,
+        reason: 'You already have a booking for this hospital and date',
+      });
+    }
+
+    return response.success(res, 200, 'Donation eligibility checked', {
+      canDonate: true,
+      reason: null,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const verifyQr = async (req, res, next) => {
+  try {
+    const qrToken = req.body.qrToken || req.body.qrCode;
+    if (!qrToken) return response.error(res, 400, 'qrToken is required');
+
+    const appointment = await Appointment.findOne({ qrToken })
+      .populate('donorId', 'bloodType suspensionStatus lastDonationDate')
+      .populate('hospitalId', 'fullName hospitalName');
+
+    if (!appointment) return response.error(res, 404, 'Invalid QR code');
+    if (appointment.qrScannedAt) return response.error(res, 409, 'QR code already used');
+    if (appointment.status === 'cancelled') return response.error(res, 400, 'Appointment is cancelled');
+    if (!['pending', 'confirmed'].includes(appointment.status))
+      return response.error(res, 400, 'Appointment is not active');
+
+    // Check QR expiry if qrExpiresAt is set
+    if (appointment.qrExpiresAt && new Date() > appointment.qrExpiresAt)
+      return response.error(res, 400, 'QR code expired');
+
+    const donor = appointment.donorId;
+    const eligibility = await eligibilityService.canDonate(donor, { persistTravelDeferral: false });
+    if (!eligibility.eligible) return response.error(res, 403, eligibility.reason || 'Donor not eligible');
+
+    const donation = await Donation.create({
+      donorId: donor._id,
+      requestId: appointment.requestId || null,
+      quantity: 1,
+      status: 'completed',
+      completedDate: new Date(),
+    });
+
+    appointment.status = 'completed';
+    appointment.qrScannedAt = new Date();
+    await appointment.save();
+
+    await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: new Date() });
+    await rewardService.onDonationCompleted(donor._id, donation._id, false);
+
+    activityService.logActivity(donor._id, {
+      type: 'donation', action: 'qr_verified',
+      title: 'Donation Verified', description: 'Hospital QR verified',
+      referenceId: donation._id.toString(), referenceType: 'Donation',
+    }).catch(() => {});
+
+    const hospitalName = appointment.hospitalId?.hospitalName || appointment.hospitalId?.fullName || 'Hospital';
+    const pointsEarned = appointment.donationType === 'Whole Blood' ? 100 : 120;
+
+    return response.success(res, 200, 'Donation verified successfully', {
+      donation: {
+        donationId: donation._id,
+        type: appointment.donationType || 'Whole Blood',
+        date: appointment.qrScannedAt,
+        location: hospitalName,
+        status: 'confirmed',
+      },
+      pointsEarned,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const scanQr = async (req, res, next) => {
+  try {
+    const qrToken = req.body.qrToken || req.body.qrCode;
+    const rawUnits = Number(req.body.units ?? 1);
+    const units = Number.isFinite(rawUnits) && rawUnits > 0 ? rawUnits : 1;
+    const complications = req.body.complications || '';
+
+    if (!qrToken) {
+      return response.error(res, 400, 'qrToken is required');
+    }
+
+    const appointment = await Appointment.findOne({ qrToken })
+      .populate('donorId', 'bloodType suspensionStatus lastDonationDate gender dateOfBirth hemoglobinLevel temporaryDeferralUntil lastDeferralReason')
+      .populate('hospitalId', 'fullName hospitalName');
+
+    if (!appointment) {
+      return response.error(res, 404, 'QR token not found');
+    }
+
+    if (appointment.qrScannedAt) {
+      return response.error(res, 409, 'This QR code has already been scanned');
+    }
+
+    if (!['pending', 'confirmed'].includes(appointment.status)) {
+      return response.error(res, 400, 'Appointment cannot be confirmed in its current status');
+    }
+
+    if (!appointment.requestId) {
+      return response.error(res, 400, 'Appointment is not linked to a donation request');
+    }
+
+    const donor = appointment.donorId;
+    if (donor?.isSuspended) {
+      return response.error(res, 403, 'Donor is not eligible');
+    }
+
+    const eligibility = await eligibilityService.canDonate(donor, { persistTravelDeferral: false });
+    if (!eligibility.eligible) {
+      return response.error(res, 403, eligibility.reason || 'Donor is not eligible');
+    }
+
+    const donation = await Donation.create({
+      donorId: donor._id,
+      requestId: appointment.requestId,
+      quantity: units,
+      status: 'completed',
+      notes: complications,
+      completedDate: new Date(),
+    });
+
+    appointment.status = 'completed';
+    appointment.qrScannedAt = new Date();
+    await appointment.save();
+
+    await Donor.findByIdAndUpdate(donor._id, {
+      lastDonationDate: new Date(),
+    });
+
+    await rewardService.onDonationCompleted(donor._id, donation._id, false);
+
+    activityService.logActivity(donor._id, {
+      type: 'donation',
+      action: 'qr_scanned',
+      title: 'Donation Confirmed',
+      description: 'Hospital QR code scanned to confirm donation',
+      referenceId: donation._id.toString(),
+      referenceType: 'Donation',
+      metadata: {
+        appointmentId: appointment._id.toString(),
+        hospitalId: appointment.hospitalId?._id?.toString?.() || appointment.hospitalId?.toString?.(),
+        donationType: appointment.donationType,
+      },
+    }).catch(() => {});
+
+    const pointsEarned = appointment.donationType === 'Whole Blood' ? 100 : 120;
+
+    return response.success(res, 200, 'Donation confirmed successfully', {
+      donationId: donation._id,
+      pointsEarned,
+      hospitalName: appointment.hospitalId?.hospitalName || appointment.hospitalId?.fullName || 'Hospital',
+      donationType: appointment.donationType,
+      timestamp: appointment.qrScannedAt,
+      qrToken,
+    });
+  } catch (error) {
     next(error);
   }
 };

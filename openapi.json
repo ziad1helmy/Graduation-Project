@@ -3,7 +3,7 @@
   "info": {
     "title": "LifeLink API",
     "version": "1.0.0",
-    "description": "OpenAPI documentation for the LifeLink donation platform API. Primary routes are mounted at root paths and compatibility aliases are also available under /api/v1/*."
+    "description": "OpenAPI documentation for the LifeLink donation platform API. All routes are mounted at root paths."
   },
   "servers": [
     {
@@ -103,6 +103,16 @@
               },
               "licenseNumber": {
                 "type": "string"
+              },
+              "phone": {
+                "type": "string"
+              },
+              "contactNumber": {
+                "type": "string"
+              },
+              "type": {
+                "type": "string",
+                "example": "hospital"
               }
             }
           }
@@ -246,12 +256,185 @@
     }
   ],
   "paths": {
+    "/donor/activity": {
+      "get": {
+        "tags": [
+          "Activity"
+        ],
+        "summary": "Get the authenticated user's activity timeline",
+        "description": "Returns a paginated, timestamped history of all user actions (donations, rewards, urgent responses, profile updates).\nSupports optional filtering by activity type.\nResults are sorted newest-first.\n",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Page number (1-indexed, default 1)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "Items per page (default 20, max 100)",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            }
+          },
+          {
+            "name": "type",
+            "in": "query",
+            "description": "Optional activity type filter",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "donation",
+                "reward",
+                "emergency_response",
+                "profile_update"
+              ]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Activity timeline retrieved successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "data": {
+                      "type": "object",
+                      "properties": {
+                        "activities": {
+                          "type": "array",
+                          "items": {
+                            "type": "object",
+                            "properties": {
+                              "_id": {
+                                "type": "string",
+                                "example": "5f9d4a1b9d7c2e3c4f5a6b7c"
+                              },
+                              "type": {
+                                "type": "string",
+                                "enum": [
+                                  "donation",
+                                  "reward",
+                                  "emergency_response",
+                                  "profile_update"
+                                ]
+                              },
+                              "action": {
+                                "type": "string",
+                                "example": "completed_donation"
+                              },
+                              "title": {
+                                "type": "string",
+                                "example": "Blood Donation Completed"
+                              },
+                              "description": {
+                                "type": "string",
+                                "example": "Donated 1 unit of A+ blood to Cairo Hospital"
+                              },
+                              "icon": {
+                                "type": "string",
+                                "example": "heart"
+                              },
+                              "referenceId": {
+                                "type": "string",
+                                "nullable": true,
+                                "example": "5f9d4a1b9d7c2e3c4f5a6b7c"
+                              },
+                              "referenceType": {
+                                "type": "string",
+                                "nullable": true,
+                                "example": "Donation"
+                              },
+                              "metadata": {
+                                "type": "object",
+                                "example": {
+                                  "bloodType": "A+",
+                                  "hospitalName": "Cairo Hospital",
+                                  "quantity": 1
+                                }
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2026-05-04T12:00:00.000Z"
+                              }
+                            }
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "total": {
+                              "type": "integer",
+                              "example": 42
+                            },
+                            "page": {
+                              "type": "integer",
+                              "example": 1
+                            },
+                            "limit": {
+                              "type": "integer",
+                              "example": 20
+                            },
+                            "totalPages": {
+                              "type": "integer",
+                              "example": 3
+                            },
+                            "hasNextPage": {
+                              "type": "boolean",
+                              "example": true
+                            },
+                            "hasPrevPage": {
+                              "type": "boolean",
+                              "example": false
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid query parameters"
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "500": {
+            "description": "Server error"
+          }
+        }
+      }
+    },
     "/admin/login": {
       "post": {
         "summary": "Login for admin and superadmin accounts",
         "tags": [
           "Admin"
         ],
+        "description": "Authenticate admin or superadmin user. Returns JWT token for subsequent requests",
         "requestBody": {
           "required": true,
           "content": {
@@ -265,13 +448,21 @@
                 ],
                 "properties": {
                   "email": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "email",
+                    "description": "Admin email address",
+                    "example": "admin@lifelink.com"
                   },
                   "password": {
-                    "type": "string"
+                    "type": "string",
+                    "format": "password",
+                    "description": "Admin password",
+                    "example": "SecurePassword123!"
                   },
                   "adminKey": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Admin secret key for authentication",
+                    "example": "admin-secret-key-2026"
                   }
                 }
               }
@@ -280,7 +471,13 @@
         },
         "responses": {
           "200": {
-            "description": "Admin login successful"
+            "description": "Admin login successful - returns JWT token"
+          },
+          "401": {
+            "description": "Invalid credentials"
+          },
+          "403": {
+            "description": "Admin key invalid or account not authorized"
           }
         }
       }
@@ -291,6 +488,7 @@
         "tags": [
           "Admin"
         ],
+        "description": "Retrieve the authenticated admin's profile information",
         "security": [
           {
             "bearerAuth": []
@@ -1019,12 +1217,48 @@
             "bearerAuth": []
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "role",
+                  "displayName"
+                ],
+                "properties": {
+                  "role": {
+                    "type": "string",
+                    "description": "Unique role identifier"
+                  },
+                  "displayName": {
+                    "type": "string",
+                    "description": "Human-readable role name"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "Role description"
+                  },
+                  "isSystemRole": {
+                    "type": "boolean",
+                    "description": "Whether this is a system role (cannot be modified)"
+                  },
+                  "permissions": {
+                    "type": "object",
+                    "description": "Role permissions object"
+                  }
+                }
+              }
+            }
+          }
+        },
         "responses": {
           "201": {
             "description": "Role created successfully"
           },
           "400": {
-            "description": "Invalid payload"
+            "description": "Invalid payload - role and displayName are required"
           },
           "403": {
             "description": "System roles cannot be created or modified"
@@ -1066,7 +1300,7 @@
         "tags": [
           "Admin"
         ],
-        "summary": "Update role permissions",
+        "summary": "Update role permissions - Only allows updating displayName, description, and permissions",
         "security": [
           {
             "bearerAuth": []
@@ -1079,7 +1313,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Role identifier (cannot be changed)"
           }
         ],
         "requestBody": {
@@ -1090,13 +1325,122 @@
                 "type": "object",
                 "properties": {
                   "displayName": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Human-readable role name - CAN BE UPDATED",
+                    "example": "Senior Moderator"
                   },
                   "description": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Role description - CAN BE UPDATED",
+                    "example": "Manages content and escalates issues"
                   },
                   "permissions": {
-                    "type": "object"
+                    "type": "object",
+                    "description": "Role permissions object - CAN BE UPDATED",
+                    "properties": {
+                      "donor_management": {
+                        "type": "object",
+                        "properties": {
+                          "view": {
+                            "type": "boolean"
+                          },
+                          "manage": {
+                            "type": "boolean"
+                          },
+                          "ban": {
+                            "type": "boolean"
+                          },
+                          "suspend": {
+                            "type": "boolean"
+                          },
+                          "create": {
+                            "type": "boolean"
+                          },
+                          "delete": {
+                            "type": "boolean"
+                          },
+                          "export": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "hospital_management": {
+                        "type": "object",
+                        "properties": {
+                          "view": {
+                            "type": "boolean"
+                          },
+                          "manage": {
+                            "type": "boolean"
+                          },
+                          "ban": {
+                            "type": "boolean"
+                          },
+                          "suspend": {
+                            "type": "boolean"
+                          },
+                          "create": {
+                            "type": "boolean"
+                          },
+                          "delete": {
+                            "type": "boolean"
+                          },
+                          "export": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "admin_management": {
+                        "type": "object",
+                        "properties": {
+                          "view": {
+                            "type": "boolean"
+                          },
+                          "manage": {
+                            "type": "boolean"
+                          },
+                          "create": {
+                            "type": "boolean"
+                          },
+                          "delete": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "system_settings": {
+                        "type": "object",
+                        "properties": {
+                          "view": {
+                            "type": "boolean"
+                          },
+                          "manage": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "audit_logging": {
+                        "type": "object",
+                        "properties": {
+                          "view": {
+                            "type": "boolean"
+                          },
+                          "export": {
+                            "type": "boolean"
+                          }
+                        }
+                      },
+                      "reporting": {
+                        "type": "object",
+                        "properties": {
+                          "view": {
+                            "type": "boolean"
+                          },
+                          "export": {
+                            "type": "boolean"
+                          }
+                        }
+                      }
+                    }
                   }
                 }
               }
@@ -1108,7 +1452,40 @@
             "description": "Role permissions updated successfully"
           },
           "403": {
-            "description": "System roles cannot be modified"
+            "description": "System roles (admin, superadmin, donor, hospital) cannot be modified"
+          },
+          "404": {
+            "description": "Role not found"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Admin"
+        ],
+        "summary": "Delete a role permission record",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "role",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Role identifier to delete"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Role deleted successfully"
+          },
+          "403": {
+            "description": "System roles (admin, superadmin, donor, hospital) cannot be deleted"
           },
           "404": {
             "description": "Role not found"
@@ -1233,7 +1610,9 @@
                   "password",
                   "hospitalName",
                   "hospitalId",
-                  "licenseNumber"
+                  "licenseNumber",
+                  "lat",
+                  "long"
                 ],
                 "properties": {
                   "fullName": {
@@ -1267,6 +1646,18 @@
                   },
                   "contactNumber": {
                     "type": "string"
+                  },
+                  "lat": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Hospital latitude coordinate (-90 to 90)",
+                    "example": 30.0444
+                  },
+                  "long": {
+                    "type": "number",
+                    "format": "double",
+                    "description": "Hospital longitude coordinate (-180 to 180)",
+                    "example": 31.2357
                   }
                 }
               }
@@ -1276,6 +1667,9 @@
         "responses": {
           "201": {
             "description": "Hospital created"
+          },
+          "400": {
+            "description": "Invalid lat/long coordinates"
           },
           "409": {
             "description": "Email already registered"
@@ -2018,6 +2412,19 @@
         }
       }
     },
+    "/donations/book-appointment/available-slots": {
+      "get": {
+        "tags": [
+          "Appointments"
+        ],
+        "summary": "Get available appointment slots for a hospital on a given date",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ]
+      }
+    },
     "/donations/book-appointment/my-appointments": {
       "get": {
         "tags": [
@@ -2061,6 +2468,101 @@
       }
     },
     "/donations/book-appointment/{appointmentId}": {
+      "get": {
+        "tags": [
+          "Appointments"
+        ],
+        "summary": "Get appointment details",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointmentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Appointment retrieved"
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "403": {
+            "description": "Role not allowed"
+          },
+          "404": {
+            "description": "Appointment not found"
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Appointments"
+        ],
+        "summary": "Reschedule a donor appointment",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointmentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "date"
+                ],
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "format": "date-time"
+                  }
+                }
+              },
+              "example": {
+                "date": "2026-05-15T14:00:00.000Z"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Appointment rescheduled"
+          },
+          "400": {
+            "description": "Invalid appointment payload"
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "403": {
+            "description": "Role not allowed"
+          },
+          "404": {
+            "description": "Appointment not found"
+          }
+        }
+      },
       "delete": {
         "tags": [
           "Appointments"
@@ -2103,9 +2605,10 @@
     "/auth/signup": {
       "post": {
         "tags": [
-          "Auth"
+          "Auth - General"
         ],
-        "summary": "Create a new donor or hospital account",
+        "summary": "Register a new donor or hospital account",
+        "description": "Create a new account as donor or hospital. Donor signup requires phoneNumber, dateOfBirth, bloodType. Hospital signup requires hospitalName, licenseNumber",
         "requestBody": {
           "required": true,
           "content": {
@@ -2125,10 +2628,13 @@
         },
         "responses": {
           "201": {
-            "description": "User registered successfully"
+            "description": "User registered successfully - Email verification required"
           },
           "400": {
             "description": "Validation or registration error"
+          },
+          "409": {
+            "description": "Email already registered"
           }
         }
       }
@@ -2136,9 +2642,10 @@
     "/auth/login": {
       "post": {
         "tags": [
-          "Auth"
+          "Auth - Donor"
         ],
-        "summary": "Login with email and password for donor users (donor-only)",
+        "summary": "Donor login with email and password",
+        "description": "Authenticate as a donor user. Returns JWT token. Supports optional 2FA",
         "requestBody": {
           "required": true,
           "content": {
@@ -2155,6 +2662,39 @@
           },
           "400": {
             "description": "Validation error or invalid credentials"
+          },
+          "403": {
+            "description": "Email not verified or account suspended"
+          }
+        }
+      }
+    },
+    "/auth/hospital/login": {
+      "post": {
+        "tags": [
+          "Auth - Hospital"
+        ],
+        "summary": "Hospital login with email and password",
+        "description": "Authenticate as a hospital user. Returns JWT token",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Hospital login successful"
+          },
+          "400": {
+            "description": "Validation error or invalid credentials"
+          },
+          "403": {
+            "description": "Email not verified or hospital not approved"
           }
         }
       }
@@ -2164,7 +2704,8 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Login with email, password, and adminKey for the admin UI",
+        "summary": "Admin/Superadmin login with email, password, and adminKey",
+        "description": "Authenticate as admin or superadmin. Requires email, password, and adminKey secret",
         "requestBody": {
           "required": true,
           "content": {
@@ -2380,28 +2921,31 @@
         "tags": [
           "Discovery"
         ],
-        "description": "Public discovery endpoint. Compatibility alias is also mounted under `/api/v1/hospitals`.",
+        "description": "Public endpoint to discover hospitals. Search and filter by city, governorate, or keywords. Results include hospital contact information and blood inventory status",
         "parameters": [
           {
             "in": "query",
             "name": "city",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by city name"
           },
           {
             "in": "query",
             "name": "governorate",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Filter by governorate/region"
           },
           {
             "in": "query",
             "name": "search",
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "Search hospitals by name or keywords"
           },
           {
             "in": "query",
@@ -2409,7 +2953,8 @@
             "schema": {
               "type": "integer",
               "default": 1
-            }
+            },
+            "description": "Page number for pagination"
           },
           {
             "in": "query",
@@ -2417,7 +2962,8 @@
             "schema": {
               "type": "integer",
               "default": 20
-            }
+            },
+            "description": "Items per page (max 100)"
           },
           {
             "in": "query",
@@ -2425,37 +2971,70 @@
             "schema": {
               "type": "integer"
             },
-            "description": "Legacy pagination alias still supported for compatibility."
+            "description": "Legacy pagination - number of items to skip. Still supported for compatibility"
           }
         ],
         "responses": {
           "200": {
-            "description": "Hospitals list"
+            "description": "Hospitals list retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": {
+                    "hospitals": [],
+                    "pagination": {
+                      "page": 1,
+                      "limit": 20,
+                      "total": 0
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
     "/hospitals/nearby": {
       "get": {
-        "summary": "List nearby hospitals",
+        "summary": "List nearby hospitals by GPS coordinates",
         "tags": [
           "Discovery"
         ],
-        "description": "Returns hospitals sorted by computed distance when coordinate-backed hospital locations exist.",
+        "description": "Find hospitals within a specified radius from given GPS coordinates. Returns hospitals sorted by distance. Supports both lat/long and legacy latitude/longitude parameters",
         "parameters": [
+          {
+            "in": "query",
+            "name": "lat",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Hospital latitude coordinate (-90 to 90). Alias for latitude."
+          },
+          {
+            "in": "query",
+            "name": "long",
+            "schema": {
+              "type": "number"
+            },
+            "description": "Hospital longitude coordinate (-180 to 180). Alias for longitude."
+          },
           {
             "in": "query",
             "name": "latitude",
             "schema": {
               "type": "number"
-            }
+            },
+            "description": "Hospital latitude coordinate (deprecated, use lat instead)"
           },
           {
             "in": "query",
             "name": "longitude",
             "schema": {
               "type": "number"
-            }
+            },
+            "description": "Hospital longitude coordinate (deprecated, use long instead)"
           },
           {
             "in": "query",
@@ -2470,6 +3049,22 @@
             "description": "Nearby hospitals list"
           }
         }
+      }
+    },
+    "/hospitals/search": {
+      "get": {
+        "summary": "Search hospitals by keyword, blood type, and availability",
+        "tags": [
+          "Discovery"
+        ]
+      }
+    },
+    "/hospitals/map": {
+      "get": {
+        "summary": "Get hospitals for map markers",
+        "tags": [
+          "Discovery"
+        ]
       }
     },
     "/hospitals/{id}": {
@@ -2495,26 +3090,68 @@
         }
       }
     },
-    "/donations/my-appointments": {
+    "/donations/types": {
       "get": {
         "tags": [
-          "Appointments"
+          "Donations"
         ],
-        "summary": "Get donor appointments via the donations compatibility alias",
+        "summary": "Get supported donation types",
+        "responses": {
+          "200": {
+            "description": "Donation types retrieved successfully"
+          }
+        }
+      }
+    },
+    "/donations/validate": {
+      "post": {
+        "tags": [
+          "Donations"
+        ],
+        "summary": "Validate if a donor can donate for a given hospital and date",
         "security": [
           {
             "bearerAuth": []
           }
         ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "hospitalId",
+                  "date"
+                ]
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Appointments fetched successfully"
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "403": {
-            "description": "Role not allowed"
+            "description": "Donation eligibility checked successfully"
+          }
+        }
+      }
+    },
+    "/donations/qr/scan": {
+      "post": {
+        "tags": [
+          "Donations"
+        ],
+        "summary": "Confirm a donation by scanning an appointment QR token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Donation confirmed successfully"
           }
         }
       }
@@ -2529,34 +3166,20 @@
           {
             "bearerAuth": []
           }
+        ]
+      }
+    },
+    "/donations/my-appointments": {
+      "get": {
+        "tags": [
+          "Appointments"
         ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "donationId"
-                ]
-              }
-            }
+        "summary": "Get donor appointments via the donations compatibility alias",
+        "security": [
+          {
+            "bearerAuth": []
           }
-        },
-        "responses": {
-          "200": {
-            "description": "Donation completed successfully"
-          },
-          "400": {
-            "description": "Invalid donation payload"
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "403": {
-            "description": "Role not allowed"
-          }
-        }
+        ]
       }
     },
     "/donor/profile": {
@@ -2565,6 +3188,7 @@
           "Donor"
         ],
         "summary": "Get the authenticated donor profile",
+        "description": "Retrieve the authenticated donor's profile information including blood type, availability status, and location",
         "security": [
           {
             "bearerAuth": []
@@ -2586,17 +3210,18 @@
                     "phoneNumber": "01012345678",
                     "bloodType": "O+",
                     "gender": "male",
-                    "isAvailable": true
+                    "isAvailable": true,
+                    "dateOfBirth": "1995-05-15"
                   }
                 }
               }
             }
           },
           "401": {
-            "description": "Missing or invalid JWT"
+            "description": "Missing or invalid JWT token"
           },
           "403": {
-            "description": "Role not allowed"
+            "description": "Access denied - donor role required"
           },
           "404": {
             "description": "Donor profile not found"
@@ -2608,6 +3233,7 @@
           "Donor"
         ],
         "summary": "Update the authenticated donor profile",
+        "description": "Update donor profile information such as name, phone, blood type, gender, location, and availability",
         "security": [
           {
             "bearerAuth": []
@@ -2622,18 +3248,22 @@
                 "properties": {
                   "fullName": {
                     "type": "string",
+                    "description": "Donor full name",
                     "example": "Ahmed Hassan"
                   },
                   "phoneNumber": {
                     "type": "string",
+                    "description": "Donor phone number",
                     "example": "01012345678"
                   },
                   "gender": {
                     "type": "string",
                     "enum": [
                       "male",
-                      "female"
+                      "female",
+                      "other"
                     ],
+                    "description": "Donor gender",
                     "example": "male"
                   },
                   "bloodType": {
@@ -2648,10 +3278,17 @@
                       "O+",
                       "O-"
                     ],
+                    "description": "Blood type of the donor",
                     "example": "O+"
+                  },
+                  "isAvailable": {
+                    "type": "boolean",
+                    "description": "Donation availability status",
+                    "example": true
                   },
                   "location": {
                     "type": "object",
+                    "description": "Donor location information",
                     "properties": {
                       "city": {
                         "type": "string",
@@ -2680,20 +3317,21 @@
                     "_id": "66f100000000000000000002",
                     "fullName": "Ahmed Hassan",
                     "email": "ahmed@example.com",
-                    "role": "donor"
+                    "role": "donor",
+                    "isAvailable": true
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Invalid profile data"
+            "description": "Invalid profile data or validation error"
           },
           "401": {
-            "description": "Missing or invalid JWT"
+            "description": "Missing or invalid JWT token"
           },
           "403": {
-            "description": "Role not allowed"
+            "description": "Access denied - donor role required"
           }
         }
       }
@@ -2704,6 +3342,7 @@
           "Donor"
         ],
         "summary": "List active donation requests available to donors",
+        "description": "Retrieve paginated list of blood and organ donation requests that match donor eligibility criteria. Filters by type and urgency",
         "security": [
           {
             "bearerAuth": []
@@ -2719,7 +3358,8 @@
                 "blood",
                 "organ"
               ]
-            }
+            },
+            "description": "Request type filter"
           },
           {
             "in": "query",
@@ -2732,24 +3372,8 @@
                 "high",
                 "critical"
               ]
-            }
-          },
-          {
-            "in": "query",
-            "name": "skip",
-            "schema": {
-              "type": "integer",
-              "example": 0
             },
-            "description": "Legacy pagination alias still supported."
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "schema": {
-              "type": "integer",
-              "example": 10
-            }
+            "description": "Urgency level filter"
           },
           {
             "in": "query",
@@ -2757,7 +3381,17 @@
             "schema": {
               "type": "integer",
               "example": 1
-            }
+            },
+            "description": "Page number for pagination"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "example": 20
+            },
+            "description": "Items per page"
           }
         ],
         "responses": {
@@ -2772,7 +3406,7 @@
                     "requests": [],
                     "pagination": {
                       "page": 1,
-                      "limit": 10,
+                      "limit": 20,
                       "total": 0
                     }
                   }
@@ -2781,10 +3415,10 @@
             }
           },
           "401": {
-            "description": "Missing or invalid JWT"
+            "description": "Missing or invalid JWT token"
           },
           "403": {
-            "description": "Role not allowed"
+            "description": "Access denied - donor role required"
           }
         }
       }
@@ -3120,6 +3754,95 @@
         }
       }
     },
+    "/donor/settings": {
+      "get": {
+        "tags": [
+          "Donor"
+        ],
+        "summary": "Get donor notification and preference settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Settings retrieved successfully"
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "403": {
+            "description": "Role not allowed"
+          },
+          "404": {
+            "description": "Donor profile not found"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Donor"
+        ],
+        "summary": "Update donor settings",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "pushNotifications": {
+                    "type": "boolean"
+                  },
+                  "emergencyAlerts": {
+                    "type": "boolean"
+                  },
+                  "privacyMode": {
+                    "type": "boolean"
+                  },
+                  "language": {
+                    "type": "string",
+                    "enum": [
+                      "en",
+                      "ar"
+                    ]
+                  }
+                }
+              },
+              "example": {
+                "pushNotifications": true,
+                "emergencyAlerts": true,
+                "privacyMode": false,
+                "language": "en"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settings updated successfully"
+          },
+          "400": {
+            "description": "Invalid settings payload"
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "403": {
+            "description": "Role not allowed"
+          },
+          "404": {
+            "description": "Donor profile not found"
+          }
+        }
+      }
+    },
     "/help/faq": {
       "get": {
         "summary": "Get FAQ list",
@@ -3163,6 +3886,7 @@
           "Hospital"
         ],
         "summary": "Get the authenticated hospital profile",
+        "description": "Retrieve the authenticated hospital's profile information including license, contact details, blood inventory, and location coordinates",
         "security": [
           {
             "bearerAuth": []
@@ -3170,13 +3894,32 @@
         ],
         "responses": {
           "200": {
-            "description": "Hospital profile retrieved successfully"
+            "description": "Hospital profile retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Hospital profile retrieved successfully",
+                  "data": {
+                    "_id": "66f100000000000000000001",
+                    "fullName": "Cairo General Hospital",
+                    "hospitalName": "Cairo General Hospital",
+                    "email": "info@cairohospital.com",
+                    "role": "hospital",
+                    "licenseNumber": "LIC-2026-001",
+                    "contactNumber": "01099998888",
+                    "lat": 30.0444,
+                    "long": 31.2357
+                  }
+                }
+              }
+            }
           },
           "401": {
-            "description": "Missing or invalid JWT"
+            "description": "Missing or invalid JWT token"
           },
           "403": {
-            "description": "Role not allowed"
+            "description": "Access denied - hospital role required"
           },
           "404": {
             "description": "Hospital profile not found"
@@ -3188,6 +3931,7 @@
           "Hospital"
         ],
         "summary": "Update the authenticated hospital profile",
+        "description": "Update hospital information including name, contact number, address, location coordinates (lat/long), and license number",
         "security": [
           {
             "bearerAuth": []
@@ -3202,18 +3946,22 @@
                 "properties": {
                   "fullName": {
                     "type": "string",
-                    "example": "City Care Hospital"
+                    "description": "Hospital full name",
+                    "example": "Cairo General Hospital"
                   },
                   "hospitalName": {
                     "type": "string",
-                    "example": "City Care Hospital"
+                    "description": "Hospital display name",
+                    "example": "Cairo General Hospital"
                   },
                   "contactNumber": {
                     "type": "string",
+                    "description": "Hospital contact phone number",
                     "example": "01099998888"
                   },
                   "address": {
                     "type": "object",
+                    "description": "Hospital address information",
                     "properties": {
                       "city": {
                         "type": "string",
@@ -3225,32 +3973,19 @@
                       }
                     }
                   },
-                  "location": {
-                    "type": "object",
-                    "properties": {
-                      "city": {
-                        "type": "string"
-                      },
-                      "governorate": {
-                        "type": "string"
-                      },
-                      "coordinates": {
-                        "type": "object",
-                        "properties": {
-                          "lat": {
-                            "type": "number",
-                            "example": 30.0444
-                          },
-                          "lng": {
-                            "type": "number",
-                            "example": 31.2357
-                          }
-                        }
-                      }
-                    }
+                  "lat": {
+                    "type": "number",
+                    "description": "Hospital latitude coordinate (-90 to 90)",
+                    "example": 30.0444
+                  },
+                  "long": {
+                    "type": "number",
+                    "description": "Hospital longitude coordinate (-180 to 180)",
+                    "example": 31.2357
                   },
                   "licenseNumber": {
                     "type": "string",
+                    "description": "Hospital license number",
                     "example": "LIC-2026-001"
                   }
                 }
@@ -3260,16 +3995,29 @@
         },
         "responses": {
           "200": {
-            "description": "Hospital profile updated successfully"
+            "description": "Hospital profile updated successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Hospital profile updated successfully",
+                  "data": {
+                    "_id": "66f100000000000000000001",
+                    "fullName": "Cairo General Hospital",
+                    "role": "hospital"
+                  }
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid profile data"
+            "description": "Invalid profile data or validation error"
           },
           "401": {
-            "description": "Missing or invalid JWT"
+            "description": "Missing or invalid JWT token"
           },
           "403": {
-            "description": "Role not allowed"
+            "description": "Access denied - hospital role required"
           }
         }
       }
@@ -3279,7 +4027,8 @@
         "tags": [
           "Hospital"
         ],
-        "summary": "Create a donation request",
+        "summary": "Create a new donation request",
+        "description": "Create a blood or organ donation request with type, urgency, required blood types, and deadline",
         "security": [
           {
             "bearerAuth": []
@@ -4507,12 +5256,64 @@
   },
   "tags": [
     {
+      "name": "Admin",
+      "description": "Admin authentication and profile"
+    },
+    {
+      "name": "Admin - System",
+      "description": "System health, maintenance mode, and monitoring (Admin/Superadmin roles)"
+    },
+    {
+      "name": "Admin - Audit",
+      "description": "Audit logging and system activity tracking (Admin/Superadmin roles)"
+    },
+    {
+      "name": "Admin - Analytics",
+      "description": "Dashboard analytics, statistics, and reports (Admin/Superadmin roles)"
+    },
+    {
+      "name": "Admin - Users",
+      "description": "User management - create, update, verify, suspend users (Admin/Superadmin roles)"
+    },
+    {
+      "name": "Admin - Requests",
+      "description": "Blood and organ request management (Admin/Superadmin roles)"
+    },
+    {
+      "name": "Admin - Emergency",
+      "description": "Emergency broadcasts and critical request management (Admin/Superadmin roles)"
+    },
+    {
+      "name": "Admin - Roles",
+      "description": "Role-based access control and permission management (Superadmin only)"
+    },
+    {
+      "name": "Auth - Donor",
+      "description": "Donor registration and authentication (signup, email verification, login)"
+    },
+    {
+      "name": "Auth - Hospital",
+      "description": "Hospital registration and authentication (signup, email verification, login)"
+    },
+    {
+      "name": "Auth",
+      "description": "General authentication (logout, refresh token, password reset, 2FA)"
+    },
+    {
       "name": "Discovery",
-      "description": "Public hospital discovery APIs"
+      "description": "Public hospital discovery APIs - No authentication required. Find and browse hospitals by location and services"
+    },
+    {
+      "name": "Donor",
+      "description": "Donor profile, requests, and donation management (Role: donor)"
     },
     {
       "name": "Help",
       "description": "Help and document endpoints"
+    },
+    {
+      "name": "Hospital",
+      "description": "Hospital profile, donation requests, and blood inventory management (Role: hospital)"
     },
     {
       "name": "Notifications",

@@ -37,6 +37,7 @@
   "devDependencies": {
     "mongodb-memory-server": "^11.0.1",
     "supertest": "^7.2.2",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.5",
+    "yaml": "^2.8.4"
   }
 }

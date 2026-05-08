@@ -11,6 +11,65 @@ export const getPoints = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+export const getRewardsDashboard = async (req, res, next) => {
+  try {
+    const donorId = req.user.userId;
+    const [pointsSummary, rewards, history, badges] = await Promise.all([
+      rewardService.getPointsSummary(donorId),
+      rewardService.getRewardsCatalog({}),
+      rewardService.getPointsHistory(donorId, { page: 1, limit: 10 }),
+      rewardService.getDonorBadges(donorId),
+    ]);
+
+    const nextRewardPoints = rewards.rewards.find(r => r.pointsCost > pointsSummary.pointsBalance)?.pointsCost || 0;
+
+    response.success(res, 200, 'Rewards dashboard retrieved', {
+      points: pointsSummary.pointsBalance,
+      nextRewardPoints,
+      pointsToNextReward: Math.max(0, nextRewardPoints - pointsSummary.pointsBalance),
+      rewards: rewards.rewards.map(r => ({
+        id: r._id, title: r.name,
+        pointsRequired: r.pointsCost, isAvailable: r.status === 'ACTIVE',
+      })),
+      history: history.transactions.slice(0, 10).map(t => ({
+        id: t._id, type: t.transactionType,
+        title: t.description, points: t.pointsAmount, createdAt: t.createdAt,
+      })),
+      badges: {
+        unlocked: badges.unlockedCount,
+        total: badges.totalCount,
+        completion: badges.completionPercentage,
+        list: badges.badges.map(b => ({
+          id: b.badgeId, title: b.badgeName,
+          description: b.badgeDescription,
+          isUnlocked: b.unlockStatus === 'UNLOCKED',
+          progress: b.progressCurrent, target: b.progressTarget,
+        })),
+      },
+    });
+  } catch (err) { next(err); }
+};
+
+export const getRewardsStats = async (req, res, next) => {
+  try {
+    const donorId = req.user.userId;
+    const [pointsSummary, badges] = await Promise.all([
+      rewardService.getPointsSummary(donorId),
+      rewardService.getDonorBadges(donorId),
+    ]);
+    const catalog = await rewardService.getRewardsCatalog({});
+    const nextReward = catalog.rewards.find(r => r.pointsCost > pointsSummary.pointsBalance);
+
+    response.success(res, 200, 'Rewards stats retrieved', {
+      points: pointsSummary.pointsBalance,
+      nextReward: { pointsToGo: nextReward ? nextReward.pointsCost - pointsSummary.pointsBalance : 0 },
+      badgesUnlocked: badges.unlockedCount,
+      totalBadges: badges.totalCount,
+      completionPercent: badges.completionPercentage,
+    });
+  } catch (err) { next(err); }
+};
+
 export const getPointsHistory = async (req, res, next) => {
   try {
     const { filter, date_from, date_to } = req.query;

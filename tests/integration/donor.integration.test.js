@@ -169,7 +169,10 @@ describe('Donor Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('donationStats');
+    expect(response.body.data).toHaveProperty('userInfo');
+    expect(response.body.data).toHaveProperty('stats');
+    expect(response.body.data).toHaveProperty('recentActivity');
+    expect(response.body.data.userInfo).toHaveProperty('donationStatus');
   });
 
   it('GET /donor/points returns donor points summary', async () => {

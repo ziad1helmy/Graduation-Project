@@ -1,8 +1,10 @@
 import mongoose from 'mongoose';
+import crypto from 'crypto';
 import Appointment from '../models/Appointment.model.js';
 import User from '../models/User.model.js';
 import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
+import Hospital from '../models/Hospital.model.js';
 import Notification from '../models/Notification.model.js';
 import * as donationService from './donation.service.js';
 import { paginationMeta } from '../utils/pagination.js';
@@ -62,12 +64,18 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       throw new Error('You already have an active appointment at this hospital');
     }
 
+    // Generate unique QR token
+    const qrToken = crypto.randomBytes(32).toString('hex');
+
     const appointment = await Appointment.create({
       donorId,
       hospitalId,
       requestId,
       appointmentDate: apptDate,
       notes,
+      status: 'confirmed',
+      qrToken,
+      qrExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
     });
 
     // Fire-and-forget notification to hospital
@@ -125,6 +133,108 @@ export const cancelAppointment = async (appointmentId, donorId) => {
     await appointment.save();
 
     return appointment;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const getAppointmentById = async (appointmentId, donorId) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
+
+    const appointment = await Appointment.findOne({ _id: appointmentId, donorId })
+      .populate('hospitalId', 'hospitalName fullName address contactNumber');
+
+    if (!appointment) throw new Error('Appointment not found');
+
+    return appointment;
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const rescheduleAppointment = async (appointmentId, donorId, newDate) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
+
+    const appointment = await Appointment.findOne({ _id: appointmentId, donorId });
+    if (!appointment) throw new Error('Appointment not found');
+
+    if (!['pending', 'confirmed'].includes(appointment.status)) {
+      throw new Error('Only pending or confirmed appointments can be rescheduled');
+    }
+
+    const apptDate = new Date(newDate);
+    if (isNaN(apptDate.getTime()) || apptDate <= new Date()) {
+      throw new Error('New appointment date must be in the future');
+    }
+
+    appointment.appointmentDate = apptDate;
+    await appointment.save();
+
+    return appointment;
+  } catch (error) {
+    throw error;
+  }
+};
+
+const formatHourLabel = (hour) => {
+  const period = hour >= 12 ? 'PM' : 'AM';
+  const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+  return `${String(displayHour).padStart(2, '0')}:00 ${period}`;
+};
+
+export const getAvailableSlots = async (hospitalId, date) => {
+  try {
+    if (!mongoose.Types.ObjectId.isValid(hospitalId)) {
+      throw new Error('Invalid hospital id');
+    }
+
+    const targetDate = new Date(date);
+    if (Number.isNaN(targetDate.getTime())) {
+      throw new Error('Invalid date');
+    }
+
+    const hospital = await Hospital.findById(hospitalId).select('slotsPerHour workingHoursStart workingHoursEnd');
+    if (!hospital) {
+      throw new Error('Hospital not found');
+    }
+
+    const dayStart = new Date(targetDate);
+    dayStart.setHours(0, 0, 0, 0);
+    const nextDay = new Date(dayStart);
+    nextDay.setDate(nextDay.getDate() + 1);
+
+    const appointments = await Appointment.find({
+      hospitalId,
+      appointmentDate: { $gte: dayStart, $lt: nextDay },
+      status: { $in: ['pending', 'confirmed'] },
+    }).select('appointmentDate');
+
+    const countsByHour = appointments.reduce((accumulator, appointment) => {
+      const hour = new Date(appointment.appointmentDate).getHours();
+      accumulator[hour] = (accumulator[hour] || 0) + 1;
+      return accumulator;
+    }, {});
+
+    const startHour = Number(hospital.workingHoursStart ?? 9);
+    const endHour = Number(hospital.workingHoursEnd ?? 17);
+    const capacity = Number(hospital.slotsPerHour ?? 5);
+    const timeSlots = [];
+
+    for (let hour = startHour; hour < endHour; hour += 1) {
+      const bookedCount = countsByHour[hour] || 0;
+      if (bookedCount < capacity) {
+        timeSlots.push(formatHourLabel(hour));
+      }
+    }
+
+    return {
+      timeSlots,
+      hospitalId: hospital._id,
+      date: dayStart,
+      slotsPerHour: capacity,
+    };
   } catch (error) {
     throw error;
   }

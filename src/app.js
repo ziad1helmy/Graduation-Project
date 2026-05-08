@@ -13,12 +13,18 @@ import adminRoutes from './routes/admin.routes.js';
 import rewardRoutes from './routes/reward.routes.js';
 import donationRoutes from './routes/donation.routes.js';
 import appointmentRoutes from './routes/appointment.routes.js';
+import appointmentVerifyRoutes from './routes/appointmentVerify.routes.js';
 import notificationRoutes from './routes/notification.routes.js';
 import discoveryRoutes from './routes/discovery.routes.js';
 import helpRoutes from './routes/help.routes.js';
 import supportRoutes from './routes/support.routes.js';
 import activityRoutes from './routes/activity.routes.js';
 import errorMiddleware from './middlewares/error.middleware.js';
+import authMiddleware from './middlewares/auth.middleware.js';
+import requireRole from './middlewares/role.middleware.js';
+import * as donorController from './controllers/donor.controller.js';
+import * as activityController from './controllers/activity.controller.js';
+import * as rc from './controllers/reward.controller.js';
 import { authLimiter, limiter } from './middlewares/rateLimit.middleware.js';
 import maintenanceMiddleware from './middlewares/maintenance.middleware.js';
 
@@ -148,6 +154,28 @@ if (env.NODE_ENV !== 'test') {
             description: 'Local development',
           },
         ],
+        // ── Canonical tag order shown in Swagger UI ────────────────────────
+        tags: [
+          {
+            name: 'Auth',
+            description: 'Registration, login, email verification, password reset',
+          },
+          {
+            name: 'Donor',
+            description:
+              'All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals',
+          },
+          {
+            name: 'Hospital',
+            description:
+              'Hospital self-management: profile, blood bank, capacity, QR verification, request management',
+          },
+          {
+            name: 'Admin',
+            description:
+              'Admin operations: user management, analytics, reward adjustments, system maintenance',
+          },
+        ],
         components: {
           securitySchemes: {
             bearerAuth: {
@@ -194,11 +222,25 @@ app.use('/donor', limiter, activityRoutes);
 app.use('/hospital', limiter, hospitalRoutes);
 app.use('/rewards', limiter, rewardRoutes);
 app.use('/donations/book-appointment', limiter, appointmentRoutes);
+app.use('/appointments', limiter, appointmentRoutes);
+app.use('/appointments', limiter, appointmentVerifyRoutes);
 app.use('/donations', limiter, donationRoutes);
+app.use('/donation', limiter, donationRoutes);
 app.use('/notifications', limiter, notificationRoutes);
 app.use('/hospitals', limiter, discoveryRoutes);
 app.use('/help', helpRoutes);
 app.use('/support', supportRoutes);
+
+// Flutter-facing aliases that keep the newer root paths stable.
+app.get('/dashboard', authMiddleware, requireRole('donor'), donorController.getDashboard);
+app.get('/activity', authMiddleware, requireRole('donor'), activityController.getTimeline);
+app.get('/urgent-requests', authMiddleware, requireRole('donor'), donorController.getUrgentRequests);
+app.get('/urgent-requests/:requestId', authMiddleware, requireRole('donor'), donorController.getUrgentRequestDetails);
+app.post('/urgent-requests/:requestId/accept', authMiddleware, requireRole('donor'), donorController.respondToRequest);
+app.post('/urgent-requests/:requestId/decline', authMiddleware, requireRole('donor'), donorController.declineUrgentRequest);
+
+// Alias /badges -> /rewards/badges
+app.get('/badges', limiter, authMiddleware, requireRole('donor'), rc.getBadges);
 
 // ─── 404 handler ─────────────────────────────────────────────────────────────
 app.use((req, res, next) => {

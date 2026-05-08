@@ -9,7 +9,7 @@ const router = Router();
  * @swagger
  * tags:
  *   - name: Hospital
- *     description: Hospital profile, donation requests, and blood inventory management (Role: hospital)
+ *     description: "Hospital profile, donation requests, and blood inventory management (Role: hospital)"
  */
 
 /**

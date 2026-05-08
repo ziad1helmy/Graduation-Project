@@ -6,8 +6,7 @@ const router = Router();
 /**
  * @swagger
  * tags:
- *   - name: Discovery
- *     description: Public hospital discovery APIs - No authentication required. Find and browse hospitals by location and services
+ *   - name: Donor
  */
 
 /**
@@ -15,7 +14,7 @@ const router = Router();
  * /hospitals:
  *   get:
  *     summary: List hospitals for discovery
- *     tags: [Discovery]
+ *     tags: [Donor]
  *     description: Public endpoint to discover hospitals. Search and filter by city, governorate, or keywords. Results include hospital contact information and blood inventory status
  *     parameters:
  *       - in: query
@@ -63,7 +62,7 @@ router.get('/', discoveryController.listHospitals);
  * /hospitals/nearby:
  *   get:
  *     summary: List nearby hospitals by GPS coordinates
- *     tags: [Discovery]
+ *     tags: [Donor]
  *     description: Find hospitals within a specified radius from given GPS coordinates. Returns hospitals sorted by distance. Supports both lat/long and legacy latitude/longitude parameters
  *     parameters:
  *       - in: query
@@ -93,10 +92,28 @@ router.get('/nearby', discoveryController.getNearbyHospitals);
 
 /**
  * @swagger
+ * /hospitals/search:
+ *   get:
+ *     summary: Search hospitals by keyword, blood type, and availability
+ *     tags: [Donor]
+ */
+router.get('/search', discoveryController.searchHospitals);
+
+/**
+ * @swagger
+ * /hospitals/map:
+ *   get:
+ *     summary: Get hospitals for map markers
+ *     tags: [Donor]
+ */
+router.get('/map', discoveryController.getHospitalsForMap);
+
+/**
+ * @swagger
  * /hospitals/{id}:
  *   get:
  *     summary: Get hospital details by id
- *     tags: [Discovery]
+ *     tags: [Donor]
  *     parameters:
  *       - in: path
  *         name: id

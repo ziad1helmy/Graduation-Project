@@ -26,14 +26,14 @@ const donationSchema = new mongoose.Schema(
     requestId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Request',
-      required: [true, 'Request ID is required'],
+      default: null,
     },
     
     status: {
       type: String,
       enum: {
-        values: ['pending', 'scheduled', 'completed', 'cancelled'],
-        message: 'Status must be pending, scheduled, completed, or cancelled',
+        values: ['pending', 'scheduled', 'completed', 'cancelled', 'rejected'],
+        message: 'Status must be pending, scheduled, completed, cancelled, or rejected',
       },
       default: 'pending',
     },
@@ -69,6 +69,16 @@ const donationSchema = new mongoose.Schema(
     notes: {
       type: String,
       maxlength: [1000, 'Notes cannot exceed 1000 characters'],
+    },
+    // Optional QR token issued by hospital for on-site confirmation
+    qrToken: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    qrExpires: {
+      type: Date,
+      default: null,
     },
   },
   {

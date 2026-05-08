@@ -2,10 +2,13 @@ openapi: 3.0.0
 info:
   title: LifeLink API
   version: 1.0.0
-  description: OpenAPI documentation for the LifeLink donation platform API.
+  description: OpenAPI documentation for the LifeLink donation platform API. All
+    routes are mounted at root paths.
 servers:
   - url: http://localhost:5000
-    description: Configured server
+    description: Production server
+  - url: http://localhost:5000
+    description: Development server
 components:
   securitySchemes:
     bearerAuth:
@@ -26,31 +29,46 @@ components:
         email:
           type: string
           format: email
-          example: sara@example.com
         password:
           type: string
           format: password
-          example: SecurePass@123
         role:
           type: string
           enum:
             - donor
             - hospital
+            - admin
     SignupDonorRequest:
       allOf:
-        - $ref: '#/components/schemas/BaseUser'
+        - $ref: "#/components/schemas/BaseUser"
         - type: object
           required:
             - phoneNumber
             - dateOfBirth
+            - bloodType
+            - confirmPassword
           properties:
-            role:
-              type: string
-              enum:
-                - donor
             phoneNumber:
               type: string
             dateOfBirth:
+              type: string
+              format: date
+            bloodType:
+              type: string
+            confirmPassword:
+              type: string
+              format: password
+    SignupHospitalRequest:
+      allOf:
+        - $ref: "#/components/schemas/BaseUser"
+        - type: object
+          required:
+            - hospitalName
+            - licenseNumber
+          properties:
+            hospitalName:
+              type: string
+            licenseNumber:
               type: string
             phone:
               type: string
@@ -58,89 +76,32 @@ components:
               type: string
             type:
               type: string
-              default: hospital
-              format: date
-            gender:
-              type: string
-              enum:
-                - male
-                - female
-                - not specified
-            bloodType:
-              type: string
-              enum:
-                - A+
-                - A-
-                - B+
-                - B-
-                - AB+
-                - AB-
-                - O+
-                - O-
-            location:
-              type: object
-              properties:
-                city:
-                  type: string
-                governorate:
-                  type: string
-    SignupHospitalRequest:
-      allOf:
-        - $ref: '#/components/schemas/BaseUser'
-        - type: object
-          required:
-            - hospitalName
-            - hospitalId
-            - licenseNumber
-          properties:
-            role:
-              type: string
-              enum:
-                - hospital
-            hospitalName:
-              type: string
-            hospitalId:
-              type: number
-            licenseNumber:
-              type: string
-            address:
-              type: object
-              properties:
-                city:
-                  type: string
-                governorate:
-                  type: string
-            contactNumber:
-              type: string
-            location:
-              type: object
-              properties:
-                city:
-                  type: string
-                governorate:
-                  type: string
+              example: hospital
     LoginRequest:
       type: object
       required:
         - email
         - password
+        - role
       properties:
         email:
           type: string
           format: email
-        email_or_phone:
-          type: string
         password:
           type: string
           format: password
+        role:
+          type: string
+          enum:
+            - donor
+            - hospital
+            - admin
     RefreshTokenRequest:
       type: object
       required:
         - refreshToken
       properties:
         refreshToken:
-          type: string
-        refresh_token:
           type: string
     EmailRequest:
       type: object
@@ -150,8 +111,6 @@ components:
         email:
           type: string
           format: email
-        email_or_phone:
-          type: string
     TokenRequest:
       type: object
       required:
@@ -168,11 +127,7 @@ components:
         email:
           type: string
           format: email
-        email_or_phone:
-          type: string
         otp:
-          type: string
-        otp_code:
           type: string
     AuthTokens:
       type: object
@@ -188,103 +143,1541 @@ components:
       properties:
         fcmToken:
           type: string
-          example: fcm-device-token-from-flutter
     ErrorResponse:
       type: object
       properties:
         success:
           type: boolean
-          example: false
+        code:
+          type: string
         message:
           type: string
+    ApiSuccessResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        data:
+          nullable: true
+    ApiErrorResponse:
+      allOf:
+        - $ref: "#/components/schemas/ErrorResponse"
+security:
+  - bearerAuth: []
 paths:
-  /auth/signup:
-    post:
+  /donor/activity:
+    get:
       tags:
-        - Auth
-      summary: Register a new donor or hospital account
-      description: |
-        Creates a user, returns access/refresh tokens, and triggers email verification.
-        In non-production environments the response may include `verificationToken`
-        for local testing and E2E automation when SMTP is not configured.
+        - Activity
+      summary: Get the authenticated user's activity timeline
+      description: >
+        Returns a paginated, timestamped history of all user actions (donations,
+        rewards, urgent responses, profile updates).
+
+        Supports optional filtering by activity type.
+
+        Results are sorted newest-first.
+      security:
+        - bearerAuth: []
       parameters:
-        - in: header
-          name: x-test-mode
-          required: false
+        - name: page
+          in: query
+          description: Page number (1-indexed, default 1)
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: limit
+          in: query
+          description: Items per page (default 20, max 100)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: type
+          in: query
+          description: Optional activity type filter
           schema:
             type: string
             enum:
-              - 'true'
-          description: Development-only header to bypass rate limiting for automated tests.
+              - donation
+              - reward
+              - emergency_response
+              - profile_update
+      responses:
+        "200":
+          description: Activity timeline retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: object
+                    properties:
+                      activities:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            _id:
+                              type: string
+                              example: 5f9d4a1b9d7c2e3c4f5a6b7c
+                            type:
+                              type: string
+                              enum:
+                                - donation
+                                - reward
+                                - emergency_response
+                                - profile_update
+                            action:
+                              type: string
+                              example: completed_donation
+                            title:
+                              type: string
+                              example: Blood Donation Completed
+                            description:
+                              type: string
+                              example: Donated 1 unit of A+ blood to Cairo Hospital
+                            icon:
+                              type: string
+                              example: heart
+                            referenceId:
+                              type: string
+                              nullable: true
+                              example: 5f9d4a1b9d7c2e3c4f5a6b7c
+                            referenceType:
+                              type: string
+                              nullable: true
+                              example: Donation
+                            metadata:
+                              type: object
+                              example:
+                                bloodType: A+
+                                hospitalName: Cairo Hospital
+                                quantity: 1
+                            createdAt:
+                              type: string
+                              format: date-time
+                              example: 2026-05-04T12:00:00.000Z
+                      pagination:
+                        type: object
+                        properties:
+                          total:
+                            type: integer
+                            example: 42
+                          page:
+                            type: integer
+                            example: 1
+                          limit:
+                            type: integer
+                            example: 20
+                          totalPages:
+                            type: integer
+                            example: 3
+                          hasNextPage:
+                            type: boolean
+                            example: true
+                          hasPrevPage:
+                            type: boolean
+                            example: false
+        "400":
+          description: Invalid query parameters
+        "401":
+          description: Missing or invalid JWT
+        "500":
+          description: Server error
+  /admin/login:
+    post:
+      summary: Login for admin and superadmin accounts
+      tags:
+        - Admin
+      description: Authenticate admin or superadmin user. Returns JWT token for
+        subsequent requests
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - email
+                - password
+                - adminKey
+              properties:
+                email:
+                  type: string
+                  format: email
+                  description: Admin email address
+                  example: admin@lifelink.com
+                password:
+                  type: string
+                  format: password
+                  description: Admin password
+                  example: SecurePassword123!
+                adminKey:
+                  type: string
+                  description: Admin secret key for authentication
+                  example: admin-secret-key-2026
+      responses:
+        "200":
+          description: Admin login successful - returns JWT token
+        "401":
+          description: Invalid credentials
+        "403":
+          description: Admin key invalid or account not authorized
+  /admin/profile:
+    get:
+      summary: Get admin profile
+      tags:
+        - Admin
+      description: Retrieve the authenticated admin's profile information
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Admin profile
+  /admin/system/health:
+    get:
+      summary: System health check
+      tags:
+        - Admin - System
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: System health status
+  /admin/system/maintenance:
+    post:
+      summary: Toggle maintenance mode
+      tags:
+        - Admin - System
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - enabled
+              properties:
+                enabled:
+                  type: boolean
+                message:
+                  type: string
+      responses:
+        "200":
+          description: Maintenance mode updated
+    get:
+      summary: Get maintenance mode status
+      tags:
+        - Admin - System
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Maintenance status
+  /admin/statistics:
+    get:
+      summary: Get admin statistics summary
+      tags:
+        - Admin - Analytics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Statistics summary
+  /admin/alerts:
+    get:
+      tags:
+        - Admin
+      summary: Get the admin alert summary
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Alerts summary
+  /admin/blood-inventory-summary:
+    get:
+      tags:
+        - Admin
+      summary: Get the system blood inventory summary
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Blood inventory summary
+  /admin/audit-logs:
+    get:
+      summary: List audit logs
+      tags:
+        - Admin - Audit
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: action
+          schema:
+            type: string
+        - in: query
+          name: targetType
+          schema:
+            type: string
+            enum:
+              - User
+              - Request
+              - Donation
+              - System
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Audit logs list
+  /admin/donors:
+    get:
+      tags:
+        - Admin
+      summary: List donors
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Donor list
+  /admin/hospitals:
+    get:
+      tags:
+        - Admin
+      summary: List hospitals
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Hospital list
+  /admin/donors/{id}:
+    get:
+      tags:
+        - Admin
+      summary: Get a donor by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Donor details
+    put:
+      tags:
+        - Admin
+      summary: Update a donor
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                phoneNumber:
+                  type: string
+                bloodType:
+                  type: string
+                gender:
+                  type: string
+                dateOfBirth:
+                  type: string
+                  format: date
+                isAvailable:
+                  type: boolean
+      responses:
+        "200":
+          description: Donor updated successfully
+        "404":
+          description: Donor not found
+        "409":
+          description: Email already registered
+  /admin/hospitals/{id}:
+    get:
+      tags:
+        - Admin
+      summary: Get a hospital by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hospital details
+  /admin/admins:
+    get:
+      tags:
+        - Admin
+      summary: List admin users
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Admin list
+    post:
+      tags:
+        - Admin
+      summary: Create a new admin account
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fullName
+                - email
+                - password
+              properties:
+                fullName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum:
+                    - admin
+                    - superadmin
+                location:
+                  type: object
+      responses:
+        "201":
+          description: Admin created successfully
+        "400":
+          description: Invalid payload
+        "403":
+          description: Only superadmin can create admins
+        "409":
+          description: Email already registered
+  /admin/admins/{id}:
+    get:
+      tags:
+        - Admin
+      summary: Get an admin by id
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Admin details
+    put:
+      tags:
+        - Admin
+      summary: Update an admin account
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                role:
+                  type: string
+                  enum:
+                    - admin
+                    - superadmin
+                isEmailVerified:
+                  type: boolean
+                isSuspended:
+                  type: boolean
+      responses:
+        "200":
+          description: Admin updated successfully
+        "404":
+          description: Admin not found
+        "409":
+          description: Email already registered
+    delete:
+      tags:
+        - Admin
+      summary: Delete an admin account
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Admin deleted successfully
+        "403":
+          description: Cannot delete own account or insufficient role
+        "404":
+          description: Admin not found
+  /admin/donors/{id}/ban:
+    post:
+      tags:
+        - Admin
+      summary: Ban a donor
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Donor banned successfully
+        "400":
+          description: Donor already banned
+        "404":
+          description: Donor not found
+  /admin/donors/{id}/unban:
+    post:
+      tags:
+        - Admin
+      summary: Unban a donor
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Donor unbanned successfully
+        "400":
+          description: Donor is not banned
+        "404":
+          description: Donor not found
+  /admin/hospitals/{id}/status:
+    put:
+      tags:
+        - Admin
+      summary: Update hospital suspension status
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - action
+              properties:
+                action:
+                  type: string
+                  enum:
+                    - suspend
+                    - unsuspend
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Hospital status updated successfully
+        "400":
+          description: Invalid action payload
+        "404":
+          description: Hospital not found
+  /admin/permissions/roles:
+    get:
+      tags:
+        - Admin
+      summary: List role permissions
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Roles retrieved successfully
+    post:
+      tags:
+        - Admin
+      summary: Create a role permission record
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - role
+                - displayName
+              properties:
+                role:
+                  type: string
+                  description: Unique role identifier
+                displayName:
+                  type: string
+                  description: Human-readable role name
+                description:
+                  type: string
+                  description: Role description
+                isSystemRole:
+                  type: boolean
+                  description: Whether this is a system role (cannot be modified)
+                permissions:
+                  type: object
+                  description: Role permissions object
+      responses:
+        "201":
+          description: Role created successfully
+        "400":
+          description: Invalid payload - role and displayName are required
+        "403":
+          description: System roles cannot be created or modified
+        "409":
+          description: Role already exists
+  /admin/permissions/roles/{role}:
+    get:
+      tags:
+        - Admin
+      summary: Get a role permission record
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: role
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Role retrieved successfully
+    put:
+      tags:
+        - Admin
+      summary: Update role permissions - Only allows updating displayName,
+        description, and permissions
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: role
+          required: true
+          schema:
+            type: string
+          description: Role identifier (cannot be changed)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                displayName:
+                  type: string
+                  description: Human-readable role name - CAN BE UPDATED
+                  example: Senior Moderator
+                description:
+                  type: string
+                  description: Role description - CAN BE UPDATED
+                  example: Manages content and escalates issues
+                permissions:
+                  type: object
+                  description: Role permissions object - CAN BE UPDATED
+                  properties:
+                    donor_management:
+                      type: object
+                      properties:
+                        view:
+                          type: boolean
+                        manage:
+                          type: boolean
+                        ban:
+                          type: boolean
+                        suspend:
+                          type: boolean
+                        create:
+                          type: boolean
+                        delete:
+                          type: boolean
+                        export:
+                          type: boolean
+                    hospital_management:
+                      type: object
+                      properties:
+                        view:
+                          type: boolean
+                        manage:
+                          type: boolean
+                        ban:
+                          type: boolean
+                        suspend:
+                          type: boolean
+                        create:
+                          type: boolean
+                        delete:
+                          type: boolean
+                        export:
+                          type: boolean
+                    admin_management:
+                      type: object
+                      properties:
+                        view:
+                          type: boolean
+                        manage:
+                          type: boolean
+                        create:
+                          type: boolean
+                        delete:
+                          type: boolean
+                    system_settings:
+                      type: object
+                      properties:
+                        view:
+                          type: boolean
+                        manage:
+                          type: boolean
+                    audit_logging:
+                      type: object
+                      properties:
+                        view:
+                          type: boolean
+                        export:
+                          type: boolean
+                    reporting:
+                      type: object
+                      properties:
+                        view:
+                          type: boolean
+                        export:
+                          type: boolean
+      responses:
+        "200":
+          description: Role permissions updated successfully
+        "403":
+          description: System roles (admin, superadmin, donor, hospital) cannot be modified
+        "404":
+          description: Role not found
+    delete:
+      tags:
+        - Admin
+      summary: Delete a role permission record
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: role
+          required: true
+          schema:
+            type: string
+          description: Role identifier to delete
+      responses:
+        "200":
+          description: Role deleted successfully
+        "403":
+          description: System roles (admin, superadmin, donor, hospital) cannot be deleted
+        "404":
+          description: Role not found
+  /admin/users:
+    get:
+      summary: List all users with filters and pagination
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: role
+          schema:
+            type: string
+            enum:
+              - donor
+              - hospital
+              - admin
+              - superadmin
+        - in: query
+          name: verified
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - in: query
+          name: suspended
+          schema:
+            type: string
+            enum:
+              - "true"
+              - "false"
+        - in: query
+          name: search
+          schema:
+            type: string
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Users list
+  /admin/users/stats:
+    get:
+      summary: Get user statistics
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User statistics
+  /admin/users/hospital:
+    post:
+      summary: Create a new hospital (admin-created, pre-verified)
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - fullName
+                - email
+                - password
+                - hospitalName
+                - hospitalId
+                - licenseNumber
+                - lat
+                - long
+              properties:
+                fullName:
+                  type: string
+                email:
+                  type: string
+                password:
+                  type: string
+                hospitalName:
+                  type: string
+                hospitalId:
+                  type: number
+                licenseNumber:
+                  type: string
+                address:
+                  type: object
+                  properties:
+                    city:
+                      type: string
+                    governorate:
+                      type: string
+                contactNumber:
+                  type: string
+                lat:
+                  type: number
+                  format: double
+                  description: Hospital latitude coordinate (-90 to 90)
+                  example: 30.0444
+                long:
+                  type: number
+                  format: double
+                  description: Hospital longitude coordinate (-180 to 180)
+                  example: 31.2357
+      responses:
+        "201":
+          description: Hospital created
+        "400":
+          description: Invalid lat/long coordinates
+        "409":
+          description: Email already registered
+  /admin/users/{id}:
+    get:
+      summary: Get user details by ID
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User details
+        "404":
+          description: User not found
+    delete:
+      summary: Soft-delete a user account
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User deleted
+        "403":
+          description: Cannot delete admin accounts
+  /admin/users/{id}/verify:
+    patch:
+      summary: Verify a user's email
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User verified
+  /admin/users/{id}/unverify:
+    patch:
+      summary: Unverify a user's email
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User unverified
+  /admin/users/{id}/suspend:
+    patch:
+      summary: Suspend a user account
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: User suspended
+        "403":
+          description: Cannot suspend admin accounts
+  /admin/users/{id}/unsuspend:
+    patch:
+      summary: Unsuspend a user account
+      tags:
+        - Admin - Users
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User unsuspended
+  /admin/requests:
+    get:
+      summary: List all blood/organ requests
+      tags:
+        - Admin - Requests
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - pending
+              - in-progress
+              - completed
+              - cancelled
+        - in: query
+          name: urgency
+          schema:
+            type: string
+            enum:
+              - low
+              - medium
+              - high
+              - critical
+        - in: query
+          name: bloodType
+          schema:
+            type: string
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum:
+              - blood
+              - organ
+        - in: query
+          name: page
+          schema:
+            type: integer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Requests list
+  /admin/requests/stats:
+    get:
+      summary: Get request statistics
+      tags:
+        - Admin - Requests
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Request statistics
+  /admin/requests/{id}:
+    get:
+      summary: Get full request details with donations
+      tags:
+        - Admin - Requests
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Request details
+  /admin/requests/{id}/donations:
+    get:
+      summary: Get donations for a specific request
+      tags:
+        - Admin - Requests
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Request donations
+  /admin/requests/{id}/fulfill:
+    patch:
+      summary: Mark a request as fulfilled
+      tags:
+        - Admin - Requests
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Request fulfilled
+  /admin/requests/{id}/cancel:
+    patch:
+      summary: Cancel a request
+      tags:
+        - Admin - Requests
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reason
+              properties:
+                reason:
+                  type: string
+      responses:
+        "200":
+          description: Request cancelled
+  /admin/requests/{id}/broadcast:
+    post:
+      summary: Broadcast request to eligible donors
+      tags:
+        - Admin - Requests
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Broadcast sent
+  /admin/analytics/dashboard:
+    get:
+      summary: Dashboard summary with key metrics
+      tags:
+        - Admin - Analytics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+  /admin/analytics/donations:
+    get:
+      summary: Monthly donation trends
+      tags:
+        - Admin - Analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: months
+          schema:
+            type: integer
+            default: 6
+      responses:
+        "200":
+          description: Donation trends
+  /admin/analytics/blood-types:
+    get:
+      summary: Blood type distribution
+      tags:
+        - Admin - Analytics
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Blood type distribution
+  /admin/analytics/top-donors:
+    get:
+      summary: Top donors leaderboard
+      tags:
+        - Admin - Analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Top donors
+  /admin/analytics/growth:
+    get:
+      summary: Growth metrics over time
+      tags:
+        - Admin - Analytics
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: months
+          schema:
+            type: integer
+            default: 6
+      responses:
+        "200":
+          description: Growth metrics
+  /admin/emergency/broadcast:
+    post:
+      summary: Send emergency broadcast to donors
+      tags:
+        - Admin - Emergency
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+                - message
+              properties:
+                title:
+                  type: string
+                message:
+                  type: string
+                governorate:
+                  type: string
+                city:
+                  type: string
+                bloodTypes:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - A+
+                      - A-
+                      - B+
+                      - B-
+                      - AB+
+                      - AB-
+                      - O+
+                      - O-
+      responses:
+        "200":
+          description: Emergency broadcast sent
+  /admin/emergency/critical:
+    get:
+      summary: List critical and high urgency active requests
+      tags:
+        - Admin - Emergency
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Critical requests
+  /admin/emergency/shortage-alerts:
+    get:
+      summary: Blood shortage alerts
+      tags:
+        - Admin - Emergency
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Shortage alerts by blood type
+  /donations/book-appointment:
+    post:
+      tags:
+        - Appointments
+      summary: Book a donor appointment with a hospital
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hospitalId
+                - appointmentDate
+              properties:
+                hospitalId:
+                  type: string
+                requestId:
+                  type: string
+                  nullable: true
+                appointmentDate:
+                  type: string
+                  format: date-time
+                notes:
+                  type: string
+                  maxLength: 500
+            example:
+              hospitalId: 66f100000000000000000010
+              requestId: 66f100000000000000000020
+              appointmentDate: 2026-05-10T10:00:00.000Z
+              notes: First-time donor, available in the morning.
+      responses:
+        "201":
+          description: Appointment booked
+        "400":
+          description: Invalid appointment payload
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+        "404":
+          description: Hospital, donor, or request not found
+        "409":
+          description: Active appointment already exists for this hospital
+  /donations/book-appointment/available-slots:
+    get:
+      tags:
+        - Appointments
+      summary: Get available appointment slots for a hospital on a given date
+      security:
+        - bearerAuth: []
+  /donations/book-appointment/my-appointments:
+    get:
+      tags:
+        - Appointments
+      summary: Get the authenticated donor appointments
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: skip
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+      responses:
+        "200":
+          description: Appointments fetched successfully
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+  /donations/book-appointment/{appointmentId}:
+    get:
+      tags:
+        - Appointments
+      summary: Get appointment details
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: appointmentId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appointment retrieved
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+        "404":
+          description: Appointment not found
+    patch:
+      tags:
+        - Appointments
+      summary: Reschedule a donor appointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: appointmentId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - date
+              properties:
+                date:
+                  type: string
+                  format: date-time
+            example:
+              date: 2026-05-15T14:00:00.000Z
+      responses:
+        "200":
+          description: Appointment rescheduled
+        "400":
+          description: Invalid appointment payload
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+        "404":
+          description: Appointment not found
+    delete:
+      tags:
+        - Appointments
+      summary: Cancel a donor appointment
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: appointmentId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Appointment cancelled
+        "400":
+          description: Invalid appointment id
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+        "404":
+          description: Appointment not found
+  /auth/signup:
+    post:
+      tags:
+        - Auth - General
+      summary: Register a new donor or hospital account
+      description: Create a new account as donor or hospital. Donor signup requires
+        phoneNumber, dateOfBirth, bloodType. Hospital signup requires
+        hospitalName, licenseNumber
       requestBody:
         required: true
         content:
           application/json:
             schema:
               oneOf:
-                - $ref: '#/components/schemas/SignupDonorRequest'
-                - $ref: '#/components/schemas/SignupHospitalRequest'
+                - $ref: "#/components/schemas/SignupDonorRequest"
+                - $ref: "#/components/schemas/SignupHospitalRequest"
       responses:
-        '201':
-          description: User registered successfully
-        '400':
+        "201":
+          description: User registered successfully - Email verification required
+        "400":
           description: Validation or registration error
+        "409":
+          description: Email already registered
   /auth/login:
     post:
       tags:
-        - Auth
-      summary: Login with email and password
-      description: |
-        Returns access and refresh tokens when credentials are valid and 2FA is not enabled.
-        If 2FA is enabled, the response returns `requires2FA` and a short-lived `tempToken`
-        instead of normal auth tokens. Compatibility aliases are also mounted under `/api/v1/auth/*`.
-      parameters:
-        - in: header
-          name: x-test-mode
-          required: false
-          schema:
-            type: string
-            enum:
-              - 'true'
-          description: Development-only header to bypass rate limiting for automated tests.
+        - Auth - Donor
+      summary: Donor login with email and password
+      description: Authenticate as a donor user. Returns JWT token. Supports optional 2FA
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
       responses:
-        '200':
+        "200":
           description: Login successful or 2FA verification required
-        '400':
-          description: Invalid credentials or unverified email
+        "400":
+          description: Validation error or invalid credentials
+        "403":
+          description: Email not verified or account suspended
   /auth/hospital/login:
     post:
       tags:
-        - Auth
-      summary: Login with email and password for hospital users (hospital-only)
-      description: |
-        Hospital-specific login endpoint. Accepts email and password and returns
-        normal auth tokens or a 2FA tempToken when 2FA is enabled. This endpoint
-        only allows accounts with role `hospital` and rejects other roles with 403.
+        - Auth - Hospital
+      summary: Hospital login with email and password
+      description: Authenticate as a hospital user. Returns JWT token
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/LoginRequest'
+              $ref: "#/components/schemas/LoginRequest"
       responses:
-        '200':
-          description: Login successful or 2FA verification required
-        '400':
-          description: Invalid credentials or unverified email
-        '403':
-          description: Forbidden — role not allowed for this endpoint
+        "200":
+          description: Hospital login successful
+        "400":
+          description: Validation error or invalid credentials
+        "403":
+          description: Email not verified or hospital not approved
   /auth/admin/login:
     post:
       tags:
         - Auth
-      summary: Login with email, password, and adminKey for the admin UI
+      summary: Admin/Superadmin login with email, password, and adminKey
+      description: Authenticate as admin or superadmin. Requires email, password, and
+        adminKey secret
       requestBody:
         required: true
         content:
@@ -305,9 +1698,9 @@ paths:
                 adminKey:
                   type: string
       responses:
-        '200':
+        "200":
           description: Admin login successful or 2FA verification required
-        '400':
+        "400":
           description: Validation error or invalid credentials
   /auth/validate-token:
     post:
@@ -317,42 +1710,35 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Token is valid
   /auth/send-otp:
     post:
       tags:
         - Auth
       summary: Send a password reset OTP
-      description: |
-        This endpoint is only used for password reset verification.
-        It invalidates previous unused password reset OTPs for the same account
-        and sends a password-reset-only OTP email with a 10 minute expiry.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/EmailRequest'
+              $ref: "#/components/schemas/EmailRequest"
       responses:
-        '200':
+        "200":
           description: Password reset OTP sent successfully
   /auth/verify-otp:
     post:
       tags:
         - Auth
       summary: Verify password reset OTP
-      description: |
-        Validates the OTP and returns a short-lived `resetToken`.
-        The returned token is only valid for `POST /auth/reset-password`.
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/OtpRequest'
+              $ref: "#/components/schemas/OtpRequest"
       responses:
-        '200':
+        "200":
           description: Password reset OTP verified successfully
   /auth/2fa/setup:
     post:
@@ -362,7 +1748,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: 2FA setup initialized
   /auth/2fa/confirm-setup:
     post:
@@ -379,24 +1765,14 @@ paths:
               type: object
               required:
                 - code
-              properties:
-                code:
-                  type: string
-                otp:
-                  type: string
-                otp_code:
-                  type: string
       responses:
-        '200':
+        "200":
           description: 2FA setup verified successfully
   /auth/2fa/verify:
     post:
       tags:
         - Auth
       summary: Complete login by verifying a 2FA code
-      description: |
-        Accepts the short-lived `tempToken` returned by `/auth/login` when `requires2FA` is true.
-        On success it returns normal auth tokens.
       requestBody:
         required: true
         content:
@@ -406,19 +1782,8 @@ paths:
               required:
                 - tempToken
                 - code
-              properties:
-                tempToken:
-                  type: string
-                temp_token:
-                  type: string
-                code:
-                  type: string
-                otp:
-                  type: string
-                otp_code:
-                  type: string
       responses:
-        '200':
+        "200":
           description: 2FA verified successfully
   /auth/2fa/disable:
     post:
@@ -435,74 +1800,139 @@ paths:
               type: object
               required:
                 - password
-              properties:
-                password:
-                  type: string
-                  format: password
       responses:
-        '200':
+        "200":
           description: 2FA disabled successfully
-  /auth/logout:
-    post:
+  /hospitals:
+    get:
+      summary: List hospitals for discovery
       tags:
-        - Auth
-      summary: Logout and blacklist refresh token
-      description: |
-        Stores a SHA-256 hash of the refresh token in blacklist storage.
-        Blacklisted tokens are denied on subsequent refresh attempts.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+        - Discovery
+      description: Public endpoint to discover hospitals. Search and filter by city,
+        governorate, or keywords. Results include hospital contact information
+        and blood inventory status
+      parameters:
+        - in: query
+          name: city
+          schema:
+            type: string
+          description: Filter by city name
+        - in: query
+          name: governorate
+          schema:
+            type: string
+          description: Filter by governorate/region
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search hospitals by name or keywords
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Items per page (max 100)
+        - in: query
+          name: skip
+          schema:
+            type: integer
+          description: Legacy pagination - number of items to skip. Still supported for
+            compatibility
       responses:
-        '200':
-          description: Logged out successfully
-  /auth/refresh-token:
-    post:
+        "200":
+          description: Hospitals list retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  hospitals: []
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 0
+  /hospitals/nearby:
+    get:
+      summary: List nearby hospitals by GPS coordinates
       tags:
-        - Auth
-      summary: Issue a new access token from refresh token
-      description: |
-        Rejects blacklisted tokens and tokens issued before `passwordChangedAt`.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+        - Discovery
+      description: Find hospitals within a specified radius from given GPS
+        coordinates. Returns hospitals sorted by distance. Supports both
+        lat/long and legacy latitude/longitude parameters
+      parameters:
+        - in: query
+          name: lat
+          schema:
+            type: number
+          description: Hospital latitude coordinate (-90 to 90). Alias for latitude.
+        - in: query
+          name: long
+          schema:
+            type: number
+          description: Hospital longitude coordinate (-180 to 180). Alias for longitude.
+        - in: query
+          name: latitude
+          schema:
+            type: number
+          description: Hospital latitude coordinate (deprecated, use lat instead)
+        - in: query
+          name: longitude
+          schema:
+            type: number
+          description: Hospital longitude coordinate (deprecated, use long instead)
+        - in: query
+          name: radius_km
+          schema:
+            type: number
       responses:
-        '200':
-          description: Token refreshed
-        '400':
-          description: Invalid, expired, blacklisted, or stale refresh token
-  /auth/forgot-password:
-    post:
+        "200":
+          description: Nearby hospitals list
+  /hospitals/search:
+    get:
+      summary: Search hospitals by keyword, blood type, and availability
       tags:
-        - Auth
-      summary: Request password reset
-      description: |
-        Always returns success to prevent account enumeration.
-        If account exists, reset token email is sent.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EmailRequest'
+        - Discovery
+  /hospitals/map:
+    get:
+      summary: Get hospitals for map markers
+      tags:
+        - Discovery
+  /hospitals/{id}:
+    get:
+      summary: Get hospital details by id
+      tags:
+        - Discovery
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
       responses:
-        '200':
-          description: Password reset request accepted
-  /auth/reset-password:
+        "200":
+          description: Hospital details
+  /donations/types:
+    get:
+      tags:
+        - Donations
+      summary: Get supported donation types
+      responses:
+        "200":
+          description: Donation types retrieved successfully
+  /donations/validate:
     post:
       tags:
-        - Auth
-      summary: Reset password with token
-      description: |
-        Accepts either the existing email reset link token or the short-lived `resetToken`
-        returned by `/auth/verify-otp`. The token is password-reset-specific, not a normal auth token.
-        Successful resets invalidate previously issued sessions via `passwordChangedAt`.
+        - Donations
+      summary: Validate if a donor can donate for a given hospital and date
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
         content:
@@ -510,146 +1940,48 @@ paths:
             schema:
               type: object
               required:
-                - token
-                - password
-              properties:
-                token:
-                  type: string
-                reset_token:
-                  type: string
-                password:
-                  type: string
-                  format: password
-                new_password:
-                  type: string
-                  format: password
+                - hospitalId
+                - date
       responses:
-        '200':
-          description: Password reset successful
-  /auth/verify-email:
+        "200":
+          description: Donation eligibility checked successfully
+  /donations/qr/scan:
     post:
       tags:
-        - Auth
-      summary: Send email verification message
-      description: Creates a new verification token and sends verification email.
+        - Donations
+      summary: Confirm a donation by scanning an appointment QR token
+      security:
+        - bearerAuth: []
       requestBody:
         required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/EmailRequest'
       responses:
-        '200':
-          description: Verification email sent
-  /auth/verify-email-token:
+        "200":
+          description: Donation confirmed successfully
+  /donations/complete:
     post:
       tags:
-        - Auth
-      summary: Verify email with token
-      description: |
-        Marks account as verified if token is valid and not expired.
-        Browser requests receive a lightweight success or failure HTML page for demo-friendly UX.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/TokenRequest'
-      responses:
-        '200':
-          description: Email verified successfully
-  /auth/me:
+        - Donations
+      summary: Mark a donation as completed
+      security:
+        - bearerAuth: []
+  /donations/my-appointments:
     get:
       tags:
-        - Auth
-      summary: Get current authenticated user
+        - Appointments
+      summary: Get donor appointments via the donations compatibility alias
       security:
         - bearerAuth: []
-      description: |
-        Requires a valid access token. Access tokens issued before password reset
-        are rejected by auth middleware.
-      responses:
-        '200':
-          description: User retrieved
-        '401':
-          description: Unauthorized
-  /auth/fcm-token:
-    post:
-      tags:
-        - Auth
-      summary: Register the current device FCM token
-      description: |
-        Stores the device token for the authenticated user using a deduplicated token array.
-        Flutter should call this on app startup or immediately after login, and again when Firebase
-        refreshes the token. The same endpoint is also mounted under `/api/v1/auth/fcm-token`.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FcmTokenRequest'
-      responses:
-        '200':
-          description: FCM token registered successfully
-        '400':
-          description: Missing or empty token
-        '401':
-          description: Unauthorized
-    put:
-      tags:
-        - Auth
-      summary: Replace the stored FCM tokens with the current active device token
-      description: |
-        Lightweight bulk-replace helper for login/startup flows. It keeps only the provided token for
-        the authenticated user and is also available under `/api/v1/auth/fcm-token`.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FcmTokenRequest'
-      responses:
-        '200':
-          description: FCM token updated successfully
-        '400':
-          description: Missing or empty token
-        '401':
-          description: Unauthorized
-    delete:
-      tags:
-        - Auth
-      summary: Remove a device FCM token
-      description: |
-        Removes the provided token if present. Safe to call on logout, app reinstall, or when cleaning
-        up stale tokens. The same endpoint is also mounted under `/api/v1/auth/fcm-token`.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/FcmTokenRequest'
-      responses:
-        '200':
-          description: FCM token removed successfully
-        '400':
-          description: Missing or empty token
-        '401':
-          description: Unauthorized
   /donor/profile:
     get:
       tags:
         - Donor
       summary: Get the authenticated donor profile
+      description: Retrieve the authenticated donor's profile information including
+        blood type, availability status, and location
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Donor profile retrieved successfully
           content:
             application/json:
@@ -661,20 +1993,23 @@ paths:
                   fullName: Ahmed Hassan
                   email: ahmed@example.com
                   role: donor
-                  phoneNumber: '01012345678'
+                  phoneNumber: "01012345678"
                   bloodType: O+
                   gender: male
                   isAvailable: true
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
-        '404':
+                  dateOfBirth: 1995-05-15
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - donor role required
+        "404":
           description: Donor profile not found
     put:
       tags:
         - Donor
       summary: Update the authenticated donor profile
+      description: Update donor profile information such as name, phone, blood type,
+        gender, location, and availability
       security:
         - bearerAuth: []
       requestBody:
@@ -686,21 +2021,20 @@ paths:
               properties:
                 fullName:
                   type: string
+                  description: Donor full name
                   example: Ahmed Hassan
                 phoneNumber:
                   type: string
-                  example: '01012345678'
+                  description: Donor phone number
+                  example: "01012345678"
                 gender:
                   type: string
                   enum:
                     - male
                     - female
-                    - not specified
+                    - other
+                  description: Donor gender
                   example: male
-                dateOfBirth:
-                  type: string
-                  format: date-time
-                  example: '1995-07-12T00:00:00.000Z'
                 bloodType:
                   type: string
                   enum:
@@ -712,9 +2046,15 @@ paths:
                     - AB-
                     - O+
                     - O-
+                  description: Blood type of the donor
                   example: O+
+                isAvailable:
+                  type: boolean
+                  description: Donation availability status
+                  example: true
                 location:
                   type: object
+                  description: Donor location information
                   properties:
                     city:
                       type: string
@@ -723,7 +2063,7 @@ paths:
                       type: string
                       example: Cairo
       responses:
-        '200':
+        "200":
           description: Donor profile updated successfully
           content:
             application/json:
@@ -735,17 +2075,20 @@ paths:
                   fullName: Ahmed Hassan
                   email: ahmed@example.com
                   role: donor
-        '400':
-          description: Invalid profile data
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
+                  isAvailable: true
+        "400":
+          description: Invalid profile data or validation error
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - donor role required
   /donor/requests:
     get:
       tags:
         - Donor
       summary: List active donation requests available to donors
+      description: Retrieve paginated list of blood and organ donation requests that
+        match donor eligibility criteria. Filters by type and urgency
       security:
         - bearerAuth: []
       parameters:
@@ -756,6 +2099,7 @@ paths:
             enum:
               - blood
               - organ
+          description: Request type filter
         - in: query
           name: urgency
           schema:
@@ -765,24 +2109,21 @@ paths:
               - medium
               - high
               - critical
-        - in: query
-          name: skip
-          schema:
-            type: integer
-            example: 0
-          description: Legacy pagination alias still supported.
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            example: 10
+          description: Urgency level filter
         - in: query
           name: page
           schema:
             type: integer
             example: 1
+          description: Page number for pagination
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            example: 20
+          description: Items per page
       responses:
-        '200':
+        "200":
           description: Requests retrieved successfully
           content:
             application/json:
@@ -793,12 +2134,12 @@ paths:
                   requests: []
                   pagination:
                     page: 1
-                    limit: 10
+                    limit: 20
                     total: 0
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - donor role required
   /donor/matches:
     get:
       tags:
@@ -824,7 +2165,7 @@ paths:
             type: integer
             example: 1
       responses:
-        '200':
+        "200":
           description: Matching requests retrieved successfully
           content:
             application/json:
@@ -837,9 +2178,9 @@ paths:
                     page: 1
                     limit: 10
                     total: 0
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
   /donor/respond/{requestId}:
     post:
@@ -865,7 +2206,7 @@ paths:
                   type: number
                   example: 1
       responses:
-        '201':
+        "201":
           description: Response submitted successfully
           content:
             application/json:
@@ -878,13 +2219,13 @@ paths:
                   requestId: 66f100000000000000000020
                   quantity: 1
                   status: pending
-        '400':
+        "400":
           description: Invalid request or eligibility check failed
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
-        '404':
+        "404":
           description: Request or donor not found
   /donor/history:
     get:
@@ -920,7 +2261,7 @@ paths:
             type: integer
             example: 1
       responses:
-        '200':
+        "200":
           description: Donation history retrieved successfully
           content:
             application/json:
@@ -933,9 +2274,9 @@ paths:
                     page: 1
                     limit: 10
                     total: 0
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
   /donor/availability:
     put:
@@ -957,18 +2298,18 @@ paths:
                   type: boolean
                   example: true
       responses:
-        '200':
+        "200":
           description: Availability status updated successfully
           content:
             application/json:
               example:
                 success: true
                 message: Availability status updated successfully
-        '400':
+        "400":
           description: Invalid availability payload
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
   /donor/health-history:
     get:
@@ -978,11 +2319,11 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Health history retrieved successfully
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
     patch:
       tags:
@@ -997,34 +2338,133 @@ paths:
             schema:
               type: object
       responses:
-        '200':
+        "200":
           description: Health history updated successfully
-        '400':
+        "400":
           description: Invalid health history payload
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
+  /donor/settings:
+    get:
+      tags:
+        - Donor
+      summary: Get donor notification and preference settings
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Settings retrieved successfully
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+        "404":
+          description: Donor profile not found
+    put:
+      tags:
+        - Donor
+      summary: Update donor settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pushNotifications:
+                  type: boolean
+                emergencyAlerts:
+                  type: boolean
+                privacyMode:
+                  type: boolean
+                language:
+                  type: string
+                  enum:
+                    - en
+                    - ar
+            example:
+              pushNotifications: true
+              emergencyAlerts: true
+              privacyMode: false
+              language: en
+      responses:
+        "200":
+          description: Settings updated successfully
+        "400":
+          description: Invalid settings payload
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+        "404":
+          description: Donor profile not found
+  /help/faq:
+    get:
+      summary: Get FAQ list
+      tags:
+        - Help
+      responses:
+        "200":
+          description: FAQ retrieved successfully
+  /help/documents/{type}:
+    get:
+      summary: Get help document by type
+      tags:
+        - Help
+      description: Returns a stored help document, or 404 if that document has not
+        been configured.
+      parameters:
+        - in: path
+          name: type
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Document retrieved successfully
   /hospital/profile:
     get:
       tags:
         - Hospital
       summary: Get the authenticated hospital profile
+      description: Retrieve the authenticated hospital's profile information including
+        license, contact details, blood inventory, and location coordinates
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Hospital profile retrieved successfully
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
-        '404':
+          content:
+            application/json:
+              example:
+                success: true
+                message: Hospital profile retrieved successfully
+                data:
+                  _id: 66f100000000000000000001
+                  fullName: Cairo General Hospital
+                  hospitalName: Cairo General Hospital
+                  email: info@cairohospital.com
+                  role: hospital
+                  licenseNumber: LIC-2026-001
+                  contactNumber: "01099998888"
+                  lat: 30.0444
+                  long: 31.2357
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - hospital role required
+        "404":
           description: Hospital profile not found
     put:
       tags:
         - Hospital
       summary: Update the authenticated hospital profile
+      description: Update hospital information including name, contact number,
+        address, location coordinates (lat/long), and license number
       security:
         - bearerAuth: []
       requestBody:
@@ -1036,15 +2476,19 @@ paths:
               properties:
                 fullName:
                   type: string
-                  example: City Care Hospital
+                  description: Hospital full name
+                  example: Cairo General Hospital
                 hospitalName:
                   type: string
-                  example: City Care Hospital
+                  description: Hospital display name
+                  example: Cairo General Hospital
                 contactNumber:
                   type: string
-                  example: '01099998888'
+                  description: Hospital contact phone number
+                  example: "01099998888"
                 address:
                   type: object
+                  description: Hospital address information
                   properties:
                     city:
                       type: string
@@ -1052,39 +2496,43 @@ paths:
                     governorate:
                       type: string
                       example: Cairo
-                location:
-                  type: object
-                  properties:
-                    city:
-                      type: string
-                    governorate:
-                      type: string
-                    coordinates:
-                      type: object
-                      properties:
-                        lat:
-                          type: number
-                          example: 30.0444
-                        lng:
-                          type: number
-                          example: 31.2357
+                lat:
+                  type: number
+                  description: Hospital latitude coordinate (-90 to 90)
+                  example: 30.0444
+                long:
+                  type: number
+                  description: Hospital longitude coordinate (-180 to 180)
+                  example: 31.2357
                 licenseNumber:
                   type: string
+                  description: Hospital license number
                   example: LIC-2026-001
       responses:
-        '200':
+        "200":
           description: Hospital profile updated successfully
-        '400':
-          description: Invalid profile data
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
+          content:
+            application/json:
+              example:
+                success: true
+                message: Hospital profile updated successfully
+                data:
+                  _id: 66f100000000000000000001
+                  fullName: Cairo General Hospital
+                  role: hospital
+        "400":
+          description: Invalid profile data or validation error
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - hospital role required
   /hospital/request:
     post:
       tags:
         - Hospital
-      summary: Create a donation request
+      summary: Create a new donation request
+      description: Create a blood or organ donation request with type, urgency,
+        required blood types, and deadline
       security:
         - bearerAuth: []
       requestBody:
@@ -1137,7 +2585,7 @@ paths:
                 requiredBy:
                   type: string
                   format: date-time
-                  example: '2026-04-15T00:00:00.000Z'
+                  example: 2026-04-15T00:00:00.000Z
                 quantity:
                   type: number
                   example: 2
@@ -1145,13 +2593,13 @@ paths:
                   type: string
                   example: Need compatible donors urgently
       responses:
-        '201':
+        "201":
           description: Donation request created successfully
-        '400':
+        "400":
           description: Invalid request payload
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
   /hospital/requests:
     get:
@@ -1194,11 +2642,11 @@ paths:
             type: integer
             example: 1
       responses:
-        '200':
+        "200":
           description: Requests retrieved successfully
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
   /hospital/requests/{requestId}:
     get:
@@ -1214,13 +2662,13 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Request details retrieved successfully
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed or unauthorized access
-        '404':
+        "404":
           description: Request not found
     put:
       tags:
@@ -1252,15 +2700,15 @@ paths:
                     - cancelled
                   example: in-progress
       responses:
-        '200':
+        "200":
           description: Request status updated successfully
-        '400':
+        "400":
           description: Invalid status payload
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed or unauthorized access
-        '404':
+        "404":
           description: Request not found
     delete:
       tags:
@@ -1275,13 +2723,13 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Request cancelled successfully
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed or unauthorized access
-        '404':
+        "404":
           description: Request not found
   /hospital/donations:
     get:
@@ -1317,11 +2765,11 @@ paths:
             type: integer
             example: 1
       responses:
-        '200':
+        "200":
           description: Donations retrieved successfully
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
   /hospital/blood-inventory:
     get:
@@ -1331,11 +2779,11 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Blood inventory retrieved successfully
-        '401':
+        "401":
           description: Missing or invalid JWT
-        '403':
+        "403":
           description: Role not allowed
   /hospital/blood-bank-settings:
     get:
@@ -1345,7 +2793,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Blood bank settings retrieved successfully
     put:
       tags:
@@ -1360,7 +2808,7 @@ paths:
             schema:
               type: object
       responses:
-        '200':
+        "200":
           description: Blood bank settings updated successfully
   /hospital/notification-preferences:
     get:
@@ -1370,7 +2818,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Notification preferences retrieved successfully
     put:
       tags:
@@ -1385,7 +2833,7 @@ paths:
             schema:
               type: object
       responses:
-        '200':
+        "200":
           description: Notification preferences updated successfully
   /hospital/reports/monthly:
     get:
@@ -1401,7 +2849,7 @@ paths:
             type: string
             example: 2026-04
       responses:
-        '200':
+        "200":
           description: Monthly report retrieved successfully
   /hospital/staff:
     get:
@@ -1411,7 +2859,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Staff retrieved successfully
     post:
       tags:
@@ -1429,7 +2877,7 @@ paths:
                 - name
                 - position
       responses:
-        '201':
+        "201":
           description: Staff created successfully
   /hospital/staff/{id}:
     delete:
@@ -1445,852 +2893,42 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Staff deleted successfully
-  /admin/profile:
+  /notifications:
     get:
-      summary: Get admin profile
+      summary: List notifications for authenticated user
       tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Admin profile
-  /admin/system/health:
-    get:
-      summary: System health check
-      tags:
-        - Admin - System
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: System health status
-  /admin/system/maintenance:
-    post:
-      summary: Toggle maintenance mode
-      tags:
-        - Admin - System
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - enabled
-              properties:
-                enabled:
-                  type: boolean
-                message:
-                  type: string
-      responses:
-        '200':
-          description: Maintenance mode updated
-    get:
-      summary: Get maintenance mode status
-      tags:
-        - Admin - System
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Maintenance status
-  /admin/statistics:
-    get:
-      summary: Get admin statistics summary
-      tags:
-        - Admin - Analytics
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Statistics summary
-  /admin/alerts:
-    get:
-      tags:
-        - Admin
-      summary: Get the admin alert summary
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Alerts summary
-  /admin/blood-inventory-summary:
-    get:
-      tags:
-        - Admin
-      summary: Get the system blood inventory summary
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Blood inventory summary
-  /admin/audit-logs:
-    get:
-      summary: List audit logs
-      tags:
-        - Admin - Audit
+        - Notifications
       security:
         - bearerAuth: []
       parameters:
-        - in: query
-          name: action
-          schema:
-            type: string
-        - in: query
-          name: targetType
-          schema:
-            type: string
-            enum:
-              - User
-              - Request
-              - Donation
-              - System
         - in: query
           name: page
           schema:
             type: integer
+            default: 1
         - in: query
           name: limit
           schema:
             type: integer
-      responses:
-        '200':
-          description: Audit logs list
-  /admin/donors:
-    get:
-      tags:
-        - Admin
-      summary: List donors
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Donor list
-  /admin/hospitals:
-    get:
-      tags:
-        - Admin
-      summary: List hospitals
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Hospital list
-    post:
-      summary: Create a hospital account (admin-created, pre-verified)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - name
-                - type
-                - email
-                - phone
-                - licenseNumber
-              properties:
-                name:
-                  type: string
-                type:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                phone:
-                  type: string
-                licenseNumber:
-                  type: string
-                address:
-                  type: object
-                city:
-                  type: string
-                state:
-                  type: string
-                zipCode:
-                  type: string
-      responses:
-        '201':
-          description: Hospital created
-  /admin/donors/{id}:
-    get:
-      tags:
-        - Admin
-      summary: Get a donor by id
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Donor details
-    put:
-      tags:
-        - Admin
-      summary: Update a donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                fullName:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                phoneNumber:
-                  type: string
-                bloodType:
-                  type: string
-                gender:
-                  type: string
-                dateOfBirth:
-                  type: string
-                  format: date
-                isAvailable:
-                  type: boolean
-      responses:
-        '200':
-          description: Donor updated successfully
-        '404':
-          description: Donor not found
-        '409':
-          description: Email already registered
-  /admin/hospitals/{id}:
-    get:
-      tags:
-        - Admin
-      summary: Get a hospital by id
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Hospital details
-  /admin/admins:
-    get:
-      tags:
-        - Admin
-      summary: List admin users
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Admin list
-    post:
-      tags:
-        - Admin
-      summary: Create a new admin account
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - fullName
-                - email
-                - password
-              properties:
-                fullName:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                role:
-                  type: string
-                  enum:
-                    - admin
-                    - superadmin
-                location:
-                  type: object
-      responses:
-        '201':
-          description: Admin created successfully
-        '400':
-          description: Invalid payload
-        '403':
-          description: Only superadmin can create admins
-        '409':
-          description: Email already registered
-  /admin/admins/{id}:
-    get:
-      tags:
-        - Admin
-      summary: Get an admin by id
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Admin details
-    put:
-      tags:
-        - Admin
-      summary: Update an admin account
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                fullName:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                role:
-                  type: string
-                  enum:
-                    - admin
-                    - superadmin
-                isEmailVerified:
-                  type: boolean
-                isSuspended:
-                  type: boolean
-      responses:
-        '200':
-          description: Admin updated successfully
-        '404':
-          description: Admin not found
-        '409':
-          description: Email already registered
-    delete:
-      tags:
-        - Admin
-      summary: Delete an admin account
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Admin deleted successfully
-        '403':
-          description: Cannot delete own account or insufficient role
-        '404':
-          description: Admin not found
-  /admin/donors/{id}/ban:
-    post:
-      tags:
-        - Admin
-      summary: Ban a donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                reason:
-                  type: string
-      responses:
-        '200':
-          description: Donor banned successfully
-        '400':
-          description: Donor already banned
-        '404':
-          description: Donor not found
-  /admin/donors/{id}/unban:
-    post:
-      tags:
-        - Admin
-      summary: Unban a donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Donor unbanned successfully
-        '400':
-          description: Donor is not banned
-        '404':
-          description: Donor not found
-  /admin/hospitals/{id}/status:
-    put:
-      tags:
-        - Admin
-      summary: Update hospital suspension status
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-              properties:
-                action:
-                  type: string
-                  enum:
-                    - suspend
-                    - unsuspend
-                reason:
-                  type: string
-      responses:
-        '200':
-          description: Hospital status updated successfully
-        '400':
-          description: Invalid action payload
-        '404':
-          description: Hospital not found
-  /admin/permissions/roles:
-    get:
-      tags:
-        - Admin
-      summary: List role permissions
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Roles retrieved successfully
-    post:
-      tags:
-        - Admin
-      summary: Create a role permission record
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Role created successfully
-        '400':
-          description: Invalid payload
-        '403':
-          description: System roles cannot be created or modified
-        '409':
-          description: Role already exists
-  /admin/permissions/roles/{role}:
-    get:
-      tags:
-        - Admin
-      summary: Get a role permission record
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: role
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Role retrieved successfully
-    put:
-      tags:
-        - Admin
-      summary: Update role permissions
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: role
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                displayName:
-                  type: string
-                description:
-                  type: string
-                permissions:
-                  type: object
-      responses:
-        '200':
-          description: Role permissions updated successfully
-        '403':
-          description: System roles cannot be modified
-        '404':
-          description: Role not found
-  /admin/users:
-    get:
-      summary: List all users with filters and pagination
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      parameters:
+            default: 20
         - in: query
-          name: role
+          name: read
           schema:
-            type: string
-            enum:
-              - donor
-              - hospital
-              - admin
-              - superadmin
-        - in: query
-          name: verified
-          schema:
-            type: string
-            enum:
-              - 'true'
-              - 'false'
-        - in: query
-          name: suspended
-          schema:
-            type: string
-            enum:
-              - 'true'
-              - 'false'
-        - in: query
-          name: search
-          schema:
-            type: string
-        - in: query
-          name: page
-          schema:
-            type: integer
-        - in: query
-          name: limit
-          schema:
-            type: integer
-      responses:
-        '200':
-          description: Users list
-  /admin/users/stats:
-    get:
-      summary: Get user statistics
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: User statistics
-  /admin/users/hospital:
-    post:
-      summary: Create a new hospital (admin-created, pre-verified)
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - fullName
-                - email
-                - password
-                - hospitalName
-                - hospitalId
-                - licenseNumber
-              properties:
-                fullName:
-                  type: string
-                email:
-                  type: string
-                password:
-                  type: string
-                hospitalName:
-                  type: string
-                hospitalId:
-                  type: number
-                licenseNumber:
-                  type: string
-                address:
-                  type: object
-                  properties:
-                    city:
-                      type: string
-                    governorate:
-                      type: string
-                contactNumber:
-                  type: string
-      responses:
-        '201':
-          description: Hospital created
-        '409':
-          description: Email already registered
-  /admin/users/{id}:
-    get:
-      summary: Get user details by ID
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: User details
-        '404':
-          description: User not found
-    delete:
-      summary: Soft-delete a user account
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: User deleted
-        '403':
-          description: Cannot delete admin accounts
-  /admin/users/{id}/verify:
-    patch:
-      summary: Verify a user's email
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: User verified
-  /admin/users/{id}/unverify:
-    patch:
-      summary: Unverify a user's email
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: User unverified
-  /admin/users/{id}/suspend:
-    patch:
-      summary: Suspend a user account
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reason
-              properties:
-                reason:
-                  type: string
-      responses:
-        '200':
-          description: User suspended
-        '403':
-          description: Cannot suspend admin accounts
-  /admin/users/{id}/unsuspend:
-    patch:
-      summary: Unsuspend a user account
-      tags:
-        - Admin - Users
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: User unsuspended
-  /admin/requests:
-    get:
-      summary: List all blood/organ requests
-      tags:
-        - Admin - Requests
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: status
-          schema:
-            type: string
-            enum:
-              - pending
-              - in-progress
-              - completed
-              - cancelled
-        - in: query
-          name: urgency
-          schema:
-            type: string
-            enum:
-              - low
-              - medium
-              - high
-              - critical
-        - in: query
-          name: bloodType
-          schema:
-            type: string
+            type: boolean
         - in: query
           name: type
           schema:
             type: string
-            enum:
-              - blood
-              - organ
-        - in: query
-          name: page
-          schema:
-            type: integer
-        - in: query
-          name: limit
-          schema:
-            type: integer
       responses:
-        '200':
-          description: Requests list
-  /admin/requests/stats:
-    get:
-      summary: Get request statistics
-      tags:
-        - Admin - Requests
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Request statistics
-  /admin/requests/{id}:
-    get:
-      summary: Get full request details with donations
-      tags:
-        - Admin - Requests
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Request details
-  /admin/requests/{id}/donations:
-    get:
-      summary: Get donations for a specific request
-      tags:
-        - Admin - Requests
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Request donations
-  /admin/requests/{id}/fulfill:
+        "200":
+          description: Notifications list
+  /notifications/{id}/read:
     patch:
-      summary: Mark a request as fulfilled
+      summary: Mark one notification as read
       tags:
-        - Admin - Requests
+        - Notifications
       security:
         - bearerAuth: []
       parameters:
@@ -2300,40 +2938,23 @@ paths:
           schema:
             type: string
       responses:
-        '200':
-          description: Request fulfilled
-  /admin/requests/{id}/cancel:
+        "200":
+          description: Notification marked as read
+  /notifications/read-all:
     patch:
-      summary: Cancel a request
+      summary: Mark all notifications as read
       tags:
-        - Admin - Requests
+        - Notifications
       security:
         - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reason
-              properties:
-                reason:
-                  type: string
       responses:
-        '200':
-          description: Request cancelled
-  /admin/requests/{id}/broadcast:
-    post:
-      summary: Broadcast request to eligible donors
+        "200":
+          description: All notifications marked as read
+  /notifications/{id}:
+    get:
+      summary: Get one notification
       tags:
-        - Admin - Requests
+        - Notifications
       security:
         - bearerAuth: []
       parameters:
@@ -2343,137 +2964,27 @@ paths:
           schema:
             type: string
       responses:
-        '200':
-          description: Broadcast sent
-  /admin/analytics/dashboard:
-    get:
-      summary: Dashboard summary with key metrics
+        "200":
+          description: Notification retrieved successfully
+        "400":
+          description: Invalid notification id
+        "404":
+          description: Notification not found
+    delete:
+      summary: Delete one notification
       tags:
-        - Admin - Analytics
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Dashboard summary
-  /admin/analytics/donations:
-    get:
-      summary: Monthly donation trends
-      tags:
-        - Admin - Analytics
+        - Notifications
       security:
         - bearerAuth: []
       parameters:
-        - in: query
-          name: months
+        - in: path
+          name: id
+          required: true
           schema:
-            type: integer
-            default: 6
+            type: string
       responses:
-        '200':
-          description: Donation trends
-  /admin/analytics/blood-types:
-    get:
-      summary: Blood type distribution
-      tags:
-        - Admin - Analytics
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Blood type distribution
-  /admin/analytics/top-donors:
-    get:
-      summary: Top donors leaderboard
-      tags:
-        - Admin - Analytics
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 10
-      responses:
-        '200':
-          description: Top donors
-  /admin/analytics/growth:
-    get:
-      summary: Growth metrics over time
-      tags:
-        - Admin - Analytics
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: months
-          schema:
-            type: integer
-            default: 6
-      responses:
-        '200':
-          description: Growth metrics
-  /admin/emergency/broadcast:
-    post:
-      summary: Send emergency broadcast to donors
-      tags:
-        - Admin - Emergency
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - title
-                - message
-              properties:
-                title:
-                  type: string
-                message:
-                  type: string
-                governorate:
-                  type: string
-                city:
-                  type: string
-                bloodTypes:
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                      - A+
-                      - A-
-                      - B+
-                      - B-
-                      - AB+
-                      - AB-
-                      - O+
-                      - O-
-      responses:
-        '200':
-          description: Emergency broadcast sent
-  /admin/emergency/critical:
-    get:
-      summary: List critical and high urgency active requests
-      tags:
-        - Admin - Emergency
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Critical requests
-  /admin/emergency/shortage-alerts:
-    get:
-      summary: Blood shortage alerts
-      tags:
-        - Admin - Emergency
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Shortage alerts by blood type
+        "200":
+          description: Notification deleted
   /rewards/points:
     get:
       summary: Get donor's points summary and tier
@@ -2482,7 +2993,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Points summary with tier info
   /rewards/points/history:
     get:
@@ -2523,7 +3034,7 @@ paths:
             type: string
             format: date-time
       responses:
-        '200':
+        "200":
           description: Paginated points history
   /rewards/badges:
     get:
@@ -2533,7 +3044,7 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Badge list with unlock status and progress
   /rewards/catalog:
     get:
@@ -2562,7 +3073,7 @@ paths:
               - COST_DESC
               - POPULARITY
       responses:
-        '200':
+        "200":
           description: Rewards catalog
   /rewards/history:
     get:
@@ -2592,7 +3103,7 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: Reward history retrieved successfully
   /rewards/catalog/{rewardId}/redeem:
     post:
@@ -2623,9 +3134,9 @@ paths:
                   type: string
                   description: Email address if delivery_preference is EMAIL
       responses:
-        '200':
+        "200":
           description: Redemption confirmed with confirmation code
-        '409':
+        "409":
           description: Insufficient points or limit exceeded
   /rewards/redemptions:
     get:
@@ -2655,7 +3166,7 @@ paths:
           schema:
             type: integer
       responses:
-        '200':
+        "200":
           description: Paginated redemption history
   /rewards/leaderboard:
     get:
@@ -2673,7 +3184,7 @@ paths:
             maximum: 50
           description: Number of top donors to return
       responses:
-        '200':
+        "200":
           description: Ranked list of top donors by lifetime points
   /rewards/admin/users/{userId}/points/adjust:
     post:
@@ -2704,7 +3215,7 @@ paths:
                 reason:
                   type: string
       responses:
-        '200':
+        "200":
           description: Points adjusted and transaction logged
   /rewards/admin/catalog/{rewardId}/status:
     patch:
@@ -2735,7 +3246,7 @@ paths:
                     - INACTIVE
                     - LIMITED
       responses:
-        '200':
+        "200":
           description: Reward status updated
   /rewards/admin/analytics:
     get:
@@ -2745,327 +3256,8 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: Top rewards, tier distribution, total points issued
-  /notifications:
-    get:
-      summary: List notifications for authenticated user
-      tags:
-        - Notifications
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: page
-          schema:
-            type: integer
-            default: 1
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 20
-        - in: query
-          name: read
-          schema:
-            type: boolean
-        - in: query
-          name: type
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Notifications list
-  /notifications/{id}/read:
-    patch:
-      summary: Mark one notification as read
-      tags:
-        - Notifications
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Notification marked as read
-  /notifications/read-all:
-    patch:
-      summary: Mark all notifications as read
-      tags:
-        - Notifications
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: All notifications marked as read
-  /notifications/{id}:
-    get:
-      summary: Get one notification
-      tags:
-        - Notifications
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Notification retrieved successfully
-        '400':
-          description: Invalid notification id
-        '404':
-          description: Notification not found
-    delete:
-      summary: Delete one notification
-      tags:
-        - Notifications
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Notification deleted
-  /hospitals:
-    get:
-      summary: List hospitals for discovery
-      tags:
-        - Discovery
-      description: Public discovery endpoint. Compatibility alias is also mounted under `/api/v1/hospitals`.
-      parameters:
-        - in: query
-          name: city
-          schema:
-            type: string
-        - in: query
-          name: governorate
-          schema:
-            type: string
-        - in: query
-          name: search
-          schema:
-            type: string
-        - in: query
-          name: page
-          schema:
-            type: integer
-            default: 1
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 20
-        - in: query
-          name: skip
-          schema:
-            type: integer
-          description: Legacy pagination alias still supported for compatibility.
-      responses:
-        '200':
-          description: Hospitals list
-  /hospitals/nearby:
-    get:
-      summary: List nearby hospitals
-      tags:
-        - Discovery
-      description: Returns hospitals sorted by computed distance when coordinate-backed hospital locations exist.
-      parameters:
-        - in: query
-          name: latitude
-          schema:
-            type: number
-        - in: query
-          name: longitude
-          schema:
-            type: number
-        - in: query
-          name: radius_km
-          schema:
-            type: number
-      responses:
-        '200':
-          description: Nearby hospitals list
-  /hospitals/{id}:
-    get:
-      summary: Get hospital details by id
-      tags:
-        - Discovery
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Hospital details
-  /donations/book-appointment:
-    post:
-      tags:
-        - Appointments
-      summary: Book a donor appointment with a hospital
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - hospitalId
-                - appointmentDate
-              properties:
-                hospitalId:
-                  type: string
-                requestId:
-                  type: string
-                  nullable: true
-                appointmentDate:
-                  type: string
-                  format: date-time
-                notes:
-                  type: string
-                  maxLength: 500
-            example:
-              hospitalId: 66f100000000000000000010
-              requestId: 66f100000000000000000020
-              appointmentDate: '2026-05-10T10:00:00.000Z'
-              notes: First-time donor, available in the morning.
-      responses:
-        '201':
-          description: Appointment booked
-        '400':
-          description: Invalid appointment payload
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
-        '404':
-          description: Hospital, donor, or request not found
-        '409':
-          description: Active appointment already exists for this hospital
-  /donations/book-appointment/my-appointments:
-    get:
-      tags:
-        - Appointments
-      summary: Get the authenticated donor appointments
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: skip
-          schema:
-            type: integer
-            minimum: 0
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            minimum: 1
-      responses:
-        '200':
-          description: Appointments fetched successfully
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
-  /donations/book-appointment/{appointmentId}:
-    delete:
-      tags:
-        - Appointments
-      summary: Cancel a donor appointment
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: appointmentId
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Appointment cancelled
-        '400':
-          description: Invalid appointment id
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
-        '404':
-          description: Appointment not found
-  /donations/my-appointments:
-    get:
-      tags:
-        - Appointments
-      summary: Get donor appointments via the donations compatibility alias
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Appointments fetched successfully
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
-  /donations/complete:
-    post:
-      tags:
-        - Donations
-      summary: Mark a donation as completed
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - donationId
-      responses:
-        '200':
-          description: Donation completed successfully
-        '400':
-          description: Invalid donation payload
-        '401':
-          description: Missing or invalid JWT
-        '403':
-          description: Role not allowed
-  /help/faq:
-    get:
-      summary: Get FAQ list
-      tags:
-        - Help
-      responses:
-        '200':
-          description: FAQ retrieved successfully
-  /help/documents/{type}:
-    get:
-      summary: Get help document by type
-      tags:
-        - Help
-      description: Returns a stored help document, or 404 if that document has not been configured.
-      parameters:
-        - in: path
-          name: type
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Document retrieved successfully
   /support/contact:
     post:
       summary: Submit a support request
@@ -3073,7 +3265,8 @@ paths:
         - Support
       security:
         - bearerAuth: []
-      description: Authenticated submissions are linked to the current user id, email, and role for traceability.
+      description: Authenticated submissions are linked to the current user id, email,
+        and role for traceability.
       requestBody:
         required: true
         content:
@@ -3084,391 +3277,50 @@ paths:
                 - subject
                 - message
       responses:
-        '201':
+        "201":
           description: Support request submitted successfully
-  /admin/login:
-    post:
-      summary: Login for admin and superadmin accounts
-      tags:
-        - Admin
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - password
-                - adminKey
-              properties:
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                  format: password
-                adminKey:
-                  type: string
-      responses:
-        '200':
-          description: Admin login successful
-  /admin:
-    get:
-      summary: List admin users (root alias)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Admin list
-  /admin/dashboard:
-    get:
-      summary: Dashboard summary with key metrics
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Dashboard summary
-  /admin/maintenance-mode:
-    post:
-      summary: Toggle maintenance mode
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - enabled
-              properties:
-                enabled:
-                  type: boolean
-                message:
-                  type: string
-      responses:
-        '200':
-          description: Maintenance mode updated
-  /admin/maintenance-mode/status:
-    get:
-      summary: Get maintenance mode status
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Maintenance status
-  /admin/system-health:
-    get:
-      summary: System health check
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: System health status
-  /admin/system-health/check:
-    get:
-      summary: System health check (compatibility alias)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: System health status
-  /admin/create:
-    post:
-      summary: Create a new admin account (alias)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - fullName
-                - email
-                - password
-              properties:
-                fullName:
-                  type: string
-                email:
-                  type: string
-                  format: email
-                password:
-                  type: string
-                role:
-                  type: string
-                  enum:
-                    - admin
-                    - superadmin
-      responses:
-        '201':
-          description: Admin created successfully
-  /donor/donation-eligibility:
-    get:
-      summary: Get donor donation eligibility
-      tags:
-        - Rewards - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Eligibility retrieved successfully
-  /donor/dashboard:
-    get:
-      summary: Get donor dashboard data
-      tags:
-        - Rewards - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Dashboard retrieved successfully
-  /donor/recent-activity:
-    get:
-      summary: Get donor recent activity
-      tags:
-        - Rewards - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Recent activity retrieved successfully
-  /donor/points:
-    get:
-      summary: Get donor points summary
-      tags:
-        - Rewards - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Points summary retrieved successfully
-  /donor/badges:
-    get:
-      summary: Get donor badges
-      tags:
-        - Rewards - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Badge list retrieved successfully
-  /donor/redemptions:
-    get:
-      summary: Get donor redemptions
-      tags:
-        - Rewards - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Redemption history retrieved successfully
-  /donor/donations:
-    get:
-      summary: Get donor donation history
-      tags:
-        - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Donation history retrieved successfully
-  /donor/urgent-requests:
-    get:
-      summary: Get urgent requests for the authenticated donor
-      tags:
-        - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Urgent requests retrieved successfully
-  /donor/urgent-requests/{requestId}:
-    get:
-      summary: Get urgent request details
-      tags:
-        - Donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Urgent request details retrieved successfully
-  /donor/urgent-requests/{requestId}/accept:
-    post:
-      summary: Accept an urgent request
-      tags:
-        - Donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Urgent request accepted successfully
-  /donor/urgent-requests/{requestId}/decline:
-    post:
-      summary: Decline an urgent request
-      tags:
-        - Donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Urgent request declined successfully
-  /donor/notifications:
-    get:
-      summary: Get donor notifications
-      tags:
-        - Notifications
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Notifications retrieved successfully
-  /donor/notifications/{id}/mark-read:
-    patch:
-      summary: Mark a donor notification as read
-      tags:
-        - Notifications
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Notification marked as read
-  /hospital/dashboard:
-    get:
-      summary: Get hospital dashboard report
-      tags:
-        - Hospital
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Dashboard retrieved successfully
-  /hospital/requests/create-emergency:
-    post:
-      summary: Create an emergency request
-      tags:
-        - Hospital
-      security:
-        - bearerAuth: []
-      responses:
-        '201':
-          description: Emergency request created successfully
-  /hospital/requests/{requestId}/close:
-    post:
-      summary: Close a hospital request
-      tags:
-        - Hospital
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Request closed successfully
-  /hospital/requests/{requestId}/responses:
-    get:
-      summary: Get request responses
-      tags:
-        - Hospital
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Request responses retrieved successfully
-  /rewards:
-    get:
-      summary: Get rewards catalog (base alias)
-      tags:
-        - Rewards - Donor
-      security:
-        - bearerAuth: []
-      responses:
-        '200':
-          description: Rewards catalog retrieved successfully
-  /rewards/{rewardId}/redeem:
-    post:
-      summary: Redeem a reward using points (alias)
-      tags:
-        - Rewards - Donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: rewardId
-          required: true
-          schema:
-            type: string
-      responses:
-        '200':
-          description: Redemption confirmed
 tags:
   - name: Admin
-    description: Admin operations and aliases
+    description: Admin authentication and profile
+  - name: Admin - System
+    description: System health, maintenance mode, and monitoring (Admin/Superadmin roles)
+  - name: Admin - Audit
+    description: Audit logging and system activity tracking (Admin/Superadmin roles)
+  - name: Admin - Analytics
+    description: Dashboard analytics, statistics, and reports (Admin/Superadmin roles)
+  - name: Admin - Users
+    description: User management - create, update, verify, suspend users
+      (Admin/Superadmin roles)
+  - name: Admin - Requests
+    description: Blood and organ request management (Admin/Superadmin roles)
+  - name: Admin - Emergency
+    description: Emergency broadcasts and critical request management
+      (Admin/Superadmin roles)
+  - name: Admin - Roles
+    description: Role-based access control and permission management (Superadmin only)
+  - name: Auth - Donor
+    description: Donor registration and authentication (signup, email verification, login)
+  - name: Auth - Hospital
+    description: Hospital registration and authentication (signup, email
+      verification, login)
   - name: Auth
-    description: Authentication and session endpoints
+    description: General authentication (logout, refresh token, password reset, 2FA)
+  - name: Discovery
+    description: Public hospital discovery APIs - No authentication required. Find
+      and browse hospitals by location and services
   - name: Donor
-    description: Donor namespace aliases
+    description: "Donor profile, requests, and donation management (Role: donor)"
+  - name: Help
+    description: Help and document endpoints
   - name: Hospital
-    description: Hospital namespace aliases
+    description: "Hospital profile, donation requests, and blood inventory
+      management (Role: hospital)"
+  - name: Notifications
+    description: Authenticated user notifications
   - name: Rewards - Donor
     description: Donor-facing reward endpoints
   - name: Rewards - Admin
     description: Admin reward management
-  - name: Notifications
-    description: Authenticated user notifications
-  - name: Discovery
-    description: Public hospital discovery APIs
-  - name: Help
-    description: Help and document endpoints
   - name: Support
     description: Support contact endpoint
+

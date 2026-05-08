@@ -2,18 +2,59 @@ import response from '../utils/response.js';
 import * as appointmentService from '../services/appointment.service.js';
 import ERR from '../utils/errorCodes.js';
 
+const getDonorId = (req) => req?.user?.userId || req?.user?._id;
+
+const buildAppointmentDate = ({ appointmentDate, date, time }) => {
+  if (appointmentDate) return new Date(appointmentDate);
+  if (!date) return null;
+
+  const scheduledDate = new Date(date);
+  if (Number.isNaN(scheduledDate.getTime())) return null;
+
+  if (time) {
+    const match = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+
+    let hour = Number(match[1]);
+    const minute = Number(match[2]);
+    const period = match[3].toUpperCase();
+
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+
+    scheduledDate.setHours(hour, minute, 0, 0);
+  }
+
+  return scheduledDate;
+};
+
 export const bookAppointment = async (req, res, next) => {
   try {
-    const donorId = req.user._id;
-    const { hospitalId, requestId, appointmentDate, notes } = req.body;
+    const donorId = getDonorId(req);
+    const { hospitalId, requestId, appointmentDate, date, time, notes, user } = req.body;
 
-    if (!hospitalId || !appointmentDate) {
+    const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
+
+    if (!hospitalId || !normalizedAppointmentDate) {
       return response.error(res, 400, 'hospitalId and appointmentDate are required');
     }
 
-    const appointment = await appointmentService.bookAppointment(donorId, hospitalId, requestId || null, appointmentDate, notes || '');
+    const appointment = await appointmentService.bookAppointment(
+      donorId,
+      hospitalId,
+      requestId || null,
+      normalizedAppointmentDate,
+      notes || ''
+    );
 
-    return response.success(res, 201, 'Appointment booked', appointment);
+    return response.success(res, 201, 'Appointment booked', {
+      appointmentId: appointment._id,
+      status: appointment.status,
+      qrCode: appointment.qrToken,
+      qrToken: appointment.qrToken,
+      message: 'Appointment confirmed successfully',
+      user: user || null,
+    });
   } catch (error) {
     if (error.message === 'Hospital not found' || error.message === 'Donor not found') {
       return response.error(res, 404, error.message);
@@ -44,7 +85,7 @@ export const bookAppointment = async (req, res, next) => {
 
 export const getMyAppointments = async (req, res, next) => {
   try {
-    const donorId = req.user._id;
+    const donorId = getDonorId(req);
     const { skip, limit } = req.query;
 
     const result = await appointmentService.getMyAppointments(donorId, { skip, limit });
@@ -55,9 +96,30 @@ export const getMyAppointments = async (req, res, next) => {
   }
 };
 
+export const getAvailableSlots = async (req, res, next) => {
+  try {
+    const { hospitalId, date } = req.query;
+
+    if (!hospitalId || !date) {
+      return response.error(res, 400, 'hospitalId and date are required');
+    }
+
+    const slots = await appointmentService.getAvailableSlots(hospitalId, date);
+    return response.success(res, 200, 'Available slots retrieved successfully', slots);
+  } catch (error) {
+    if (error.message === 'Invalid hospital id' || error.message === 'Invalid date') {
+      return response.error(res, 400, error.message);
+    }
+    if (error.message === 'Hospital not found') {
+      return response.error(res, 404, error.message);
+    }
+    next(error);
+  }
+};
+
 export const cancelAppointment = async (req, res, next) => {
   try {
-    const donorId = req.user._id;
+    const donorId = getDonorId(req);
     const appointmentId = req.params.appointmentId;
 
     if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
@@ -68,6 +130,55 @@ export const cancelAppointment = async (req, res, next) => {
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, ERR.APPOINTMENT_NOT_FOUND);
     if (error.message === 'This appointment cannot be cancelled') return response.error(res, 400, ERR.APPOINTMENT_CANNOT_CANCEL);
+    next(error);
+  }
+};
+
+export const getAppointmentById = async (req, res, next) => {
+  try {
+    const donorId = getDonorId(req);
+    const appointmentId = req.params.appointmentId;
+
+    if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
+
+    const appointment = await appointmentService.getAppointmentById(appointmentId, donorId);
+
+    return response.success(res, 200, 'Appointment retrieved', {
+      id: appointment._id,
+      hospitalName: appointment.hospitalId?.hospitalName || appointment.hospitalId?.fullName || null,
+      date: appointment.appointmentDate ? appointment.appointmentDate.toISOString().slice(0, 10) : null,
+      time: appointment.appointmentDate
+        ? appointment.appointmentDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
+        : null,
+      status: appointment.status,
+      qrToken: appointment.qrToken,
+      donationType: appointment.donationType,
+    });
+  } catch (error) {
+    if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
+    if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
+    next(error);
+  }
+};
+
+export const rescheduleAppointment = async (req, res, next) => {
+  try {
+    const donorId = getDonorId(req);
+    const appointmentId = req.params.appointmentId;
+    const { date, time } = req.body;
+    const newDate = buildAppointmentDate({ date, time });
+
+    if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
+    if (!newDate) return response.error(res, 400, 'date is required');
+
+    const appointment = await appointmentService.rescheduleAppointment(appointmentId, donorId, newDate);
+
+    return response.success(res, 200, 'Appointment rescheduled', appointment);
+  } catch (error) {
+    if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
+    if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
+    if (error.message.includes('rescheduled')) return response.error(res, 400, error.message);
+    if (error.message.includes('future')) return response.error(res, 400, error.message);
     next(error);
   }
 };

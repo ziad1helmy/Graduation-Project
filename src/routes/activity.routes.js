@@ -19,7 +19,7 @@ const router = Router();
  * /donor/activity:
  *   get:
  *     tags:
- *       - Activity
+ *       - Donor
  *     summary: Get the authenticated user's activity timeline
  *     description: |
  *       Returns a paginated, timestamped history of all user actions (donations, rewards, urgent responses, profile updates).

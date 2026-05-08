@@ -1,6 +1,7 @@
 import response from '../utils/response.js';
 import Hospital from '../models/Hospital.model.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
+import Request from '../models/Request.model.js';
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 
@@ -13,17 +14,26 @@ const haversineKm = (lat1, lng1, lat2, lng2) => {
   return 2 * R * Math.asin(Math.sqrt(a));
 };
 
-const mapHospital = (h) => ({
+const mapHospital = (h, extras = {}) => ({
   hospitalId: h._id,
   hospital_id: h._id,
   name: h.hospitalName || h.fullName,
   fullName: h.fullName,
-  contactNumber: h.contactNumber || null,
+  phoneNumber: h.contactNumber || h.phone || null,
+  contactNumber: h.contactNumber || h.phone || null,
   email: h.email,
   address: h.address || null,
-  location: h.location || null,
-  lat: h.lat || null,
-  long: h.long || null,
+  location: Number.isFinite(h.lat) && Number.isFinite(h.long)
+    ? { lat: h.lat, lng: h.long }
+    : null,
+  lat: h.lat ?? null,
+  lng: h.long ?? null,
+  hospitalType: h.hospitalType || h.type || 'General Hospital',
+  workingHours: h.workingHours || '9AM - 5PM',
+  bloodTypes: h.bloodBanksAvailable || [],
+  isAvailable: (h.bloodBanksAvailable || []).length > 0,
+  urgentNeedsCount: extras.urgentNeedsCount ?? 0,
+  ...extras,
 });
 
 export const listHospitals = async (req, res, next) => {
@@ -79,13 +89,28 @@ export const getHospitalById = async (req, res, next) => {
 
 export const getNearbyHospitals = async (req, res, next) => {
   try {
+    const { search, bloodType } = req.query;
     // Accept both lat/long and latitude/longitude for backwards compatibility
     const lat = Number(req.query.lat ?? req.query.latitude);
     const lng = Number(req.query.long ?? req.query.longitude);
     const radiusKm = req.query.radius_km ? Number(req.query.radius_km) : null;
 
     const query = { role: 'hospital', deletedAt: null, isSuspended: false, isEmailVerified: true };
-    const hospitals = await Hospital.find(query).limit(500);
+    if (search) {
+      query.$or = [
+        { fullName: { $regex: search, $options: 'i' } },
+        { hospitalName: { $regex: search, $options: 'i' } },
+      ];
+    }
+    if (bloodType) query.bloodBanksAvailable = bloodType;
+
+    const hospitals = await Hospital.find(query);
+
+    const urgentCounts = await Request.aggregate([
+      { $match: { status: { $in: ['pending', 'in-progress'] }, urgency: { $in: ['high', 'critical'] } } },
+      { $group: { _id: '$hospitalId', count: { $sum: 1 } } },
+    ]);
+    const urgentMap = Object.fromEntries(urgentCounts.map(u => [u._id.toString(), u.count]));
 
     let mapped = hospitals.map((h) => {
       const entry = mapHospital(h);
@@ -95,6 +120,7 @@ export const getNearbyHospitals = async (req, res, next) => {
       if (Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(hLat) && Number.isFinite(hLng)) {
         entry.distanceKm = Number(haversineKm(lat, lng, hLat, hLng).toFixed(2));
       }
+      entry.urgentNeedsCount = urgentMap[h._id.toString()] || 0;
       return entry;
     });
 
@@ -109,9 +135,75 @@ export const getNearbyHospitals = async (req, res, next) => {
       return a.distanceKm - b.distanceKm;
     });
 
+    const { skip, limit, page } = parsePagination(req.query, 20);
+    const paginated = mapped.slice(skip, skip + limit);
+
     return response.success(res, 200, 'Nearby hospitals retrieved successfully', {
-      hospitals: mapped,
-      total: mapped.length,
+      hospitals: paginated,
+      pagination: paginationMeta(mapped.length, page, limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const searchHospitals = async (req, res, next) => {
+  try {
+    const { q = '', bloodType, availableOnly } = req.query;
+
+    const query = { role: 'hospital', deletedAt: null, isSuspended: false, isEmailVerified: true };
+    if (q) {
+      query.$or = [
+        { fullName: { $regex: q, $options: 'i' } },
+        { hospitalName: { $regex: q, $options: 'i' } },
+      ];
+    }
+    if (bloodType) {
+      query.bloodBanksAvailable = bloodType;
+    }
+
+    const hospitals = await Hospital.find(query).sort({ hospitalName: 1, fullName: 1 }).limit(100);
+    let results = hospitals.map((hospital) => ({
+      id: hospital._id,
+      name: hospital.hospitalName || hospital.fullName,
+      address: hospital.address || null,
+      bloodTypes: hospital.bloodBanksAvailable || [],
+      isAvailable: (hospital.bloodBanksAvailable || []).length > 0,
+      lat: hospital.lat ?? null,
+      lng: hospital.long ?? null,
+      location: Number.isFinite(hospital.lat) && Number.isFinite(hospital.long)
+        ? { lat: hospital.lat, lng: hospital.long }
+        : null,
+      hospitalType: hospital.hospitalType || hospital.type || 'General Hospital',
+      workingHours: hospital.workingHours || '9AM - 5PM',
+    }));
+
+    if (availableOnly === 'true' || availableOnly === '1') {
+      results = results.filter((hospital) => hospital.isAvailable);
+    }
+
+    return response.success(res, 200, 'Hospitals searched successfully', { hospitals: results });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getHospitalsForMap = async (req, res, next) => {
+  try {
+    const hospitals = await Hospital.find({
+      role: 'hospital',
+      deletedAt: null,
+      isSuspended: false,
+      isEmailVerified: true,
+    }).select('hospitalName fullName lat long');
+
+    return response.success(res, 200, 'Hospitals retrieved successfully for map', {
+      hospitals: hospitals.map((h) => ({
+        id: h._id,
+        name: h.hospitalName || h.fullName,
+        lat: h.lat ?? null,
+        lng: h.long ?? null,
+      })),
     });
   } catch (error) {
     next(error);

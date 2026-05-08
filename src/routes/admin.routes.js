@@ -10,22 +10,9 @@ const router = Router();
  * @swagger
  * tags:
  *   - name: Admin
- *     description: Admin authentication and profile
- *   - name: Admin - System
- *     description: System health, maintenance mode, and monitoring (Admin/Superadmin roles)
- *   - name: Admin - Audit
- *     description: Audit logging and system activity tracking (Admin/Superadmin roles)
- *   - name: Admin - Analytics
- *     description: Dashboard analytics, statistics, and reports (Admin/Superadmin roles)
- *   - name: Admin - Users
- *     description: User management - create, update, verify, suspend users (Admin/Superadmin roles)
- *   - name: Admin - Requests
- *     description: Blood and organ request management (Admin/Superadmin roles)
- *   - name: Admin - Emergency
- *     description: Emergency broadcasts and critical request management (Admin/Superadmin roles)
- *   - name: Admin - Roles
- *     description: Role-based access control and permission management (Superadmin only)
+ *     description: Admin & Superadmin operations — user management, analytics, system maintenance, audit logs, reward adjustments
  */
+
 
 /**
  * @swagger
@@ -96,7 +83,7 @@ router.get('/profile', adminController.getAdminProfile);
  * /admin/system/health:
  *   get:
  *     summary: System health check
- *     tags: [Admin - System]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -111,7 +98,7 @@ router.get('/system-health/check', adminController.getSystemHealth);
  * /admin/system/maintenance:
  *   post:
  *     summary: Toggle maintenance mode
- *     tags: [Admin - System]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
@@ -136,7 +123,7 @@ router.post('/system/maintenance', adminController.setMaintenanceMode);
  * /admin/system/maintenance:
  *   get:
  *     summary: Get maintenance mode status
- *     tags: [Admin - System]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -151,7 +138,7 @@ router.get('/maintenance-mode/status', adminController.getMaintenanceStatus);
  * /admin/statistics:
  *   get:
  *     summary: Get admin statistics summary
- *     tags: [Admin - Analytics]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -197,7 +184,7 @@ router.get('/blood-inventory-summary', adminController.getBloodInventorySummary)
  * /admin/audit-logs:
  *   get:
  *     summary: List audit logs
- *     tags: [Admin - Audit]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: query
@@ -784,7 +771,7 @@ router.delete('/permissions/roles/:role', requireRole('superadmin'), adminContro
  * /admin/users:
  *   get:
  *     summary: List all users with filters and pagination
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: query
@@ -825,7 +812,7 @@ router.get('/users', adminController.listUsers);
  * /admin/users/stats:
  *   get:
  *     summary: Get user statistics
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -838,7 +825,7 @@ router.get('/users/stats', adminController.getUserStats);
  * /admin/users/hospital:
  *   post:
  *     summary: Create a new hospital (admin-created, pre-verified)
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
@@ -895,7 +882,7 @@ router.post('/users/hospital', adminController.createHospital);
  * /admin/users/{id}:
  *   get:
  *     summary: Get user details by ID
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -916,7 +903,7 @@ router.get('/users/:id', adminController.getUserById);
  * /admin/users/{id}/verify:
  *   patch:
  *     summary: Verify a user's email
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -935,7 +922,7 @@ router.patch('/users/:id/verify', adminController.verifyUser);
  * /admin/users/{id}/unverify:
  *   patch:
  *     summary: Unverify a user's email
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -954,7 +941,7 @@ router.patch('/users/:id/unverify', adminController.unverifyUser);
  * /admin/users/{id}/suspend:
  *   patch:
  *     summary: Suspend a user account
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -985,7 +972,7 @@ router.patch('/users/:id/suspend', adminController.suspendUser);
  * /admin/users/{id}/unsuspend:
  *   patch:
  *     summary: Unsuspend a user account
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -1004,7 +991,7 @@ router.patch('/users/:id/unsuspend', adminController.unsuspendUser);
  * /admin/users/{id}:
  *   delete:
  *     summary: Soft-delete a user account
- *     tags: [Admin - Users]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -1029,7 +1016,7 @@ router.delete('/users/:id', adminController.deleteUser);
  * /admin/requests:
  *   get:
  *     summary: List all blood/organ requests
- *     tags: [Admin - Requests]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: query
@@ -1070,7 +1057,7 @@ router.get('/requests', adminController.listRequests);
  * /admin/requests/stats:
  *   get:
  *     summary: Get request statistics
- *     tags: [Admin - Requests]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -1083,7 +1070,7 @@ router.get('/requests/stats', adminController.getRequestStats);
  * /admin/requests/{id}:
  *   get:
  *     summary: Get full request details with donations
- *     tags: [Admin - Requests]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -1102,7 +1089,7 @@ router.get('/requests/:id', adminController.getRequestDetails);
  * /admin/requests/{id}/donations:
  *   get:
  *     summary: Get donations for a specific request
- *     tags: [Admin - Requests]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -1121,7 +1108,7 @@ router.get('/requests/:id/donations', adminController.getRequestDonations);
  * /admin/requests/{id}/fulfill:
  *   patch:
  *     summary: Mark a request as fulfilled
- *     tags: [Admin - Requests]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -1140,7 +1127,7 @@ router.patch('/requests/:id/fulfill', adminController.fulfillRequest);
  * /admin/requests/{id}/cancel:
  *   patch:
  *     summary: Cancel a request
- *     tags: [Admin - Requests]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -1169,7 +1156,7 @@ router.patch('/requests/:id/cancel', adminController.cancelRequest);
  * /admin/requests/{id}/broadcast:
  *   post:
  *     summary: Broadcast request to eligible donors
- *     tags: [Admin - Requests]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: path
@@ -1192,7 +1179,7 @@ router.post('/requests/:id/broadcast', adminController.broadcastRequest);
  * /admin/analytics/dashboard:
  *   get:
  *     summary: Dashboard summary with key metrics
- *     tags: [Admin - Analytics]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -1205,7 +1192,7 @@ router.get('/analytics/dashboard', adminController.getDashboard);
  * /admin/analytics/donations:
  *   get:
  *     summary: Monthly donation trends
- *     tags: [Admin - Analytics]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: query
@@ -1224,7 +1211,7 @@ router.get('/analytics/donations', adminController.getDonationTrends);
  * /admin/analytics/blood-types:
  *   get:
  *     summary: Blood type distribution
- *     tags: [Admin - Analytics]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -1237,7 +1224,7 @@ router.get('/analytics/blood-types', adminController.getBloodTypeDistribution);
  * /admin/analytics/top-donors:
  *   get:
  *     summary: Top donors leaderboard
- *     tags: [Admin - Analytics]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: query
@@ -1256,7 +1243,7 @@ router.get('/analytics/top-donors', adminController.getTopDonors);
  * /admin/analytics/growth:
  *   get:
  *     summary: Growth metrics over time
- *     tags: [Admin - Analytics]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     parameters:
  *       - in: query
@@ -1279,7 +1266,7 @@ router.get('/analytics/growth', adminController.getGrowthMetrics);
  * /admin/emergency/broadcast:
  *   post:
  *     summary: Send emergency broadcast to donors
- *     tags: [Admin - Emergency]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     requestBody:
  *       required: true
@@ -1313,7 +1300,7 @@ router.post('/emergency/broadcast', adminController.sendEmergencyBroadcast);
  * /admin/emergency/critical:
  *   get:
  *     summary: List critical and high urgency active requests
- *     tags: [Admin - Emergency]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
@@ -1326,7 +1313,7 @@ router.get('/emergency/critical', adminController.getCriticalRequests);
  * /admin/emergency/shortage-alerts:
  *   get:
  *     summary: Blood shortage alerts
- *     tags: [Admin - Emergency]
+ *     tags: [Admin]
  *     security: [{ bearerAuth: [] }]
  *     responses:
  *       200:
