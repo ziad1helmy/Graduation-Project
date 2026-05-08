@@ -165,12 +165,15 @@ async function sendMail({ to, subject, text, html }) {
 
     return { sent: true };
   } catch (error) {
+    logger.error('SMTP Email Send Error', {
+      subject,
+      to,
+      message: error.message,
+      code: error.code,
+      response: error.response,
+    });
+
     if (!isProduction()) {
-      logger.warn('Email send failed in development', {
-        subject,
-        to,
-        message: error.message,
-      });
       return {
         skipped: true,
         reason: 'SMTP send failed in development',
@@ -178,7 +181,7 @@ async function sendMail({ to, subject, text, html }) {
       };
     }
 
-    throw new Error('Failed to send email');
+    throw new Error(`Failed to send email: ${error.message}`);
   }
 }
 
