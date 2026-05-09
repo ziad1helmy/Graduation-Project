@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:5000",
+      "url": "https://graduation-project-cy61.onrender.com",
       "description": "Production server"
     },
     {
@@ -75,13 +75,11 @@
             "format": "password"
           },
           "role": {
-            "type": "string",
-            "enum": [
-              "donor",
-              "hospital",
-              "admin"
-            ]
-          }
+            "type": "string"
+          },
+          "enum": [
+            "donor"
+          ]
         }
       },
       "SignupDonorRequest": {
@@ -333,7 +331,7 @@
           "Donor"
         ],
         "summary": "Get the authenticated user's activity timeline",
-        "description": "Returns a paginated, timestamped history of all user actions (donations, rewards, urgent responses, profile updates).\nSupports optional filtering by activity type.\nResults are sorted newest-first.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns a paginated, timestamped history of all user actions (donations, rewards, urgent responses, profile updates).\nSupports optional filtering by activity type.\nResults are sorted newest-first.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -373,7 +371,13 @@
                 "donation",
                 "reward",
                 "emergency_response",
-                "profile_update"
+                "profile_update",
+                "appointment",
+                "badge",
+                "achievement",
+                "referral",
+                "subscription",
+                "admin_action"
               ]
             },
             "example": "blood"
@@ -399,9 +403,31 @@
                           "items": {
                             "type": "object",
                             "properties": {
-                              "_id": {
+                              "id": {
                                 "type": "string",
                                 "example": "5f9d4a1b9d7c2e3c4f5a6b7c"
+                              },
+                              "title": {
+                                "type": "string",
+                                "example": "Blood Donation Completed"
+                              },
+                              "hospital": {
+                                "type": "string",
+                                "nullable": true,
+                                "example": "Cairo Hospital"
+                              },
+                              "points": {
+                                "type": "number",
+                                "example": 200
+                              },
+                              "createdAt": {
+                                "type": "string",
+                                "format": "date-time",
+                                "example": "2026-05-04T12:00:00.000Z"
+                              },
+                              "relativeTime": {
+                                "type": "string",
+                                "example": "3 days ago"
                               },
                               "type": {
                                 "type": "string",
@@ -409,47 +435,22 @@
                                   "donation",
                                   "reward",
                                   "emergency_response",
-                                  "profile_update"
+                                  "profile_update",
+                                  "appointment",
+                                  "badge",
+                                  "achievement",
+                                  "referral",
+                                  "subscription",
+                                  "admin_action"
                                 ]
                               },
-                              "action": {
+                              "status": {
                                 "type": "string",
-                                "example": "completed_donation"
-                              },
-                              "title": {
-                                "type": "string",
-                                "example": "Blood Donation Completed"
-                              },
-                              "description": {
-                                "type": "string",
-                                "example": "Donated 1 unit of A+ blood to Cairo Hospital"
+                                "example": "success"
                               },
                               "icon": {
                                 "type": "string",
                                 "example": "heart"
-                              },
-                              "referenceId": {
-                                "type": "string",
-                                "nullable": true,
-                                "example": "5f9d4a1b9d7c2e3c4f5a6b7c"
-                              },
-                              "referenceType": {
-                                "type": "string",
-                                "nullable": true,
-                                "example": "Donation"
-                              },
-                              "metadata": {
-                                "type": "object",
-                                "example": {
-                                  "bloodType": "A+",
-                                  "hospitalName": "Cairo Hospital",
-                                  "quantity": 1
-                                }
-                              },
-                              "createdAt": {
-                                "type": "string",
-                                "format": "date-time",
-                                "example": "2026-05-04T12:00:00.000Z"
                               }
                             }
                           }
@@ -492,20 +493,15 @@
                   "data": {
                     "activities": [
                       {
-                        "_id": "5f9d4a1b9d7c2e3c4f5a6b7c",
-                        "type": "donation",
-                        "action": "completed_donation",
+                        "id": "5f9d4a1b9d7c2e3c4f5a6b7c",
                         "title": "Blood Donation Completed",
-                        "description": "Donated 1 unit of A+ blood to Cairo Hospital",
-                        "icon": "heart",
-                        "referenceId": "5f9d4a1b9d7c2e3c4f5a6b7c",
-                        "referenceType": "Donation",
-                        "metadata": {
-                          "bloodType": "A+",
-                          "hospitalName": "Cairo Hospital",
-                          "quantity": 1
-                        },
-                        "createdAt": "2026-05-04T12:00:00.000Z"
+                        "hospital": "Cairo Hospital",
+                        "points": 200,
+                        "createdAt": "2026-05-04T12:00:00.000Z",
+                        "relativeTime": "3 days ago",
+                        "type": "donation",
+                        "status": "success",
+                        "icon": "heart"
                       }
                     ],
                     "pagination": {
@@ -539,7 +535,7 @@
         "tags": [
           "Admin"
         ],
-        "description": "Authenticate admin or superadmin user. Returns JWT token for subsequent requests\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Authenticate admin or superadmin user. Returns JWT token for subsequent requests\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "requestBody": {
           "required": true,
           "content": {
@@ -598,7 +594,7 @@
         "tags": [
           "Admin"
         ],
-        "description": "Retrieve the authenticated admin's profile information\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Retrieve the authenticated admin's profile information\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -645,7 +641,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/system/maintenance": {
@@ -689,7 +685,7 @@
             "description": "Maintenance mode updated"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       },
       "get": {
         "summary": "Get maintenance mode status",
@@ -715,7 +711,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/statistics": {
@@ -743,7 +739,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/alerts": {
@@ -771,7 +767,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/blood-inventory-summary": {
@@ -799,7 +795,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/audit-logs": {
@@ -858,7 +854,7 @@
             "description": "Audit logs list"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/donors": {
@@ -886,7 +882,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/hospitals": {
@@ -914,7 +910,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/donors/{id}": {
@@ -944,7 +940,7 @@
             "description": "Donor details"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "put": {
         "tags": [
@@ -1019,7 +1015,7 @@
             "description": "Email already registered"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/admin/hospitals/{id}": {
@@ -1049,7 +1045,7 @@
             "description": "Hospital details"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/admins": {
@@ -1077,7 +1073,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "post": {
         "tags": [
@@ -1146,7 +1142,7 @@
             "description": "Email already registered"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/admins/{id}": {
@@ -1176,7 +1172,7 @@
             "description": "Admin details"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "put": {
         "tags": [
@@ -1253,7 +1249,7 @@
             "description": "Email already registered"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "delete": {
         "tags": [
@@ -1287,7 +1283,7 @@
             "description": "Admin not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/donors/{id}/ban": {
@@ -1341,7 +1337,7 @@
             "description": "Donor not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/admin/donors/{id}/unban": {
@@ -1377,7 +1373,7 @@
             "description": "Donor not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/hospitals/{id}/status": {
@@ -1442,7 +1438,7 @@
             "description": "Hospital not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/admin/permissions/roles": {
@@ -1470,7 +1466,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "post": {
         "tags": [
@@ -1538,7 +1534,7 @@
             "description": "Role already exists"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/permissions/roles/{role}": {
@@ -1568,7 +1564,7 @@
             "description": "Role retrieved successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "put": {
         "tags": [
@@ -1775,7 +1771,7 @@
             "description": "Role not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "delete": {
         "tags": [
@@ -1810,7 +1806,7 @@
             "description": "Role not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/users": {
@@ -1893,7 +1889,7 @@
             "description": "Users list"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/users/stats": {
@@ -1921,7 +1917,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/users/hospital": {
@@ -2026,7 +2022,7 @@
             "description": "Email already registered"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/admin/users/{id}": {
@@ -2059,7 +2055,7 @@
             "description": "User not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "delete": {
         "summary": "Soft-delete a user account",
@@ -2090,7 +2086,7 @@
             "description": "Cannot delete admin accounts"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/users/{id}/verify": {
@@ -2120,7 +2116,7 @@
             "description": "User verified"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/users/{id}/unverify": {
@@ -2150,7 +2146,7 @@
             "description": "User unverified"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/users/{id}/suspend": {
@@ -2204,7 +2200,7 @@
             "description": "Cannot suspend admin accounts"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/admin/users/{id}/unsuspend": {
@@ -2234,7 +2230,7 @@
             "description": "User unsuspended"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/requests": {
@@ -2319,7 +2315,7 @@
             "description": "Requests list"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/requests/stats": {
@@ -2347,7 +2343,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/requests/{id}": {
@@ -2377,7 +2373,7 @@
             "description": "Request details"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/requests/{id}/donations": {
@@ -2407,7 +2403,7 @@
             "description": "Request donations"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/requests/{id}/fulfill": {
@@ -2437,7 +2433,7 @@
             "description": "Request fulfilled"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/requests/{id}/cancel": {
@@ -2488,7 +2484,7 @@
             "description": "Request cancelled"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/admin/requests/{id}/broadcast": {
@@ -2518,7 +2514,7 @@
             "description": "Broadcast sent"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/analytics/dashboard": {
@@ -2546,7 +2542,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/analytics/donations": {
@@ -2576,7 +2572,7 @@
             "description": "Donation trends"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/analytics/blood-types": {
@@ -2604,7 +2600,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/analytics/top-donors": {
@@ -2634,7 +2630,7 @@
             "description": "Top donors"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/analytics/growth": {
@@ -2664,7 +2660,7 @@
             "description": "Growth metrics"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/emergency/broadcast": {
@@ -2736,7 +2732,7 @@
             "description": "Emergency broadcast sent"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/admin/emergency/critical": {
@@ -2764,7 +2760,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/admin/emergency/shortage-alerts": {
@@ -2792,7 +2788,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/donations/book-appointment": {
@@ -2863,7 +2859,7 @@
             "description": "Active appointment already exists for this hospital"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/donations/book-appointment/available-slots": {
@@ -2877,7 +2873,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "responses": {
           "200": {
             "description": "Example response",
@@ -2936,7 +2932,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/donations/book-appointment/{appointmentId}": {
@@ -2975,7 +2971,7 @@
             "description": "Appointment not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "patch": {
         "tags": [
@@ -3038,7 +3034,7 @@
             "description": "Appointment not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       },
       "delete": {
         "tags": [
@@ -3078,7 +3074,7 @@
             "description": "Appointment not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/appointments/verify-qr": {
@@ -3087,7 +3083,7 @@
           "Hospital"
         ],
         "summary": "Verify donor QR code at hospital check-in",
-        "description": "Hospital staff scans the donor's QR code to confirm the donation.\n- Validates the QR token, checks expiry and one-time usage\n- Marks the appointment as completed\n- Creates a Donation record\n- Updates donor statistics and triggers reward/badge flow\n\n**Role required:** hospital | admin | superadmin\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Hospital staff scans the donor's QR code to confirm the donation.\n- Validates the QR token, checks expiry and one-time usage\n- Marks the appointment as completed\n- Creates a Donation record\n- Updates donor statistics and triggers reward/badge flow\n\n**Role required:** hospital | admin | superadmin\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -3158,27 +3154,20 @@
         "tags": [
           "Auth"
         ],
-        "summary": "Register a new donor or hospital account",
-        "description": "Create a new account as donor or hospital. Donor signup requires phoneNumber, dateOfBirth, bloodType. Hospital signup requires hospitalName, licenseNumber\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "summary": "Register a new donor account",
+        "description": "Create a new donor account. Donor signup requires phoneNumber, dateOfBirth, bloodType.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
-                "oneOf": [
-                  {
-                    "$ref": "#/components/schemas/SignupDonorRequest"
-                  },
-                  {
-                    "$ref": "#/components/schemas/SignupHospitalRequest"
-                  }
-                ]
+                "$ref": "#/components/schemas/SignupDonorRequest"
               },
               "example": {
                 "fullName": "string",
                 "email": "user@example.com",
                 "password": "P@ssw0rd123",
-                "role": "donor",
+                "role": "string",
                 "phoneNumber": "string",
                 "dateOfBirth": "2026-05-08",
                 "bloodType": "string",
@@ -3243,7 +3232,7 @@
           "Auth"
         ],
         "summary": "Donor login with email and password",
-        "description": "Authenticate as a donor user. Returns JWT token. Supports optional 2FA\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Authenticate as a donor user. Returns JWT token. Supports optional 2FA\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3277,7 +3266,7 @@
           "Auth"
         ],
         "summary": "Hospital login with email and password",
-        "description": "Authenticate as a hospital user. Returns JWT token\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Authenticate as a hospital user. Returns JWT token\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3311,7 +3300,7 @@
           "Auth"
         ],
         "summary": "Admin/Superadmin login with email, password, and adminKey",
-        "description": "Authenticate as admin or superadmin. Requires email, password, and adminKey secret\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Authenticate as admin or superadmin. Requires email, password, and adminKey secret\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "requestBody": {
           "required": true,
           "content": {
@@ -3380,7 +3369,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/auth/forgot-password": {
@@ -3407,7 +3396,7 @@
             "description": "Password reset email sent"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/auth/reset-password": {
@@ -3455,7 +3444,7 @@
             "description": "Invalid or expired OTP"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/auth/verify-otp": {
@@ -3483,7 +3472,7 @@
             "description": "Password reset OTP verified successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/auth/verify-email": {
@@ -3510,7 +3499,7 @@
             "description": "Verification code sent successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/auth/verify-email-otp": {
@@ -3538,7 +3527,7 @@
             "description": "Email verified successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/auth/2fa/setup": {
@@ -3566,7 +3555,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/auth/2fa/confirm-setup": {
@@ -3599,7 +3588,7 @@
             "description": "2FA setup verified successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/auth/2fa/verify": {
@@ -3631,7 +3620,7 @@
             "description": "2FA verified successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/auth/2fa/disable": {
@@ -3666,7 +3655,7 @@
             "description": "2FA disabled successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/hospitals": {
@@ -3675,7 +3664,7 @@
         "tags": [
           "Donor"
         ],
-        "description": "Public endpoint to discover hospitals. Search and filter by city, governorate, or keywords. Results include hospital contact information and blood inventory status\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Public endpoint to discover hospitals. Search and filter by city, governorate, or keywords. Results include hospital contact information and blood inventory status\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "parameters": [
           {
             "in": "query",
@@ -3762,7 +3751,7 @@
         "tags": [
           "Donor"
         ],
-        "description": "Find hospitals within a specified radius from given GPS coordinates. Returns hospitals sorted by distance. Supports both lat/long and legacy latitude/longitude parameters\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Find hospitals within a specified radius from given GPS coordinates. Returns hospitals sorted by distance. Supports both lat/long and legacy latitude/longitude parameters\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "parameters": [
           {
             "in": "query",
@@ -3770,7 +3759,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Hospital latitude coordinate (-90 to 90). Alias for latitude.",
+            "description": "Donor latitude coordinate (-90 to 90). Alias for latitude.",
             "example": 1
           },
           {
@@ -3779,7 +3768,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Hospital longitude coordinate (-180 to 180). Alias for longitude.",
+            "description": "Donor longitude coordinate (-180 to 180). Alias for longitude.",
             "example": 1
           },
           {
@@ -3788,7 +3777,7 @@
             "schema": {
               "type": "number"
             },
-            "description": "Hospital latitude coordinate (deprecated, use lat instead)",
+            "description": "Donor latitude coordinate (deprecated, use lat instead)",
             "example": 1
           },
           {
@@ -3797,8 +3786,26 @@
             "schema": {
               "type": "number"
             },
-            "description": "Hospital longitude coordinate (deprecated, use long instead)",
+            "description": "Donor longitude coordinate (deprecated, use long instead)",
             "example": 1
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional keyword filter for hospital name",
+            "example": "Cairo Care"
+          },
+          {
+            "in": "query",
+            "name": "bloodType",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional blood type filter",
+            "example": "O+"
           },
           {
             "in": "query",
@@ -3806,12 +3813,90 @@
             "schema": {
               "type": "number"
             },
+            "description": "Optional max distance in kilometers",
             "example": 1
+          },
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            },
+            "description": "Page number for pagination",
+            "example": 1
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 20
+            },
+            "description": "Items per page",
+            "example": 10
+          },
+          {
+            "in": "query",
+            "name": "skip",
+            "schema": {
+              "type": "integer"
+            },
+            "description": "Legacy pagination - number of items to skip",
+            "example": 0
           }
         ],
         "responses": {
           "200": {
-            "description": "Nearby hospitals list"
+            "description": "Nearby hospitals list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Nearby hospitals retrieved successfully",
+                  "data": {
+                    "hospitals": [
+                      {
+                        "id": "69f3df915f42685cbbbcbb1b",
+                        "hospitalId": "69f3df915f42685cbbbcbb1b",
+                        "hospital_id": "69f3df915f42685cbbbcbb1b",
+                        "name": "Cairo Care Hospital",
+                        "fullName": "Cairo Care Operations",
+                        "phoneNumber": "1044444444",
+                        "contactNumber": "1044444444",
+                        "email": "ops@cairocare.demo",
+                        "address": {
+                          "city": "Cairo",
+                          "governorate": "Cairo"
+                        },
+                        "location": {
+                          "lat": 30.0511,
+                          "lng": 31.2435
+                        },
+                        "lat": 30.0511,
+                        "lng": 31.2435,
+                        "hospitalType": "General Hospital",
+                        "workingHours": "9AM - 5PM",
+                        "bloodTypes": [
+                          "O+",
+                          "A-"
+                        ],
+                        "isAvailable": true,
+                        "urgentNeedsCount": 2,
+                        "distanceKm": 2.35,
+                        "distanceMeters": 2350,
+                        "distance": "2.35 km"
+                      }
+                    ],
+                    "pagination": {
+                      "page": 1,
+                      "limit": 20,
+                      "total": 1
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       }
@@ -3822,7 +3907,7 @@
         "tags": [
           "Donor"
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "responses": {
           "200": {
             "description": "Example response",
@@ -3845,7 +3930,7 @@
         "tags": [
           "Donor"
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "responses": {
           "200": {
             "description": "Example response",
@@ -3884,7 +3969,7 @@
             "description": "Hospital details"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/donations/types": {
@@ -3907,7 +3992,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/donations/validate": {
@@ -3944,7 +4029,7 @@
             "description": "Donation eligibility checked successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/donations/complete": {
@@ -3958,7 +4043,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "responses": {
           "200": {
             "description": "Example response",
@@ -3986,7 +4071,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "responses": {
           "200": {
             "description": "Example response",
@@ -4009,7 +4094,7 @@
           "Donor"
         ],
         "summary": "Get the authenticated donor profile",
-        "description": "Retrieve the authenticated donor's profile information including blood type, availability status, and location\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Retrieve the authenticated donor's profile information including blood type, availability status, and location\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -4054,7 +4139,7 @@
           "Donor"
         ],
         "summary": "Update the authenticated donor profile",
-        "description": "Update donor profile information such as name, phone, blood type, gender, location, and availability\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Update donor profile information such as name, phone, blood type, gender, location, and availability\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -4173,7 +4258,7 @@
           "Donor"
         ],
         "summary": "List active donation requests available to donors",
-        "description": "Retrieve paginated list of blood and organ donation requests that match donor eligibility criteria. Filters by type and urgency\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Retrieve paginated list of blood and organ donation requests that match donor eligibility criteria. Filters by type and urgency\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -4326,7 +4411,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/donor/respond/{requestId}": {
@@ -4402,7 +4487,7 @@
             "description": "Request or donor not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/donor/history": {
@@ -4487,7 +4572,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/donor/availability": {
@@ -4545,7 +4630,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/donor/health-history": {
@@ -4579,7 +4664,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "patch": {
         "tags": [
@@ -4626,7 +4711,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/donor/settings": {
@@ -4663,7 +4748,7 @@
             "description": "Donor profile not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "put": {
         "tags": [
@@ -4726,7 +4811,7 @@
             "description": "Donor profile not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/donor/stats": {
@@ -4735,7 +4820,7 @@
           "Donor"
         ],
         "summary": "Get lightweight donor statistics",
-        "description": "Returns totalDonations, points balance, and livesSaved. Used in home header and profile stats row.\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns totalDonations, points balance, and livesSaved. Used in home header and profile stats row.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -4770,7 +4855,7 @@
           "Donor"
         ],
         "summary": "Get donor rewards and badge progress",
-        "description": "Returns current points, earned badges, locked badges with progress, and next milestone.\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns current points, earned badges, locked badges with progress, and next milestone.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -4819,7 +4904,7 @@
           "Donor"
         ],
         "summary": "Get donor donation history with pointsEarned",
-        "description": "Paginated donation history for the authenticated donor.\nEach record includes `pointsEarned` calculated from the points transaction log.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Paginated donation history for the authenticated donor.\nEach record includes `pointsEarned` calculated from the points transaction log.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -4915,7 +5000,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/help/documents/{type}": {
@@ -4924,7 +5009,7 @@
         "tags": [
           "Donor"
         ],
-        "description": "Returns a stored help document, or 404 if that document has not been configured.\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns a stored help document, or 404 if that document has not been configured.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "parameters": [
           {
             "in": "path",
@@ -4949,7 +5034,7 @@
           "Hospital"
         ],
         "summary": "Get the authenticated hospital profile",
-        "description": "Retrieve the authenticated hospital's profile information including license, contact details, blood inventory, and location coordinates\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Retrieve the authenticated hospital's profile information including license, contact details, blood inventory, and location coordinates\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -4994,7 +5079,7 @@
           "Hospital"
         ],
         "summary": "Update the authenticated hospital profile",
-        "description": "Update hospital information including name, contact number, address, location coordinates (lat/long), and license number\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Update hospital information including name, contact number, address, location coordinates (lat/long), and license number\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -5108,7 +5193,7 @@
           "Hospital"
         ],
         "summary": "Create a new donation request",
-        "description": "Create a blood or organ donation request with type, urgency, required blood types, and deadline\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Create a blood or organ donation request with type, urgency, required blood types, and deadline\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -5290,7 +5375,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/hospital/requests/{requestId}": {
@@ -5329,7 +5414,7 @@
             "description": "Request not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "put": {
         "tags": [
@@ -5397,7 +5482,7 @@
             "description": "Request not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       },
       "delete": {
         "tags": [
@@ -5434,7 +5519,7 @@
             "description": "Request not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/hospital/donations": {
@@ -5503,7 +5588,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/hospital/blood-inventory": {
@@ -5537,7 +5622,7 @@
             "description": "Role not allowed"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/hospital/blood-bank-settings": {
@@ -5565,7 +5650,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "put": {
         "tags": [
@@ -5604,7 +5689,7 @@
             "description": "Blood bank settings updated successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/hospital/notification-preferences": {
@@ -5632,7 +5717,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "put": {
         "tags": [
@@ -5664,7 +5749,7 @@
             "description": "Notification preferences updated successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/hospital/reports/monthly": {
@@ -5694,7 +5779,7 @@
             "description": "Monthly report retrieved successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/hospital/staff": {
@@ -5722,7 +5807,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "post": {
         "tags": [
@@ -5761,7 +5846,7 @@
             "description": "Staff created successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/hospital/staff/{id}": {
@@ -5791,7 +5876,7 @@
             "description": "Staff deleted successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/notifications": {
@@ -5846,7 +5931,7 @@
             "description": "Notifications list"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/notifications/{id}/read": {
@@ -5876,7 +5961,7 @@
             "description": "Notification marked as read"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/notifications/read-all": {
@@ -5904,7 +5989,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/notifications/{id}": {
@@ -5940,7 +6025,7 @@
             "description": "Notification not found"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       },
       "delete": {
         "summary": "Delete one notification",
@@ -5968,7 +6053,203 @@
             "description": "Notification deleted"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/requests/nearby": {
+      "get": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Get nearby urgent requests within an optional radius",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}/google-maps": {
+      "get": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Get Google Maps navigation URL for a request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}": {
+      "get": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Get full request details for Flutter",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}/generate-qr": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Generate a secure QR token for a request",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/verify-qr": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Verify a request QR token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}/accept": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Accept a request as a donor",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/requests/{id}/cancel": {
+      "post": {
+        "tags": [
+          "Requests"
+        ],
+        "summary": "Cancel a request or your acceptance of it",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "responses": {
+          "200": {
+            "description": "Example response",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/rewards/points": {
@@ -5996,7 +6277,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/rewards/dashboard": {
@@ -6005,7 +6286,7 @@
           "Donor"
         ],
         "summary": "Get full rewards screen data in one request",
-        "description": "Returns all data needed to render the Rewards screen in a single call:\ncurrent points, rewards catalog, points history (last 10), and badge progress.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns all data needed to render the Rewards screen in a single call:\ncurrent points, rewards catalog, points history (last 10), and badge progress.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -6072,7 +6353,7 @@
           "Donor"
         ],
         "summary": "Get rewards screen header stats",
-        "description": "Returns current points, next reward distance, badge counts, and completion percentage.\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns current points, next reward distance, badge counts, and completion percentage.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -6174,7 +6455,7 @@
             "description": "Paginated points history"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/rewards/badges": {
@@ -6202,7 +6483,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/rewards/catalog": {
@@ -6251,7 +6532,7 @@
             "description": "Rewards catalog"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/rewards/history": {
@@ -6304,7 +6585,7 @@
             "description": "Reward history retrieved successfully"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/rewards/catalog/{rewardId}/redeem": {
@@ -6364,7 +6645,7 @@
             "description": "Insufficient points or limit exceeded"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/rewards/redemptions": {
@@ -6417,7 +6698,7 @@
             "description": "Paginated redemption history"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/rewards/leaderboard": {
@@ -6449,7 +6730,7 @@
             "description": "Ranked list of top donors by lifetime points"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/rewards/admin/users/{userId}/points/adjust": {
@@ -6506,7 +6787,7 @@
             "description": "Points adjusted and transaction logged"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/rewards/admin/catalog/{rewardId}/status": {
@@ -6562,7 +6843,7 @@
             "description": "Reward status updated"
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/rewards/admin/analytics": {
@@ -6590,7 +6871,7 @@
             }
           }
         },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 Parameter examples are aligned with the seeded demo dataset where possible."
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/support/contact": {
@@ -6604,7 +6885,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Authenticated submissions are linked to the current user id, email, and role for traceability.\n\nDemo seed available via `npm run seed-demo`. Base URL example: http://localhost:5000 This operation includes a seeded demo request example.",
+        "description": "Authenticated submissions are linked to the current user id, email, and role for traceability.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "requestBody": {
           "required": true,
           "content": {

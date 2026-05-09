@@ -91,7 +91,7 @@ const computeDistanceDetails = (viewerLocation, request) => {
   };
 };
 
-const buildRequestPayload = (request, viewerLocation = null, { donationCount = 0, donations = null } = {}) => {
+export const buildRequestPayload = (request, viewerLocation = null, { donationCount = 0, donations = null } = {}) => {
   const requestLocation = getRequestCoordinates(request);
   const distance = computeDistanceDetails(viewerLocation, request);
   const hospitalName = request.hospitalName
