@@ -30,7 +30,7 @@ const router = Router();
  *           format: password
  *         role:
  *           type: string
- *           enum: [donor, hospital, admin]
+ *         enum: [donor]
  *     SignupDonorRequest:
  *       allOf:
  *         - $ref: '#/components/schemas/BaseUser'
@@ -166,16 +166,14 @@ const router = Router();
  * /auth/signup:
  *   post:
  *     tags: [Auth]
- *     summary: Register a new donor or hospital account
- *     description: Create a new account as donor or hospital. Donor signup requires phoneNumber, dateOfBirth, bloodType. Hospital signup requires hospitalName, licenseNumber
+ *     summary: Register a new donor account
+ *     description: Create a new donor account. Donor signup requires phoneNumber, dateOfBirth, bloodType.
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
- *             oneOf:
- *               - $ref: '#/components/schemas/SignupDonorRequest'
- *               - $ref: '#/components/schemas/SignupHospitalRequest'
+ *             $ref: '#/components/schemas/SignupDonorRequest'
  *     responses:
  *       '201':
  *         description: User registered successfully - Email verification processed

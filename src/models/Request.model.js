@@ -24,6 +24,23 @@ const requestSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'Hospital ID is required'],
     },
+
+    patientType: {
+      type: String,
+      trim: true,
+      maxlength: [150, 'Patient type cannot exceed 150 characters'],
+    },
+
+    unitsNeeded: {
+      type: Number,
+      min: [1, 'Units needed must be at least 1'],
+      default: 1,
+    },
+
+    isEmergency: {
+      type: Boolean,
+      default: false,
+    },
     
     type: {
       type: String,
@@ -87,10 +104,21 @@ const requestSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['pending', 'in-progress', 'completed', 'cancelled'],
-        message: 'Status must be pending, in-progress, completed, or cancelled',
+        values: ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'],
+        message: 'Status must be pending, accepted, in-progress, completed, cancelled, or expired',
       },
       default: 'pending',
+    },
+
+    contactNumber: {
+      type: String,
+      trim: true,
+      validate: {
+        validator: function(v) {
+          return !v || /^\+?[0-9]{10,15}$/.test(v);
+        },
+        message: 'Contact number must be a valid phone number',
+      },
     },
     
     requiredBy: {
@@ -126,12 +154,64 @@ const requestSchema = new mongoose.Schema(
         message: 'Hospital contact number must be 10-11 digits long',
       },
     },
+    locationHospital: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+    },
     hospitalLocation: {
       lat: { type: Number },
       lng: { type: Number },
     },
     hospitalName: {
       type: String,
+    },
+    qrToken: {
+      type: String,
+      unique: true,
+      sparse: true,
+      index: true,
+    },
+    qrCreatedAt: {
+      type: Date,
+      default: null,
+    },
+    qrExpiresAt: {
+      type: Date,
+      default: null,
+    },
+    acceptedBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
+    acceptedByName: {
+      type: String,
+      default: null,
+    },
+    acceptedByPhoneNumber: {
+      type: String,
+      default: null,
+    },
+    acceptedByBloodType: {
+      type: String,
+      default: null,
+    },
+    acceptedAt: {
+      type: Date,
+      default: null,
+    },
+    cancelledAt: {
+      type: Date,
+      default: null,
+    },
+    completedAt: {
+      type: Date,
+      default: null,
+    },
+    acceptedDonationId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Donation',
+      default: null,
     },
   },
   {
@@ -144,6 +224,7 @@ requestSchema.index({ status: 1 });
 requestSchema.index({ urgency: 1 });
 requestSchema.index({ hospitalId: 1, status: 1 });
 requestSchema.index({ urgency: 1, status: 1 });
+requestSchema.index({ acceptedBy: 1, status: 1 });
 
 const Request = mongoose.model('Request', requestSchema);
 

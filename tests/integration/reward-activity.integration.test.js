@@ -100,13 +100,13 @@ describe('Reward Activity Integration', () => {
         action: 'tier_promoted',
       });
 
-      if (tierActivities.length > 0) {
-        const tierActivity = tierActivities[0];
-        expect(tierActivity.title).toBe('Tier Promoted');
-        expect(tierActivity.metadata.newTier).toBeDefined();
-        expect(tierActivity.metadata.previousTier).toBeDefined();
-        expect(tierActivity.metadata.bonusPoints).toBeDefined();
-      }
+      expect(tierActivities.length).toBeGreaterThan(0);
+      const tierActivity = tierActivities[0];
+      expect(tierActivity.title).toBe('Tier Promoted');
+      expect(tierActivity.referenceType).toBe('PointsTransaction');
+      expect(tierActivity.metadata.newTier).toBeDefined();
+      expect(tierActivity.metadata.previousTier).toBeDefined();
+      expect(tierActivity.metadata.bonusPoints).toBeDefined();
     });
 
     it('should capture previous and new tier in metadata', async () => {

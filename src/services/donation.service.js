@@ -128,7 +128,7 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
     }
 
     const donation = await Donation.findByIdAndUpdate(donationId, updateData, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     });
 
@@ -294,7 +294,7 @@ export const cancelDonation = async (donationId) => {
     const donation = await Donation.findByIdAndUpdate(
       donationId,
       { status: 'cancelled' },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     // Log cancellation activity (fire-and-forget)
@@ -360,7 +360,7 @@ export const updateDonationFeedback = async (donationId, data) => {
     }
 
     const donation = await Donation.findByIdAndUpdate(donationId, updateData, {
-      new: true,
+      returnDocument: 'after',
     });
 
     return donation;

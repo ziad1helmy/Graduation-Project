@@ -182,7 +182,7 @@ export const validateCreateHospitalByAdminBody = (body) => {
  */
 export const validateListRequestsQuery = (query) => {
   const errors = [];
-  const validStatuses = ['pending', 'in-progress', 'completed', 'cancelled'];
+  const validStatuses = ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'];
   const validUrgencies = ['low', 'medium', 'high', 'critical'];
   const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
