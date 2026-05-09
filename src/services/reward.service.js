@@ -116,7 +116,13 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
         { session }
       );
 
-      result = { account, transaction: transaction[0], tierChanged, newTier };
+      result = {
+        account,
+        transaction: transaction[0],
+        tierChanged,
+        newTier,
+        previousTier: account.tier,
+      };
     });
   } catch (err) {
     // Final dedup protection under concurrency.
@@ -144,9 +150,9 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
         title: 'Tier Promoted',
         description: `Congratulations! You've reached ${result.newTier} tier.`,
         referenceId: `tier_${result.newTier}_${donorId}`,
-        referenceType: 'TierPromotion',
+        referenceType: 'PointsTransaction',
         metadata: {
-          previousTier: account.tier,
+          previousTier: result.previousTier,
           newTier: result.newTier,
           bonusPoints: bonus,
         },

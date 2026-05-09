@@ -118,7 +118,7 @@ export const markAsRead = async (notificationId) => {
     const notification = await Notification.findByIdAndUpdate(
       notificationId,
       { read: true },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     return notification;
@@ -141,7 +141,7 @@ export const markAsReadForUser = async (userId, notificationId) => {
     const notification = await Notification.findOneAndUpdate(
       { _id: notificationId, userId },
       { read: true },
-      { new: true }
+      { returnDocument: 'after' }
     );
     return notification;
   } catch (error) {

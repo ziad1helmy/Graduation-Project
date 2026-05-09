@@ -47,19 +47,16 @@ export const bookAppointment = async (req, res, next) => {
       notes || ''
     );
 
-    const legacyStatus = appointment.status === 'confirmed' ? 'pending' : appointment.status;
+    const appointmentObj = appointment.toObject ? appointment.toObject() : appointment;
+    
+    // Maintain legacy status compatibility
+    appointmentObj.status = appointmentObj.status === 'confirmed' ? 'pending' : appointmentObj.status;
+    appointmentObj.actualStatus = appointment.status;
+    appointmentObj.qrCode = appointment.qrToken;
+    appointmentObj.message = 'Appointment confirmed successfully';
+    if (user) appointmentObj.user = user;
 
-    return response.success(res, 201, 'Appointment booked', {
-      _id: appointment._id,
-      appointmentId: appointment._id,
-      status: legacyStatus,
-      actualStatus: appointment.status,
-      appointmentDate: appointment.appointmentDate,
-      qrCode: appointment.qrToken,
-      qrToken: appointment.qrToken,
-      message: 'Appointment confirmed successfully',
-      user: user || null,
-    });
+    return response.success(res, 201, 'Appointment booked', appointmentObj);
   } catch (error) {
     if (error.message === 'Hospital not found' || error.message === 'Donor not found') {
       return response.error(res, 404, error.message);
@@ -148,17 +145,7 @@ export const getAppointmentById = async (req, res, next) => {
 
     const appointment = await appointmentService.getAppointmentById(appointmentId, donorId);
 
-    return response.success(res, 200, 'Appointment retrieved', {
-      id: appointment._id,
-      hospitalName: appointment.hospitalId?.hospitalName || appointment.hospitalId?.fullName || null,
-      date: appointment.appointmentDate ? appointment.appointmentDate.toISOString().slice(0, 10) : null,
-      time: appointment.appointmentDate
-        ? appointment.appointmentDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
-        : null,
-      status: appointment.status,
-      qrToken: appointment.qrToken,
-      donationType: appointment.donationType,
-    });
+    return response.success(res, 200, 'Appointment retrieved', appointment);
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');

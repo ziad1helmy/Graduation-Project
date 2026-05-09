@@ -2,16 +2,12 @@ import response from '../utils/response.js';
 import Hospital from '../models/Hospital.model.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import Request from '../models/Request.model.js';
+import { calculateDistance } from '../utils/geo.js';
 
 const toRad = (deg) => (deg * Math.PI) / 180;
 
 const haversineKm = (lat1, lng1, lat2, lng2) => {
-  const R = 6371;
-  const dLat = toRad(lat2 - lat1);
-  const dLng = toRad(lng2 - lng1);
-  const a = Math.sin(dLat / 2) ** 2
-    + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
-  return 2 * R * Math.asin(Math.sqrt(a));
+  // Removed local haversine duplication
 };
 
 const formatDistance = (distanceKm) => {
@@ -87,8 +83,21 @@ export const getHospitalById = async (req, res, next) => {
       return response.error(res, 404, 'Hospital not found');
     }
 
+    // If client provided a lat/long, compute distance to this hospital
+    const lat = Number(req.query.lat ?? req.query.latitude);
+    const lng = Number(req.query.long ?? req.query.longitude);
+    const result = mapHospital(hospital);
+    const hLat = hospital.lat ?? hospital.location?.coordinates?.lat;
+    const hLng = hospital.long ?? hospital.location?.coordinates?.lng;
+    if (Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(hLat) && Number.isFinite(hLng)) {
+      const distanceKm = calculateDistance({ lat, long: lng }, { lat: hLat, long: hLng });
+      result.distanceKm = Number(distanceKm.toFixed(2));
+      result.distanceMeters = Math.round(distanceKm * 1000);
+      result.distance = formatDistance(distanceKm);
+    }
+
     return response.success(res, 200, 'Hospital retrieved successfully', {
-      hospital: mapHospital(hospital),
+      hospital: result,
     });
   } catch (error) {
     next(error);
@@ -159,6 +168,8 @@ export const getNearbyHospitals = async (req, res, next) => {
 };
 
 export const searchHospitals = async (req, res, next) => {
+    const lat = Number(req.query.lat ?? req.query.latitude);
+    const lng = Number(req.query.long ?? req.query.longitude);
   try {
     const { q = '', bloodType, availableOnly } = req.query;
 
@@ -188,6 +199,28 @@ export const searchHospitals = async (req, res, next) => {
       hospitalType: hospital.hospitalType || hospital.type || 'General Hospital',
       workingHours: hospital.workingHours || '9AM - 5PM',
     }));
+    
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      results = results.map((hospital) => {
+        if (Number.isFinite(hospital.lat) && Number.isFinite(hospital.lng)) {
+          const distanceKm = calculateDistance({ lat, long: lng }, { lat: hospital.lat, long: hospital.lng });
+          return {
+            ...hospital,
+            distanceKm: Number(distanceKm.toFixed(2)),
+            distanceMeters: Math.round(distanceKm * 1000),
+            distance: formatDistance(distanceKm),
+          };
+        }
+        return hospital;
+      });
+      // sort by distance when provided
+      results.sort((a, b) => {
+        if (a.distanceKm === undefined && b.distanceKm === undefined) return 0;
+        if (a.distanceKm === undefined) return 1;
+        if (b.distanceKm === undefined) return -1;
+        return a.distanceKm - b.distanceKm;
+      });
+    }
 
     if (availableOnly === 'true' || availableOnly === '1') {
       results = results.filter((hospital) => hospital.isAvailable);

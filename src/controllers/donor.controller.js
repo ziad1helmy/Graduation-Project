@@ -88,7 +88,7 @@ export const updateProfile = async (req, res, next) => {
     }
 
     const donor = await Donor.findByIdAndUpdate(req.user.userId, updateData, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     }).select('-password');
 
@@ -221,7 +221,7 @@ export const respondToRequest = async (req, res, next) => {
     const updatedRequest = await Request.findByIdAndUpdate(
       requestId,
       { $inc: { quantity: -1 } },
-      { new: true }
+      { returnDocument: 'after' }
     );
     if (updatedRequest && updatedRequest.quantity <= 0) {
       await Request.findByIdAndUpdate(requestId, { status: 'completed' });
@@ -336,7 +336,7 @@ export const updateAvailability = async (req, res, next) => {
     const donor = await Donor.findByIdAndUpdate(
       req.user.userId,
       { isAvailable },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select('-password');
 
     response.success(res, 200, 'Availability status updated successfully', donor);
@@ -764,7 +764,7 @@ export const updateSettings = async (req, res, next) => {
     const updatedDonor = await Donor.findByIdAndUpdate(
       donorId,
       { $set: updateData },
-      { new: true, runValidators: true }
+      { returnDocument: 'after', runValidators: true }
     ).select('settings');
 
     if (!updatedDonor) {

@@ -71,7 +71,7 @@ export const updateProfile = async (req, res, next) => {
     if (normalizedLocation) updateData.location = normalizedLocation;
 
     const hospital = await Hospital.findByIdAndUpdate(req.user.userId, updateData, {
-      new: true,
+      returnDocument: 'after',
       runValidators: true,
     }).select('-password');
 
@@ -87,11 +87,23 @@ export const updateProfile = async (req, res, next) => {
 // Create a donation request
 export const createRequest = async (req, res, next) => {
   try {
-    const { type, bloodType, organType, urgency, requiredBy, quantity, notes } = req.body;
+    const {
+      type,
+      bloodType,
+      organType,
+      urgency,
+      requiredBy,
+      quantity,
+      unitsNeeded,
+      patientType,
+      contactNumber,
+      isEmergency,
+      notes,
+    } = req.body;
 
     // Validate required fields
-    if (!type || !urgency || !requiredBy) {
-      return response.error(res, 400, 'Type, urgency, and requiredBy are required');
+    if (!type || (!urgency && isEmergency !== true) || !requiredBy) {
+      return response.error(res, 400, 'Type, urgency or emergency flag, and requiredBy are required');
     }
 
     if (!['blood', 'organ'].includes(type)) {
@@ -128,17 +140,28 @@ export const createRequest = async (req, res, next) => {
       return response.error(res, 400, 'Hospital contact number is required before creating a request');
     }
 
+    const resolvedUnits = Number(unitsNeeded ?? quantity ?? 1);
+    const resolvedUrgency = isEmergency === true ? 'critical' : urgency;
+
     const requestData = {
       hospitalId: req.user.userId,
       hospitalContact: hospital.contactNumber,
+      contactNumber: contactNumber || hospital.contactNumber,
       type,
-      urgency,
+      urgency: resolvedUrgency,
       requiredBy: requiredByDate,
-      quantity: quantity || 1,
+      quantity: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
+      unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
+      patientType: patientType || null,
+      isEmergency: isEmergency === true || resolvedUrgency === 'critical',
       notes: notes || '',
     };
 
     // Snapshot hospital location and display name at time of request
+    requestData.locationHospital = {
+      latitude: hospital?.location?.coordinates?.lat,
+      longitude: hospital?.location?.coordinates?.lng,
+    };
     requestData.hospitalLocation = {
       lat: hospital?.location?.coordinates?.lat,
       lng: hospital?.location?.coordinates?.lng,
@@ -171,7 +194,7 @@ export const getRequests = async (req, res, next) => {
 
     const filter = { hospitalId: req.user.userId };
 
-    if (status && ['pending', 'in-progress', 'completed', 'cancelled'].includes(status)) {
+    if (status && ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
       filter.status = status;
     }
     if (type && ['blood', 'organ'].includes(type)) {
@@ -233,7 +256,7 @@ export const updateRequest = async (req, res, next) => {
     const { requestId } = req.params;
     const { status } = req.body;
 
-    if (!status || !['pending', 'in-progress', 'completed', 'cancelled'].includes(status)) {
+    if (!status || !['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
       return response.error(res, 400, 'Valid status is required');
     }
 
@@ -252,7 +275,7 @@ export const updateRequest = async (req, res, next) => {
     const updatedRequest = await Request.findByIdAndUpdate(
       requestId,
       { status },
-      { new: true }
+      { returnDocument: 'after' }
     );
 
     response.success(res, 200, 'Request status updated successfully', updatedRequest);
@@ -276,11 +299,11 @@ export const closeRequest = async (req, res, next) => {
       return response.error(res, 403, 'Unauthorized access to this request');
     }
 
-    if (request.status === 'completed') {
+    if (request.status === 'completed' || request.status === 'expired') {
       return response.error(res, 400, 'Request is already completed');
     }
 
-    const updatedRequest = await Request.findByIdAndUpdate(requestId, { status: 'completed' }, { new: true });
+    const updatedRequest = await Request.findByIdAndUpdate(requestId, { status: 'completed', completedAt: new Date() }, { returnDocument: 'after' });
 
     return response.success(res, 200, 'Request closed successfully', updatedRequest);
   } catch (error) {
@@ -309,7 +332,7 @@ export const deleteRequest = async (req, res, next) => {
       { status: 'cancelled' }
     );
 
-    await Request.findByIdAndUpdate(requestId, { status: 'cancelled' });
+    await Request.findByIdAndUpdate(requestId, { status: 'cancelled', cancelledAt: new Date() });
 
     response.success(res, 200, 'Request cancelled successfully');
   } catch (error) {
@@ -383,7 +406,7 @@ export const updateBloodBankSettings = async (req, res, next) => {
         },
         $setOnInsert: { hospitalId: req.user.userId },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     return response.success(res, 200, 'Blood bank settings updated successfully', {
@@ -418,7 +441,7 @@ export const updateNotificationPreferences = async (req, res, next) => {
         },
         $setOnInsert: { hospitalId: req.user.userId },
       },
-      { upsert: true, new: true }
+      { upsert: true, returnDocument: 'after' }
     );
 
     return response.success(res, 200, 'Notification preferences updated successfully', {

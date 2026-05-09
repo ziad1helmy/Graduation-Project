@@ -90,6 +90,8 @@ Relevant files:
 
 ### 3. Medium: appointment response contract is inconsistent
 
+Status: Fixed
+
 In `src/controllers/appointment.controller.js`, `bookAppointment` returns `appointmentId` instead of returning the created object with a normal `_id` field and full payload shape.
 
 Why this matters:
@@ -101,6 +103,11 @@ Recommended fix:
 
 - Return a consistent resource payload such as `_id`, `status`, `appointmentDate`, and related fields.
 - Keep naming aligned across controllers.
+
+Applied changes:
+
+- Updated `bookAppointment` and `getAppointmentById` to return the full standard appointment document payload.
+- Retained legacy fields inside `bookAppointment` for backward compatibility with existing tests and clients.
 
 Relevant file:
 
@@ -201,7 +208,7 @@ These targeted suites passed after the fixes.
 ## Remaining Priority Fix Order
 
 1. Continue reconciling API docs/tests with the canonical route structure.
-2. Reduce deprecated Mongoose `new` option usage to remove warnings in tests/runtime.
+2. ~~Reduce deprecated Mongoose `new` option usage to remove warnings in tests/runtime.~~ (Fixed by switching `new: true` to `returnDocument: 'after'` across all queries, and clearing duplicate schema indexes).
 
 ## Overall Assessment
 
