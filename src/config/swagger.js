@@ -62,7 +62,7 @@ const DEMO_EXAMPLE_IDS = {
 };
 
 const DEMO_EXAMPLES = {
-  baseUrl: env.API_BASE_URL || 'http://localhost:5000',
+  baseUrl: 'https://graduation-project-cy61.onrender.com',
   donorLogin: {
     email: 'aya.hassan@lifelink.demo',
     password: 'DonorPass@123',
@@ -547,7 +547,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: env.API_BASE_URL || 'https://graduation-project-cy61.onrender.com',
+        url: 'https://graduation-project-cy61.onrender.com',
         description: 'Production server',
       },
       {

@@ -14,6 +14,14 @@ const haversineKm = (lat1, lng1, lat2, lng2) => {
   return 2 * R * Math.asin(Math.sqrt(a));
 };
 
+const formatDistance = (distanceKm) => {
+  if (!Number.isFinite(distanceKm)) return null;
+  if (distanceKm < 1) {
+    return `${Math.round(distanceKm * 1000)} m`;
+  }
+  return `${distanceKm.toFixed(2)} km`;
+};
+
 const mapHospital = (h, extras = {}) => ({
   hospitalId: h._id,
   hospital_id: h._id,
@@ -118,7 +126,10 @@ export const getNearbyHospitals = async (req, res, next) => {
       const hLat = h.lat ?? h.location?.coordinates?.lat;
       const hLng = h.long ?? h.location?.coordinates?.lng;
       if (Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(hLat) && Number.isFinite(hLng)) {
-        entry.distanceKm = Number(haversineKm(lat, lng, hLat, hLng).toFixed(2));
+        const distanceKm = haversineKm(lat, lng, hLat, hLng);
+        entry.distanceKm = Number(distanceKm.toFixed(2));
+        entry.distanceMeters = Math.round(distanceKm * 1000);
+        entry.distance = formatDistance(distanceKm);
       }
       entry.urgentNeedsCount = urgentMap[h._id.toString()] || 0;
       return entry;

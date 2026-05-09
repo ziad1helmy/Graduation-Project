@@ -68,25 +68,83 @@ router.get('/', discoveryController.listHospitals);
  *       - in: query
  *         name: lat
  *         schema: { type: number }
- *         description: Hospital latitude coordinate (-90 to 90). Alias for latitude.
+ *         description: Donor latitude coordinate (-90 to 90). Alias for latitude.
  *       - in: query
  *         name: long
  *         schema: { type: number }
- *         description: Hospital longitude coordinate (-180 to 180). Alias for longitude.
+ *         description: Donor longitude coordinate (-180 to 180). Alias for longitude.
  *       - in: query
  *         name: latitude
  *         schema: { type: number }
- *         description: Hospital latitude coordinate (deprecated, use lat instead)
+ *         description: Donor latitude coordinate (deprecated, use lat instead)
  *       - in: query
  *         name: longitude
  *         schema: { type: number }
- *         description: Hospital longitude coordinate (deprecated, use long instead)
+ *         description: Donor longitude coordinate (deprecated, use long instead)
+ *       - in: query
+ *         name: search
+ *         schema: { type: string }
+ *         description: Optional keyword filter for hospital name
+ *       - in: query
+ *         name: bloodType
+ *         schema: { type: string }
+ *         description: Optional blood type filter
  *       - in: query
  *         name: radius_km
  *         schema: { type: number }
+ *         description: Optional max distance in kilometers
+ *       - in: query
+ *         name: page
+ *         schema: { type: integer, default: 1 }
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *         description: Items per page
+ *       - in: query
+ *         name: skip
+ *         schema: { type: integer }
+ *         description: Legacy pagination - number of items to skip
  *     responses:
  *       200:
  *         description: Nearby hospitals list
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Nearby hospitals retrieved successfully
+ *               data:
+ *                 hospitals:
+ *                   - id: 69f3df915f42685cbbbcbb1b
+ *                     hospitalId: 69f3df915f42685cbbbcbb1b
+ *                     hospital_id: 69f3df915f42685cbbbcbb1b
+ *                     name: Cairo Care Hospital
+ *                     fullName: Cairo Care Operations
+ *                     phoneNumber: "1044444444"
+ *                     contactNumber: "1044444444"
+ *                     email: ops@cairocare.demo
+ *                     address:
+ *                       city: Cairo
+ *                       governorate: Cairo
+ *                     location:
+ *                       lat: 30.0511
+ *                       lng: 31.2435
+ *                     lat: 30.0511
+ *                     lng: 31.2435
+ *                     hospitalType: General Hospital
+ *                     workingHours: 9AM - 5PM
+ *                     bloodTypes:
+ *                       - O+
+ *                       - A-
+ *                     isAvailable: true
+ *                     urgentNeedsCount: 2
+ *                     distanceKm: 2.35
+ *                     distanceMeters: 2350
+ *                     distance: 2.35 km
+ *                 pagination:
+ *                   page: 1
+ *                   limit: 20
+ *                   total: 1
  */
 router.get('/nearby', discoveryController.getNearbyHospitals);
 
