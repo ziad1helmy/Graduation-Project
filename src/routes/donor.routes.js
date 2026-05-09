@@ -406,6 +406,11 @@ router.post('/urgent-requests/:requestId/decline', donorController.declineUrgent
 
 // Donation history
 router.get('/history', donorController.getDonationHistory);
+router.get('/donations', donorController.getDonationHistory);
+router.get('/points', rewardController.getPoints);
+router.get('/badges', rewardController.getBadges);
+router.get('/redemptions', rewardController.getRedemptions);
+router.get('/notifications', notificationController.getNotifications);
 
 // Availability management
 router.put('/availability', donorController.updateAvailability);

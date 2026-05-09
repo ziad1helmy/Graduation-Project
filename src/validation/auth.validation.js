@@ -240,6 +240,10 @@ export const validateRegister = (data) => {
     }
   }
 
+  if (role && role !== 'donor') {
+    errors.role = 'Public signup is available for donors only';
+  }
+
   // Validate role-specific required fields
   if (role === 'donor') {
     ['phoneNumber', 'dateOfBirth'].forEach((field) => {
@@ -267,14 +271,6 @@ export const validateRegister = (data) => {
     if (!btValid) {
       errors.bloodType = btError;
     }
-  } else if (role === 'hospital') {
-    // Hospital requires: hospitalName and licenseNumber (only these)
-    ['hospitalName', 'licenseNumber'].forEach((field) => {
-      const { valid, error } = validateField(field, data[field]);
-      if (!valid) {
-        errors[field] = error;
-      }
-    });
   }
 
   return {

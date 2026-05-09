@@ -1,16 +1,12 @@
 /**
  * Tests for src/validation/auth.validation.js
  *
- * Pure unit tests — no DB needed. Validates field-level rules
+ * Pure unit tests - no DB needed. Validates field-level rules
  * and role-specific registration logic.
  */
 
 import { describe, it, expect } from 'vitest';
 import { validateLogin, validateRegister } from '../../src/validation/auth.validation.js';
-
-// ──────────────────────────────────────────────
-//  Login Validation
-// ──────────────────────────────────────────────
 
 describe('validateLogin', () => {
   it('should pass with valid email, password, and role', () => {
@@ -44,11 +40,7 @@ describe('validateLogin', () => {
   });
 });
 
-// ──────────────────────────────────────────────
-//  Donor Registration Validation
-// ──────────────────────────────────────────────
-
-describe('validateRegister — donor', () => {
+describe('validateRegister - donor', () => {
   const validDonor = {
     fullName: 'Aya Hassan',
     email: 'aya@example.com',
@@ -109,42 +101,32 @@ describe('validateRegister — donor', () => {
   });
 });
 
-// ──────────────────────────────────────────────
-//  Hospital Registration Validation
-// ──────────────────────────────────────────────
+describe('validateRegister - public signup restrictions', () => {
+  it('should reject hospital public signup even with valid fields', () => {
+    const result = validateRegister({
+      fullName: 'Cairo Care Operations',
+      email: 'ops@cairocare.com',
+      password: 'SecurePass@123',
+      confirmPassword: 'SecurePass@123',
+      role: 'hospital',
+      hospitalName: 'Cairo Care Hospital',
+      licenseNumber: 'LIC-CAIRO-1001',
+    });
 
-describe('validateRegister — hospital', () => {
-  const validHospital = {
-    fullName: 'Cairo Care Operations',
-    email: 'ops@cairocare.com',
-    password: 'SecurePass@123',
-    confirmPassword: 'SecurePass@123',
-    role: 'hospital',
-    hospitalName: 'Cairo Care Hospital',
-    licenseNumber: 'LIC-CAIRO-1001',
-  };
-
-  it('should pass with all valid hospital fields', () => {
-    const result = validateRegister(validHospital);
-    expect(result.valid).toBe(true);
-  });
-
-  it('should fail without hospitalName', () => {
-    const { hospitalName, ...missing } = validHospital;
-    const result = validateRegister(missing);
     expect(result.valid).toBe(false);
-    expect(result.errors.hospitalName).toBeDefined();
+    expect(result.errors.role).toBeDefined();
   });
 
-  it('should pass without hospitalId because validation no longer requires it', () => {
-    const result = validateRegister(validHospital);
-    expect(result.valid).toBe(true);
-  });
+  it('should reject admin public signup', () => {
+    const result = validateRegister({
+      fullName: 'Admin User',
+      email: 'admin@example.com',
+      password: 'SecurePass@123',
+      confirmPassword: 'SecurePass@123',
+      role: 'admin',
+    });
 
-  it('should fail without licenseNumber', () => {
-    const { licenseNumber, ...missing } = validHospital;
-    const result = validateRegister(missing);
     expect(result.valid).toBe(false);
-    expect(result.errors.licenseNumber).toBeDefined();
+    expect(result.errors.role).toBeDefined();
   });
 });

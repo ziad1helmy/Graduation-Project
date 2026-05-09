@@ -454,6 +454,19 @@ export const getRewardsCatalog = async (filters = {}) => {
   };
 };
 
+const getDayWindowStart = (date = new Date()) => {
+  const start = new Date(date);
+  start.setHours(0, 0, 0, 0);
+  return start;
+};
+
+const getMonthWindowStart = (date = new Date()) => {
+  const start = new Date(date);
+  start.setDate(1);
+  start.setHours(0, 0, 0, 0);
+  return start;
+};
+
 export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP', deliveryContact = null } = {}) => {
   const [reward, account] = await Promise.all([
     RewardCatalog.findById(rewardId),
@@ -470,25 +483,48 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
     throw err;
   }
 
-  // Check monthly limit
-  if (reward.monthlyLimit) {
-    const startOfMonth = new Date(); startOfMonth.setDate(1); startOfMonth.setHours(0, 0, 0, 0);
-    const monthlyCount = await RewardRedemption.countDocuments({ rewardId, createdAt: { $gte: startOfMonth }, status: { $nin: ['CANCELLED'] } });
-    if (monthlyCount >= reward.monthlyLimit) {
-      throw Object.assign(new Error('Monthly redemption limit reached for this reward'), { statusCode: 409 });
-    }
-  }
-
   const session = await mongoose.startSession();
   let updatedAccount;
   let redemption;
+  const now = new Date();
 
   try {
     await session.withTransaction(async () => {
+      // Serialize redemptions for the same reward inside the transaction
+      const lockedReward = await RewardCatalog.findOneAndUpdate(
+        { _id: rewardId, status: 'ACTIVE' },
+        { $set: { updatedAt: now } },
+        { returnDocument: 'after', session }
+      );
+
+      if (!lockedReward) {
+        throw Object.assign(new Error('Reward is not available'), { statusCode: 400 });
+      }
+
+      if (lockedReward.dailyLimit) {
+        const dailyCount = await RewardRedemption.countDocuments(
+          { rewardId, createdAt: { $gte: getDayWindowStart(now) }, status: { $nin: ['CANCELLED'] } },
+          { session }
+        );
+        if (dailyCount >= lockedReward.dailyLimit) {
+          throw Object.assign(new Error('Daily redemption limit reached for this reward'), { statusCode: 409 });
+        }
+      }
+
+      if (lockedReward.monthlyLimit) {
+        const monthlyCount = await RewardRedemption.countDocuments(
+          { rewardId, createdAt: { $gte: getMonthWindowStart(now) }, status: { $nin: ['CANCELLED'] } },
+          { session }
+        );
+        if (monthlyCount >= lockedReward.monthlyLimit) {
+          throw Object.assign(new Error('Monthly redemption limit reached for this reward'), { statusCode: 409 });
+        }
+      }
+
       // Deduct points (atomic balance guard preserved).
       updatedAccount = await DonorPoints.findOneAndUpdate(
-        { donorId, pointsBalance: { $gte: reward.pointsCost } },
-        { $inc: { pointsBalance: -reward.pointsCost } },
+        { donorId, pointsBalance: { $gte: lockedReward.pointsCost } },
+        { $inc: { pointsBalance: -lockedReward.pointsCost } },
         { returnDocument: 'after', session }
       );
       if (!updatedAccount) throw Object.assign(new Error('Insufficient points'), { statusCode: 409 });
@@ -498,7 +534,7 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
         [{
           donorId,
           rewardId,
-          pointsSpent: reward.pointsCost,
+          pointsSpent: lockedReward.pointsCost,
           deliveryMethod,
           deliveryContact,
           status: 'CONFIRMED',
@@ -510,21 +546,24 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
       await PointsTransaction.create(
         [{
           donorId,
-          pointsAmount: -reward.pointsCost,
+          pointsAmount: -lockedReward.pointsCost,
           transactionType: 'REWARD_REDEEMED',
-          description: `Reward Redeemed: ${reward.name}`,
+          description: `Reward Redeemed: ${lockedReward.name}`,
           referenceId: String(redemption._id),
           balanceAfter: updatedAccount.pointsBalance,
         }],
+        { session }
+      );
+
+      await RewardCatalog.updateOne(
+        { _id: rewardId },
+        { $inc: { redemptionCount: 1 } },
         { session }
       );
     });
   } finally {
     session.endSession();
   }
-
-  // Increment reward redemption count
-  RewardCatalog.findByIdAndUpdate(rewardId, { $inc: { redemptionCount: 1 } }).exec().catch(() => {});
 
   // Log reward redemption activity (fire-and-forget)
   activityService

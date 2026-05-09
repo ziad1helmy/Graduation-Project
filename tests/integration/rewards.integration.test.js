@@ -7,6 +7,7 @@ import { signToken } from '../../src/utils/jwt.js';
 import DonorPoints from '../../src/models/DonorPoints.model.js';
 import RewardCatalog from '../../src/models/RewardCatalog.model.js';
 import Donation from '../../src/models/Donation.model.js';
+import RewardRedemption from '../../src/models/RewardRedemption.model.js';
 
 setupTestDB();
 
@@ -194,6 +195,83 @@ describe('Rewards Routes Integration', () => {
       });
 
     expect(response.status).toBe(409);
+  });
+
+  it('POST /rewards/catalog/:rewardId/redeem enforces daily redemption limits', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+
+    await DonorPoints.create({
+      donorId: donor._id,
+      pointsBalance: 1000,
+      lifetimePointsEarned: 1000,
+      tier: 'silver',
+    });
+
+    const reward = await RewardCatalog.create({
+      name: 'Daily Limited Voucher',
+      description: 'Only once per day',
+      pointsCost: 100,
+      category: 'FOOD',
+      status: 'ACTIVE',
+      dailyLimit: 1,
+      monthlyLimit: 10,
+    });
+
+    await RewardRedemption.create({
+      donorId: donor._id,
+      rewardId: reward._id,
+      pointsSpent: reward.pointsCost,
+      status: 'CONFIRMED',
+    });
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .post(`/rewards/catalog/${reward._id}/redeem`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ delivery_preference: 'IN_APP' });
+
+    expect(response.status).toBe(409);
+    expect(String(response.body.message || '')).toMatch(/daily redemption limit/i);
+  });
+
+  it('POST /rewards/catalog/:rewardId/redeem enforces monthly redemption limits', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+
+    await DonorPoints.create({
+      donorId: donor._id,
+      pointsBalance: 1000,
+      lifetimePointsEarned: 1000,
+      tier: 'silver',
+    });
+
+    const reward = await RewardCatalog.create({
+      name: 'Monthly Limited Voucher',
+      description: 'Only once per month',
+      pointsCost: 100,
+      category: 'FOOD',
+      status: 'ACTIVE',
+      monthlyLimit: 1,
+    });
+
+    await RewardRedemption.create({
+      donorId: donor._id,
+      rewardId: reward._id,
+      pointsSpent: reward.pointsCost,
+      status: 'CONFIRMED',
+    });
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .post(`/rewards/catalog/${reward._id}/redeem`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ delivery_preference: 'IN_APP' });
+
+    expect(response.status).toBe(409);
+    expect(String(response.body.message || '')).toMatch(/monthly redemption limit/i);
   });
 
   it('POST /rewards/admin/users/:userId/points/adjust adjusts points (admin only)', async () => {

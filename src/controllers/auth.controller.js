@@ -92,7 +92,12 @@ export const register = async (req, res, next) => {
       path: req.originalUrl,
     });
 
-    const result = await authService.register(normalizeRegisterPayload(req.body), { traceId });
+    const payload = normalizeRegisterPayload(req.body);
+    if (payload.role !== 'donor') {
+      return response.error(res, 403, 'Public signup is available for donors only');
+    }
+
+    const result = await authService.register(payload, { traceId });
     response.success(res, 201, 'User registered successfully', {
       user: result.user,
       tokens: {

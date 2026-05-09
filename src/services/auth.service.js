@@ -358,6 +358,10 @@ export const register = async (data, trace = {}) => {
     const requestStartedAt = process.hrtime.bigint();
     const { role, fullName, email, password, location, ...roleSpecificData } = data;
 
+    if (role !== 'donor') {
+      throw createServiceError('Public signup is available for donors only', 403);
+    }
+
     logger.info('Signup validation starting', {
       traceId,
       email,
@@ -428,26 +432,6 @@ export const register = async (data, trace = {}) => {
                 bloodType: roleSpecificData.bloodType,
                 ...(roleSpecificData.gender && { gender: roleSpecificData.gender }),
             });
-        } else if (role === 'hospital') {
-            // Use Hospital discriminator with hospital-specific fields only
-            user = await Hospital.create({
-                ...baseData,
-            name: roleSpecificData.name || roleSpecificData.hospitalName || baseData.fullName,
-            type: roleSpecificData.type || 'hospital',
-            phone: roleSpecificData.phone || roleSpecificData.contactNumber || null,
-                hospitalName: roleSpecificData.hospitalName,
-                licenseNumber: roleSpecificData.licenseNumber,
-                ...(roleSpecificData.address && { address: roleSpecificData.address }),
-                ...(roleSpecificData.contactNumber && { contactNumber: roleSpecificData.contactNumber }),
-            });
-        } else if (role === 'admin' || role === 'superadmin') {
-            // Admin uses base User model (no role-specific fields)
-          user = await User.create({
-            ...baseData,
-            phone: roleSpecificData.phone || roleSpecificData.contactNumber || null,
-            address: roleSpecificData.address || null,
-            adminKey: crypto.randomBytes(16).toString('hex'),
-          });
         } else {
             throw new Error('Invalid role');
         }

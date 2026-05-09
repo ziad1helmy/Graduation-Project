@@ -537,7 +537,7 @@ export const getAllAdmins = async (pagination = {}) => {
 
   const [admins, total] = await Promise.all([
     User.find(query)
-      .select('fullName email role phone address adminKey isEmailVerified isSuspended createdAt updatedAt')
+      .select('fullName email role phone address isEmailVerified isSuspended createdAt updatedAt')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(parseInt(limit, 10)),

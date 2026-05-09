@@ -196,6 +196,7 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data).toHaveProperty('admins');
+    expect(response.body.data.admins[0]).not.toHaveProperty('adminKey');
   });
 
   it('GET /admin/donors/:id returns donor details', async () => {
@@ -247,6 +248,7 @@ describe('Admin Routes Integration', () => {
     expect(response.body.success).toBe(true);
     expect(response.body.data).toHaveProperty('user');
     expect(response.body.data.user._id.toString()).toBe(admin2._id.toString());
+    expect(response.body.data.user).not.toHaveProperty('adminKey');
   });
 
   it('GET /admin/dashboard returns dashboard data', async () => {

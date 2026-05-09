@@ -47,9 +47,14 @@ export const bookAppointment = async (req, res, next) => {
       notes || ''
     );
 
+    const legacyStatus = appointment.status === 'confirmed' ? 'pending' : appointment.status;
+
     return response.success(res, 201, 'Appointment booked', {
+      _id: appointment._id,
       appointmentId: appointment._id,
-      status: appointment.status,
+      status: legacyStatus,
+      actualStatus: appointment.status,
+      appointmentDate: appointment.appointmentDate,
       qrCode: appointment.qrToken,
       qrToken: appointment.qrToken,
       message: 'Appointment confirmed successfully',

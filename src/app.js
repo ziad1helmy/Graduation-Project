@@ -161,6 +161,7 @@ app.use('/hospital', limiter, hospitalRoutes);
 app.use('/rewards', limiter, rewardRoutes);
 app.use('/appointments', limiter, appointmentRoutes);
 app.use('/appointments', limiter, appointmentVerifyRoutes);
+app.use('/donations/book-appointment', limiter, appointmentRoutes);
 app.use('/donations', limiter, donationRoutes);
 app.use('/notifications', limiter, notificationRoutes);
 app.use('/hospitals', limiter, discoveryRoutes);
