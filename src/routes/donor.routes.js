@@ -156,7 +156,32 @@ const router = Router();
  *               success: true
  *               message: Requests retrieved successfully
  *               data:
- *                 requests: []
+ *                 requests:
+ *                   - id: 69fe540565ff7785a031314f
+ *                     requestId: 69fe540565ff7785a031314f
+ *                     bloodType: O+
+ *                     hospitalName: Cairo Care Hospital
+ *                     patientType: Emergency surgery support
+ *                     contactNumber: '1044444444'
+ *                     unitsNeeded: 3
+ *                     isEmergency: true
+ *                     createdAt: '2026-05-07T09:00:00.000Z'
+ *                     status: pending
+ *                     requestStatus: pending
+ *                     urgency: critical
+ *                     type: blood
+ *                     requiredBy: '2026-05-11T10:00:00.000Z'
+ *                     locationHospital:
+ *                       latitude: 30.0511
+ *                       longitude: 31.2435
+ *                     googleMapsUrl: 'https://www.google.com/maps/dir/?api=1&destination=30.0511,31.2435'
+ *                     qrToken: 'demo-request-qr-token'
+ *                     qrCreatedAt: '2026-05-07T10:00:00.000Z'
+ *                     qrExpiresAt: '2026-05-07T12:00:00.000Z'
+ *                     hospital:
+ *                       id: 69f3df915f42685cbbbcbb1b
+ *                       name: Cairo Care Hospital
+ *                       contactNumber: '1044444444'
  *                 pagination:
  *                   page: 1
  *                   limit: 20

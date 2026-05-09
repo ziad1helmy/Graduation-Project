@@ -10,6 +10,7 @@ import * as activityService from '../services/activity.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import * as rewardService from '../services/reward.service.js';
 import { formatActivityForTimeline } from '../utils/activity.formatter.js';
+import { buildRequestPayload } from './request.controller.js';
 
 /**
  * Donor Controller - Handles donor-specific operations
@@ -147,7 +148,7 @@ export const getRequests = async (req, res, next) => {
     ]);
 
     response.success(res, 200, 'Requests retrieved successfully', {
-      requests,
+      requests: requests.map((request) => buildRequestPayload(request)),
       pagination: paginationMeta(total, page, limit),
     });
   } catch (error) {
