@@ -1,8 +1,47 @@
 import { Router } from 'express';
 import authMiddleware from '../middlewares/auth.middleware.js';
+import requireRole from '../middlewares/role.middleware.js';
 import * as requestController from '../controllers/request.controller.js';
 
 const router = Router();
+
+router.use(authMiddleware);
+
+/**
+ * @openapi
+ * /requests/nearby:
+ *   get:
+ *     tags:
+ *       - Requests
+ *     summary: Get nearby urgent requests within an optional radius
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/nearby', requireRole('donor', 'hospital', 'admin', 'superadmin'), requestController.getNearbyRequests);
+
+/**
+ * @openapi
+ * /requests/{id}/google-maps:
+ *   get:
+ *     tags:
+ *       - Requests
+ *     summary: Get Google Maps navigation URL for a request
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/:id/google-maps', requestController.getRequestGoogleMaps);
+
+/**
+ * @openapi
+ * /requests/{id}:
+ *   get:
+ *     tags:
+ *       - Requests
+ *     summary: Get full request details for Flutter
+ *     security:
+ *       - bearerAuth: []
+ */
+router.get('/:id', requestController.getRequestDetails);
 
 /**
  * @openapi
@@ -14,7 +53,7 @@ const router = Router();
  *     security:
  *       - bearerAuth: []
  */
-router.post('/:id/generate-qr', authMiddleware, requestController.generateQr);
+router.post('/:id/generate-qr', requireRole('hospital', 'admin', 'superadmin'), requestController.generateQr);
 
 /**
  * @openapi
@@ -26,7 +65,7 @@ router.post('/:id/generate-qr', authMiddleware, requestController.generateQr);
  *     security:
  *       - bearerAuth: []
  */
-router.post('/verify-qr', authMiddleware, requestController.verifyQr);
+router.post('/verify-qr', requireRole('hospital', 'admin', 'superadmin'), requestController.verifyQr);
 
 /**
  * @openapi
@@ -38,7 +77,7 @@ router.post('/verify-qr', authMiddleware, requestController.verifyQr);
  *     security:
  *       - bearerAuth: []
  */
-router.post('/:id/accept', authMiddleware, requestController.acceptRequest);
+router.post('/:id/accept', requireRole('donor'), requestController.acceptRequest);
 
 /**
  * @openapi
@@ -50,6 +89,6 @@ router.post('/:id/accept', authMiddleware, requestController.acceptRequest);
  *     security:
  *       - bearerAuth: []
  */
-router.post('/:id/cancel', authMiddleware, requestController.cancelRequest);
+router.post('/:id/cancel', requestController.cancelRequest);
 
 export default router;
