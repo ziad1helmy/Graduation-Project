@@ -8,8 +8,8 @@ const router = Router();
 /**
  * Activity Routes
  *
- * All activity endpoints require JWT authentication.
- * Routes are designed for the donor role, but open to any authenticated user.
+ * All activity endpoints require JWT authentication and donor authorization.
+ * Routes are scoped to the donor role.
  *
  * Rate limiting is applied at the parent route level (see app.js).
  */
@@ -48,7 +48,7 @@ const router = Router();
  *         description: Optional activity type filter
  *         schema:
  *           type: string
- *           enum: [donation, reward, emergency_response, profile_update]
+ *           enum: [donation, reward, emergency_response, profile_update, appointment, badge, achievement, referral, subscription, admin_action]
  *     responses:
  *       '200':
  *         description: Activity timeline retrieved successfully
@@ -68,42 +68,35 @@ const router = Router();
  *                       items:
  *                         type: object
  *                         properties:
- *                           _id:
+ *                           id:
  *                             type: string
  *                             example: "5f9d4a1b9d7c2e3c4f5a6b7c"
- *                           type:
- *                             type: string
- *                             enum: [donation, reward, emergency_response, profile_update]
- *                           action:
- *                             type: string
- *                             example: "completed_donation"
  *                           title:
  *                             type: string
  *                             example: "Blood Donation Completed"
- *                           description:
- *                             type: string
- *                             example: "Donated 1 unit of A+ blood to Cairo Hospital"
- *                           icon:
- *                             type: string
- *                             example: "heart"
- *                           referenceId:
+ *                           hospital:
  *                             type: string
  *                             nullable: true
- *                             example: "5f9d4a1b9d7c2e3c4f5a6b7c"
- *                           referenceType:
- *                             type: string
- *                             nullable: true
- *                             example: "Donation"
- *                           metadata:
- *                             type: object
- *                             example:
- *                               bloodType: "A+"
- *                               hospitalName: "Cairo Hospital"
- *                               quantity: 1
+ *                             example: "Cairo Hospital"
+ *                           points:
+ *                             type: number
+ *                             example: 200
  *                           createdAt:
  *                             type: string
  *                             format: date-time
  *                             example: "2026-05-04T12:00:00.000Z"
+ *                           relativeTime:
+ *                             type: string
+ *                             example: "3 days ago"
+ *                           type:
+ *                             type: string
+ *                             enum: [donation, reward, emergency_response, profile_update, appointment, badge, achievement, referral, subscription, admin_action]
+ *                           status:
+ *                             type: string
+ *                             example: "success"
+ *                           icon:
+ *                             type: string
+ *                             example: "heart"
  *                     pagination:
  *                       type: object
  *                       properties:
@@ -135,6 +128,7 @@ const router = Router();
 router.get(
   '/activity',
   authMiddleware,
+  requireRole('donor'),
   activityController.getTimeline
 );
 

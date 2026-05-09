@@ -158,6 +158,16 @@ const requestSchema = new mongoose.Schema(
       latitude: { type: Number },
       longitude: { type: Number },
     },
+    hospitalLocationGeo: {
+      type: {
+        type: String,
+        enum: ['Point'],
+      },
+      coordinates: {
+        type: [Number],
+        default: undefined,
+      },
+    },
     hospitalLocation: {
       lat: { type: Number },
       lng: { type: Number },
@@ -225,6 +235,7 @@ requestSchema.index({ urgency: 1 });
 requestSchema.index({ hospitalId: 1, status: 1 });
 requestSchema.index({ urgency: 1, status: 1 });
 requestSchema.index({ acceptedBy: 1, status: 1 });
+requestSchema.index({ hospitalLocationGeo: '2dsphere' });
 
 const Request = mongoose.model('Request', requestSchema);
 

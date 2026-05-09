@@ -166,6 +166,12 @@ export const createRequest = async (req, res, next) => {
       lat: hospital?.location?.coordinates?.lat,
       lng: hospital?.location?.coordinates?.lng,
     };
+    if (Number.isFinite(hospital?.location?.coordinates?.lat) && Number.isFinite(hospital?.location?.coordinates?.lng)) {
+      requestData.hospitalLocationGeo = {
+        type: 'Point',
+        coordinates: [hospital.location.coordinates.lng, hospital.location.coordinates.lat],
+      };
+    }
     requestData.hospitalName = hospital?.hospitalName || hospital?.fullName;
 
     if (type === 'blood') {

@@ -9,6 +9,7 @@ import * as notificationService from '../services/notification.service.js';
 import * as activityService from '../services/activity.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import * as rewardService from '../services/reward.service.js';
+import { formatActivityForTimeline } from '../utils/activity.formatter.js';
 
 /**
  * Donor Controller - Handles donor-specific operations
@@ -534,14 +535,7 @@ export const getDashboard = async (req, res, next) => {
         points: pointsSummary?.pointsBalance || pointsSummary?.totalPoints || 0,
         livesSaved: (donationStats?.totalDonations || 0) * 3,
       },
-      recentActivity: (latestActivity || []).map((activity) => ({
-        id: activity._id,
-        type: activity.type,
-        title: activity.title,
-        subTitle: activity.description,
-        points: activity.metadata?.pointsAmount || 0,
-        createdAt: activity.createdAt,
-      })),
+      recentActivity: (latestActivity || []).map((activity) => formatActivityForTimeline(activity)),
       badges: badges || [],
     });
   } catch (err) { next(err); }

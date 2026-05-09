@@ -37,7 +37,7 @@ export const createDonation = async (donorId, requestId, data = {}) => {
   try {
     // Get donor and request
     const donor = await Donor.findById(donorId);
-    const request = await Request.findById(requestId);
+    const request = await Request.findById(requestId).populate('hospitalId', 'fullName hospitalName');
 
     if (!donor || !request) {
       throw new Error('Donor or Request not found');
@@ -81,6 +81,7 @@ export const createDonation = async (donorId, requestId, data = {}) => {
         metadata: {
           quantity: donation.quantity,
           requestId: requestId,
+          hospitalName: request.hospitalName || request.hospitalId?.hospitalName || request.hospitalId?.fullName || null,
         },
       })
       .catch((error) => logger.error('Activity log error', { message: error.message }));
@@ -119,6 +120,10 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
       updateData.completedDate = new Date();
     }
 
+    const request = (status === 'completed' || status === 'cancelled')
+      ? await Request.findById(currentDonation.requestId).populate('hospitalId', 'fullName hospitalName')
+      : null;
+
     // Validate dates
     if (data.scheduledDate) {
       const scheduledDate = new Date(data.scheduledDate);
@@ -150,6 +155,7 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
           metadata: {
             quantity: donation.quantity,
             completedDate: updateData.completedDate,
+            hospitalName: request?.hospitalName || request?.hospitalId?.hospitalName || request?.hospitalId?.fullName || null,
           },
         })
         .catch((error) => logger.error('Activity log error', { message: error.message }));
@@ -177,6 +183,7 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
           metadata: {
             quantity: donation.quantity,
             previousStatus: currentDonation.status,
+            hospitalName: request?.hospitalName || request?.hospitalId?.hospitalName || request?.hospitalId?.fullName || null,
           },
         })
         .catch((error) => logger.error('Activity log error', { message: error.message }));

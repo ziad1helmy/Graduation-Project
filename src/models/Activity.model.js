@@ -31,9 +31,12 @@ const ACTIVITY_TYPES = [
   'reward',
   'emergency_response',
   'profile_update',
-  // Future extensibility — add new types here
-  // 'appointment',
-  // 'badge',
+  'appointment',
+  'badge',
+  'achievement',
+  'referral',
+  'subscription',
+  'admin_action',
 ];
 
 const REFERENCE_TYPES = [

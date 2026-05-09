@@ -2,6 +2,7 @@ import response from '../utils/response.js';
 import { parsePagination } from '../utils/pagination.js';
 import * as activityService from '../services/activity.service.js';
 import { logger } from '../utils/logger.js';
+import { ACTIVITY_TYPES, formatActivityForTimeline } from '../utils/activity.formatter.js';
 
 /**
  * Activity Controller
@@ -16,10 +17,10 @@ import { logger } from '../utils/logger.js';
  * Get user activity timeline with optional filtering
  *
  * @endpoint GET /donor/activity?page=1&limit=20&type=donation
- * @auth JWT required (any authenticated user)
+ * @auth JWT required (donor only)
  * @query {number} page - Page number (default: 1)
  * @query {number} limit - Items per page (default: 20, max: 100)
- * @query {string} type - Optional type filter: donation, reward, emergency_response, profile_update
+ * @query {string} type - Optional type filter: donation, reward, emergency_response, profile_update, appointment, badge, achievement, referral, subscription, admin_action
  *
  * @returns {object} activities array + pagination metadata
  * @example
@@ -30,16 +31,15 @@ import { logger } from '../utils/logger.js';
  *   "data": {
  *     "activities": [
  *       {
- *         "_id": "...",
- *         "type": "donation",
- *         "action": "completed_donation",
+ *         "id": "5f9d4a1b9d7c2e3c4f5a6b7c",
  *         "title": "Blood Donation Completed",
- *         "description": "Donated 1 unit of A+ blood to Cairo Hospital",
- *         "icon": "heart",
- *         "referenceId": "...",
- *         "referenceType": "Donation",
- *         "metadata": { "bloodType": "A+", "hospitalName": "Cairo Hospital" },
- *         "createdAt": "2026-05-04T12:00:00Z"
+ *         "hospital": "Cairo Hospital",
+ *         "points": 200,
+ *         "createdAt": "2026-05-04T12:00:00.000Z",
+ *         "relativeTime": "3 days ago",
+ *         "type": "donation",
+ *         "status": "success",
+ *         "icon": "heart"
  *       }
  *     ],
  *     "pagination": {
@@ -53,16 +53,27 @@ import { logger } from '../utils/logger.js';
  *   }
  * }
  */
+const isPositiveIntegerString = (value) => /^\d+$/.test(String(value).trim());
+
 export const getTimeline = async (req, res, next) => {
   try {
     const userId = req.user.userId;
+    const { page: pageParam, limit: limitParam, type: rawType } = req.query;
+
+    if (pageParam !== undefined && !isPositiveIntegerString(pageParam)) {
+      return response.error(res, 400, 'Page must be a positive integer');
+    }
+
+    if (limitParam !== undefined && !isPositiveIntegerString(limitParam)) {
+      return response.error(res, 400, 'Limit must be a positive integer');
+    }
+
     const { page, limit } = parsePagination(req.query, 20, 100);
-    const { type } = req.query;
+    const type = typeof rawType === 'string' ? rawType.trim().toLowerCase() : undefined;
 
     // Validate optional type filter
-    const validTypes = ['donation', 'reward', 'emergency_response', 'profile_update'];
-    if (type && !validTypes.includes(type)) {
-      return response.error(res, 400, `Invalid type. Must be one of: ${validTypes.join(', ')}`);
+    if (type && !ACTIVITY_TYPES.includes(type)) {
+      return response.error(res, 400, `Invalid type. Must be one of: ${ACTIVITY_TYPES.join(', ')}`);
     }
 
     // Call service with filters
@@ -73,14 +84,7 @@ export const getTimeline = async (req, res, next) => {
     });
 
     response.success(res, 200, 'Activity timeline retrieved successfully', {
-      activities: result.activities.map(a => ({
-        id: a._id,
-        type: a.type,
-        title: a.title,
-        subTitle: a.description,
-        points: a.metadata?.pointsAmount || 0,
-        createdAt: a.createdAt,
-      })),
+      activities: result.activities.map(formatActivityForTimeline),
       pagination: result.pagination,
     });
   } catch (error) {
