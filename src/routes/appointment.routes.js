@@ -43,6 +43,22 @@ router.use(authMiddleware, requireRole('donor'));
  *     responses:
  *       '201':
  *         description: Appointment booked
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Appointment booked
+ *               data:
+ *                 _id: 69fe540565ff7785a031315c
+ *                 donorId: 69f3df915f42685cbbbcbb18
+ *                 hospitalId: 69f3df915f42685cbbbcbb1b
+ *                 requestId: 69fe540565ff7785a031314f
+ *                 appointmentDate: '2026-05-12T10:00:00.000Z'
+ *                 status: confirmed
+ *                 qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+ *                 qrExpiresAt: '2026-05-13T10:00:00.000Z'
+ *                 notes: First-time donor, available in the morning.
+ *                 donationType: Whole Blood
  *       '400':
  *         description: Invalid appointment payload
  *       '404':
@@ -65,6 +81,40 @@ router.post('/', ctrl.bookAppointment);
  *     summary: Get available appointment slots for a hospital on a given date
  *     security:
  *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: hospitalId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         example: 69f3df915f42685cbbbcbb1b
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: date
+ *         example: 2026-05-12
+ *     responses:
+ *       '200':
+ *         description: Available appointment slots retrieved successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Available slots retrieved successfully
+ *               data:
+ *                 timeSlots:
+ *                   - '09:00 AM'
+ *                   - '10:00 AM'
+ *                   - '11:00 AM'
+ *                 hospitalId: 69f3df915f42685cbbbcbb1b
+ *                 date: '2026-05-12T00:00:00.000Z'
+ *                 slotsPerHour: 5
+ *       '400':
+ *         description: Invalid hospitalId or date
+ *       '404':
+ *         description: Hospital not found
  */
 router.get('/available-slots', ctrl.getAvailableSlots);
 
@@ -91,6 +141,34 @@ router.get('/available-slots', ctrl.getAvailableSlots);
  *     responses:
  *       '200':
  *         description: Appointments fetched successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Appointments fetched
+ *               data:
+ *                 appointments:
+ *                   - _id: 69fe540565ff7785a031315c
+ *                     donorId: 69f3df915f42685cbbbcbb18
+ *                     hospitalId:
+ *                       _id: 69f3df915f42685cbbbcbb1b
+ *                       hospitalName: Cairo Care Hospital
+ *                       fullName: Cairo Care Operations
+ *                       address:
+ *                         city: Cairo
+ *                         governorate: Cairo
+ *                     requestId: 69fe540565ff7785a031314f
+ *                     appointmentDate: '2026-05-12T10:00:00.000Z'
+ *                     status: pending
+ *                     notes: Test appointment
+ *                     qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+ *                     qrExpiresAt: '2026-05-13T10:00:00.000Z'
+ *                     donationType: Whole Blood
+ *                 total: 1
+ *                 meta:
+ *                   page: 1
+ *                   limit: 10
+ *                   total: 1
  *       '401':
  *         description: Missing or invalid JWT
  *       '403':
@@ -116,6 +194,28 @@ router.get('/my-appointments', ctrl.getMyAppointments);
  *     responses:
  *       '200':
  *         description: Appointment retrieved
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Appointment retrieved
+ *               data:
+ *                 _id: 69fe540565ff7785a031315c
+ *                 donorId: 69f3df915f42685cbbbcbb18
+ *                 hospitalId:
+ *                   _id: 69f3df915f42685cbbbcbb1b
+ *                   hospitalName: Cairo Care Hospital
+ *                   fullName: Cairo Care Operations
+ *                   address:
+ *                     city: Cairo
+ *                     governorate: Cairo
+ *                 requestId: 69fe540565ff7785a031314f
+ *                 appointmentDate: '2026-05-12T10:00:00.000Z'
+ *                 status: pending
+ *                 notes: Test appointment
+ *                 qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+ *                 qrExpiresAt: '2026-05-13T10:00:00.000Z'
+ *                 donationType: Whole Blood
  *       '401':
  *         description: Missing or invalid JWT
  *       '403':
@@ -156,6 +256,22 @@ router.get('/:appointmentId', ctrl.getAppointmentById);
  *     responses:
  *       '200':
  *         description: Appointment rescheduled
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Appointment rescheduled
+ *               data:
+ *                 _id: 69fe540565ff7785a031315c
+ *                 donorId: 69f3df915f42685cbbbcbb18
+ *                 hospitalId: 69f3df915f42685cbbbcbb1b
+ *                 requestId: 69fe540565ff7785a031314f
+ *                 appointmentDate: '2026-05-15T14:00:00.000Z'
+ *                 status: pending
+ *                 notes: Test appointment
+ *                 qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+ *                 qrExpiresAt: '2026-05-13T10:00:00.000Z'
+ *                 donationType: Whole Blood
  *       '400':
  *         description: Invalid appointment payload
  *       '401':
@@ -185,6 +301,22 @@ router.patch('/:appointmentId', ctrl.rescheduleAppointment);
  *     responses:
  *       '200':
  *         description: Appointment cancelled
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Appointment cancelled
+ *               data:
+ *                 _id: 69fe540565ff7785a031315c
+ *                 donorId: 69f3df915f42685cbbbcbb18
+ *                 hospitalId: 69f3df915f42685cbbbcbb1b
+ *                 requestId: 69fe540565ff7785a031314f
+ *                 appointmentDate: '2026-05-12T10:00:00.000Z'
+ *                 status: cancelled
+ *                 cancelledAt: '2026-05-09T10:30:00.000Z'
+ *                 notes: Test appointment
+ *                 qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+ *                 donationType: Whole Blood
  *       '400':
  *         description: Invalid appointment id
  *       '401':

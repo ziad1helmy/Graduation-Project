@@ -64,6 +64,31 @@ router.post('/complete', requireRole('hospital', 'admin', 'superadmin'), donatio
  *     summary: Get donor appointments via the donations compatibility alias
  *     security:
  *       - bearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Appointments fetched successfully
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Appointments fetched
+ *               data:
+ *                 appointments:
+ *                   - _id: 69fe540565ff7785a031315c
+ *                     appointmentDate: '2026-05-12T10:00:00.000Z'
+ *                     status: pending
+ *                     notes: Test appointment
+ *                     qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+ *                     donationType: Whole Blood
+ *                 total: 1
+ *                 meta:
+ *                   page: 1
+ *                   limit: 10
+ *                   total: 1
+ *       '401':
+ *         description: Missing or invalid JWT
+ *       '403':
+ *         description: Role not allowed
  */
 router.get('/my-appointments', requireRole('donor'), appointmentController.getMyAppointments);
 

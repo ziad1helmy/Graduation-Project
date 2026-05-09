@@ -53,6 +53,8 @@ const router = Router();
  *                   location: "City General Hospital"
  *                   status: "confirmed"
  *                 pointsEarned: 100
+ *       '401':
+ *         description: Missing or invalid JWT token
  *       '400':
  *         description: |
  *           One of:
