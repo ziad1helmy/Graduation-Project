@@ -102,7 +102,6 @@ export const verifyQr = async (req, res, next) => {
       .populate('hospitalId', 'fullName hospitalName');
 
     if (!appointment) return response.error(res, 404, 'Invalid QR code');
-    if (appointment.qrScannedAt) return response.error(res, 409, 'QR code already used');
     if (appointment.status === 'cancelled') return response.error(res, 400, 'Appointment is cancelled');
     if (!['pending', 'confirmed'].includes(appointment.status))
       return response.error(res, 400, 'Appointment is not active');
@@ -115,19 +114,25 @@ export const verifyQr = async (req, res, next) => {
     const eligibility = await eligibilityService.canDonate(donor, { persistTravelDeferral: false });
     if (!eligibility.eligible) return response.error(res, 403, eligibility.reason || 'Donor not eligible');
 
+    // Atomic update: mark appointment as scanned only if not scanned yet
+    const now = new Date();
+    const updatedAppointment = await Appointment.findOneAndUpdate(
+      { _id: appointment._id, qrScannedAt: null, status: { $in: ['pending', 'confirmed'] } },
+      { $set: { status: 'completed', qrScannedAt: now } },
+      { returnDocument: 'after' }
+    ).populate('donorId', 'bloodType suspensionStatus lastDonationDate').populate('hospitalId', 'fullName hospitalName');
+
+    if (!updatedAppointment) return response.error(res, 409, 'QR code already used');
+
     const donation = await Donation.create({
       donorId: donor._id,
       requestId: appointment.requestId || null,
       quantity: 1,
       status: 'completed',
-      completedDate: new Date(),
+      completedDate: now,
     });
 
-    appointment.status = 'completed';
-    appointment.qrScannedAt = new Date();
-    await appointment.save();
-
-    await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: new Date() });
+    await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: now });
     await rewardService.onDonationCompleted(donor._id, donation._id, false);
 
     activityService.logActivity(donor._id, {
@@ -173,10 +178,6 @@ export const scanQr = async (req, res, next) => {
       return response.error(res, 404, 'QR token not found');
     }
 
-    if (appointment.qrScannedAt) {
-      return response.error(res, 409, 'This QR code has already been scanned');
-    }
-
     if (!['pending', 'confirmed'].includes(appointment.status)) {
       return response.error(res, 400, 'Appointment cannot be confirmed in its current status');
     }
@@ -195,21 +196,27 @@ export const scanQr = async (req, res, next) => {
       return response.error(res, 403, eligibility.reason || 'Donor is not eligible');
     }
 
+    // Atomic update appointment first to avoid double-scan race
+    const now2 = new Date();
+    const updatedAppointment2 = await Appointment.findOneAndUpdate(
+      { _id: appointment._id, qrScannedAt: null, status: { $in: ['pending', 'confirmed'] } },
+      { $set: { status: 'completed', qrScannedAt: now2 } },
+      { returnDocument: 'after' }
+    ).populate('donorId', 'bloodType suspensionStatus lastDonationDate').populate('hospitalId', 'fullName hospitalName');
+
+    if (!updatedAppointment2) return response.error(res, 409, 'This QR code has already been scanned');
+
     const donation = await Donation.create({
       donorId: donor._id,
       requestId: appointment.requestId,
       quantity: units,
       status: 'completed',
       notes: complications,
-      completedDate: new Date(),
+      completedDate: now2,
     });
 
-    appointment.status = 'completed';
-    appointment.qrScannedAt = new Date();
-    await appointment.save();
-
     await Donor.findByIdAndUpdate(donor._id, {
-      lastDonationDate: new Date(),
+      lastDonationDate: now2,
     });
 
     await rewardService.onDonationCompleted(donor._id, donation._id, false);

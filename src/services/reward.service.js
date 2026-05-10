@@ -96,9 +96,10 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
         { upsert: true, returnDocument: 'after', session }
       );
 
-      // Recalculate tier
+      // Recalculate tier (capture previous tier first)
+      const previousTier = account.tier;
       const newTier = DonorPoints.calculateTier(account.lifetimePointsEarned);
-      const tierChanged = newTier !== account.tier;
+      const tierChanged = newTier !== previousTier;
       if (tierChanged) {
         await DonorPoints.findByIdAndUpdate(account._id, { tier: newTier }, { session });
         account.tier = newTier;
@@ -121,7 +122,7 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
         transaction: transaction[0],
         tierChanged,
         newTier,
-        previousTier: account.tier,
+        previousTier,
       };
     });
   } catch (err) {

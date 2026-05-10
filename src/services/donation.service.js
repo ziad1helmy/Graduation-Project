@@ -160,16 +160,15 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
         })
         .catch((error) => logger.error('Activity log error', { message: error.message }));
 
-      // Fetch request to detect emergency urgency — fire-and-forget
-      Request.findById(donation.requestId)
-        .select('urgency')
-        .then((req) => {
-          const isEmergency = req?.urgency === 'critical';
-          return rewardService.onDonationCompleted(donation.donorId, donation._id, isEmergency);
-        })
-        .catch((e) => logger.error('Reward trigger error', {
+      // Trigger reward processing and await it to avoid silent failures.
+      try {
+        const isEmergency = request?.urgency === 'critical';
+        await rewardService.onDonationCompleted(donation.donorId, donation._id, isEmergency);
+      } catch (e) {
+        logger.error('Reward trigger error', {
           message: e.message,
-        }));
+        });
+      }
     } else if (status === 'cancelled') {
       // Log cancellation activity
       activityService
