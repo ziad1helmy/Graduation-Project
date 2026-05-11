@@ -104,7 +104,6 @@ export const redeemReward = async (req, res, next) => {
   } catch (err) {
     if (err.code === 'INSUFFICIENT_POINTS') {
       return response.error(res, 409, err.message, err.details);
-      progressPercentage: pointsSummary.progressPercentage,
     }
     if (err.statusCode) return response.error(res, err.statusCode, err.message);
     next(err);
