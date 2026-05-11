@@ -171,6 +171,46 @@ router.get('/alerts', adminController.getAlerts);
  */
 router.get('/blood-inventory-summary', adminController.getBloodInventorySummary);
 
+/**
+ * @swagger
+ * /admin/rewards/config:
+ *   get:
+ *     summary: Get the current rewards configuration
+ *     tags: [Admin]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: Current rewards configuration
+ */
+router.get('/rewards/config', adminController.getRewardsConfig);
+
+/**
+ * @swagger
+ * /admin/rewards/config:
+ *   put:
+ *     summary: Update the rewards configuration
+ *     tags: [Admin]
+ *     security: [{ bearerAuth: [] }]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [points, tiers, tierBonuses]
+ *             properties:
+ *               points:
+ *                 type: object
+ *               tiers:
+ *                 type: object
+ *               tierBonuses:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Rewards configuration updated
+ */
+router.put('/rewards/config', adminController.updateRewardsConfig);
+
 // ──────────────────────────────────────────────
 //  Audit Logs
 // ──────────────────────────────────────────────

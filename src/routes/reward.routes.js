@@ -35,6 +35,20 @@ router.get('/points', requireRole('donor'), rc.getPoints);
 
 /**
  * @openapi
+ * /rewards/earning-rules:
+ *   get:
+ *     summary: Get the current reward earning rules
+ *     tags: [Donor]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dynamic earning rules for the rewards UI
+ */
+router.get('/earning-rules', requireRole('donor'), rc.getEarningRules);
+
+/**
+ * @openapi
  * /rewards/dashboard:
  *   get:
  *     tags: [Donor]
@@ -54,6 +68,7 @@ router.get('/points', requireRole('donor'), rc.getPoints);
  *               message: Rewards dashboard retrieved
  *               data:
  *                 points: 2340
+ *                 progressPercentage: 46
  *                 nextRewardPoints: 500
  *                 pointsToNextReward: 160
  *                 rewards:

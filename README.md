@@ -145,8 +145,8 @@ The following feature groups are implemented and exposed under root and compatib
 - Hospital: profile, request CRUD, close request, monthly reports, staff, blood-bank settings, notification preferences, blood inventory summary.
 - Appointments: donor booking, donor appointment list, donor cancellation.
 - Donations: completion endpoint and donor appointment listing alias.
-- Rewards: points/history, catalog/listing aliases, redeem aliases, badges, redemptions, leaderboard.
-- Admin: system health, maintenance, analytics/alerts, donor/hospital management, admin management, role-permissions management.
+- Rewards: points/history, earning rules, catalog/listing aliases, redeem aliases, badges, redemptions, leaderboard.
+- Admin: system health, maintenance, rewards config management, analytics/alerts, donor/hospital management, admin management, role-permissions management.
 - Discovery/Help/Support/Notifications: hospital discovery endpoints, FAQ/documents, contact/support messaging, notification listing and mark-read.
 
 ## Test Suite
@@ -167,6 +167,24 @@ Baseline suites:
 ```bash
 npm test
 ```
+
+## Rewards Configuration
+
+Reward earning values are now stored in MongoDB via the singleton `RewardsConfig` document and cached in memory by the backend service layer.
+
+Default config fields:
+
+- `points`: `bloodDonation`, `emergencyResponse`, `profileCompletion`, `referral`, `firstDonation`
+- `tiers`: `bronze`, `silver`, `gold`, `platinum`
+- `tierBonuses`: `silver`, `gold`, `platinum`
+
+Relevant endpoints:
+
+- `GET /rewards/earning-rules` - frontend-friendly earning rules payload.
+- `GET /admin/rewards/config` - view current reward config.
+- `PUT /admin/rewards/config` - update reward config; validates required fields and tier ordering.
+
+The service caches the config in memory and refreshes the cache immediately after admin updates or startup seeding.
 
 The suite runs in non-parallel mode (`maxWorkers: 1`) to keep Mongo memory tests deterministic.
 

@@ -3,6 +3,7 @@ import { env, validateEnv } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { seedDefaultSettings } from './services/admin.service.js';
 import { seedRewardData } from './services/reward.service.js';
+import { initializeDefaultConfig } from './services/rewardsConfig.service.js';
 import { logger } from './utils/logger.js';
 
 validateEnv();
@@ -10,6 +11,7 @@ await connectDB();
 
 // Seed default system settings and reward catalog (no-op if already exist)
 await seedDefaultSettings();
+await initializeDefaultConfig();
 await seedRewardData();
 
 

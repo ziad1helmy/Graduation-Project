@@ -4,6 +4,7 @@ import app from '../../src/app.js';
 import { setupTestDB, clearDatabase } from '../helpers/db.js';
 import { createAdmin, createDonor, createHospital } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
+import { getRewardsConfig } from '../../src/services/rewardsConfig.service.js';
 
 setupTestDB();
 
@@ -84,6 +85,61 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data).toHaveProperty('enabled');
+  });
+
+  it('GET /admin/rewards/config returns the current rewards config', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .get('/admin/rewards/config')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data).toHaveProperty('points');
+    expect(response.body.data.points).toHaveProperty('bloodDonation');
+  });
+
+  it('PUT /admin/rewards/config updates the rewards config', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const nextConfig = {
+      points: {
+        bloodDonation: 250,
+        emergencyResponse: 120,
+        profileCompletion: 60,
+        referral: 175,
+        firstDonation: 150,
+      },
+      tiers: {
+        bronze: 0,
+        silver: 1000,
+        gold: 2500,
+        platinum: 5000,
+      },
+      tierBonuses: {
+        silver: 75,
+        gold: 175,
+        platinum: 550,
+      },
+    };
+
+    const updateResponse = await request(app)
+      .put('/admin/rewards/config')
+      .set('Authorization', `Bearer ${token}`)
+      .send(nextConfig);
+
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.success).toBe(true);
+    expect(updateResponse.body.data.points.bloodDonation).toBe(250);
+
+    const persisted = await getRewardsConfig();
+    expect(persisted.points.bloodDonation).toBe(250);
   });
 
   it('GET /admin/statistics returns statistics summary', async () => {

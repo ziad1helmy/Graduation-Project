@@ -2,8 +2,9 @@ import { describe, it, expect, vi } from 'vitest';
 import { setupTestDB } from '../helpers/db.js';
 import { createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
 import DonorPoints from '../../src/models/DonorPoints.model.js';
-import PointsTransaction, { POINTS_CONFIG } from '../../src/models/PointsTransaction.model.js';
+import PointsTransaction from '../../src/models/PointsTransaction.model.js';
 import * as rewardService from '../../src/services/reward.service.js';
+import { getRewardsConfig } from '../../src/services/rewardsConfig.service.js';
 import { getPointsSummary, onDonationCompleted } from '../../src/services/reward.service.js';
 
 vi.mock('../../src/models/Notification.model.js', () => ({ create: vi.fn().mockResolvedValue(null) }));
@@ -21,6 +22,7 @@ describe('Reward Service', () => {
   it('onDonationCompleted awards base points and first-donation bonus', async () => {
     const donor = await createDonor();
     const donationId = 'dnt1';
+    const rewardsConfig = await getRewardsConfig();
 
     // Run the trigger
     await rewardService.onDonationCompleted(donor._id, donationId, false);
@@ -28,7 +30,7 @@ describe('Reward Service', () => {
     const account = await DonorPoints.findOne({ donorId: donor._id });
     expect(account).toBeTruthy();
 
-    const expectedEarned = POINTS_CONFIG.BLOOD_DONATION + POINTS_CONFIG.FIRST_DONATION;
+    const expectedEarned = rewardsConfig.points.bloodDonation + rewardsConfig.points.firstDonation;
     expect(account.lifetimePointsEarned).toBe(expectedEarned);
     expect(account.pointsBalance).toBe(expectedEarned);
 
@@ -41,13 +43,14 @@ describe('Reward Service', () => {
   it('onDonationCompleted awards emergency bonus when flagged', async () => {
     const donor = await createDonor();
     const donationId = 'dnt-emg';
+    const rewardsConfig = await getRewardsConfig();
 
     await rewardService.onDonationCompleted(donor._id, donationId, true);
 
     const account = await DonorPoints.findOne({ donorId: donor._id });
     expect(account).toBeTruthy();
 
-    const expected = POINTS_CONFIG.BLOOD_DONATION + POINTS_CONFIG.FIRST_DONATION + POINTS_CONFIG.EMERGENCY_RESPONSE;
+    const expected = rewardsConfig.points.bloodDonation + rewardsConfig.points.firstDonation + rewardsConfig.points.emergencyResponse;
     // lifetimePointsEarned may include tier bonuses from nested awardPoints calls; assert at least expected
     expect(account.lifetimePointsEarned).toBeGreaterThanOrEqual(expected);
 
@@ -181,6 +184,7 @@ describe('getPointsSummary', () => {
     expect(summary.lifetimePointsEarned).toBe(0);
     expect(summary.nextTier).toBe('silver');
     expect(summary.pointsToNextTier).toBe(1000);
+    expect(summary.progressPercentage).toBe(0);
     expect(summary.tierBenefits).toBeDefined();
   });
 

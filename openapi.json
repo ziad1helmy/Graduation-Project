@@ -798,6 +798,78 @@
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
+    "/admin/rewards/config": {
+      "get": {
+        "summary": "Get the current rewards configuration",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Current rewards configuration",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      },
+      "put": {
+        "summary": "Update the rewards configuration",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "points",
+                  "tiers",
+                  "tierBonuses"
+                ],
+                "properties": {
+                  "points": {
+                    "type": "object"
+                  },
+                  "tiers": {
+                    "type": "object"
+                  },
+                  "tierBonuses": {
+                    "type": "object"
+                  }
+                }
+              },
+              "example": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rewards configuration updated"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
     "/admin/audit-logs": {
       "get": {
         "summary": "List audit logs",
@@ -2841,7 +2913,27 @@
         },
         "responses": {
           "201": {
-            "description": "Appointment booked"
+            "description": "Appointment booked",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Appointment booked",
+                  "data": {
+                    "_id": "69fe540565ff7785a031315c",
+                    "donorId": "69f3df915f42685cbbbcbb18",
+                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "requestId": "69fe540565ff7785a031314f",
+                    "appointmentDate": "2026-05-12T10:00:00.000Z",
+                    "status": "confirmed",
+                    "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
+                    "qrExpiresAt": "2026-05-13T10:00:00.000Z",
+                    "notes": "First-time donor, available in the morning.",
+                    "donationType": "Whole Blood"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid appointment payload"
@@ -2873,21 +2965,57 @@
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "hospitalId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "69f3df915f42685cbbbcbb1b"
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "date"
+            },
+            "example": "2026-05-12"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Example response",
+            "description": "Available appointment slots retrieved successfully",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "Available slots retrieved successfully",
+                  "data": {
+                    "timeSlots": [
+                      "09:00 AM",
+                      "10:00 AM",
+                      "11:00 AM"
+                    ],
+                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "date": "2026-05-12T00:00:00.000Z",
+                    "slotsPerHour": 5
+                  }
                 }
               }
             }
+          },
+          "400": {
+            "description": "Invalid hospitalId or date"
+          },
+          "404": {
+            "description": "Hospital not found"
           }
-        }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/donations/book-appointment/my-appointments": {
@@ -2923,7 +3051,45 @@
         ],
         "responses": {
           "200": {
-            "description": "Appointments fetched successfully"
+            "description": "Appointments fetched successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Appointments fetched",
+                  "data": {
+                    "appointments": [
+                      {
+                        "_id": "69fe540565ff7785a031315c",
+                        "donorId": "69f3df915f42685cbbbcbb18",
+                        "hospitalId": {
+                          "_id": "69f3df915f42685cbbbcbb1b",
+                          "hospitalName": "Cairo Care Hospital",
+                          "fullName": "Cairo Care Operations",
+                          "address": {
+                            "city": "Cairo",
+                            "governorate": "Cairo"
+                          }
+                        },
+                        "requestId": "69fe540565ff7785a031314f",
+                        "appointmentDate": "2026-05-12T10:00:00.000Z",
+                        "status": "pending",
+                        "notes": "Test appointment",
+                        "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
+                        "qrExpiresAt": "2026-05-13T10:00:00.000Z",
+                        "donationType": "Whole Blood"
+                      }
+                    ],
+                    "total": 1,
+                    "meta": {
+                      "page": 1,
+                      "limit": 10,
+                      "total": 1
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -2959,7 +3125,35 @@
         ],
         "responses": {
           "200": {
-            "description": "Appointment retrieved"
+            "description": "Appointment retrieved",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Appointment retrieved",
+                  "data": {
+                    "_id": "69fe540565ff7785a031315c",
+                    "donorId": "69f3df915f42685cbbbcbb18",
+                    "hospitalId": {
+                      "_id": "69f3df915f42685cbbbcbb1b",
+                      "hospitalName": "Cairo Care Hospital",
+                      "fullName": "Cairo Care Operations",
+                      "address": {
+                        "city": "Cairo",
+                        "governorate": "Cairo"
+                      }
+                    },
+                    "requestId": "69fe540565ff7785a031314f",
+                    "appointmentDate": "2026-05-12T10:00:00.000Z",
+                    "status": "pending",
+                    "notes": "Test appointment",
+                    "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
+                    "qrExpiresAt": "2026-05-13T10:00:00.000Z",
+                    "donationType": "Whole Blood"
+                  }
+                }
+              }
+            }
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -3019,7 +3213,27 @@
         },
         "responses": {
           "200": {
-            "description": "Appointment rescheduled"
+            "description": "Appointment rescheduled",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Appointment rescheduled",
+                  "data": {
+                    "_id": "69fe540565ff7785a031315c",
+                    "donorId": "69f3df915f42685cbbbcbb18",
+                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "requestId": "69fe540565ff7785a031314f",
+                    "appointmentDate": "2026-05-15T14:00:00.000Z",
+                    "status": "pending",
+                    "notes": "Test appointment",
+                    "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
+                    "qrExpiresAt": "2026-05-13T10:00:00.000Z",
+                    "donationType": "Whole Blood"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid appointment payload"
@@ -3059,7 +3273,27 @@
         ],
         "responses": {
           "200": {
-            "description": "Appointment cancelled"
+            "description": "Appointment cancelled",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Appointment cancelled",
+                  "data": {
+                    "_id": "69fe540565ff7785a031315c",
+                    "donorId": "69f3df915f42685cbbbcbb18",
+                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "requestId": "69fe540565ff7785a031314f",
+                    "appointmentDate": "2026-05-12T10:00:00.000Z",
+                    "status": "cancelled",
+                    "cancelledAt": "2026-05-09T10:30:00.000Z",
+                    "notes": "Test appointment",
+                    "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
+                    "donationType": "Whole Blood"
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid appointment id"
@@ -3136,6 +3370,9 @@
           },
           "400": {
             "description": "One of:\n- qrToken is required\n- QR code expired\n- Appointment is cancelled\n- Appointment is not active\n"
+          },
+          "401": {
+            "description": "Missing or invalid JWT token"
           },
           "403": {
             "description": "Donor is not eligible to donate"
@@ -4071,21 +4308,44 @@
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "responses": {
           "200": {
-            "description": "Example response",
+            "description": "Appointments fetched successfully",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "Appointments fetched",
+                  "data": {
+                    "appointments": [
+                      {
+                        "_id": "69fe540565ff7785a031315c",
+                        "appointmentDate": "2026-05-12T10:00:00.000Z",
+                        "status": "pending",
+                        "notes": "Test appointment",
+                        "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
+                        "donationType": "Whole Blood"
+                      }
+                    ],
+                    "total": 1,
+                    "meta": {
+                      "page": 1,
+                      "limit": 10,
+                      "total": 1
+                    }
+                  }
                 }
               }
             }
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "403": {
+            "description": "Role not allowed"
           }
-        }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/donor/profile": {
@@ -4323,7 +4583,37 @@
                   "success": true,
                   "message": "Requests retrieved successfully",
                   "data": {
-                    "requests": [],
+                    "requests": [
+                      {
+                        "id": "69fe540565ff7785a031314f",
+                        "requestId": "69fe540565ff7785a031314f",
+                        "bloodType": "O+",
+                        "hospitalName": "Cairo Care Hospital",
+                        "patientType": "Emergency surgery support",
+                        "contactNumber": "1044444444",
+                        "unitsNeeded": 3,
+                        "isEmergency": true,
+                        "createdAt": "2026-05-07T09:00:00.000Z",
+                        "status": "pending",
+                        "requestStatus": "pending",
+                        "urgency": "critical",
+                        "type": "blood",
+                        "requiredBy": "2026-05-11T10:00:00.000Z",
+                        "locationHospital": {
+                          "latitude": 30.0511,
+                          "longitude": 31.2435
+                        },
+                        "googleMapsUrl": "https://www.google.com/maps/dir/?api=1&destination=30.0511,31.2435",
+                        "qrToken": "demo-request-qr-token",
+                        "qrCreatedAt": "2026-05-07T10:00:00.000Z",
+                        "qrExpiresAt": "2026-05-07T12:00:00.000Z",
+                        "hospital": {
+                          "id": "69f3df915f42685cbbbcbb1b",
+                          "name": "Cairo Care Hospital",
+                          "contactNumber": "1044444444"
+                        }
+                      }
+                    ],
                     "pagination": {
                       "page": 1,
                       "limit": 20,
@@ -6280,6 +6570,34 @@
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
+    "/rewards/earning-rules": {
+      "get": {
+        "summary": "Get the current reward earning rules",
+        "tags": [
+          "Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dynamic earning rules for the rewards UI",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
     "/rewards/dashboard": {
       "get": {
         "tags": [
@@ -6302,6 +6620,7 @@
                   "message": "Rewards dashboard retrieved",
                   "data": {
                     "points": 2340,
+                    "progressPercentage": 46,
                     "nextRewardPoints": 500,
                     "pointsToNextReward": 160,
                     "rewards": [

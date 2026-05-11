@@ -1,4 +1,4 @@
-import { POINTS_CONFIG } from '../models/PointsTransaction.model.js';
+import { DEFAULT_REWARDS_CONFIG } from '../models/RewardsConfig.model.js';
 
 export const ACTIVITY_TYPES = [
   'donation',
@@ -89,7 +89,7 @@ export const extractActivityPoints = (activity) => {
   if (typeof metadata.bonusPoints === 'number') return metadata.bonusPoints;
 
   if (activity?.type === 'donation' && activity?.action === 'completed_donation') {
-    return POINTS_CONFIG.BLOOD_DONATION;
+    return DEFAULT_REWARDS_CONFIG.points.bloodDonation;
   }
 
   return 0;

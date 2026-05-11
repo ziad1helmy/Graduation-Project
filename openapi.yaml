@@ -228,9 +228,7 @@ paths:
 
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       parameters:
@@ -383,9 +381,7 @@ paths:
         requests
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       requestBody:
         required: true
         content:
@@ -431,9 +427,7 @@ paths:
         Retrieve the authenticated admin's profile information
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -441,7 +435,8 @@ paths:
           description: Admin profile
           content:
             application/json:
-              example: &a1
+              example:
+                &a1
                 success: true
                 message: Example response
                 data: {}
@@ -553,6 +548,52 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /admin/rewards/config:
+    get:
+      summary: Get the current rewards configuration
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current rewards configuration
+          content:
+            application/json:
+              example: *a1
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+    put:
+      summary: Update the rewards configuration
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - points
+                - tiers
+                - tierBonuses
+              properties:
+                points:
+                  type: object
+                tiers:
+                  type: object
+                tierBonuses:
+                  type: object
+            example: {}
+      responses:
+        "200":
+          description: Rewards configuration updated
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
   /admin/audit-logs:
     get:
       summary: List audit logs
@@ -624,7 +665,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/donors/{id}:
+  "/admin/donors/{id}":
     get:
       tags:
         - Admin
@@ -695,7 +736,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /admin/hospitals/{id}:
+  "/admin/hospitals/{id}":
     get:
       tags:
         - Admin
@@ -779,7 +820,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/admins/{id}:
+  "/admin/admins/{id}":
     get:
       tags:
         - Admin
@@ -875,7 +916,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/donors/{id}/ban:
+  "/admin/donors/{id}/ban":
     post:
       tags:
         - Admin
@@ -910,7 +951,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /admin/donors/{id}/unban:
+  "/admin/donors/{id}/unban":
     post:
       tags:
         - Admin
@@ -934,7 +975,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/hospitals/{id}/status:
+  "/admin/hospitals/{id}/status":
     put:
       tags:
         - Admin
@@ -1041,7 +1082,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/permissions/roles/{role}:
+  "/admin/permissions/roles/{role}":
     get:
       tags:
         - Admin
@@ -1376,7 +1417,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /admin/users/{id}:
+  "/admin/users/{id}":
     get:
       summary: Get user details by ID
       tags:
@@ -1419,7 +1460,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/users/{id}/verify:
+  "/admin/users/{id}/verify":
     patch:
       summary: Verify a user's email
       tags:
@@ -1439,7 +1480,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/users/{id}/unverify:
+  "/admin/users/{id}/unverify":
     patch:
       summary: Unverify a user's email
       tags:
@@ -1459,7 +1500,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/users/{id}/suspend:
+  "/admin/users/{id}/suspend":
     patch:
       summary: Suspend a user account
       tags:
@@ -1494,7 +1535,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /admin/users/{id}/unsuspend:
+  "/admin/users/{id}/unsuspend":
     patch:
       summary: Unsuspend a user account
       tags:
@@ -1587,7 +1628,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/requests/{id}:
+  "/admin/requests/{id}":
     get:
       summary: Get full request details with donations
       tags:
@@ -1607,7 +1648,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/requests/{id}/donations:
+  "/admin/requests/{id}/donations":
     get:
       summary: Get donations for a specific request
       tags:
@@ -1627,7 +1668,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/requests/{id}/fulfill:
+  "/admin/requests/{id}/fulfill":
     patch:
       summary: Mark a request as fulfilled
       tags:
@@ -1647,7 +1688,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/requests/{id}/cancel:
+  "/admin/requests/{id}/cancel":
     patch:
       summary: Cancel a request
       tags:
@@ -1680,7 +1721,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /admin/requests/{id}/broadcast:
+  "/admin/requests/{id}/broadcast":
     post:
       summary: Broadcast request to eligible donors
       tags:
@@ -1911,6 +1952,22 @@ paths:
       responses:
         "201":
           description: Appointment booked
+          content:
+            application/json:
+              example:
+                success: true
+                message: Appointment booked
+                data:
+                  _id: 69fe540565ff7785a031315c
+                  donorId: 69f3df915f42685cbbbcbb18
+                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  requestId: 69fe540565ff7785a031314f
+                  appointmentDate: 2026-05-12T10:00:00.000Z
+                  status: confirmed
+                  qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+                  qrExpiresAt: 2026-05-13T10:00:00.000Z
+                  notes: First-time donor, available in the morning.
+                  donationType: Whole Blood
         "400":
           description: Invalid appointment payload
         "401":
@@ -1931,15 +1988,43 @@ paths:
       summary: Get available appointment slots for a hospital on a given date
       security:
         - bearerAuth: []
+      parameters:
+        - in: query
+          name: hospitalId
+          required: true
+          schema:
+            type: string
+          example: 69f3df915f42685cbbbcbb1b
+        - in: query
+          name: date
+          required: true
+          schema:
+            type: string
+            format: date
+          example: 2026-05-12
+      responses:
+        "200":
+          description: Available appointment slots retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Available slots retrieved successfully
+                data:
+                  timeSlots:
+                    - 09:00 AM
+                    - 10:00 AM
+                    - 11:00 AM
+                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  date: 2026-05-12T00:00:00.000Z
+                  slotsPerHour: 5
+        "400":
+          description: Invalid hospitalId or date
+        "404":
+          description: Hospital not found
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-      responses:
-        "200":
-          description: Example response
-          content:
-            application/json:
-              example: *a1
   /donations/book-appointment/my-appointments:
     get:
       tags:
@@ -1963,6 +2048,34 @@ paths:
       responses:
         "200":
           description: Appointments fetched successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Appointments fetched
+                data:
+                  appointments:
+                    - _id: 69fe540565ff7785a031315c
+                      donorId: 69f3df915f42685cbbbcbb18
+                      hospitalId:
+                        _id: 69f3df915f42685cbbbcbb1b
+                        hospitalName: Cairo Care Hospital
+                        fullName: Cairo Care Operations
+                        address:
+                          city: Cairo
+                          governorate: Cairo
+                      requestId: 69fe540565ff7785a031314f
+                      appointmentDate: 2026-05-12T10:00:00.000Z
+                      status: pending
+                      notes: Test appointment
+                      qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+                      qrExpiresAt: 2026-05-13T10:00:00.000Z
+                      donationType: Whole Blood
+                  total: 1
+                  meta:
+                    page: 1
+                    limit: 10
+                    total: 1
         "401":
           description: Missing or invalid JWT
         "403":
@@ -1970,7 +2083,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /donations/book-appointment/{appointmentId}:
+  "/donations/book-appointment/{appointmentId}":
     get:
       tags:
         - Donor
@@ -1987,6 +2100,28 @@ paths:
       responses:
         "200":
           description: Appointment retrieved
+          content:
+            application/json:
+              example:
+                success: true
+                message: Appointment retrieved
+                data:
+                  _id: 69fe540565ff7785a031315c
+                  donorId: 69f3df915f42685cbbbcbb18
+                  hospitalId:
+                    _id: 69f3df915f42685cbbbcbb1b
+                    hospitalName: Cairo Care Hospital
+                    fullName: Cairo Care Operations
+                    address:
+                      city: Cairo
+                      governorate: Cairo
+                  requestId: 69fe540565ff7785a031314f
+                  appointmentDate: 2026-05-12T10:00:00.000Z
+                  status: pending
+                  notes: Test appointment
+                  qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+                  qrExpiresAt: 2026-05-13T10:00:00.000Z
+                  donationType: Whole Blood
         "401":
           description: Missing or invalid JWT
         "403":
@@ -2027,6 +2162,22 @@ paths:
       responses:
         "200":
           description: Appointment rescheduled
+          content:
+            application/json:
+              example:
+                success: true
+                message: Appointment rescheduled
+                data:
+                  _id: 69fe540565ff7785a031315c
+                  donorId: 69f3df915f42685cbbbcbb18
+                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  requestId: 69fe540565ff7785a031314f
+                  appointmentDate: 2026-05-15T14:00:00.000Z
+                  status: pending
+                  notes: Test appointment
+                  qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+                  qrExpiresAt: 2026-05-13T10:00:00.000Z
+                  donationType: Whole Blood
         "400":
           description: Invalid appointment payload
         "401":
@@ -2054,6 +2205,22 @@ paths:
       responses:
         "200":
           description: Appointment cancelled
+          content:
+            application/json:
+              example:
+                success: true
+                message: Appointment cancelled
+                data:
+                  _id: 69fe540565ff7785a031315c
+                  donorId: 69f3df915f42685cbbbcbb18
+                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  requestId: 69fe540565ff7785a031314f
+                  appointmentDate: 2026-05-12T10:00:00.000Z
+                  status: cancelled
+                  cancelledAt: 2026-05-09T10:30:00.000Z
+                  notes: Test appointment
+                  qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+                  donationType: Whole Blood
         "400":
           description: Invalid appointment id
         "401":
@@ -2086,9 +2253,7 @@ paths:
 
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       security:
         - bearerAuth: []
       requestBody:
@@ -2129,6 +2294,8 @@ paths:
             - QR code expired
             - Appointment is cancelled
             - Appointment is not active
+        "401":
+          description: Missing or invalid JWT token
         "403":
           description: Donor is not eligible to donate
         "404":
@@ -2145,9 +2312,7 @@ paths:
         dateOfBirth, bloodType.
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       requestBody:
         required: true
         content:
@@ -2204,9 +2369,7 @@ paths:
         Authenticate as a donor user. Returns JWT token. Supports optional 2FA
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       requestBody:
         required: true
         content:
@@ -2232,9 +2395,7 @@ paths:
         Authenticate as a hospital user. Returns JWT token
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       requestBody:
         required: true
         content:
@@ -2261,9 +2422,7 @@ paths:
         adminKey secret
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       requestBody:
         required: true
         content:
@@ -2515,9 +2674,7 @@ paths:
         and blood inventory status
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       parameters:
         - in: query
           name: city
@@ -2582,9 +2739,7 @@ paths:
         latitude/longitude parameters
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       parameters:
         - in: query
           name: lat
@@ -2716,7 +2871,7 @@ paths:
           content:
             application/json:
               example: *a1
-  /hospitals/{id}:
+  "/hospitals/{id}":
     get:
       summary: Get hospital details by id
       tags:
@@ -2796,15 +2951,34 @@ paths:
       summary: Get donor appointments via the donations compatibility alias
       security:
         - bearerAuth: []
+      responses:
+        "200":
+          description: Appointments fetched successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Appointments fetched
+                data:
+                  appointments:
+                    - _id: 69fe540565ff7785a031315c
+                      appointmentDate: 2026-05-12T10:00:00.000Z
+                      status: pending
+                      notes: Test appointment
+                      qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+                      donationType: Whole Blood
+                  total: 1
+                  meta:
+                    page: 1
+                    limit: 10
+                    total: 1
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-      responses:
-        "200":
-          description: Example response
-          content:
-            application/json:
-              example: *a1
   /donor/profile:
     get:
       tags:
@@ -2815,9 +2989,7 @@ paths:
         type, availability status, and location
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -2853,9 +3025,7 @@ paths:
         gender, location, and availability
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       security:
         - bearerAuth: []
       requestBody:
@@ -2946,9 +3116,7 @@ paths:
         donor eligibility criteria. Filters by type and urgency
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       parameters:
@@ -2995,7 +3163,32 @@ paths:
                 success: true
                 message: Requests retrieved successfully
                 data:
-                  requests: []
+                  requests:
+                    - id: 69fe540565ff7785a031314f
+                      requestId: 69fe540565ff7785a031314f
+                      bloodType: O+
+                      hospitalName: Cairo Care Hospital
+                      patientType: Emergency surgery support
+                      contactNumber: "1044444444"
+                      unitsNeeded: 3
+                      isEmergency: true
+                      createdAt: 2026-05-07T09:00:00.000Z
+                      status: pending
+                      requestStatus: pending
+                      urgency: critical
+                      type: blood
+                      requiredBy: 2026-05-11T10:00:00.000Z
+                      locationHospital:
+                        latitude: 30.0511
+                        longitude: 31.2435
+                      googleMapsUrl: https://www.google.com/maps/dir/?api=1&destination=30.0511,31.2435
+                      qrToken: demo-request-qr-token
+                      qrCreatedAt: 2026-05-07T10:00:00.000Z
+                      qrExpiresAt: 2026-05-07T12:00:00.000Z
+                      hospital:
+                        id: 69f3df915f42685cbbbcbb1b
+                        name: Cairo Care Hospital
+                        contactNumber: "1044444444"
                   pagination:
                     page: 1
                     limit: 20
@@ -3052,7 +3245,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /donor/respond/{requestId}:
+  "/donor/respond/{requestId}":
     post:
       tags:
         - Donor
@@ -3326,9 +3519,7 @@ paths:
         header and profile stats row.
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -3355,9 +3546,7 @@ paths:
         next milestone.
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -3390,14 +3579,11 @@ paths:
       description: >-
         Paginated donation history for the authenticated donor.
 
-        Each record includes `pointsEarned` calculated from the points
-        transaction log.
+        Each record includes `pointsEarned` calculated from the points transaction log.
 
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       parameters:
@@ -3460,7 +3646,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /help/documents/{type}:
+  "/help/documents/{type}":
     get:
       summary: Get help document by type
       tags:
@@ -3470,9 +3656,7 @@ paths:
         configured.
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       parameters:
         - in: path
           name: type
@@ -3493,9 +3677,7 @@ paths:
         license, contact details, blood inventory, and location coordinates
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -3531,9 +3713,7 @@ paths:
         location coordinates (lat/long), and license number
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       security:
         - bearerAuth: []
       requestBody:
@@ -3618,9 +3798,7 @@ paths:
         blood types, and deadline
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       security:
         - bearerAuth: []
       requestBody:
@@ -3751,7 +3929,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /hospital/requests/{requestId}:
+  "/hospital/requests/{requestId}":
     get:
       tags:
         - Hospital
@@ -4060,7 +4238,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /hospital/staff/{id}:
+  "/hospital/staff/{id}":
     delete:
       tags:
         - Hospital
@@ -4116,7 +4294,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /notifications/{id}/read:
+  "/notifications/{id}/read":
     patch:
       summary: Mark one notification as read
       tags:
@@ -4152,7 +4330,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /notifications/{id}:
+  "/notifications/{id}":
     get:
       summary: Get one notification
       tags:
@@ -4211,7 +4389,7 @@ paths:
           content:
             application/json:
               example: *a1
-  /requests/{id}/google-maps:
+  "/requests/{id}/google-maps":
     get:
       tags:
         - Requests
@@ -4227,7 +4405,7 @@ paths:
           content:
             application/json:
               example: *a1
-  /requests/{id}:
+  "/requests/{id}":
     get:
       tags:
         - Requests
@@ -4243,7 +4421,7 @@ paths:
           content:
             application/json:
               example: *a1
-  /requests/{id}/generate-qr:
+  "/requests/{id}/generate-qr":
     post:
       tags:
         - Requests
@@ -4275,7 +4453,7 @@ paths:
           content:
             application/json:
               example: *a1
-  /requests/{id}/accept:
+  "/requests/{id}/accept":
     post:
       tags:
         - Requests
@@ -4291,7 +4469,7 @@ paths:
           content:
             application/json:
               example: *a1
-  /requests/{id}/cancel:
+  "/requests/{id}/cancel":
     post:
       tags:
         - Requests
@@ -4323,6 +4501,22 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /rewards/earning-rules:
+    get:
+      summary: Get the current reward earning rules
+      tags:
+        - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dynamic earning rules for the rewards UI
+          content:
+            application/json:
+              example: *a1
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
   /rewards/dashboard:
     get:
       tags:
@@ -4331,14 +4525,11 @@ paths:
       description: >-
         Returns all data needed to render the Rewards screen in a single call:
 
-        current points, rewards catalog, points history (last 10), and badge
-        progress.
+        current points, rewards catalog, points history (last 10), and badge progress.
 
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -4351,6 +4542,7 @@ paths:
                 message: Rewards dashboard retrieved
                 data:
                   points: 2340
+                  progressPercentage: 46
                   nextRewardPoints: 500
                   pointsToNextReward: 160
                   rewards:
@@ -4387,9 +4579,7 @@ paths:
         completion percentage.
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
@@ -4544,7 +4734,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /rewards/catalog/{rewardId}/redeem:
+  "/rewards/catalog/{rewardId}/redeem":
     post:
       summary: Redeem a reward using points
       tags:
@@ -4642,7 +4832,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /rewards/admin/users/{userId}/points/adjust:
+  "/rewards/admin/users/{userId}/points/adjust":
     post:
       summary: Manually adjust a donor's points (admin only)
       tags:
@@ -4680,7 +4870,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /rewards/admin/catalog/{rewardId}/status:
+  "/rewards/admin/catalog/{rewardId}/status":
     patch:
       summary: Update a reward's status (admin only)
       tags:
@@ -4745,9 +4935,7 @@ paths:
         role for traceability.
 
 
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example.
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       requestBody:
         required: true
         content:
