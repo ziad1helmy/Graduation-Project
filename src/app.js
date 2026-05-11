@@ -19,6 +19,8 @@ import discoveryRoutes from './routes/discovery.routes.js';
 import helpRoutes from './routes/help.routes.js';
 import supportRoutes from './routes/support.routes.js';
 import activityRoutes from './routes/activity.routes.js';
+import analyticsRoutes from './routes/analytics.routes.js';
+import campaignRoutes from './routes/campaign.routes.js';
 import errorMiddleware from './middlewares/error.middleware.js';
 import authMiddleware from './middlewares/auth.middleware.js';
 import requireRole from './middlewares/role.middleware.js';
@@ -27,6 +29,7 @@ import * as activityController from './controllers/activity.controller.js';
 import * as rc from './controllers/reward.controller.js';
 import { authLimiter, limiter } from './middlewares/rateLimit.middleware.js';
 import maintenanceMiddleware from './middlewares/maintenance.middleware.js';
+import webhookRoutes from './routes/webhook.routes.js';
 
 const app = express();
 const startedAt = new Date().toISOString();
@@ -167,8 +170,11 @@ app.use('/donations/book-appointment', limiter, appointmentRoutes);
 app.use('/donations', limiter, donationRoutes);
 app.use('/notifications', limiter, notificationRoutes);
 app.use('/hospitals', limiter, discoveryRoutes);
+app.use('/analytics', limiter, analyticsRoutes);
+app.use('/campaigns', limiter, campaignRoutes);
 app.use('/help', helpRoutes);
 app.use('/support', supportRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Flutter-facing aliases that keep the newer root paths stable.
 app.get('/dashboard', authMiddleware, requireRole('donor'), donorController.getDashboard);

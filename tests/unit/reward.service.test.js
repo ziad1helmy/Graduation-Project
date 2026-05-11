@@ -2,8 +2,13 @@ import { describe, it, expect, vi } from 'vitest';
 import { setupTestDB } from '../helpers/db.js';
 import { createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
 import DonorPoints from '../../src/models/DonorPoints.model.js';
-import PointsTransaction, { POINTS_CONFIG } from '../../src/models/PointsTransaction.model.js';
+import PointsTransaction from '../../src/models/PointsTransaction.model.js';
+import Donor from '../../src/models/Donor.model.js';
+import Request from '../../src/models/Request.model.js';
+import Donation from '../../src/models/Donation.model.js';
 import * as rewardService from '../../src/services/reward.service.js';
+import * as matchingService from '../../src/services/matching.service.js';
+import { getRewardsConfig } from '../../src/services/rewardsConfig.service.js';
 import { getPointsSummary, onDonationCompleted } from '../../src/services/reward.service.js';
 
 vi.mock('../../src/models/Notification.model.js', () => ({ create: vi.fn().mockResolvedValue(null) }));
@@ -19,16 +24,19 @@ beforeAll(async () => {
 
 describe('Reward Service', () => {
   it('onDonationCompleted awards base points and first-donation bonus', async () => {
+    const hospital = await createHospital();
     const donor = await createDonor();
-    const donationId = 'dnt1';
+    const request = await createRequest(hospital._id);
+    const donation = await createDonation(donor._id, request._id, { status: 'completed' });
+    const rewardsConfig = await getRewardsConfig();
 
     // Run the trigger
-    await rewardService.onDonationCompleted(donor._id, donationId, false);
+    await rewardService.onDonationCompleted(donor._id, donation._id, false);
 
     const account = await DonorPoints.findOne({ donorId: donor._id });
     expect(account).toBeTruthy();
 
-    const expectedEarned = POINTS_CONFIG.BLOOD_DONATION + POINTS_CONFIG.FIRST_DONATION;
+    const expectedEarned = rewardService.POINTS_BY_TYPE.blood + rewardsConfig.points.firstDonation;
     expect(account.lifetimePointsEarned).toBe(expectedEarned);
     expect(account.pointsBalance).toBe(expectedEarned);
 
@@ -41,13 +49,14 @@ describe('Reward Service', () => {
   it('onDonationCompleted awards emergency bonus when flagged', async () => {
     const donor = await createDonor();
     const donationId = 'dnt-emg';
+    const rewardsConfig = await getRewardsConfig();
 
     await rewardService.onDonationCompleted(donor._id, donationId, true);
 
     const account = await DonorPoints.findOne({ donorId: donor._id });
     expect(account).toBeTruthy();
 
-    const expected = POINTS_CONFIG.BLOOD_DONATION + POINTS_CONFIG.FIRST_DONATION + POINTS_CONFIG.EMERGENCY_RESPONSE;
+    const expected = rewardsConfig.points.bloodDonation + rewardsConfig.points.firstDonation + rewardsConfig.points.emergencyResponse;
     // lifetimePointsEarned may include tier bonuses from nested awardPoints calls; assert at least expected
     expect(account.lifetimePointsEarned).toBeGreaterThanOrEqual(expected);
 
@@ -181,6 +190,7 @@ describe('getPointsSummary', () => {
     expect(summary.lifetimePointsEarned).toBe(0);
     expect(summary.nextTier).toBe('silver');
     expect(summary.pointsToNextTier).toBe(1000);
+    expect(summary.progressPercentage).toBe(0);
     expect(summary.tierBenefits).toBeDefined();
   });
 
@@ -195,5 +205,117 @@ describe('getPointsSummary', () => {
     const summary = await getPointsSummary(donor._id);
     expect(summary.pointsBalance).toBeGreaterThanOrEqual(200);
     expect(summary.lifetimePointsEarned).toBeGreaterThanOrEqual(200);
+  });
+});
+
+describe('Type-specific awards and cooldowns', () => {
+  it('awards correct points for organ donations', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const request = await createRequest(hospital._id, { type: 'organ', organType: 'kidney' });
+    const donation = await createDonation(donor._id, request._id, { status: 'completed' });
+
+    await onDonationCompleted(donor._id, donation._id, false);
+
+    const tx = await PointsTransaction.findOne({ donorId: donor._id, transactionType: 'ORGAN_DONATION' });
+    expect(tx).toBeTruthy();
+    expect(tx.pointsAmount).toBe(rewardService.POINTS_BY_TYPE.organ);
+  });
+
+  it('enforces per-type cooldowns', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    // Set last donation to 100 days ago
+    const past = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000);
+    await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: past });
+
+    const bloodRequest = await createRequest(hospital._id, { type: 'blood' });
+    const organRequest = await createRequest(hospital._id, { type: 'organ', organType: 'kidney' });
+
+    const bloodReq = await Request.findById(bloodRequest._id);
+    const organReq = await Request.findById(organRequest._id);
+
+    // Re-fetch donor so lastDonationDate update is visible in the document passed to checkEligibility
+    const refreshedDonor = await Donor.findById(donor._id);
+    const bloodEligibility = await matchingService.checkEligibility(refreshedDonor, bloodReq);
+    const organEligibility = await matchingService.checkEligibility(refreshedDonor, organReq);
+
+    // 100 days -> blood (56 days) eligible, organ (365 days) not eligible
+    expect(bloodEligibility.eligible).toBe(true);
+    expect(organEligibility.eligible).toBe(false);
+  });
+
+  it('handles donations with missing request gracefully (fallback)', async () => {
+    const donor = await createDonor();
+    // Create a donation without a requestId
+    const donation = await Donation.create({ donorId: donor._id, quantity: 1, status: 'completed' });
+
+    await expect(onDonationCompleted(donor._id, donation._id, false)).resolves.not.toThrow();
+
+    const tx = await PointsTransaction.findOne({ donorId: donor._id });
+    expect(tx).toBeTruthy();
+  });
+
+  it('should award 150 points for a plasma donation', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const request = await createRequest(hospital._id, { type: 'plasma' });
+    const donation = await createDonation(donor._id, request._id, { status: 'completed' });
+
+    await onDonationCompleted(donor._id, donation._id, false);
+
+    const account = await DonorPoints.findOne({ donorId: donor._id });
+    expect(account).toBeTruthy();
+    // 150 points for plasma + first donation bonus
+    expect(account.pointsBalance).toBeGreaterThanOrEqual(150);
+
+    // Verify transaction type
+    const tx = await PointsTransaction.findOne({
+      donorId: donor._id,
+      transactionType: 'PLASMA_DONATION',
+    });
+    expect(tx).toBeTruthy();
+  });
+
+  it('should award 175 points for a platelets donation', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const request = await createRequest(hospital._id, { type: 'platelets' });
+    const donation = await createDonation(donor._id, request._id, { status: 'completed' });
+
+    await onDonationCompleted(donor._id, donation._id, false);
+
+    const account = await DonorPoints.findOne({ donorId: donor._id });
+    expect(account).toBeTruthy();
+    // 175 points for platelets + first donation bonus
+    expect(account.pointsBalance).toBeGreaterThanOrEqual(175);
+
+    // Verify transaction type
+    const tx = await PointsTransaction.findOne({
+      donorId: donor._id,
+      transactionType: 'PLATELETS_DONATION',
+    });
+    expect(tx).toBeTruthy();
+  });
+
+  it('should award 500 points for an organ donation', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const request = await createRequest(hospital._id, { type: 'organ', organType: 'kidney' });
+    const donation = await createDonation(donor._id, request._id, { status: 'completed' });
+
+    await onDonationCompleted(donor._id, donation._id, false);
+
+    const account = await DonorPoints.findOne({ donorId: donor._id });
+    expect(account).toBeTruthy();
+    // 500 points for organ + first donation bonus
+    expect(account.pointsBalance).toBeGreaterThanOrEqual(500);
+
+    // Verify transaction type
+    const tx = await PointsTransaction.findOne({
+      donorId: donor._id,
+      transactionType: 'ORGAN_DONATION',
+    });
+    expect(tx).toBeTruthy();
   });
 });

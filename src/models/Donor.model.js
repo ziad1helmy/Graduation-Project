@@ -149,12 +149,6 @@ const donorSchema = new mongoose.Schema({
 
     // Location is inherited from the base User model
     // (city, governorate, coordinates, lastUpdated)
-    settings: {
-        pushNotifications: { type: Boolean, default: true },
-        emergencyAlerts: { type: Boolean, default: true },
-        privacy: { type: String, enum: ['public', 'private', 'friends'], default: 'public' },
-        language: { type: String, enum: ['en', 'ar'], default: 'en' },
-    },
 })
 
 donorSchema.virtual('isBanned').get(function () {

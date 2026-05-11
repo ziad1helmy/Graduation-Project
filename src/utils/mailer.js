@@ -1,7 +1,11 @@
 import { Resend } from 'resend';
 import { env } from '../config/env.js';
 import { logger } from './logger.js';
-import { confirmEmailTemplate, resetPasswordOtpTemplate, resetPasswordTemplate } from './emailTemplates.js';
+import {
+  confirmEmailTemplate,
+  resetPasswordOtpTemplate,
+  resetPasswordTemplate,
+} from './emailTemplates.js';
 
 // ─── Transport ────────────────────────────────────────────────────────────────
 
@@ -13,22 +17,43 @@ function isProduction() {
   return env.NODE_ENV === 'production';
 }
 
+let _resendClient = null;
 function getResendClient() {
   if (!hasEmailConfig()) return null;
-  return new Resend(env.RESEND_API_KEY);
+  if (!_resendClient) _resendClient = new Resend(env.RESEND_API_KEY);
+  return _resendClient;
 }
 
 function getMailFrom() {
   return env.MAIL_FROM || 'LifeLink <onboarding@resend.dev>';
 }
 
+function getRecipient(to) {
+  // In development, redirect all emails to DEV_MAIL_TO if set
+  if (!isProduction() && env.DEV_MAIL_TO) {
+    return env.DEV_MAIL_TO;
+  }
+  return to;
+}
+
+function getSubject(subject) {
+  // Prefix subject with [DEV] in development for clarity
+  return !isProduction() ? `[DEV] ${subject}` : subject;
+}
+
 // ─── Core send ────────────────────────────────────────────────────────────────
 
+/**
+ * Send a raw email.
+ * @param {{ to: string|string[], subject: string, text?: string, html?: string }} options
+ * @returns {Promise<{ sent: true } | { skipped: true, reason: string, error?: string }>}
+ */
 async function sendMail({ to, subject, text, html }) {
   const client = getResendClient();
 
   if (!client) {
     if (!isProduction()) {
+      logger.warn('Email skipped — RESEND_API_KEY not configured', { subject, to });
       return {
         skipped: true,
         reason: 'RESEND_API_KEY is not configured',
@@ -38,22 +63,29 @@ async function sendMail({ to, subject, text, html }) {
     throw new Error('Email transport is not configured');
   }
 
+  const recipient = getRecipient(to);
+  const finalSubject = getSubject(subject);
+
   try {
-    await client.emails.send({
+    const { data, error } = await client.emails.send({
       from: getMailFrom(),
-      to,
-      subject,
+      to: recipient,
+      subject: finalSubject,
       text,
       html,
     });
 
-    logger.info('Email sent', { subject, to });
-    return { sent: true };
+    if (error) {
+      throw Object.assign(new Error(error.message), { code: error.name });
+    }
+
+    logger.info('Email sent', { subject: finalSubject, to: recipient, id: data?.id });
+    return { sent: true, id: data?.id };
 
   } catch (error) {
     logger.error('Resend Email Send Error', {
-      subject,
-      to,
+      subject: finalSubject,
+      to: recipient,
       message: error.message,
       code: error.code,
     });
@@ -80,14 +112,16 @@ function normalizeMailResult(result) {
       ...(result.error ? { error: result.error } : {}),
     };
   }
-  return { sent: true };
+  return { sent: true, ...(result?.id ? { id: result.id } : {}) };
 }
 
 function buildFrontendUrl(pathname, params = {}) {
-  const url = new URL(pathname, env.FRONTEND_URL);
+  const base = env.FRONTEND_URL?.replace(/\/$/, '');
+  if (!base) throw new Error('FRONTEND_URL is not configured');
+  const url = new URL(pathname, base);
   Object.entries(params).forEach(([key, value]) => {
     if (value !== undefined && value !== null) {
-      url.searchParams.set(key, value);
+      url.searchParams.set(key, String(value));
     }
   });
   return url.toString();
@@ -95,7 +129,16 @@ function buildFrontendUrl(pathname, params = {}) {
 
 function createTokenText({ fullName, actionLabel, url, token }) {
   const safeName = fullName || 'there';
-  return `Hello ${safeName},\n\nUse the following link to ${actionLabel}: ${url}\n\nToken: ${token}`;
+  return [
+    `Hello ${safeName},`,
+    '',
+    `Use the following link to ${actionLabel}:`,
+    url,
+    '',
+    `Token: ${token}`,
+    '',
+    'If you did not request this, you can safely ignore this email.',
+  ].join('\n');
 }
 
 async function sendTokenEmail({
@@ -132,7 +175,13 @@ async function sendVerificationOtpEmail({
   onDevNoSmtp,
 }) {
   const html = template({ otp, name: fullName });
-  const text = `Hello ${fullName || 'there'},\n\nUse this verification code to activate your LifeLink account: ${otp}`;
+  const text = [
+    `Hello ${fullName || 'there'},`,
+    '',
+    `Use this verification code to activate your LifeLink account: ${otp}`,
+    '',
+    'If you did not request this, you can safely ignore this email.',
+  ].join('\n');
 
   if (!hasEmailConfig() && !isProduction()) {
     if (typeof onDevNoSmtp === 'function') {
@@ -147,6 +196,9 @@ async function sendVerificationOtpEmail({
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+/**
+ * Send a password reset link email.
+ */
 export async function sendPasswordResetEmail({ to, fullName, token }) {
   return sendTokenEmail({
     to,
@@ -159,6 +211,9 @@ export async function sendPasswordResetEmail({ to, fullName, token }) {
   });
 }
 
+/**
+ * Send a password reset OTP code email.
+ */
 export async function sendPasswordResetOtpEmail({ to, fullName, otp, expiresInMinutes = 10 }) {
   const subject = 'Your LifeLink password reset code';
   const text = [
@@ -173,10 +228,15 @@ export async function sendPasswordResetOtpEmail({ to, fullName, otp, expiresInMi
     '',
     'If you did not request this, ignore this email.',
   ].join('\n');
-  const html = resetPasswordOtpTemplate({ otp, expiresInMinutes, name: fullName || 'LifeLink user' });
+
+  const html = resetPasswordOtpTemplate({
+    otp,
+    expiresInMinutes,
+    name: fullName || 'LifeLink user',
+  });
 
   if (!hasEmailConfig() && !isProduction()) {
-    logger.debug('Password reset OTP', { email: to, otp, expiresInMinutes });
+    logger.debug('Password reset OTP (dev)', { email: to, otp, expiresInMinutes });
     return { skipped: true, reason: 'Resend API key not configured' };
   }
 
@@ -184,39 +244,86 @@ export async function sendPasswordResetOtpEmail({ to, fullName, otp, expiresInMi
   return normalizeMailResult(result);
 }
 
+/**
+ * Send a confirmation email after password was changed.
+ */
 export async function sendPasswordResetConfirmationEmail({ to, fullName }) {
   const subject = 'Your LifeLink password was changed';
-  const text = `Hello ${fullName || 'there'},\n\nYour password was changed successfully. If you did not do this, please contact support immediately.`;
+  const text = [
+    `Hello ${fullName || 'there'},`,
+    '',
+    'Your password was changed successfully.',
+    'If you did not do this, please contact support immediately.',
+  ].join('\n');
+
   const html = `
     <p>Hello ${fullName || 'there'},</p>
     <p>Your password was changed successfully.</p>
-    <p>If you did not do this, please contact support immediately.</p>
+    <p>If you did not do this, please <a href="mailto:support@lifelink.eg">contact support</a> immediately.</p>
   `;
 
   const result = await sendMail({ to, subject, text, html });
   return normalizeMailResult(result);
 }
 
+/**
+ * Send an email verification OTP to a new user.
+ */
 export async function sendEmailVerificationEmail({ to, fullName, otp }) {
   return sendVerificationOtpEmail({
     to,
     fullName,
+    otp,
     subject: 'Verify your LifeLink email address',
     template: confirmEmailTemplate,
     onDevNoSmtp: ({ otp: verificationOtp }) => {
-      logger.debug('Email verification code', { email: to, otp: verificationOtp });
+      logger.debug('Email verification OTP (dev)', { email: to, otp: verificationOtp });
       return { skipped: true };
     },
-    otp,
   });
 }
 
+/**
+ * Send a confirmation email after email was verified.
+ */
 export async function sendEmailVerificationConfirmationEmail({ to, fullName }) {
   const subject = 'Your LifeLink email is verified';
-  const text = `Hello ${fullName || 'there'},\n\nYour email address has been verified successfully.`;
+  const text = [
+    `Hello ${fullName || 'there'},`,
+    '',
+    'Your email address has been verified successfully.',
+    'Welcome to LifeLink!',
+  ].join('\n');
+
   const html = `
     <p>Hello ${fullName || 'there'},</p>
     <p>Your email address has been verified successfully.</p>
+    <p>Welcome to LifeLink! 🎉</p>
+  `;
+
+  const result = await sendMail({ to, subject, text, html });
+  return normalizeMailResult(result);
+}
+
+/**
+ * Send a welcome email to a newly registered user.
+ */
+export async function sendWelcomeEmail({ to, fullName }) {
+  const subject = 'Welcome to LifeLink!';
+  const text = [
+    `Hello ${fullName || 'there'},`,
+    '',
+    "Welcome to LifeLink! We're glad to have you.",
+    'Your account is ready to use.',
+    '',
+    'If you have any questions, feel free to reach out to our support team.',
+  ].join('\n');
+
+  const html = `
+    <p>Hello ${fullName || 'there'},</p>
+    <p>Welcome to <strong>LifeLink</strong>! We're glad to have you. 🎉</p>
+    <p>Your account is ready to use.</p>
+    <p>If you have any questions, feel free to reach out to our support team.</p>
   `;
 
   const result = await sendMail({ to, subject, text, html });
@@ -229,4 +336,5 @@ export default {
   sendPasswordResetConfirmationEmail,
   sendEmailVerificationEmail,
   sendEmailVerificationConfirmationEmail,
+  sendWelcomeEmail,
 };

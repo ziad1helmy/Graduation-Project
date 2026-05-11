@@ -7,19 +7,11 @@ import mongoose from 'mongoose';
  * Never delete records from this collection.
  */
 
-// Points values — single source of truth, shared with reward.service.js
-export const POINTS_CONFIG = {
-  BLOOD_DONATION: 200,
-  EMERGENCY_RESPONSE: 100,
-  PROFILE_COMPLETION: 50,
-  FIRST_DONATION: 100,      // bonus on top of BLOOD_DONATION for first ever
-  TIER_BONUS_SILVER: 50,
-  TIER_BONUS_GOLD: 150,
-  TIER_BONUS_PLATINUM: 500,
-};
-
-const TRANSACTION_TYPES = [
+export const TRANSACTION_TYPES = [
   'BLOOD_DONATION',
+  'PLASMA_DONATION',
+  'PLATELETS_DONATION',
+  'ORGAN_DONATION',
   'EMERGENCY_RESPONSE',
   'PROFILE_COMPLETION',
   'FIRST_DONATION',

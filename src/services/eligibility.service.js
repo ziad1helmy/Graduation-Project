@@ -10,6 +10,14 @@ const GENDER_DONATION_INTERVAL_DAYS = {
   male: 84,
   female: 112,
 };
+
+// Per-donation-type cooldowns (days). Use request.type enum values.
+const COOLDOWN_DAYS_BY_TYPE = {
+  blood: 56,
+  plasma: 14,
+  platelets: 7,
+  organ: 365,
+};
 const TRAVEL_DEFERRAL_DAYS = 28;
 const MIN_HEMOGLOBIN_LEVEL = 12.5;
 
@@ -27,7 +35,11 @@ const getSeventeenthBirthday = (dateOfBirth) => {
   return new Date(birthDate.getFullYear() + 17, birthDate.getMonth(), birthDate.getDate());
 };
 
-const getRequiredDonationInterval = (gender) => {
+const getRequiredDonationInterval = (gender, donationType) => {
+  // Priority: per-type cooldown -> gender-based -> default
+  if (donationType && COOLDOWN_DAYS_BY_TYPE[donationType]) {
+    return COOLDOWN_DAYS_BY_TYPE[donationType];
+  }
   const normalizedGender = typeof gender === 'string' ? gender.trim().toLowerCase() : '';
   return GENDER_DONATION_INTERVAL_DAYS[normalizedGender] || DEFAULT_DONATION_INTERVAL_DAYS;
 };
@@ -117,7 +129,7 @@ const evaluateTravelDeferralRule = async (donor, { persistTravelDeferral = true 
   return makeRuleResult(false, 'Travel to high-risk country', travelDeferralDate);
 };
 
-const evaluateDonationIntervalRule = (donor) => {
+const evaluateDonationIntervalRule = (donor, { donationType } = {}) => {
   const now = new Date();
   if (!donor?.lastDonationDate) {
     return makeRuleResult(true, 'No donation interval restriction');
@@ -128,7 +140,7 @@ const evaluateDonationIntervalRule = (donor) => {
     return makeRuleResult(true, 'Invalid last donation date ignored');
   }
 
-  const requiredIntervalDays = getRequiredDonationInterval(donor.gender);
+  const requiredIntervalDays = getRequiredDonationInterval(donor.gender, donationType);
   const nextEligibleDate = addDays(lastDonationDate, requiredIntervalDays);
   if (nextEligibleDate > now) {
     return makeRuleResult(false, 'You need to wait before donating again', nextEligibleDate);
@@ -155,7 +167,7 @@ export const canDonate = async (donor, options = {}) => {
     () => evaluateAgeRule(donor),
     () => evaluateTemporaryDeferralRule(donor),
     () => evaluateTravelDeferralRule(donor, options),
-    () => evaluateDonationIntervalRule(donor),
+      () => evaluateDonationIntervalRule(donor, options),
     () => evaluateHemoglobinRule(donor),
   ];
 

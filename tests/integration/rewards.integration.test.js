@@ -8,6 +8,7 @@ import DonorPoints from '../../src/models/DonorPoints.model.js';
 import RewardCatalog from '../../src/models/RewardCatalog.model.js';
 import Donation from '../../src/models/Donation.model.js';
 import RewardRedemption from '../../src/models/RewardRedemption.model.js';
+import { getRewardsConfig } from '../../src/services/rewardsConfig.service.js';
 
 setupTestDB();
 
@@ -35,6 +36,28 @@ describe('Rewards Routes Integration', () => {
     expect(response.body.data).toHaveProperty('pointsBalance');
     expect(response.body.data).toHaveProperty('currentTier');
     expect(response.body.data.pointsBalance).toBe(500);
+  });
+
+  it('GET /rewards/earning-rules returns dynamic earning rules', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const rewardsConfig = await getRewardsConfig();
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .get('/rewards/earning-rules')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(Array.isArray(response.body.data)).toBe(true);
+    expect(response.body.data).toEqual(expect.arrayContaining([
+      expect.objectContaining({ type: 'blood_donation', points: rewardsConfig.points.bloodDonation }),
+      expect.objectContaining({ type: 'emergency_response', points: rewardsConfig.points.emergencyResponse }),
+      expect.objectContaining({ type: 'profile_completion', points: rewardsConfig.points.profileCompletion }),
+      expect.objectContaining({ type: 'referral', points: rewardsConfig.points.referral }),
+    ]));
   });
 
   it('GET /rewards/points requires donor role', async () => {

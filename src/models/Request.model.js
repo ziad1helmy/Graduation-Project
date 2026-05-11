@@ -45,8 +45,8 @@ const requestSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: {
-        values: ['blood', 'organ'],
-        message: 'Type must be either blood or organ',
+        values: ['blood', 'plasma', 'platelets', 'organ'],
+        message: 'Type must be blood, plasma, platelets, or organ',
       },
       required: [true, 'Request type is required'],
     },
@@ -59,13 +59,13 @@ const requestSchema = new mongoose.Schema(
       },
       validate: {
         validator: function(v) {
-          // Blood type is required only for blood type requests
-          if (this.type === 'blood') {
+          // Blood type is required for blood, plasma, and platelets requests
+          if (['blood', 'plasma', 'platelets'].includes(this.type)) {
             return v !== null && v !== undefined;
           }
           return true;
         },
-        message: 'Blood type is required for blood donation requests',
+        message: 'Blood type is required for blood, plasma, and platelet donation requests',
       },
     },
     // Cause of the request, e.g. accident, surgery, etc. This will help the donor to understand the urgency of the request and the type of blood/organ needed

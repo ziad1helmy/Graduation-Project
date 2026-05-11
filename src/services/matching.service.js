@@ -79,7 +79,7 @@ export const isBloodTypeCompatible = (donorBloodType, requestBloodType) => {
  * @returns {Object} - {eligible: boolean, reason: string}
  */
 export const checkEligibility = async (donor, request) => {
-  const donorEligibility = await canDonate(donor, { persistTravelDeferral: false });
+  const donorEligibility = await canDonate(donor, { persistTravelDeferral: false, donationType: request?.type });
   if (!donorEligibility.eligible) {
     return donorEligibility;
   }

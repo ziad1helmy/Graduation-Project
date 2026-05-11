@@ -212,3 +212,114 @@ export const getGrowthMetrics = async (months = 6) => {
 
   return { userGrowth, requestGrowth, donationGrowth };
 };
+
+/**
+ * Get donor's lifetime donation statistics
+ */
+export const getDonorStats = async (donorId) => {
+  try {
+    const donor = await Donor.findById(donorId).lean();
+    if (!donor) throw new Error('Donor not found');
+
+    const donations = await Donation.find({ donorId, status: 'completed' }).lean();
+    
+    // Group donations by type
+    const donationsByType = {
+      blood: 0,
+      plasma: 0,
+      platelets: 0,
+      organ: 0,
+    };
+
+    let totalDonations = 0;
+    let totalPoints = 0;
+    const lastDonationDate = donor.lastDonationDate;
+
+    for (const donation of donations) {
+      const request = await Request.findById(donation.requestId).lean();
+      const donationType = request?.type || 'blood';
+      donationsByType[donationType]++;
+      totalDonations++;
+    }
+
+    return {
+      donorId,
+      fullName: donor.fullName,
+      email: donor.email,
+      bloodType: donor.bloodType,
+      pointsBalance: donor.pointsBalance || 0,
+      totalDonations,
+      donationsByType,
+      lastDonationDate,
+      isSuspended: donor.isSuspended,
+      joinDate: donor.createdAt,
+    };
+  } catch (error) {
+    console.error('Error fetching donor stats', error);
+    throw error;
+  }
+};
+
+/**
+ * Get top donors leaderboard
+ */
+export const getLeaderboard = async (limit = 10, days = 30) => {
+  try {
+    const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+
+    const topDonors = await Donor.find({
+      isSuspended: false,
+      isEmailVerified: true,
+      lastDonationDate: { $gte: startDate },
+    })
+      .select('fullName email bloodType pointsBalance lastDonationDate')
+      .sort({ pointsBalance: -1 })
+      .limit(limit)
+      .lean();
+
+    return {
+      period: `Last ${days} days`,
+      count: topDonors.length,
+      leaderboard: topDonors.map((donor, index) => ({
+        rank: index + 1,
+        ...donor,
+      })),
+    };
+  } catch (error) {
+    console.error('Error fetching leaderboard', error);
+    throw error;
+  }
+};
+
+/**
+ * Get donation statistics by type
+ */
+export const getDonationTypeStats = async () => {
+  try {
+    const completedDonations = await Donation.find({ status: 'completed' })
+      .populate('requestId', 'type')
+      .lean();
+
+    const stats = {
+      blood: { count: 0, avgPoints: 0 },
+      plasma: { count: 0, avgPoints: 0 },
+      platelets: { count: 0, avgPoints: 0 },
+      organ: { count: 0, avgPoints: 0 },
+    };
+
+    for (const donation of completedDonations) {
+      const donationType = donation.requestId?.type || 'blood';
+      if (stats[donationType]) {
+        stats[donationType].count++;
+      }
+    }
+
+    return {
+      totalDonations: completedDonations.length,
+      byType: stats,
+    };
+  } catch (error) {
+    console.error('Error fetching donation type stats', error);
+    throw error;
+  }
+};

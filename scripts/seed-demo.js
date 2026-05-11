@@ -630,6 +630,42 @@ async function main() {
     }
   );
 
+  requests.cairoPlasma = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-critical-plasma' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      type: 'plasma',
+      bloodType: 'AB+',
+      urgency: 'critical',
+      status: 'pending',
+      requiredBy: futureDate(1),
+      quantity: 5,
+      cause: 'Trauma patient requiring urgent plasma transfusion',
+      notes: '[demo-seed] cairo-critical-plasma',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
+    }
+  );
+
+  requests.gizaPlatelets = await ensureRequest(
+    { hospitalId: hospitals.nileHope._id, notes: '[demo-seed] giza-high-platelets' },
+    {
+      hospitalId: hospitals.nileHope._id,
+      type: 'platelets',
+      bloodType: 'O+',
+      urgency: 'high',
+      status: 'in-progress',
+      requiredBy: futureDate(2),
+      quantity: 3,
+      cause: 'Cancer patient undergoing chemotherapy',
+      notes: '[demo-seed] giza-high-platelets',
+      hospitalContact: hospitals.nileHope.contactNumber,
+      hospitalLocation: hospitals.nileHope.location.coordinates,
+      hospitalName: hospitals.nileHope.hospitalName,
+    }
+  );
+
   const donations = {};
   donations.ayaPending = await ensureDonation(
     { donorId: donors.aya._id, requestId: requests.cairoCriticalBlood._id, status: 'pending' },
@@ -696,6 +732,29 @@ async function main() {
       status: 'cancelled',
       quantity: 1,
       notes: 'Auto-cancelled because request was resolved elsewhere.',
+    }
+  );
+
+  donations.mariam_plasma_completed = await ensureDonation(
+    { donorId: donors.mariam._id, requestId: requests.cairoPlasma._id, status: 'completed' },
+    {
+      donorId: donors.mariam._id,
+      requestId: requests.cairoPlasma._id,
+      status: 'completed',
+      quantity: 1,
+      completedDate: pastDate(3),
+      notes: 'Plasma donation for trauma patient - critical urgency.',
+    }
+  );
+
+  donations.leila_platelets_pending = await ensureDonation(
+    { donorId: donors.leila._id, requestId: requests.gizaPlatelets._id, status: 'pending' },
+    {
+      donorId: donors.leila._id,
+      requestId: requests.gizaPlatelets._id,
+      status: 'pending',
+      quantity: 1,
+      notes: 'Platelets donation for cancer patient support.',
     }
   );
 

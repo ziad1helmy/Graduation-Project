@@ -3,6 +3,7 @@ import { ERR } from '../utils/errorCodes.js';
 import User from '../models/User.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as analyticsService from '../services/analytics.service.js';
+import * as rewardsConfigService from '../services/rewardsConfig.service.js';
 import { parsePagination } from '../utils/pagination.js';
 import {
   validateMaintenanceBody,
@@ -14,6 +15,7 @@ import {
   validateCancelRequestBody,
   validateEmergencyBroadcastBody,
 } from '../validation/admin.validation.js';
+import { validateRewardsConfigBody } from '../validation/reward.validation.js';
 
 // ──────────────────────────────────────────────
 //  Phase 1: System & Foundation
@@ -724,6 +726,31 @@ export const getShortageAlerts = async (req, res, next) => {
   try {
     const alerts = await adminService.getShortageAlerts();
     return response.success(res, 200, 'Shortage alerts', { alerts });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** GET /admin/rewards/config */
+export const getRewardsConfig = async (req, res, next) => {
+  try {
+    const data = await rewardsConfigService.getRewardsConfig();
+    return response.success(res, 200, 'Rewards config retrieved successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** PUT /admin/rewards/config */
+export const updateRewardsConfig = async (req, res, next) => {
+  try {
+    const validation = validateRewardsConfigBody(req.body);
+    if (!validation.valid) {
+      return response.error(res, 400, validation.errors.join(', '));
+    }
+
+    const data = await rewardsConfigService.updateRewardsConfig(req.body, req.user._id);
+    return response.success(res, 200, 'Rewards config updated successfully', data);
   } catch (error) {
     next(error);
   }

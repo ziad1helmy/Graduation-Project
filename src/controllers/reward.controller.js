@@ -85,6 +85,12 @@ export const getRewards = async (req, res, next) => {
     response.success(res, 200, 'Rewards retrieved successfully', data);
   } catch (err) { next(err); }
 };
+export const getEarningRules = async (req, res, next) => {
+  try {
+    const data = await rewardService.getEarningRules();
+    response.success(res, 200, 'Reward earning rules retrieved successfully', data);
+  } catch (err) { next(err); }
+};
 
 export const redeemReward = async (req, res, next) => {
   try {

@@ -22,7 +22,7 @@ const swaggerTags = [
   {
     name: 'Donor',
     description:
-      'All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals',
+      'All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals, analytics, campaigns',
   },
   {
     name: 'Hospital',
@@ -30,7 +30,7 @@ const swaggerTags = [
   },
   {
     name: 'Admin',
-    description: 'Admin operations: user management, analytics, reward adjustments, system maintenance',
+    description: 'Admin operations: user management, analytics, rewards, campaigns, system maintenance, metrics, and audit logs',
   },
 ];
 

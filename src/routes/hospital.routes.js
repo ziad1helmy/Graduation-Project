@@ -443,6 +443,8 @@ router.put('/profile', hospitalController.updateProfile);
 
 // Request management routes
 router.post('/request', hospitalController.createRequest);
+// Backwards-compatible alias for emergency shortcut
+router.post('/requests/create-emergency', hospitalController.createRequest);
 // Hospital dashboard
 router.get('/dashboard', hospitalController.getMonthlyReports);
 // Close request (dedicated flow)

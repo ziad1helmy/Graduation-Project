@@ -69,8 +69,11 @@ The LifeLink Reward System is a **points-based gamification engine** designed to
 │  reward.controller.js | donation.controller.js                  │
 │  - GET /rewards/points                                          │
 │  - GET /rewards/dashboard                                       │
+│  - GET /rewards/earning-rules                                   │
 │  - POST /rewards/{id}/redeem                                    │
 │  - GET /rewards/leaderboard                                     │
+│  - GET /admin/rewards/config                                    │
+│  - PUT /admin/rewards/config                                    │
 └─────────────────────┬───────────────────────────────────────────┘
                       │
 ┌─────────────────────▼───────────────────────────────────────────┐
@@ -81,7 +84,7 @@ The LifeLink Reward System is a **points-based gamification engine** designed to
 │  │ - onDonationCompleted() — triggered reward logic         │   │
 │  │ - checkAndUpdateBadges() — async badge evaluation        │   │
 │  │ - redeemReward() — transactional points deduction        │   │
-│  │ - getPointsSummary() — tier calculations                 │   │
+│  │ - getPointsSummary() — tier calculations + progress      │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │ donation.service.js (Triggers)                           │   │
@@ -264,21 +267,40 @@ if (normalizedReferenceId) {
 
 ---
 
-#### 4. **Points Configuration** (`src/models/PointsTransaction.model.js`)
+#### 4. **Rewards Configuration** (`src/models/RewardsConfig.model.js`)
 
-Single source of truth for all point values:
+Single source of truth for all configurable reward values:
 
 ```javascript
-export const POINTS_CONFIG = {
-  BLOOD_DONATION: 200,              // Base points per donation
-  EMERGENCY_RESPONSE: 100,          // Bonus for critical urgency
-  PROFILE_COMPLETION: 50,           // One-time onboarding bonus
-  FIRST_DONATION: 100,              // One-time first donation bonus
-  TIER_BONUS_SILVER: 50,            // Promotion bonus → silver
-  TIER_BONUS_GOLD: 150,             // Promotion bonus → gold
-  TIER_BONUS_PLATINUM: 500,         // Promotion bonus → platinum
+export const DEFAULT_REWARDS_CONFIG = {
+  points: {
+    bloodDonation: 200,
+    emergencyResponse: 100,
+    profileCompletion: 50,
+    referral: 150,
+    firstDonation: 100,
+  },
+  tiers: {
+    bronze: 0,
+    silver: 1000,
+    gold: 2500,
+    platinum: 5000,
+  },
+  tierBonuses: {
+    silver: 50,
+    gold: 150,
+    platinum: 500,
+  },
 };
 ```
+
+The service layer caches this singleton document in memory and invalidates the cache on startup seeding and admin updates.
+
+**Reward earning API:**
+
+- `GET /rewards/earning-rules` returns the configured point values used by the frontend rewards UI.
+- `GET /admin/rewards/config` returns the full config document.
+- `PUT /admin/rewards/config` updates the config and refreshes the in-memory cache immediately.
 
 ---
 
@@ -674,26 +696,27 @@ TIMELINE:
 
 ### Earning Points
 
-**Fixed point values from `POINTS_CONFIG`:**
+**Configurable point values from `RewardsConfig`:**
 
-| Event | Base Points | Multiplier | Notes |
-|-------|------------|-----------|-------|
-| Blood Donation | 200 | 1x | Always 200 per completed donation |
-| Profile Completion | 50 | 1x | One-time, on first profile update |
-| First Donation | 100 | 1x | One-time, bonus on first completed donation |
-| Emergency Response | 100 | 1x | Bonus if request.urgency === 'critical' |
-| Tier Promotion | 50/150/500 | Tier-dependent | Silver: +50, Gold: +150, Platinum: +500 |
+| Event | Config field | Default | Notes |
+|-------|-------------|---------|-------|
+| Blood Donation | `points.bloodDonation` | 200 | Always awarded on completed donation |
+| Profile Completion | `points.profileCompletion` | 50 | One-time, on first profile update |
+| First Donation | `points.firstDonation` | 100 | One-time, bonus on first completed donation |
+| Emergency Response | `points.emergencyResponse` | 100 | Bonus if `request.urgency === 'critical'` |
+| Referral | `points.referral` | 150 | Exposed via earning-rules API |
+| Tier Promotion | `tierBonuses.silver|gold|platinum` | 50/150/500 | Applied after tier upgrade |
 
 ### Total Points Formula
 
 For a completed donation on a critical request:
 
 ```
-Total Points = 
-  BLOOD_DONATION +
-  EMERGENCY_RESPONSE +
-  (FIRST_DONATION if !account.firstDonationAwarded) +
-  (TIER_BONUS if tier upgraded)
+Total Points =
+  points.bloodDonation +
+  points.emergencyResponse +
+  (points.firstDonation if !account.firstDonationAwarded) +
+  (tierBonuses if tier upgraded)
 
 Example (first critical donation):
   200 + 100 + 100 + (0 if no tier up) = 400 points

@@ -20,7 +20,7 @@ router.use(authMiddleware);
 // ── Donor routes ──────────────────────────────────────────
 
 /**
- * @openapi
+ * @swagger
  * /rewards/points:
  *   get:
  *     summary: Get donor's points summary and tier
@@ -30,8 +30,65 @@ router.use(authMiddleware);
  *     responses:
  *       200:
  *         description: Points summary with tier info
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Points retrieved successfully
+ *               data:
+ *                 points: 2340
+ *                 tier: SILVER
+ *                 nextTier: GOLD
+ *                 pointsToNextTier: 660
+ *                 bonusMultiplier: 1.0
+ *                 rewardsAvailable: 5
  */
 router.get('/points', requireRole('donor'), rc.getPoints);
+
+/**
+ * @openapi
+ * /rewards/earning-rules:
+ *   get:
+ *     summary: Get the current reward earning rules
+ *     tags: [Donor]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dynamic earning rules for the rewards UI
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Earning rules retrieved
+ *               data:
+ *                 rules:
+ *                   - donationType: blood
+ *                     basePoints: 200
+ *                     cooldownDays: 56
+ *                     description: Whole blood donation
+ *                   - donationType: plasma
+ *                     basePoints: 150
+ *                     cooldownDays: 14
+ *                     description: Plasma donation
+ *                   - donationType: platelets
+ *                     basePoints: 175
+ *                     cooldownDays: 7
+ *                     description: Platelet donation
+ *                   - donationType: organ
+ *                     basePoints: 500
+ *                     cooldownDays: 365
+ *                     description: Organ donation
+ *                 campaigns:
+ *                   - name: Summer Blood Drive
+ *                     multiplier: 1.5
+ *                     applicableTo: [blood, plasma]
+ *                     endsAt: "2026-08-31T23:59:59Z"
+ *                 bonuses:
+ *                   firstDonation: 50
+ *                   referral: 100
+ */
+router.get('/earning-rules', requireRole('donor'), rc.getEarningRules);
 
 /**
  * @openapi
@@ -54,6 +111,7 @@ router.get('/points', requireRole('donor'), rc.getPoints);
  *               message: Rewards dashboard retrieved
  *               data:
  *                 points: 2340
+ *                 progressPercentage: 46
  *                 nextRewardPoints: 500
  *                 pointsToNextReward: 160
  *                 rewards:
@@ -175,6 +233,34 @@ router.get('/badges', requireRole('donor'), rc.getBadges);
  *     responses:
  *       200:
  *         description: Rewards catalog
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Rewards catalog retrieved
+ *               data:
+ *                 rewards:
+ *                   - _id: 664a123456789abcdef12345
+ *                     title: Coffee Voucher
+ *                     description: Free coffee at partner cafe
+ *                     category: FOOD
+ *                     pointsRequired: 300
+ *                     image: https://api.example.com/images/coffee.jpg
+ *                     stock: 50
+ *                     redeemed: 12
+ *                     isAvailable: true
+ *                     daysToExpiry: 30
+ *                   - _id: 664a123456789abcdef12346
+ *                     title: Movie Ticket
+ *                     description: Two movie tickets at partner cinema
+ *                     category: ENTERTAINMENT
+ *                     pointsRequired: 800
+ *                     image: https://api.example.com/images/movie.jpg
+ *                     stock: 25
+ *                     redeemed: 5
+ *                     isAvailable: true
+ *                     daysToExpiry: 60
+ *                 total: 45
  */
 router.get('/catalog', requireRole('donor'), rc.getRewards);
 
@@ -215,6 +301,7 @@ router.get('/history', requireRole('donor'), rc.getHistory);
  *         name: rewardId
  *         required: true
  *         schema: { type: string }
+ *         description: Reward ObjectId to redeem
  *     requestBody:
  *       content:
  *         application/json:
@@ -228,9 +315,26 @@ router.get('/history', requireRole('donor'), rc.getHistory);
  *               delivery_contact:
  *                 type: string
  *                 description: Email address if delivery_preference is EMAIL
+ *           example:
+ *             delivery_preference: IN_APP
  *     responses:
  *       200:
  *         description: Redemption confirmed with confirmation code
+ *         content:
+ *           application/json:
+ *             example:
+ *               success: true
+ *               message: Reward redeemed successfully
+ *               data:
+ *                 redemption:
+ *                   _id: 664b123456789abcdef12347
+ *                   rewardId: 664a123456789abcdef12345
+ *                   donorId: 69f3df915f42685cbbbcbb18
+ *                   pointsSpent: 300
+ *                   status: confirmed
+ *                   confirmationCode: CAFE-2026-051-12345
+ *                   createdAt: "2026-05-11T10:00:00Z"
+ *                   expiresAt: "2026-05-18T10:00:00Z"
  *       409:
  *         description: Insufficient points or limit exceeded
  */

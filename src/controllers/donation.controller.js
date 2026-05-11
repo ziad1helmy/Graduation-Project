@@ -45,7 +45,7 @@ export const getDonationTypes = (req, res) => {
 export const validateDonationEligibility = async (req, res, next) => {
   try {
     const donorId = getUserId(req);
-    const { hospitalId, date } = req.body;
+    const { hospitalId, date, donationType } = req.body;
 
     if (!hospitalId || !date) {
       return response.error(res, 400, 'hospitalId and date are required');
@@ -61,11 +61,16 @@ export const validateDonationEligibility = async (req, res, next) => {
       return response.error(res, 400, 'Invalid date');
     }
 
-    const eligibility = await eligibilityService.canDonate(donor, { persistTravelDeferral: false });
+    // Pass donationType to check type-specific cooldowns (blood: 56d, plasma: 14d, platelets: 7d, organ: 365d)
+    const eligibility = await eligibilityService.canDonate(donor, { 
+      persistTravelDeferral: false,
+      donationType: donationType || 'blood', // defaults to blood if not specified
+    });
     if (!eligibility.eligible) {
       return response.success(res, 200, 'Donation eligibility checked', {
         canDonate: false,
         reason: eligibility.reason || 'Donor is not eligible',
+        ...(eligibility.nextEligibleDate ? { nextEligibleDate: eligibility.nextEligibleDate } : {}),
       });
     }
 
@@ -103,8 +108,9 @@ export const verifyQr = async (req, res, next) => {
 
     if (!appointment) return response.error(res, 404, 'Invalid QR code');
     if (appointment.status === 'cancelled') return response.error(res, 400, 'Appointment is cancelled');
-    if (!['pending', 'confirmed'].includes(appointment.status))
-      return response.error(res, 400, 'Appointment is not active');
+    // If appointment already completed or previously scanned, treat as already-used
+    if (appointment.status === 'completed' || appointment.qrScannedAt) return response.error(res, 409, 'QR code already used');
+    if (!['pending', 'confirmed'].includes(appointment.status)) return response.error(res, 400, 'Appointment is not active');
 
     // Check QR expiry if qrExpiresAt is set
     if (appointment.qrExpiresAt && new Date() > appointment.qrExpiresAt)

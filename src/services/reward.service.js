@@ -1,6 +1,6 @@
 import mongoose from 'mongoose';
 import DonorPoints from '../models/DonorPoints.model.js';
-import PointsTransaction, { POINTS_CONFIG } from '../models/PointsTransaction.model.js';
+import PointsTransaction from '../models/PointsTransaction.model.js';
 import RewardCatalog from '../models/RewardCatalog.model.js';
 import RewardRedemption from '../models/RewardRedemption.model.js';
 import Badge from '../models/Badge.model.js';
@@ -8,8 +8,24 @@ import UserBadge from '../models/UserBadge.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
 import * as activityService from './activity.service.js';
+import { getRewardsConfig } from './rewardsConfig.service.js';
+import * as campaignService from './campaign.service.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
+import Donor from '../models/Donor.model.js';
+
+// Points awarded per request/donation type
+export const POINTS_BY_TYPE = {
+  blood: 200,
+  plasma: 150,
+  platelets: 175,
+  organ: 500,
+};
+
+const TRANSACTION_TYPE_BY_TYPE = {
+  blood: 'BLOOD_DONATION',  plasma: 'PLASMA_DONATION',
+  platelets: 'PLATELETS_DONATION',  organ: 'ORGAN_DONATION',
+};
 
 // ──────────────────────────────────────────────
 //  Seed Data
@@ -33,6 +49,35 @@ const SEED_REWARDS = [
   { name: 'Premium Badge', description: 'Exclusive premium badge on your profile', pointsCost: 2500, category: 'STATUS', iconType: 'premium', colorCode: '#F9A825' },
   { name: 'Gym Membership', description: 'One-month gym membership at partner gyms', pointsCost: 3000, category: 'HEALTH', iconType: 'gym', colorCode: '#1565C0' },
 ];
+
+const TIER_ORDER = ['bronze', 'silver', 'gold', 'platinum'];
+
+const getTierForPoints = (lifetimePoints, tiers) => {
+  if (lifetimePoints >= tiers.platinum) return 'platinum';
+  if (lifetimePoints >= tiers.gold) return 'gold';
+  if (lifetimePoints >= tiers.silver) return 'silver';
+  return 'bronze';
+};
+
+const getTierProgress = (lifetimePoints, tiers) => {
+  const currentTier = getTierForPoints(lifetimePoints, tiers);
+  const currentIndex = TIER_ORDER.indexOf(currentTier);
+  const nextTier = TIER_ORDER[currentIndex + 1] || null;
+  const currentThreshold = tiers[currentTier] ?? 0;
+  const nextThreshold = nextTier ? tiers[nextTier] : null;
+
+  const pointsToNextTier = nextThreshold == null ? 0 : Math.max(0, nextThreshold - lifetimePoints);
+  const progressPercentage = nextThreshold == null || nextThreshold <= currentThreshold
+    ? 100
+    : Math.min(100, Math.max(0, Math.round(((lifetimePoints - currentThreshold) / (nextThreshold - currentThreshold)) * 100)));
+
+  return {
+    currentTier,
+    nextTier,
+    pointsToNextTier,
+    progressPercentage,
+  };
+};
 
 export const seedRewardData = async () => {
   try {
@@ -73,8 +118,9 @@ const isMongoDuplicateKeyError = (err) => {
  * Handles tier promotion detection and bonus points.
  * Returns { account, transaction, newBadges }
  */
-const awardPoints = async (donorId, amount, type, description, referenceId = null) => {
+const awardPoints = async (donorId, amount, type, description, referenceId = null, rewardsConfig = null) => {
   const normalizedReferenceId = referenceId ? String(referenceId) : null;
+  const config = rewardsConfig || await getRewardsConfig();
 
   // Deduplication: don't award the same reference twice
   if (normalizedReferenceId) {
@@ -98,7 +144,7 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
 
       // Recalculate tier (capture previous tier first)
       const previousTier = account.tier;
-      const newTier = DonorPoints.calculateTier(account.lifetimePointsEarned);
+      const newTier = getTierForPoints(account.lifetimePointsEarned, config.tiers);
       const tierChanged = newTier !== previousTier;
       if (tierChanged) {
         await DonorPoints.findByIdAndUpdate(account._id, { tier: newTier }, { session });
@@ -137,10 +183,14 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
 
   // Award tier bonus and log tier promotion outside transaction (non-critical)
   if (result?.tierChanged) {
-    const tierBonusMap = { silver: POINTS_CONFIG.TIER_BONUS_SILVER, gold: POINTS_CONFIG.TIER_BONUS_GOLD, platinum: POINTS_CONFIG.TIER_BONUS_PLATINUM };
+    const tierBonusMap = {
+      silver: config.tierBonuses.silver,
+      gold: config.tierBonuses.gold,
+      platinum: config.tierBonuses.platinum,
+    };
     const bonus = tierBonusMap[result.newTier];
     if (bonus) {
-      await awardPoints(donorId, bonus, 'TIER_BONUS', `Tier promotion bonus: ${result.newTier}`, `tier_${result.newTier}_${donorId}`);
+      await awardPoints(donorId, bonus, 'TIER_BONUS', `Tier promotion bonus: ${result.newTier}`, `tier_${result.newTier}_${donorId}`, config);
     }
 
     // Log tier promotion activity (fire-and-forget)
@@ -182,7 +232,7 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
         metadata: {
           pointsAmount: amount,
           transactionType: type,
-          balanceAfter: result?.account?.pointsBalance || account?.pointsBalance,
+          balanceAfter: result?.account?.pointsBalance ?? null,
         },
       })
       .catch((error) => logger.error('Activity log error', { message: error.message }));
@@ -202,26 +252,61 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
  */
 export const onDonationCompleted = async (donorId, donationId, isEmergency = false) => {
   try {
+    const rewardsConfig = await getRewardsConfig();
     const account = await getOrCreateAccount(donorId);
 
-    // Base donation points
+    // Determine donation type via the Donation -> Request relationship.
+    let donation = null;
+    let donationType = 'blood';
+    let bloodType = null;
+    let urgencyLevel = null;
+    try {
+      const isValidId = mongoose.Types.ObjectId.isValid(String(donationId));
+      if (isValidId) {
+        donation = await Donation.findById(donationId).populate('requestId');
+        donationType = donation?.requestId?.type || 'blood';
+        bloodType = donation?.requestId?.bloodType;
+        urgencyLevel = donation?.requestId?.urgency;
+      }
+    } catch (e) {
+      // Ignore lookup errors and fallback to defaults
+      donation = null;
+      donationType = 'blood';
+    }
+
+    // Base donation points: lookup by type with fallbacks to legacy config
+    const basePoints = POINTS_BY_TYPE[donationType] ?? rewardsConfig.points.bloodDonation ?? 0;
+    const txType = TRANSACTION_TYPE_BY_TYPE[donationType] || 'BLOOD_DONATION';
+
+    // Get campaign multiplier (if any active campaigns apply)
+    let multiplier = 1.0;
+    try {
+      multiplier = await campaignService.getApplicableMultiplier(donationType, bloodType, urgencyLevel);
+    } catch (e) {
+      // Silently ignore campaign service errors, use base multiplier
+      logger.debug('Campaign multiplier lookup skipped', { error: e?.message });
+    }
+
+    const finalPoints = Math.round(basePoints * multiplier);
+
     await awardPoints(
       donorId,
-      POINTS_CONFIG.BLOOD_DONATION,
-      'BLOOD_DONATION',
-      'Blood Donation - Successful',
-      `donation_${donationId}`
+      finalPoints,
+      txType,
+      `${donationType.charAt(0).toUpperCase() + donationType.slice(1)} Donation - Successful${multiplier > 1 ? ` (${multiplier}x bonus)` : ''}`,
+      `donation_${donationId}`,
+      rewardsConfig
     );
 
     // First donation bonus (one-time)
     if (!account.firstDonationAwarded) {
-      await awardPoints(donorId, POINTS_CONFIG.FIRST_DONATION, 'FIRST_DONATION', 'First Donation Bonus!', `first_donation_${donorId}`);
+      await awardPoints(donorId, rewardsConfig.points.firstDonation, 'FIRST_DONATION', 'First Donation Bonus!', `first_donation_${donorId}`, rewardsConfig);
       await DonorPoints.findOneAndUpdate({ donorId }, { firstDonationAwarded: true });
     }
 
     // Emergency response bonus
     if (isEmergency) {
-      await awardPoints(donorId, POINTS_CONFIG.EMERGENCY_RESPONSE, 'EMERGENCY_RESPONSE', 'Emergency Response Bonus', `emergency_${donationId}`);
+      await awardPoints(donorId, rewardsConfig.points.emergencyResponse, 'EMERGENCY_RESPONSE', 'Emergency Response Bonus', `emergency_${donationId}`, rewardsConfig);
     }
 
     // Check badges (fire-and-forget — never blocks the main flow)
@@ -241,10 +326,11 @@ export const onDonationCompleted = async (donorId, donationId, isEmergency = fal
  */
 export const onProfileCompleted = async (donorId) => {
   try {
+    const rewardsConfig = await getRewardsConfig();
     const account = await getOrCreateAccount(donorId);
     if (account.profileCompletionAwarded) return;
 
-    await awardPoints(donorId, POINTS_CONFIG.PROFILE_COMPLETION, 'PROFILE_COMPLETION', 'Profile Completed', `profile_${donorId}`);
+    await awardPoints(donorId, rewardsConfig.points.profileCompletion, 'PROFILE_COMPLETION', 'Profile Completed', `profile_${donorId}`, rewardsConfig);
     await DonorPoints.findOneAndUpdate({ donorId }, { profileCompletionAwarded: true });
   } catch (err) {
     logger.error('Reward profile completion error', {
@@ -347,17 +433,16 @@ export const checkAndUpdateBadges = async (donorId) => {
 
 export const getPointsSummary = async (donorId) => {
   const account = await getOrCreateAccount(donorId);
-  const tier = DonorPoints.calculateTier(account.lifetimePointsEarned);
-  const pointsToNext = DonorPoints.pointsToNextTier(account.lifetimePointsEarned);
-  const tierOrder = ['bronze', 'silver', 'gold', 'platinum'];
-  const nextTier = tierOrder[tierOrder.indexOf(tier) + 1] || null;
+  const rewardsConfig = await getRewardsConfig();
+  const { currentTier, nextTier, pointsToNextTier, progressPercentage } = getTierProgress(account.lifetimePointsEarned, rewardsConfig.tiers);
 
   return {
     pointsBalance: account.pointsBalance,
     lifetimePointsEarned: account.lifetimePointsEarned,
-    currentTier: tier,
+    currentTier,
     nextTier,
-    pointsToNextTier: pointsToNext,
+    pointsToNextTier,
+    progressPercentage,
     tierBenefits: {
       bronze: ['Access to basic rewards'],
       silver: ['10% more points per donation', 'Early access to limited rewards'],
@@ -714,6 +799,7 @@ export const getRewardsAnalytics = async () => {
  */
 export const getLeaderboard = async (limit = 20) => {
   const cappedLimit = Math.min(Math.max(1, limit), 50);
+  const rewardsConfig = await getRewardsConfig();
 
   const accounts = await DonorPoints.find({})
     .sort({ lifetimePointsEarned: -1 })
@@ -724,8 +810,19 @@ export const getLeaderboard = async (limit = 20) => {
     rank: index + 1,
     donorId: account.donorId?._id || account.donorId,
     fullName: account.donorId?.fullName || 'Anonymous',
-    tier: DonorPoints.calculateTier(account.lifetimePointsEarned),
+    tier: getTierForPoints(account.lifetimePointsEarned, rewardsConfig.tiers),
     lifetimePointsEarned: account.lifetimePointsEarned,
     pointsBalance: account.pointsBalance,
   }));
+};
+
+export const getEarningRules = async () => {
+  const rewardsConfig = await getRewardsConfig();
+
+  return [
+    { type: 'blood_donation', title: 'Blood Donation', points: rewardsConfig.points.bloodDonation },
+    { type: 'emergency_response', title: 'Emergency Response', points: rewardsConfig.points.emergencyResponse },
+    { type: 'profile_completion', title: 'Profile Completion', points: rewardsConfig.points.profileCompletion },
+    { type: 'referral', title: 'Referral', points: rewardsConfig.points.referral },
+  ];
 };

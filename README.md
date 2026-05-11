@@ -144,14 +144,16 @@ The following feature groups are implemented and exposed under root and compatib
 - Donor: profile, availability, matches, responses, donation eligibility, dashboard/recent activity, urgent request flows, health history.
 - Hospital: profile, request CRUD, close request, monthly reports, staff, blood-bank settings, notification preferences, blood inventory summary.
 - Appointments: donor booking, donor appointment list, donor cancellation.
-- Donations: completion endpoint and donor appointment listing alias.
-- Rewards: points/history, catalog/listing aliases, redeem aliases, badges, redemptions, leaderboard.
-- Admin: system health, maintenance, analytics/alerts, donor/hospital management, admin management, role-permissions management.
+- Donations: completion endpoint and donor appointment listing alias. Support for blood, plasma, platelets, and organ donations with type-specific cooldowns.
+- Rewards: points/history, earning rules, catalog/listing aliases, redeem aliases, badges, redemptions, leaderboard, type-specific point multipliers.
+- Analytics: personal donation stats, leaderboard, donation type statistics, system dashboard metrics (donor, admin).
+- Campaigns: active campaigns listing, admin campaign CRUD, campaign performance metrics, seasonal point multipliers (1.0x - 3.0x).
+- Admin: system health, maintenance, rewards config management, analytics/alerts, campaigns management, donor/hospital management, admin management, role-permissions management.
 - Discovery/Help/Support/Notifications: hospital discovery endpoints, FAQ/documents, contact/support messaging, notification listing and mark-read.
 
 ## Test Suite
 
-The project test suite is built with [Vitest](https://vitest.dev/) + MongoDB Memory Server and validates 243 test cases covering utilities, validation, matching, reward logic, and token flows.
+The project test suite is built with [Vitest](https://vitest.dev/) + MongoDB Memory Server and validates 427 test cases covering utilities, validation, matching, reward logic, analytics, campaigns, and token flows.
 
 Baseline suites:
 
@@ -167,6 +169,24 @@ Baseline suites:
 ```bash
 npm test
 ```
+
+## Rewards Configuration
+
+Reward earning values are now stored in MongoDB via the singleton `RewardsConfig` document and cached in memory by the backend service layer.
+
+Default config fields:
+
+- `points`: `bloodDonation`, `emergencyResponse`, `profileCompletion`, `referral`, `firstDonation`
+- `tiers`: `bronze`, `silver`, `gold`, `platinum`
+- `tierBonuses`: `silver`, `gold`, `platinum`
+
+Relevant endpoints:
+
+- `GET /rewards/earning-rules` - frontend-friendly earning rules payload.
+- `GET /admin/rewards/config` - view current reward config.
+- `PUT /admin/rewards/config` - update reward config; validates required fields and tier ordering.
+
+The service caches the config in memory and refreshes the cache immediately after admin updates or startup seeding.
 
 The suite runs in non-parallel mode (`maxWorkers: 1`) to keep Mongo memory tests deterministic.
 
@@ -203,3 +223,62 @@ Detailed architectural notes, request collections, and OpenAPI files are located
 - **[docs/README.md](docs/README.md)**: Architecture, Auth Flows, and Testing details.
 - **[docs/LifeLink-Auth-API.postman_collection.json](docs/LifeLink-Auth-API.postman_collection.json)**: Importable Postman workspace.
 - **[openapi.yaml](openapi.yaml)**: OpenAPI / Swagger source of truth.
+
+## Analytics & Campaigns Features
+
+### Analytics System
+
+Track donor engagement and participation with detailed statistics:
+
+- **Personal Stats** (`GET /analytics/my-stats`): Donor's lifetime donations by type, total points, tier progress
+- **Leaderboard** (`GET /analytics/leaderboard`): Top donors by points over specified period
+- **Donation Types Stats** (`GET /analytics/donation-types`): System-wide distribution of blood, plasma, platelets, and organ donations
+- **Dashboard** (`GET /analytics/dashboard`, Admin only): System metrics including total donors, completed donations, and points distributed
+
+**Documentation**: See [docs/ANALYTICS_CAMPAIGNS.md](docs/ANALYTICS_CAMPAIGNS.md)
+
+### Seasonal Campaigns System
+
+Boost donor participation with time-limited campaigns featuring point multipliers:
+
+- **Campaign Properties**: Name, multiplier (1.0x - 3.0x), date range, eligible donation types, optional blood type targeting
+- **Active Campaigns** (`GET /campaigns/active`): Public endpoint showing current promotional campaigns
+- **Campaign Management** (Admin):
+  - Create campaigns: `POST /campaigns`
+  - Update campaigns: `PUT /campaigns/{id}`
+  - Activate/Deactivate: `POST /campaigns/{id}/activate` and `POST /campaigns/{id}/deactivate`
+  - View metrics: `GET /campaigns/{id}/metrics`
+  - List all: `GET /campaigns` with filters
+
+**Example Campaign**:
+```json
+{
+  "name": "Summer Blood Drive 2026",
+  "multiplier": 2.0,
+  "donationTypes": ["blood", "plasma"],
+  "startDate": "2026-06-01T00:00:00Z",
+  "endDate": "2026-08-31T23:59:59Z",
+  "tags": ["seasonal", "summer"]
+}
+```
+
+### Points System with Type-Specific Cooldowns
+
+Donation types now include independent cooldown periods:
+
+| Type | Points | Cooldown | Use Case |
+|------|--------|----------|----------|
+| Blood | 200 | 56 days | Whole blood donation |
+| Plasma | 150 | 14 days | Plasma apheresis (frequent) |
+| Platelets | 175 | 7 days | Platelet apheresis (most frequent) |
+| Organ | 500 | 365 days | Organ donation (annual limit) |
+
+**Campaign Multiplier Example**:
+```
+Plasma donation during "Plasma Incentive" campaign (2.0x multiplier):
+Base points: 150
+Campaign multiplier: 2.0x
+Final points awarded: 300 (150 × 2.0)
+```
+
+**Documentation**: See [docs/ANALYTICS_CAMPAIGNS.md](docs/ANALYTICS_CAMPAIGNS.md) for comprehensive API reference and integration guide.

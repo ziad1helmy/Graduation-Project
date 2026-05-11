@@ -4,11 +4,7 @@ import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import Request from '../models/Request.model.js';
 import { calculateDistance } from '../utils/geo.js';
 
-const toRad = (deg) => (deg * Math.PI) / 180;
-
-const haversineKm = (lat1, lng1, lat2, lng2) => {
-  // Removed local haversine duplication
-};
+// Use shared calculateDistance util for distance calculations
 
 const formatDistance = (distanceKm) => {
   if (!Number.isFinite(distanceKm)) return null;
@@ -32,6 +28,7 @@ const mapHospital = (h, extras = {}) => ({
     : null,
   lat: h.lat ?? null,
   lng: h.long ?? null,
+  long: h.long ?? null,
   hospitalType: h.hospitalType || h.type || 'General Hospital',
   workingHours: h.workingHours || '9AM - 5PM',
   bloodTypes: h.bloodBanksAvailable || [],
@@ -135,7 +132,7 @@ export const getNearbyHospitals = async (req, res, next) => {
       const hLat = h.lat ?? h.location?.coordinates?.lat;
       const hLng = h.long ?? h.location?.coordinates?.lng;
       if (Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(hLat) && Number.isFinite(hLng)) {
-        const distanceKm = haversineKm(lat, lng, hLat, hLng);
+        const distanceKm = calculateDistance({ lat, long: lng }, { lat: hLat, long: hLng });
         entry.distanceKm = Number(distanceKm.toFixed(2));
         entry.distanceMeters = Math.round(distanceKm * 1000);
         entry.distance = formatDistance(distanceKm);
@@ -246,7 +243,7 @@ export const getHospitalsForMap = async (req, res, next) => {
         id: h._id,
         name: h.hospitalName || h.fullName,
         lat: h.lat ?? null,
-        lng: h.long ?? null,
+        long: h.long ?? null,
       })),
     });
   } catch (error) {

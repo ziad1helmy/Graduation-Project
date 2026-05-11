@@ -45,7 +45,9 @@ const getEnv = () => ({
 
   // Mail
   RESEND_API_KEY: process.env.RESEND_API_KEY,
-  EMAIL_LOGO_URL: process.env.EMAIL_LOGO_URL, // ✅ FIXED
+  MAIL_FROM: process.env.MAIL_FROM || 'LifeLink <onboarding@resend.dev>',
+  DEV_MAIL_TO: process.env.DEV_MAIL_TO, // ← redirects all dev emails to this address
+  EMAIL_LOGO_URL: process.env.EMAIL_LOGO_URL,
 
   // Bcrypt
   BCRYPT_SALT_ROUNDS: parseInt(process.env.BCRYPT_SALT_ROUNDS, 10) || 10,
