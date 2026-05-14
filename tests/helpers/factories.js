@@ -62,6 +62,7 @@ export async function createHospital(overrides = {}) {
     fullName: `Test Hospital Admin ${n}`,
     name: `Test Hospital ${n}`,
     hospitalName: `Test Hospital ${n}`,
+    hospitalId: `HOSP-TEST-${n}`,
     email: `hospital${n}_${Date.now()}@test.com`,
     password: 'TestPass@123',
     role: 'hospital',

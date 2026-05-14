@@ -56,8 +56,10 @@ components:
           format: password
         role:
           type: string
-        enum:
-          - donor
+          enum:
+            - donor
+            - hospital
+            - admin
     SignupDonorRequest:
       allOf:
         - $ref: "#/components/schemas/BaseUser"
@@ -3359,9 +3361,6 @@ paths:
                   hospitalId: 69f3df915f42685cbbbcbb1b
                   date: 2026-05-20
                   donationType: platelets
-            example:
-              hospitalId: 69f3df915f42685cbbbcbb1b
-              date: 2026-05-12T10:00:00.000Z
       responses:
         "200":
           description: Donation eligibility checked successfully
@@ -3846,6 +3845,7 @@ paths:
               - scheduled
               - completed
               - cancelled
+              - rejected
           example: pending
         - in: query
           name: skip
@@ -5123,7 +5123,7 @@ paths:
                       bloodType: O+
                       urgency: critical
                       quantity: 3
-                      requiredBy: 2026-05-20T00:00:00Z
+                      requiredBy: 2026-05-20T00:00:00.000Z
                       hospitalName: Cairo Care Hospital
                       cause: Emergency surgery support
                       respondents: 5
@@ -5138,7 +5138,7 @@ paths:
                       bloodType: AB+
                       urgency: critical
                       quantity: 5
-                      requiredBy: 2026-05-19T00:00:00Z
+                      requiredBy: 2026-05-19T00:00:00.000Z
                       hospitalName: Cairo Care Hospital
                       cause: Trauma patient requiring urgent plasma transfusion
                       respondents: 3
@@ -5153,7 +5153,7 @@ paths:
                       bloodType: O+
                       urgency: high
                       quantity: 3
-                      requiredBy: 2026-05-20T00:00:00Z
+                      requiredBy: 2026-05-20T00:00:00.000Z
                       hospitalName: Nile Hope Medical Center
                       cause: Cancer patient undergoing chemotherapy
                       respondents: 2
