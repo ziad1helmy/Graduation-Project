@@ -418,6 +418,56 @@ const router = Router();
  *     responses:
  *       '200':
  *         description: 2FA disabled successfully
+ *
+ * /auth/fcm-token:
+ *   post:
+ *     tags: [Auth]
+ *     summary: Register an FCM token for the authenticated user
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FcmTokenRequest'
+ *     responses:
+ *       '200':
+ *         description: FCM token registered successfully
+ *       '400':
+ *         description: Missing or invalid FCM token
+ *   put:
+ *     tags: [Auth]
+ *     summary: Replace all stored FCM tokens with one token
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FcmTokenRequest'
+ *     responses:
+ *       '200':
+ *         description: FCM token updated successfully
+ *       '400':
+ *         description: Missing or invalid FCM token
+ *   delete:
+ *     tags: [Auth]
+ *     summary: Remove one FCM token from the authenticated user
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/FcmTokenRequest'
+ *     responses:
+ *       '200':
+ *         description: FCM token removed successfully
+ *       '400':
+ *         description: Missing or invalid FCM token
  */
 router.post('/reset-password', AUC.resetPassword);
 router.post('/signup', AUC.register);

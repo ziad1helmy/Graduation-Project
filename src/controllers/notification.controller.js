@@ -58,6 +58,17 @@ export const markAllNotificationsRead = async (req, res, next) => {
   }
 };
 
+export const deleteAllNotifications = async (req, res, next) => {
+  try {
+    const result = await notificationService.clearAllNotifications(req.user.userId);
+    return response.success(res, 200, 'All notifications deleted successfully', {
+      deletedCount: result.deletedCount || 0,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const deleteNotificationById = async (req, res, next) => {
   try {
     if (!isValidObjectId(req.params.id)) {

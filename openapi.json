@@ -22,7 +22,7 @@
     },
     {
       "name": "Donor",
-      "description": "All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals"
+      "description": "All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals, analytics, campaigns"
     },
     {
       "name": "Hospital",
@@ -30,7 +30,7 @@
     },
     {
       "name": "Admin",
-      "description": "Admin operations: user management, analytics, reward adjustments, system maintenance"
+      "description": "Admin operations: user management, analytics, rewards, campaigns, system maintenance, metrics, and audit logs"
     },
     {
       "name": "Help",
@@ -2863,6 +2863,194 @@
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
+    "/analytics/my-stats": {
+      "get": {
+        "summary": "Get donor's personal donation statistics",
+        "tags": [
+          "Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Donor statistics including donation count by type",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "donorId": {
+                      "type": "string"
+                    },
+                    "fullName": {
+                      "type": "string"
+                    },
+                    "email": {
+                      "type": "string"
+                    },
+                    "bloodType": {
+                      "type": "string"
+                    },
+                    "pointsBalance": {
+                      "type": "number"
+                    },
+                    "totalPointsEarned": {
+                      "type": "number"
+                    },
+                    "totalDonations": {
+                      "type": "number"
+                    },
+                    "donationsByType": {
+                      "type": "object",
+                      "properties": {
+                        "blood": {
+                          "type": "number"
+                        },
+                        "plasma": {
+                          "type": "number"
+                        },
+                        "platelets": {
+                          "type": "number"
+                        },
+                        "organ": {
+                          "type": "number"
+                        }
+                      }
+                    },
+                    "lastDonationDate": {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    "joinDate": {
+                      "type": "string",
+                      "format": "date-time"
+                    }
+                  }
+                },
+                "example": {
+                  "donorId": "string",
+                  "fullName": "string",
+                  "email": "string",
+                  "bloodType": "string",
+                  "pointsBalance": 1,
+                  "totalPointsEarned": 1,
+                  "totalDonations": 1,
+                  "donationsByType": {
+                    "blood": 1,
+                    "plasma": 1,
+                    "platelets": 1,
+                    "organ": 1
+                  },
+                  "lastDonationDate": "2026-05-08T12:00:00.000Z",
+                  "joinDate": "2026-05-08T12:00:00.000Z"
+                }
+              }
+            }
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/analytics/leaderboard": {
+      "get": {
+        "summary": "Get top donors leaderboard",
+        "tags": [
+          "Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "default": 10
+            },
+            "description": "Number of top donors to return",
+            "example": 10
+          },
+          {
+            "in": "query",
+            "name": "days",
+            "schema": {
+              "type": "integer",
+              "default": 30
+            },
+            "description": "Time period in days for leaderboard",
+            "example": 30
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top donors leaderboard"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/analytics/donation-types": {
+      "get": {
+        "summary": "Get donation statistics by type",
+        "tags": [
+          "Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Donation statistics grouped by type",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/analytics/dashboard": {
+      "get": {
+        "summary": "Get dashboard summary with key metrics (Admin only)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Dashboard summary with system metrics",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
     "/donations/book-appointment": {
       "post": {
         "tags": [
@@ -3895,6 +4083,523 @@
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
+    "/auth/fcm-token": {
+      "post": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Register an FCM token for the authenticated user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FcmTokenRequest"
+              },
+              "example": {
+                "fcmToken": "fcm-test-token-1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM token registered successfully"
+          },
+          "400": {
+            "description": "Missing or invalid FCM token"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
+      },
+      "put": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Replace all stored FCM tokens with one token",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FcmTokenRequest"
+              },
+              "example": {
+                "fcmToken": "fcm-test-token-2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM token updated successfully"
+          },
+          "400": {
+            "description": "Missing or invalid FCM token"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
+      },
+      "delete": {
+        "tags": [
+          "Auth"
+        ],
+        "summary": "Remove one FCM token from the authenticated user",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FcmTokenRequest"
+              },
+              "example": {
+                "fcmToken": "fcm-test-token-2"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "FCM token removed successfully"
+          },
+          "400": {
+            "description": "Missing or invalid FCM token"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
+      }
+    },
+    "/campaigns/active": {
+      "get": {
+        "summary": "Get currently active campaigns",
+        "tags": [
+          "Donor"
+        ],
+        "description": "Returns all campaigns currently active that apply to donor donations.\nCampaigns boost points earned on specific donation types (e.g., 1.5x for plasma).\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of active campaigns",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Active campaigns retrieved",
+                  "data": {
+                    "campaigns": [
+                      {
+                        "_id": "664c123456789abcdef12348",
+                        "name": "Summer Blood Drive",
+                        "description": "Help us meet summer blood supply demands",
+                        "multiplier": 1.5,
+                        "donationTypes": [
+                          "blood",
+                          "plasma"
+                        ],
+                        "startDate": "2026-06-01T00:00:00Z",
+                        "endDate": "2026-08-31T23:59:59Z",
+                        "banner": "https://api.example.com/banners/summer.jpg",
+                        "pointsBoost": 100
+                      },
+                      {
+                        "_id": "664c123456789abcdef12349",
+                        "name": "Platelet Week",
+                        "description": "Critical need for platelets this week",
+                        "multiplier": 2,
+                        "donationTypes": [
+                          "platelets"
+                        ],
+                        "startDate": "2026-05-12T00:00:00Z",
+                        "endDate": "2026-05-18T23:59:59Z",
+                        "banner": "https://api.example.com/banners/platelets.jpg",
+                        "pointsBoost": 175
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/campaigns": {
+      "get": {
+        "summary": "List all campaigns with filters (Admin only)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "upcoming",
+                "expired"
+              ]
+            },
+            "description": "Filter by campaign status",
+            "example": "pending"
+          },
+          {
+            "in": "query",
+            "name": "donationType",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "blood",
+                "plasma",
+                "platelets",
+                "organ"
+              ]
+            },
+            "example": "blood"
+          },
+          {
+            "in": "query",
+            "name": "active",
+            "schema": {
+              "type": "boolean"
+            },
+            "example": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "List of campaigns matching filters"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      },
+      "post": {
+        "summary": "Create a new campaign (Admin only)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name",
+                  "startDate",
+                  "endDate"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "Campaign name"
+                  },
+                  "description": {
+                    "type": "string"
+                  },
+                  "startDate": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "endDate": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "multiplier": {
+                    "type": "number",
+                    "minimum": 1,
+                    "maximum": 3,
+                    "default": 1
+                  },
+                  "donationTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "blood",
+                        "plasma",
+                        "platelets",
+                        "organ"
+                      ]
+                    },
+                    "default": [
+                      "blood"
+                    ]
+                  },
+                  "bloodTypes": {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "A+",
+                        "A-",
+                        "B+",
+                        "B-",
+                        "AB+",
+                        "AB-",
+                        "O+",
+                        "O-"
+                      ]
+                    }
+                  },
+                  "urgencyLevel": {
+                    "type": "string",
+                    "enum": [
+                      "low",
+                      "medium",
+                      "high",
+                      "critical"
+                    ]
+                  },
+                  "maxRedemptions": {
+                    "type": "number"
+                  },
+                  "banner": {
+                    "type": "string",
+                    "format": "uri"
+                  },
+                  "tags": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              },
+              "example": {
+                "name": "string",
+                "description": "string",
+                "startDate": "2026-05-08T12:00:00.000Z",
+                "endDate": "2026-05-08T12:00:00.000Z",
+                "multiplier": 1,
+                "donationTypes": [
+                  "blood"
+                ],
+                "bloodTypes": [
+                  "A+"
+                ],
+                "urgencyLevel": "low",
+                "maxRedemptions": 1,
+                "banner": "https://example.com",
+                "tags": [
+                  "string"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Campaign created successfully"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/campaigns/{campaignId}": {
+      "put": {
+        "summary": "Update campaign (Admin only)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaignId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "string"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "multiplier": {
+                    "type": "number"
+                  },
+                  "active": {
+                    "type": "boolean"
+                  }
+                }
+              },
+              "example": {
+                "name": "string",
+                "multiplier": 1,
+                "active": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Campaign updated successfully"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      },
+      "delete": {
+        "summary": "Delete campaign (Admin only)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaignId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign deleted"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/campaigns/{campaignId}/activate": {
+      "post": {
+        "summary": "Activate campaign (Admin only)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaignId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign activated"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/campaigns/{campaignId}/deactivate": {
+      "post": {
+        "summary": "Deactivate campaign (Admin only)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaignId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign deactivated"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/campaigns/{campaignId}/metrics": {
+      "get": {
+        "summary": "Get campaign performance metrics (Admin only)",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "campaignId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "string"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Campaign performance metrics"
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
     "/hospitals": {
       "get": {
         "summary": "List hospitals for discovery",
@@ -4214,7 +4919,8 @@
         "tags": [
           "Donor"
         ],
-        "summary": "Get supported donation types",
+        "summary": "Get supported donation types with details",
+        "description": "Returns all supported donation types including medical hold periods and point values.\n- Blood: 56-day cooldown, 200 points\n- Plasma: 14-day cooldown, 150 points\n- Platelets: 7-day cooldown, 175 points\n- Organ: 365-day cooldown, 500 points\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "responses": {
           "200": {
             "description": "Donation types retrieved successfully",
@@ -4222,14 +4928,44 @@
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "Donation types retrieved",
+                  "data": {
+                    "types": [
+                      {
+                        "type": "blood",
+                        "name": "Whole Blood",
+                        "cooldownDays": 56,
+                        "pointsAward": 200,
+                        "description": "Standard blood donation - most common type"
+                      },
+                      {
+                        "type": "plasma",
+                        "name": "Plasma",
+                        "cooldownDays": 14,
+                        "pointsAward": 150,
+                        "description": "Plasma donation - more frequent possible donations"
+                      },
+                      {
+                        "type": "platelets",
+                        "name": "Platelets",
+                        "cooldownDays": 7,
+                        "pointsAward": 175,
+                        "description": "Platelet donation - shortest cooldown period"
+                      },
+                      {
+                        "type": "organ",
+                        "name": "Organ",
+                        "cooldownDays": 365,
+                        "pointsAward": 500,
+                        "description": "Organ donation - highest point value"
+                      }
+                    ]
+                  }
                 }
               }
             }
           }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+        }
       }
     },
     "/donations/validate": {
@@ -4238,6 +4974,7 @@
           "Donor"
         ],
         "summary": "Validate if a donor can donate for a given hospital and date",
+        "description": "Checks donation eligibility based on:\n- Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d, organ: 365d)\n- Minimum age (17 years old)\n- Hemoglobin level (minimum 12.5 g/dL)\n- Travel deferrals\n- Temporary medical deferrals\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -4252,7 +4989,55 @@
                 "required": [
                   "hospitalId",
                   "date"
-                ]
+                ],
+                "properties": {
+                  "hospitalId": {
+                    "type": "string",
+                    "description": "Hospital ObjectId"
+                  },
+                  "date": {
+                    "type": "string",
+                    "format": "date",
+                    "description": "Intended donation date (YYYY-MM-DD)"
+                  },
+                  "donationType": {
+                    "type": "string",
+                    "enum": [
+                      "blood",
+                      "plasma",
+                      "platelets",
+                      "organ"
+                    ],
+                    "default": "blood",
+                    "description": "Type of donation - affects cooldown period"
+                  }
+                }
+              },
+              "examples": {
+                "bloodDonation": {
+                  "summary": "Blood donation eligibility check",
+                  "value": {
+                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "date": "2026-05-20",
+                    "donationType": "blood"
+                  }
+                },
+                "plasmaDonation": {
+                  "summary": "Plasma donation eligibility check (shorter cooldown)",
+                  "value": {
+                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "date": "2026-05-20",
+                    "donationType": "plasma"
+                  }
+                },
+                "plateletsDonation": {
+                  "summary": "Platelets donation eligibility check (7-day cooldown)",
+                  "value": {
+                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "date": "2026-05-20",
+                    "donationType": "platelets"
+                  }
+                }
               },
               "example": {
                 "hospitalId": "69f3df915f42685cbbbcbb1b",
@@ -4263,10 +5048,61 @@
         },
         "responses": {
           "200": {
-            "description": "Donation eligibility checked successfully"
+            "description": "Donation eligibility checked successfully",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "eligible": {
+                    "summary": "Donor is eligible to donate",
+                    "value": {
+                      "success": true,
+                      "message": "Donor is eligible to donate",
+                      "data": {
+                        "eligible": true,
+                        "canProceed": true,
+                        "reason": "Donor is eligible for blood donation"
+                      }
+                    }
+                  },
+                  "ineligibleCooldown": {
+                    "summary": "Donor has active cooldown period",
+                    "value": {
+                      "success": true,
+                      "message": "Donation eligibility checked",
+                      "data": {
+                        "eligible": false,
+                        "canProceed": false,
+                        "reason": "Blood donation cooldown: must wait 45 more days",
+                        "nextEligibleDate": "2026-06-25T00:00:00.000Z"
+                      }
+                    }
+                  },
+                  "ineligibleAge": {
+                    "summary": "Donor is too young",
+                    "value": {
+                      "success": true,
+                      "message": "Donation eligibility checked",
+                      "data": {
+                        "eligible": false,
+                        "canProceed": false,
+                        "reason": "Donor must be at least 17 years old to donate"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing required fields"
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "403": {
+            "description": "Role not allowed"
           }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
+        }
       }
     },
     "/donations/complete": {
@@ -4274,25 +5110,73 @@
         "tags": [
           "Donor"
         ],
-        "summary": "Mark a donation as completed",
+        "summary": "Mark a donation as completed and award points",
+        "description": "Completes a donation and triggers point award based on donation type:\n- Blood: 200 points (+ campaign multiplier if active)\n- Plasma: 150 points (+ campaign multiplier if active)\n- Platelets: 175 points (+ campaign multiplier if active)\n- Organ: 500 points (+ campaign multiplier if active)\n\nAlso triggers first-donation bonus if applicable.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "donationId",
+                  "isEmergency"
+                ],
+                "properties": {
+                  "donationId": {
+                    "type": "string",
+                    "description": "Donation ObjectId to complete"
+                  },
+                  "isEmergency": {
+                    "type": "boolean",
+                    "description": "Whether this was an emergency donation (for analytics)"
+                  }
+                }
+              },
+              "example": {
+                "donationId": "69fe540565ff7785a0313157",
+                "notes": "Donation completed successfully."
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
-            "description": "Example response",
+            "description": "Donation completed and points awarded",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "Donation completed successfully",
+                  "data": {
+                    "donation": {
+                      "_id": "69fe540565ff7785a0313157",
+                      "donorId": "69f3df915f42685cbbbcbb18",
+                      "requestId": "69fe540565ff7785a0313151",
+                      "status": "completed",
+                      "completedDate": "2026-05-11T10:00:00.000Z"
+                    },
+                    "points": {
+                      "awarded": 200,
+                      "multiplier": 1,
+                      "bonusEarned": false,
+                      "transaction": {
+                        "type": "BLOOD_DONATION",
+                        "amount": 200
+                      }
+                    }
+                  }
                 }
               }
             }
+          },
+          "404": {
+            "description": "Donation not found"
           }
         }
       }
@@ -6222,6 +7106,32 @@
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      },
+      "delete": {
+        "summary": "Delete all notifications for authenticated user",
+        "tags": [
+          "Donor"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "All notifications deleted",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Example response",
+                  "data": {}
+                }
+              }
+            }
+          }
+        },
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
     "/notifications/{id}/read": {
@@ -6352,21 +7262,109 @@
           "Requests"
         ],
         "summary": "Get nearby urgent requests within an optional radius",
+        "description": "Returns urgent donation requests from nearby hospitals.\nSupports all request types: blood, plasma, platelets, and organ.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "parameters": [
+          {
+            "in": "query",
+            "name": "lat",
+            "schema": {
+              "type": "number"
+            },
+            "required": false,
+            "example": 1
+          },
+          {
+            "in": "query",
+            "name": "lng",
+            "schema": {
+              "type": "number"
+            },
+            "required": false,
+            "example": 1
+          },
+          {
+            "in": "query",
+            "name": "radius",
+            "schema": {
+              "type": "number",
+              "default": 50
+            },
+            "description": "Search radius in km",
+            "example": 50
+          },
+          {
+            "in": "query",
+            "name": "type",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "blood",
+                "plasma",
+                "platelets",
+                "organ"
+              ]
+            },
+            "description": "Filter by request type",
+            "example": "blood"
+          },
+          {
+            "in": "query",
+            "name": "bloodType",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filter by blood type (for blood/plasma/platelets)",
+            "example": "O+"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Example response",
+            "description": "Nearby requests retrieved",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "Nearby urgent requests retrieved",
+                  "data": {
+                    "requests": [
+                      {
+                        "_id": "69fe540565ff7785a031314f",
+                        "type": "blood",
+                        "bloodType": "O+",
+                        "hospitalName": "Cairo Care Hospital",
+                        "urgency": "critical",
+                        "quantity": 3,
+                        "distance": 2.5,
+                        "cause": "Emergency surgery support"
+                      },
+                      {
+                        "_id": "69fe540565ff7785a0313150",
+                        "type": "plasma",
+                        "bloodType": "AB+",
+                        "hospitalName": "Cairo Care Hospital",
+                        "urgency": "critical",
+                        "quantity": 5,
+                        "distance": 2.5,
+                        "cause": "Trauma patient requiring urgent plasma"
+                      },
+                      {
+                        "_id": "69fe540565ff7785a0313154",
+                        "type": "platelets",
+                        "bloodType": "O+",
+                        "hospitalName": "Nile Hope Medical Center",
+                        "urgency": "high",
+                        "quantity": 3,
+                        "distance": 12.8,
+                        "cause": "Cancer patient undergoing chemotherapy"
+                      }
+                    ],
+                    "total": 3
+                  }
                 }
               }
             }
@@ -6407,25 +7405,90 @@
         "tags": [
           "Requests"
         ],
-        "summary": "Get full request details for Flutter",
+        "summary": "Get full request details including all donation type information",
+        "description": "Returns complete request details with donor responses and history.\nWorks for blood, plasma, platelets, and organ requests.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "69fe540565ff7785a031314f"
+          }
+        ],
         "responses": {
           "200": {
-            "description": "Example response",
+            "description": "Request details retrieved",
             "content": {
               "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Example response",
-                  "data": {}
+                "examples": {
+                  "bloodRequest": {
+                    "summary": "Blood request details",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "_id": "69fe540565ff7785a031314f",
+                        "type": "blood",
+                        "bloodType": "O+",
+                        "urgency": "critical",
+                        "quantity": 3,
+                        "requiredBy": "2026-05-20T00:00:00Z",
+                        "hospitalName": "Cairo Care Hospital",
+                        "cause": "Emergency surgery support",
+                        "respondents": 5,
+                        "acceptedBy": 2
+                      }
+                    }
+                  },
+                  "plasmaRequest": {
+                    "summary": "Plasma request details",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "_id": "69fe540565ff7785a0313155",
+                        "type": "plasma",
+                        "bloodType": "AB+",
+                        "urgency": "critical",
+                        "quantity": 5,
+                        "requiredBy": "2026-05-19T00:00:00Z",
+                        "hospitalName": "Cairo Care Hospital",
+                        "cause": "Trauma patient requiring urgent plasma transfusion",
+                        "respondents": 3,
+                        "acceptedBy": 1
+                      }
+                    }
+                  },
+                  "plateletRequest": {
+                    "summary": "Platelets request details",
+                    "value": {
+                      "success": true,
+                      "data": {
+                        "_id": "69fe540565ff7785a0313156",
+                        "type": "platelets",
+                        "bloodType": "O+",
+                        "urgency": "high",
+                        "quantity": 3,
+                        "requiredBy": "2026-05-20T00:00:00Z",
+                        "hospitalName": "Nile Hope Medical Center",
+                        "cause": "Cancer patient undergoing chemotherapy",
+                        "respondents": 2,
+                        "acceptedBy": 1
+                      }
+                    }
+                  }
                 }
               }
             }
+          },
+          "404": {
+            "description": "Request not found"
           }
         }
       }
@@ -6560,8 +7623,15 @@
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "Points retrieved successfully",
+                  "data": {
+                    "points": 2340,
+                    "tier": "SILVER",
+                    "nextTier": "GOLD",
+                    "pointsToNextTier": 660,
+                    "bonusMultiplier": 1,
+                    "rewardsAvailable": 5
+                  }
                 }
               }
             }
@@ -6588,8 +7658,50 @@
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "Earning rules retrieved",
+                  "data": {
+                    "rules": [
+                      {
+                        "donationType": "blood",
+                        "basePoints": 200,
+                        "cooldownDays": 56,
+                        "description": "Whole blood donation"
+                      },
+                      {
+                        "donationType": "plasma",
+                        "basePoints": 150,
+                        "cooldownDays": 14,
+                        "description": "Plasma donation"
+                      },
+                      {
+                        "donationType": "platelets",
+                        "basePoints": 175,
+                        "cooldownDays": 7,
+                        "description": "Platelet donation"
+                      },
+                      {
+                        "donationType": "organ",
+                        "basePoints": 500,
+                        "cooldownDays": 365,
+                        "description": "Organ donation"
+                      }
+                    ],
+                    "campaigns": [
+                      {
+                        "name": "Summer Blood Drive",
+                        "multiplier": 1.5,
+                        "applicableTo": [
+                          "blood",
+                          "plasma"
+                        ],
+                        "endsAt": "2026-08-31T23:59:59Z"
+                      }
+                    ],
+                    "bonuses": {
+                      "firstDonation": 50,
+                      "referral": 100
+                    }
+                  }
                 }
               }
             }
@@ -6848,7 +7960,44 @@
         ],
         "responses": {
           "200": {
-            "description": "Rewards catalog"
+            "description": "Rewards catalog",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Rewards catalog retrieved",
+                  "data": {
+                    "rewards": [
+                      {
+                        "_id": "664a123456789abcdef12345",
+                        "title": "Coffee Voucher",
+                        "description": "Free coffee at partner cafe",
+                        "category": "FOOD",
+                        "pointsRequired": 300,
+                        "image": "https://api.example.com/images/coffee.jpg",
+                        "stock": 50,
+                        "redeemed": 12,
+                        "isAvailable": true,
+                        "daysToExpiry": 30
+                      },
+                      {
+                        "_id": "664a123456789abcdef12346",
+                        "title": "Movie Ticket",
+                        "description": "Two movie tickets at partner cinema",
+                        "category": "ENTERTAINMENT",
+                        "pointsRequired": 800,
+                        "image": "https://api.example.com/images/movie.jpg",
+                        "stock": 25,
+                        "redeemed": 5,
+                        "isAvailable": true,
+                        "daysToExpiry": 60
+                      }
+                    ],
+                    "total": 45
+                  }
+                }
+              }
+            }
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
@@ -6926,6 +8075,7 @@
             "schema": {
               "type": "string"
             },
+            "description": "Reward ObjectId to redeem",
             "example": "69fe540565ff7785a0313165"
           }
         ],
@@ -6958,7 +8108,27 @@
         },
         "responses": {
           "200": {
-            "description": "Redemption confirmed with confirmation code"
+            "description": "Redemption confirmed with confirmation code",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Reward redeemed successfully",
+                  "data": {
+                    "redemption": {
+                      "_id": "664b123456789abcdef12347",
+                      "rewardId": "664a123456789abcdef12345",
+                      "donorId": "69f3df915f42685cbbbcbb18",
+                      "pointsSpent": 300,
+                      "status": "confirmed",
+                      "confirmationCode": "CAFE-2026-051-12345",
+                      "createdAt": "2026-05-11T10:00:00Z",
+                      "expiresAt": "2026-05-18T10:00:00Z"
+                    }
+                  }
+                }
+              }
+            }
           },
           "409": {
             "description": "Insufficient points or limit exceeded"

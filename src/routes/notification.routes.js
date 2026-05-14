@@ -34,8 +34,16 @@ const router = Router();
  *     responses:
  *       200:
  *         description: Notifications list
+ *   delete:
+ *     summary: Delete all notifications for authenticated user
+ *     tags: [Donor]
+ *     security: [{ bearerAuth: [] }]
+ *     responses:
+ *       200:
+ *         description: All notifications deleted
  */
 router.get('/', authMiddleware, notificationController.getNotifications);
+router.delete('/', authMiddleware, notificationController.deleteAllNotifications);
 
 /**
  * @swagger
