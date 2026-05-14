@@ -4,6 +4,7 @@ import { createDonor, createHospital, createRequest, createDonation } from '../h
 import mongoose from 'mongoose';
 import * as notificationService from '../../src/services/notification.service.js';
 import Notification from '../../src/models/Notification.model.js';
+import { buildEmergencyRequestNotificationData } from '../../src/utils/emergency-notification.js';
 
 setupTestDB();
 
@@ -29,8 +30,43 @@ describe('Notification Service', () => {
 
     const items = await notificationService.notifyRequest([d1._id, d2._id], request);
     expect(items.length).toBe(2);
+    expect(items[0].type).toBe('emergency');
+    expect(items[0].data.type).toBe('emergency_request');
+    expect(items[0].data.requestId).toBe(request._id.toString());
+    expect(items[0].data.title_loc_key).toBe('emergency_request_title');
+    expect(items[0].data.body_loc_key).toBe('emergency_request_body');
+    expect(items[0].data.actionIds).toEqual(['accept', 'decline', 'view']);
+    expect(items[0].data.actions[2].endpoint).toBe(`/urgent-requests/${request._id}`);
     const unread = await notificationService.getUnreadNotifications(d1._id);
     expect(unread.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('buildEmergencyRequestNotificationData includes request snapshot fields', async () => {
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, {
+      type: 'blood',
+      bloodType: 'O-',
+      urgency: 'critical',
+      unitsNeeded: 2,
+    });
+    const donor = await createDonor({ bloodType: 'O+' });
+    await request.populate('hospitalId', 'fullName hospitalName address location contactNumber');
+
+    const data = buildEmergencyRequestNotificationData(request, donor);
+
+    expect(data.type).toBe('emergency_request');
+    expect(data.requestId).toBe(request._id.toString());
+    expect(data.bloodType).toBe('O-');
+    expect(data.urgency).toBe('critical');
+    expect(data.hospitalName).toBeTruthy();
+    expect(data.unitsNeeded).toBe(2);
+    expect(data.requiredBy).toBeTruthy();
+    expect(data.requestStatus).toBe('pending');
+    expect(data.createdAt).toBeTruthy();
+    expect(data.title_loc_key).toBe('emergency_request_title');
+    expect(data.body_loc_key).toBe('emergency_request_body');
+    expect(Array.isArray(data.actions)).toBe(true);
+    expect(data.actions.map((action) => action.id)).toEqual(['accept', 'decline', 'view']);
   });
 
   it('notifyMilestone creates milestone notification', async () => {

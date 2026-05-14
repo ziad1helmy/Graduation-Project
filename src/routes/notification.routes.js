@@ -145,6 +145,7 @@ router.patch('/read-all', authMiddleware, notificationController.markAllNotifica
  *       404:
  *         description: Notification not found or does not belong to user
  */
+router.get('/:id', authMiddleware, notificationController.getNotificationById);
 router.delete('/:id', authMiddleware, notificationController.deleteNotificationById);
 
 export default router;

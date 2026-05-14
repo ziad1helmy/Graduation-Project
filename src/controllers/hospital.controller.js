@@ -4,6 +4,7 @@ import Hospital from '../models/Hospital.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import * as notificationService from '../services/notification.service.js';
+import * as matchingService from '../services/matching.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import HospitalStaff from '../models/HospitalStaff.model.js';
@@ -182,6 +183,15 @@ export const createRequest = async (req, res, next) => {
 
     const donRequest = await Request.create(requestData);
     await donRequest.populate('hospitalId', 'fullName hospitalName address contactNumber');
+
+    if (requestData.isEmergency) {
+      const compatibleDonors = await matchingService.findCompatibleDonors(donRequest._id);
+      const donorIds = compatibleDonors.map(({ donor }) => donor._id);
+
+      if (donorIds.length > 0) {
+        await notificationService.notifyRequest(donorIds, donRequest);
+      }
+    }
 
     response.success(res, 201, 'Donation request created successfully', donRequest);
   } catch (error) {

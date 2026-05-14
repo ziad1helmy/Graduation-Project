@@ -79,13 +79,47 @@ const initFirebase = async () => {
 };
 
 /**
+ * Build FCM platform-specific notification options from a generic config.
+ */
+const buildPlatformNotification = (data = {}, options = {}) => {
+  const androidNotification = {};
+
+  if (options.channelId) androidNotification.channelId = options.channelId;
+  if (options.clickAction) androidNotification.clickAction = options.clickAction;
+  if (options.titleLocKey || data.title_loc_key) {
+    androidNotification.titleLocKey = options.titleLocKey || data.title_loc_key;
+  }
+  if (options.bodyLocKey || data.body_loc_key) {
+    androidNotification.bodyLocKey = options.bodyLocKey || data.body_loc_key;
+  }
+  if (options.titleLocArgs) androidNotification.titleLocArgs = options.titleLocArgs;
+  if (options.bodyLocArgs) androidNotification.bodyLocArgs = options.bodyLocArgs;
+
+  const apnsPayload = {};
+  if (options.apnsCategory) {
+    apnsPayload.category = options.apnsCategory;
+  }
+
+  const payload = {};
+  if (Object.keys(androidNotification).length > 0) {
+    payload.android = { notification: androidNotification };
+  }
+  if (Object.keys(apnsPayload).length > 0) {
+    payload.apns = { payload: { aps: apnsPayload } };
+  }
+
+  return payload;
+};
+
+/**
  * Send push notification to a single device.
  * @param {string} fcmToken - Device FCM token
  * @param {string} title - Notification title
  * @param {string} body - Notification body
  * @param {Object} data - Additional data payload
+ * @param {Object} options - Optional platform-specific notification settings
  */
-export const sendToDevice = async (fcmToken, title, body, data = {}) => {
+export const sendToDevice = async (fcmToken, title, body, data = {}, options = {}) => {
   if (!fcmToken) return null;
 
   const initialized = await initFirebase();
@@ -103,6 +137,7 @@ export const sendToDevice = async (fcmToken, title, body, data = {}) => {
     const message = {
       token: fcmToken,
       notification: { title, body },
+      ...buildPlatformNotification(data, options),
       data: Object.fromEntries(
         Object.entries(data).map(([k, v]) => [k, String(v)])
       ),
@@ -124,9 +159,10 @@ export const sendToDevice = async (fcmToken, title, body, data = {}) => {
  * @param {string} title - Notification title
  * @param {string} body - Notification body
  * @param {Object} data - Additional data payload
+ * @param {Object} options - Optional platform-specific notification settings
  * @returns {Object} - { successCount, failureCount }
  */
-export const sendToMultiple = async (fcmTokens, title, body, data = {}) => {
+export const sendToMultiple = async (fcmTokens, title, body, data = {}, options = {}) => {
   if (!fcmTokens || fcmTokens.length === 0) {
     return { successCount: 0, failureCount: 0 };
   }
@@ -149,6 +185,7 @@ export const sendToMultiple = async (fcmTokens, title, body, data = {}) => {
   try {
     const message = {
       notification: { title, body },
+      ...buildPlatformNotification(data, options),
       data: Object.fromEntries(
         Object.entries(data).map(([k, v]) => [k, String(v)])
       ),
