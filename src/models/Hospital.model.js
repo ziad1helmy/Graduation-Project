@@ -51,11 +51,13 @@ const hospitalSchema = new mongoose.Schema({
     },
     licenseNumber: {
         type: String,
-        required: [true, 'License number is required'],
+        required: false,
         unique: true,
+        sparse: true,
         trim: true,
         minlength: [5, 'License number must be at least 5 characters long'],
         maxlength: [50, 'License number must be less than 50 characters long'],
+        default: null,
     },
     hospitalId: {
         type: String,

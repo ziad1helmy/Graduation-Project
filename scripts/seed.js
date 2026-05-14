@@ -60,7 +60,7 @@ const seedTestAccounts = async () => {
       isEmailVerified: true,
       emailVerifiedAt: new Date(),
       hospitalName: 'General Test Hospital',
-      licenseNumber: 'TEST-LIC-999',
+      hospitalId: 'TEST-HOSP-001',
       contactNumber: '2000000000',
       address: {
         city: 'Test City',

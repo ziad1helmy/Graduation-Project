@@ -86,10 +86,6 @@ export const validateCreateHospitalBody = (body) => {
     errors.push('hospitalId is required');
   }
 
-  if (!body.licenseNumber || typeof body.licenseNumber !== 'string') {
-    errors.push('licenseNumber is required');
-  }
-
   if (body.lat === undefined || body.lat === null || typeof body.lat !== 'number') {
     errors.push('lat (number) is required');
   } else if (body.lat < -90 || body.lat > 90) {

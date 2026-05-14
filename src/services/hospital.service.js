@@ -18,7 +18,7 @@ export const createHospitalByAdmin = async (data, adminId) => {
     throw new Error('Email is required');
   }
 
-  const requiredFields = ['name', 'type', 'phone', 'licenseNumber', 'hospitalId'];
+  const requiredFields = ['name', 'type', 'phone', 'hospitalId'];
   for (const field of requiredFields) {
     if (!data[field] || typeof data[field] !== 'string' || !String(data[field]).trim()) {
       throw new Error(`${field} is required`);
@@ -30,14 +30,16 @@ export const createHospitalByAdmin = async (data, adminId) => {
     throw new Error('Email already registered');
   }
 
-  const existingLicense = await Hospital.findOne({ licenseNumber: String(data.licenseNumber).trim() });
-  if (existingLicense) {
-    throw new Error('License number already registered');
-  }
-
   const existingHospitalId = await Hospital.findOne({ hospitalId: String(data.hospitalId).trim() });
   if (existingHospitalId) {
     throw new Error('Hospital ID already registered');
+  }
+
+  const existingLicense = data.licenseNumber
+    ? await Hospital.findOne({ licenseNumber: String(data.licenseNumber).trim() })
+    : null;
+  if (existingLicense) {
+    throw new Error('License number already registered');
   }
 
   const generatedPassword = data.password ? String(data.password) : generateTemporaryPassword();
@@ -57,7 +59,7 @@ export const createHospitalByAdmin = async (data, adminId) => {
     city: data.city ? String(data.city).trim() : null,
     state: data.state ? String(data.state).trim() : null,
     zipCode: data.zipCode ? String(data.zipCode).trim() : null,
-    licenseNumber: String(data.licenseNumber).trim(),
+    licenseNumber: data.licenseNumber ? String(data.licenseNumber).trim() : null,
     hospitalId: String(data.hospitalId).trim(),
     adminContactName: data.adminContactName ? String(data.adminContactName).trim() : null,
     adminContactPhone: data.adminContactPhone ? String(data.adminContactPhone).trim() : null,
