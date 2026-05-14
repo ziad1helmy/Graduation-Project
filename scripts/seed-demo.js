@@ -75,7 +75,7 @@ const donorsData = [
     settings: {
       pushNotifications: true,
       emergencyAlerts: true,
-      privacy: 'public',
+      privacyMode: false,
       language: 'en',
     },
     location: {
@@ -110,7 +110,7 @@ const donorsData = [
     settings: {
       pushNotifications: true,
       emergencyAlerts: false,
-      privacy: 'private',
+      privacyMode: true,
       language: 'ar',
     },
     location: {
@@ -146,7 +146,7 @@ const donorsData = [
     settings: {
       pushNotifications: true,
       emergencyAlerts: true,
-      privacy: 'friends',
+      privacyMode: false,
       language: 'en',
     },
     location: {
@@ -181,7 +181,7 @@ const donorsData = [
     settings: {
       pushNotifications: false,
       emergencyAlerts: false,
-      privacy: 'private',
+      privacyMode: true,
       language: 'en',
     },
     location: {
@@ -216,7 +216,7 @@ const donorsData = [
     settings: {
       pushNotifications: true,
       emergencyAlerts: true,
-      privacy: 'public',
+      privacyMode: false,
       language: 'en',
     },
     location: {
