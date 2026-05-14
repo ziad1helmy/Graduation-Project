@@ -56,14 +56,14 @@ const activitySchema = new mongoose.Schema(
       required: [true, 'User ID is required'],
     },
 
-    type: {
-      type: String,
-      enum: {
-        values: ACTIVITY_TYPES,
-        message: `Type must be one of: ${ACTIVITY_TYPES.join(', ')}`,
-      },
-      required: [true, 'Activity type is required'],
-    },
+    // type: {
+    //   type: String,
+    //   enum: {
+    //     values: ACTIVITY_TYPES,
+    //     message: `Type must be one of: ${ACTIVITY_TYPES.join(', ')}`,
+    //   },
+    //   required: [true, 'Activity type is required'],
+    // },
 
     action: {
       type: String,
