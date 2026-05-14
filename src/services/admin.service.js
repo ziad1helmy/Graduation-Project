@@ -343,6 +343,7 @@ export const createHospital = async (data, adminId) => {
       state: data.state,
       zipCode: data.zipCode,
       licenseNumber: data.licenseNumber,
+      hospitalId: data.hospitalId,
       adminContactName: data.adminContactName,
       adminContactPhone: data.adminContactPhone,
       emergencyContact: data.emergencyContact,

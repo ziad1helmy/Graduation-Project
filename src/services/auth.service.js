@@ -142,9 +142,9 @@ const loadLoginUser = async ({ email, password, role, licenseNumber }) => {
   return { user, twoFactorEnabled: Boolean(tf?.enabled && tf.secret) };
 };
 
-const toLoginUserResponse = (user, { requires2FA = false, tempToken = null } = {}) => {
+const toLoginUserResponse = (user, { requires2FA = false, tempToken = null, hospitalId = null } = {}) => {
   if (requires2FA) {
-    return {
+    const response = {
       requires2FA: true,
       tempToken,
       message: '2FA verification required',
@@ -155,9 +155,17 @@ const toLoginUserResponse = (user, { requires2FA = false, tempToken = null } = {
         role: user.role,
       },
     };
+    if (hospitalId) {
+      response.hospitalId = hospitalId;
+    }
+    return response;
   }
 
-  return buildAuthPayload(user);
+  const authPayload = buildAuthPayload(user);
+  if (hospitalId) {
+    authPayload.hospitalId = hospitalId;
+  }
+  return authPayload;
 };
 
 const toLoginAdminResponse = (user) => ({
@@ -528,7 +536,7 @@ export const loginHospital = async (data) => {
 
   const normalizedEmail = String(email).trim().toLowerCase();
   const user = await User.findOne({ email: normalizedEmail, role: 'hospital' })
-    .select('+password +passwordChangedAt +deletedAt +isSuspended +isEmailVerified')
+    .select('+password +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +hospitalId')
     .lean();
 
   if (!user) throw new Error('Invalid credentials');
@@ -547,10 +555,10 @@ export const loginHospital = async (data) => {
       'two_factor_auth',
       TWO_FACTOR_TEMP_TOKEN_TTL
     );
-    return toLoginUserResponse(user, { requires2FA: true, tempToken });
+    return toLoginUserResponse(user, { requires2FA: true, tempToken, hospitalId: user.hospitalId });
   }
 
-  return toLoginUserResponse(user);
+  return toLoginUserResponse(user, { hospitalId: user.hospitalId });
 };
 
 export const loginAdmin = async (data) => {
