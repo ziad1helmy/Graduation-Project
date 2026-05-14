@@ -151,6 +151,54 @@ describe('Notification Routes Integration', () => {
     expect(unreadCount).toBe(0);
   });
 
+  it('DELETE /notifications deletes all notifications for the authenticated user', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const otherDonor = await createDonor();
+
+    await Notification.create([
+      {
+        userId: donor._id,
+        type: 'milestone',
+        title: 'Badge 1',
+        message: 'Badge 1',
+        relatedType: 'Achievement',
+        relatedId: new mongoose.Types.ObjectId(),
+      },
+      {
+        userId: donor._id,
+        type: 'request',
+        title: 'Request 1',
+        message: 'Request 1',
+        relatedType: 'Request',
+        relatedId: new mongoose.Types.ObjectId(),
+      },
+      {
+        userId: otherDonor._id,
+        type: 'request',
+        title: 'Other User Notification',
+        message: 'Should remain',
+        relatedType: 'Request',
+        relatedId: new mongoose.Types.ObjectId(),
+      },
+    ]);
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .delete('/notifications')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.deletedCount).toBe(2);
+
+    const donorCount = await Notification.countDocuments({ userId: donor._id });
+    const otherDonorCount = await Notification.countDocuments({ userId: otherDonor._id });
+    expect(donorCount).toBe(0);
+    expect(otherDonorCount).toBe(1);
+  });
+
   it('GET /notifications/:id retrieves single notification', async () => {
     await clearDatabase();
     const donor = await createDonor();

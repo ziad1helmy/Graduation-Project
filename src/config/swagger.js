@@ -300,6 +300,9 @@ const getDemoRequestExample = (path, method) => {
     'POST /auth/verify-email-otp': { email: DEMO_EXAMPLES.supportEmail, otp: '123456' },
     'POST /auth/2fa/verify': { tempToken: '<TEMP_2FA_TOKEN>', code: '123456' },
     'POST /auth/2fa/disable': { password: 'AdminPass@123' },
+    'POST /auth/fcm-token': { fcmToken: 'fcm-test-token-1' },
+    'PUT /auth/fcm-token': { fcmToken: 'fcm-test-token-2' },
+    'DELETE /auth/fcm-token': { fcmToken: 'fcm-test-token-2' },
     'POST /donations/validate': { hospitalId: DEMO_EXAMPLE_IDS.hospitalId, date: '2026-05-12T10:00:00.000Z' },
     'POST /donations/complete': { donationId: DEMO_EXAMPLE_IDS.donationIdCompleted, notes: 'Donation completed successfully.' },
     'POST /donations/book-appointment': {
