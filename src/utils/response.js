@@ -71,11 +71,12 @@ export function successResponse(res, statusCode, message, data = undefined) {
  * @param {string} message - Human-readable error message.
  * @returns {import('express').Response} The same res for optional chaining.
  */
-export function errorResponse(res, statusCode, message) {
+export function errorResponse(res, statusCode, message, details = undefined) {
   return res.status(statusCode).json({
     success: false,
     code: inferErrorCode(statusCode, message),
     message,
+    ...(details !== undefined ? { details } : {}),
   });
 }
 

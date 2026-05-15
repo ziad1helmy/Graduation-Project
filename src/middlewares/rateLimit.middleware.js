@@ -76,5 +76,15 @@ const authLimiter = createLimiter({
   max: isDev ? 150 : 20,
 });
 
-export { limiter, authLimiter };
+/**
+ * Strict 2FA Rate Limiter
+ * Specifically designed to mitigate brute-forcing against 2FA endpoints.
+ * Config: 15 minutes, strict max limit.
+ */
+const strict2FALimiter = createLimiter({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: isDev ? 50 : 10,
+});
+
+export { limiter, authLimiter, strict2FALimiter };
 export default limiter;

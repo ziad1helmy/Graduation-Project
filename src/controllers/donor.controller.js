@@ -1,5 +1,7 @@
 import response from '../utils/response.js';
+import mongoose from 'mongoose';
 import Donor from '../models/Donor.model.js';
+import User from '../models/User.model.js';
 import Appointment from '../models/Appointment.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
@@ -68,7 +70,7 @@ export const getProfile = async (req, res, next) => {
 // Update donor profile
 export const updateProfile = async (req, res, next) => {
   try {
-    const { fullName, phoneNumber, gender, location, weight } = req.body;
+    const { fullName, phoneNumber, gender, location, weight, email, bloodType, dateOfBirth } = req.body;
 
     const updateData = {};
     if (fullName) updateData.fullName = fullName;
@@ -87,6 +89,27 @@ export const updateProfile = async (req, res, next) => {
     }
     if (weight !== undefined) {
       updateData.weight = weight;
+    }
+    if (bloodType) {
+      updateData.bloodType = bloodType;
+    }
+    if (dateOfBirth) {
+      updateData.dateOfBirth = dateOfBirth;
+    }
+
+    if (email) {
+      const normalizedEmail = String(email).trim().toLowerCase();
+      // Check if email is already used by another user
+      const existingUser = await User.findOne({ email: normalizedEmail, _id: { $ne: req.user.userId } });
+      if (existingUser) {
+        return response.error(res, 400, 'Email is already in use by another account');
+      }
+      
+      const currentUser = await User.findById(req.user.userId).select('email isEmailVerified');
+      if (currentUser.email !== normalizedEmail) {
+        updateData.email = normalizedEmail;
+        updateData.isEmailVerified = false;
+      }
     }
 
     const donor = await Donor.findByIdAndUpdate(req.user.userId, updateData, {
@@ -283,7 +306,7 @@ export const getDonationHistory = async (req, res, next) => {
     const { status } = req.query;
     const { skip, limit, page } = parsePagination(req.query);
 
-    const filter = { donorId: req.user.userId };
+    const filter = { donorId: new mongoose.Types.ObjectId(req.user.userId) };
     if (status && ['pending', 'scheduled', 'completed', 'cancelled', 'rejected'].includes(status)) {
       filter.status = status;
     }

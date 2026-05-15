@@ -36,6 +36,14 @@ const twoFactorSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    failedAttempts: {
+      type: Number,
+      default: 0,
+    },
+    lockedUntil: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );

@@ -908,6 +908,26 @@ async function main() {
     }
   );
 
+  // Ensure every demo donor has at least one donation history entry.
+  for (const [donorKey, donor] of Object.entries(donors)) {
+    const existingHistoryCount = await Donation.countDocuments({ donorId: donor._id });
+    if (existingHistoryCount > 0) {
+      continue;
+    }
+
+    await ensureDonation(
+      { donorId: donor._id, notes: `[demo-seed] fallback-history-${donorKey}` },
+      {
+        donorId: donor._id,
+        requestId: requests.cairoCompletedBlood._id,
+        status: 'completed',
+        quantity: 1,
+        completedDate: pastDate(7),
+        notes: `[demo-seed] fallback-history-${donorKey}`,
+      }
+    );
+  }
+
   const appointments = {};
   appointments.ayaUrgent = await ensureAppointment(
     { donorId: donors.aya._id, notes: '[demo-seed] appointment-aya-urgent' },

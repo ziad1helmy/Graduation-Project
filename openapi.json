@@ -75,11 +75,13 @@
             "format": "password"
           },
           "role": {
-            "type": "string"
-          },
-          "enum": [
-            "donor"
-          ]
+            "type": "string",
+            "enum": [
+              "donor",
+              "hospital",
+              "admin"
+            ]
+          }
         }
       },
       "SignupDonorRequest": {
@@ -373,210 +375,6 @@
     }
   ],
   "paths": {
-    "/donor/activity": {
-      "get": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Get the authenticated user's activity timeline",
-        "description": "Returns a paginated, timestamped history of all user actions (donations, rewards, urgent responses, profile updates).\nSupports optional filtering by activity type.\nResults are sorted newest-first.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "page",
-            "in": "query",
-            "description": "Page number (1-indexed, default 1)",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "default": 1
-            },
-            "example": 1
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "description": "Items per page (default 20, max 100)",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100,
-              "default": 20
-            },
-            "example": 10
-          },
-          {
-            "name": "type",
-            "in": "query",
-            "description": "Optional activity type filter",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "donation",
-                "reward",
-                "emergency_response",
-                "profile_update",
-                "appointment",
-                "badge",
-                "achievement",
-                "referral",
-                "subscription",
-                "admin_action"
-              ]
-            },
-            "example": "blood"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Activity timeline retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "data": {
-                      "type": "object",
-                      "properties": {
-                        "activities": {
-                          "type": "array",
-                          "items": {
-                            "type": "object",
-                            "properties": {
-                              "id": {
-                                "type": "string",
-                                "example": "5f9d4a1b9d7c2e3c4f5a6b7c"
-                              },
-                              "title": {
-                                "type": "string",
-                                "example": "Blood Donation Completed"
-                              },
-                              "hospital": {
-                                "type": "string",
-                                "nullable": true,
-                                "example": "Cairo Hospital"
-                              },
-                              "points": {
-                                "type": "number",
-                                "example": 200
-                              },
-                              "createdAt": {
-                                "type": "string",
-                                "format": "date-time",
-                                "example": "2026-05-04T12:00:00.000Z"
-                              },
-                              "relativeTime": {
-                                "type": "string",
-                                "example": "3 days ago"
-                              },
-                              "type": {
-                                "type": "string",
-                                "enum": [
-                                  "donation",
-                                  "reward",
-                                  "emergency_response",
-                                  "profile_update",
-                                  "appointment",
-                                  "badge",
-                                  "achievement",
-                                  "referral",
-                                  "subscription",
-                                  "admin_action"
-                                ]
-                              },
-                              "status": {
-                                "type": "string",
-                                "example": "success"
-                              },
-                              "icon": {
-                                "type": "string",
-                                "example": "heart"
-                              }
-                            }
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "properties": {
-                            "total": {
-                              "type": "integer",
-                              "example": 42
-                            },
-                            "page": {
-                              "type": "integer",
-                              "example": 1
-                            },
-                            "limit": {
-                              "type": "integer",
-                              "example": 20
-                            },
-                            "totalPages": {
-                              "type": "integer",
-                              "example": 3
-                            },
-                            "hasNextPage": {
-                              "type": "boolean",
-                              "example": true
-                            },
-                            "hasPrevPage": {
-                              "type": "boolean",
-                              "example": false
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "success": true,
-                  "data": {
-                    "activities": [
-                      {
-                        "id": "5f9d4a1b9d7c2e3c4f5a6b7c",
-                        "title": "Blood Donation Completed",
-                        "hospital": "Cairo Hospital",
-                        "points": 200,
-                        "createdAt": "2026-05-04T12:00:00.000Z",
-                        "relativeTime": "3 days ago",
-                        "type": "donation",
-                        "status": "success",
-                        "icon": "heart"
-                      }
-                    ],
-                    "pagination": {
-                      "total": 42,
-                      "page": 1,
-                      "limit": 20,
-                      "totalPages": 3,
-                      "hasNextPage": true,
-                      "hasPrevPage": false
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid query parameters"
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "500": {
-            "description": "Server error"
-          }
-        }
-      }
-    },
     "/admin/login": {
       "post": {
         "summary": "Login for admin and superadmin accounts",
@@ -3165,7 +2963,7 @@
                     "hospitalId": "69f3df915f42685cbbbcbb1b",
                     "requestId": "69fe540565ff7785a031314f",
                     "appointmentDate": "2026-05-12T10:00:00.000Z",
-                    "status": "confirmed",
+                    "status": "pending",
                     "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
                     "qrExpiresAt": "2026-05-13T10:00:00.000Z",
                     "notes": "First-time donor, available in the morning.",
@@ -3463,12 +3261,9 @@
                     "_id": "69fe540565ff7785a031315c",
                     "donorId": "69f3df915f42685cbbbcbb18",
                     "hospitalId": "69f3df915f42685cbbbcbb1b",
-                    "requestId": "69fe540565ff7785a031314f",
                     "appointmentDate": "2026-05-15T14:00:00.000Z",
                     "status": "pending",
-                    "notes": "Test appointment",
                     "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
-                    "qrExpiresAt": "2026-05-13T10:00:00.000Z",
                     "donationType": "Whole Blood"
                   }
                 }
@@ -3523,12 +3318,9 @@
                     "_id": "69fe540565ff7785a031315c",
                     "donorId": "69f3df915f42685cbbbcbb18",
                     "hospitalId": "69f3df915f42685cbbbcbb1b",
-                    "requestId": "69fe540565ff7785a031314f",
                     "appointmentDate": "2026-05-12T10:00:00.000Z",
                     "status": "cancelled",
                     "cancelledAt": "2026-05-09T10:30:00.000Z",
-                    "notes": "Test appointment",
-                    "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
                     "donationType": "Whole Blood"
                   }
                 }
@@ -5764,7 +5556,8 @@
                 "pending",
                 "scheduled",
                 "completed",
-                "cancelled"
+                "cancelled",
+                "rejected"
               ]
             },
             "example": "pending"
@@ -7231,11 +7024,16 @@
                 },
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "All notifications deleted successfully",
+                  "data": {
+                    "deletedCount": 5
+                  }
                 }
               }
             }
+          },
+          "401": {
+            "description": "Unauthorized - missing or invalid JWT token"
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
@@ -7358,7 +7156,37 @@
         ],
         "responses": {
           "200": {
-            "description": "Notification deleted"
+            "description": "Notification deleted successfully",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean",
+                      "example": true
+                    },
+                    "message": {
+                      "type": "string",
+                      "example": "Notification deleted successfully"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "message": "Notification deleted successfully"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid notification id format"
+          },
+          "401": {
+            "description": "Unauthorized - missing or invalid JWT token"
+          },
+          "404": {
+            "description": "Notification not found or does not belong to user"
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
@@ -7547,7 +7375,7 @@
                         "bloodType": "O+",
                         "urgency": "critical",
                         "quantity": 3,
-                        "requiredBy": "2026-05-20T00:00:00Z",
+                        "requiredBy": "2026-05-20T00:00:00.000Z",
                         "hospitalName": "Cairo Care Hospital",
                         "cause": "Emergency surgery support",
                         "respondents": 5,
@@ -7565,7 +7393,7 @@
                         "bloodType": "AB+",
                         "urgency": "critical",
                         "quantity": 5,
-                        "requiredBy": "2026-05-19T00:00:00Z",
+                        "requiredBy": "2026-05-19T00:00:00.000Z",
                         "hospitalName": "Cairo Care Hospital",
                         "cause": "Trauma patient requiring urgent plasma transfusion",
                         "respondents": 3,
@@ -7583,7 +7411,7 @@
                         "bloodType": "O+",
                         "urgency": "high",
                         "quantity": 3,
-                        "requiredBy": "2026-05-20T00:00:00Z",
+                        "requiredBy": "2026-05-20T00:00:00.000Z",
                         "hospitalName": "Nile Hope Medical Center",
                         "cause": "Cancer patient undergoing chemotherapy",
                         "respondents": 2,

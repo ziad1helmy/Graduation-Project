@@ -163,9 +163,8 @@ app.use('/donor', limiter, donorRoutes);
 app.use('/donor', limiter, activityRoutes);
 app.use('/hospital', limiter, hospitalRoutes);
 app.use('/rewards', limiter, rewardRoutes);
-app.use('/appointments', limiter, appointmentRoutes);
-app.use('/appointments', limiter, appointmentVerifyRoutes);
 app.use('/requests', limiter, requestRoutes);
+app.use('/appointments', limiter, appointmentVerifyRoutes);
 app.use('/donations/book-appointment', limiter, appointmentRoutes);
 app.use('/donations', limiter, donationRoutes);
 app.use('/notifications', limiter, notificationRoutes);
@@ -173,7 +172,7 @@ app.use('/hospitals', limiter, discoveryRoutes);
 app.use('/analytics', limiter, analyticsRoutes);
 app.use('/campaigns', limiter, campaignRoutes);
 app.use('/help', helpRoutes);
-app.use('/support', supportRoutes);
+app.use('/support', limiter, supportRoutes);
 app.use('/api/webhooks', webhookRoutes);
 
 // Flutter-facing aliases that keep the newer root paths stable.

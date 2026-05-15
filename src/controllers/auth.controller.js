@@ -2,6 +2,7 @@ import * as authService from '../services/auth.service.js';
 import response from '../utils/response.js';
 import { ERR } from '../utils/errorCodes.js';
 import { logger } from '../utils/logger.js';
+import { validateChangePassword } from '../validation/auth.validation.js';
 
 // Controller for auth routes
 
@@ -341,6 +342,36 @@ export const resetPassword = async (req, res, next) => {
   }
 };
 
+export const changePassword = async (req, res, next) => {
+  try {
+    const payload = {
+      ...(req.body || {}),
+      currentPassword: req.body?.currentPassword || req.body?.lastPassword || req.body?.oldPassword,
+      newPassword: req.body?.newPassword || req.body?.password,
+    };
+
+    const validation = validateChangePassword(payload);
+    if (!validation.valid) {
+      return response.error(res, 400, 'Validation failed', validation.errors);
+    }
+
+    await authService.changePassword(req.user.userId, {
+      currentPassword: payload.currentPassword,
+      newPassword: payload.newPassword,
+    });
+
+    response.success(res, 200, 'Password changed successfully');
+  } catch (error) {
+    if (error.message === ERR.AUTH_INVALID_PASSWORD) {
+      return response.error(res, 401, error.message);
+    }
+    if (error.message === ERR.AUTH_USER_NOT_FOUND || error.message.includes('required')) {
+      return response.error(res, 400, error.message);
+    }
+    next(error);
+  }
+};
+
 // Get current user
 export const getMe = async (req, res, next) => {
   try {
@@ -533,6 +564,7 @@ export default {
   refreshToken,
   forgotPassword,
   resetPassword,
+  changePassword,
   getMe,
   validateToken,
   verifyOtp,

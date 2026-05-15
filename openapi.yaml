@@ -1972,7 +1972,7 @@ paths:
                   hospitalId: 69f3df915f42685cbbbcbb1b
                   requestId: 69fe540565ff7785a031314f
                   appointmentDate: 2026-05-12T10:00:00.000Z
-                  status: confirmed
+                  status: pending
                   qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
                   qrExpiresAt: 2026-05-13T10:00:00.000Z
                   notes: First-time donor, available in the morning.
@@ -2180,12 +2180,9 @@ paths:
                   _id: 69fe540565ff7785a031315c
                   donorId: 69f3df915f42685cbbbcbb18
                   hospitalId: 69f3df915f42685cbbbcbb1b
-                  requestId: 69fe540565ff7785a031314f
                   appointmentDate: 2026-05-15T14:00:00.000Z
                   status: pending
-                  notes: Test appointment
                   qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
-                  qrExpiresAt: 2026-05-13T10:00:00.000Z
                   donationType: Whole Blood
         "400":
           description: Invalid appointment payload
@@ -2223,12 +2220,9 @@ paths:
                   _id: 69fe540565ff7785a031315c
                   donorId: 69f3df915f42685cbbbcbb18
                   hospitalId: 69f3df915f42685cbbbcbb1b
-                  requestId: 69fe540565ff7785a031314f
                   appointmentDate: 2026-05-12T10:00:00.000Z
                   status: cancelled
                   cancelledAt: 2026-05-09T10:30:00.000Z
-                  notes: Test appointment
-                  qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
                   donationType: Whole Blood
         "400":
           description: Invalid appointment id
@@ -2242,6 +2236,7 @@ paths:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
   /appointments/verify-qr:
+
     post:
       tags:
         - Hospital
@@ -2557,6 +2552,44 @@ paths:
           description: Password reset successful
         "400":
           description: Invalid or expired OTP
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com This operation includes a
+        seeded demo request example."
+  /auth/change-password:
+    post:
+      tags:
+        - Auth
+      summary: Change the authenticated user's password
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+                - confirmPassword
+              properties:
+                currentPassword:
+                  type: string
+                newPassword:
+                  type: string
+                confirmPassword:
+                  type: string
+            example:
+              currentPassword: OldPass@123
+              newPassword: NewPass@123
+              confirmPassword: NewPass@123
+      responses:
+        "200":
+          description: Password changed successfully
+        "400":
+          description: Validation error
+        "401":
+          description: Current password is incorrect
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
@@ -3628,6 +3661,16 @@ paths:
                   type: string
                   description: Donor full name
                   example: Ahmed Hassan
+                email:
+                  type: string
+                  format: email
+                  description: Donor email address. Changing this will require re-verification.
+                  example: ahmed@example.com
+                dateOfBirth:
+                  type: string
+                  format: date
+                  description: Donor date of birth
+                  example: "1995-05-15"
                 phoneNumber:
                   type: string
                   description: Donor phone number

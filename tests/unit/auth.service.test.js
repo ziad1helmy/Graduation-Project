@@ -84,4 +84,31 @@ describe('Auth Service', () => {
     expect(updatedUser.isEmailVerified).toBe(true);
     expect(updatedUser.emailVerifiedAt).toBeTruthy();
   });
+
+  it('changes password after verifying the current password', async () => {
+    const email = 'diana@example.com';
+    const currentPassword = 'OldPass@123';
+    const newPassword = 'NewPass@123';
+    const data = buildDonor({ email, password: currentPassword, confirmPassword: currentPassword });
+
+    await authService.register(data);
+    const user = await Donor.findOne({ email });
+    user.isEmailVerified = true;
+    await user.save();
+
+    const result = await authService.changePassword(user._id, {
+      currentPassword,
+      newPassword,
+    });
+
+    expect(result).toEqual({ success: true });
+
+    const freshUser = await Donor.findOne({ email }).select('+password +passwordChangedAt');
+    expect(freshUser.passwordChangedAt).toBeTruthy();
+
+    await expect(authService.login({ email, password: currentPassword, role: 'donor' })).rejects.toThrow('Invalid credentials');
+
+    const loginRes = await authService.login({ email, password: newPassword, role: 'donor' });
+    expect(loginRes.user.email).toBe(email);
+  });
 });

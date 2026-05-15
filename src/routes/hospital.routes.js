@@ -3,6 +3,13 @@ import authMiddleware from '../middlewares/auth.middleware.js';
 import requireRole from '../middlewares/role.middleware.js';
 import * as hospitalController from '../controllers/hospital.controller.js';
 
+// ─── API CONTRACT ────────────────────────────────────────────────────────────
+// Swagger/OpenAPI documentation for this router lives in /openapi.yaml
+// Update openapi.yaml whenever you add, change, or remove an endpoint here.
+// Do NOT add inline @openapi JSDoc to this file.
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 const router = Router();
 
 // Apply auth and role middleware to all hospital routes
@@ -36,8 +43,10 @@ router.get('/notification-preferences', hospitalController.getNotificationPrefer
 router.put('/notification-preferences', hospitalController.updateNotificationPreferences);
 router.get('/reports/monthly', hospitalController.getMonthlyReports);
 
-// Appointment slot configuration
-router.get('/appointment-settings', hospitalController.getAppointmentSettings);
-router.put('/appointment-settings', hospitalController.updateAppointmentSettings);
-
 export default router;
+
+// ─── API CONTRACT ────────────────────────────────────────────────────────────
+// Swagger/OpenAPI documentation for this router lives in /openapi.yaml
+// Update openapi.yaml whenever you add, change, or remove an endpoint here.
+// Do NOT add inline @openapi JSDoc to this file.
+// ─────────────────────────────────────────────────────────────────────────────

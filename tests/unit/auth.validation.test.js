@@ -6,7 +6,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { validateLogin, validateRegister } from '../../src/validation/auth.validation.js';
+import { validateChangePassword, validateLogin, validateRegister } from '../../src/validation/auth.validation.js';
 
 describe('validateLogin', () => {
   it('should pass with valid email, password, and role', () => {
@@ -154,5 +154,39 @@ describe('validateRegister - public signup restrictions', () => {
 
     expect(result.valid).toBe(false);
     expect(result.errors.role).toBeDefined();
+  });
+});
+
+describe('validateChangePassword', () => {
+  it('should pass with a valid password change payload', () => {
+    const result = validateChangePassword({
+      currentPassword: 'OldPass@123',
+      newPassword: 'NewPass@123',
+      confirmPassword: 'NewPass@123',
+    });
+
+    expect(result.valid).toBe(true);
+    expect(Object.keys(result.errors)).toHaveLength(0);
+  });
+
+  it('should fail when currentPassword is missing', () => {
+    const result = validateChangePassword({
+      newPassword: 'NewPass@123',
+      confirmPassword: 'NewPass@123',
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.currentPassword).toBeDefined();
+  });
+
+  it('should fail when confirmPassword does not match', () => {
+    const result = validateChangePassword({
+      currentPassword: 'OldPass@123',
+      newPassword: 'NewPass@123',
+      confirmPassword: 'WrongPass@123',
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.confirmPassword).toBeDefined();
   });
 });

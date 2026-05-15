@@ -233,6 +233,39 @@ export const validateLogin = (data) => {
 };
 
 /**
+ * Validate password change data for authenticated users.
+ * @param {object} data - Change password data
+ * @returns {object} { valid: boolean, errors: object }
+ */
+export const validateChangePassword = (data) => {
+  const errors = {};
+
+  if (!data.currentPassword) {
+    errors.currentPassword = 'currentPassword is required';
+  }
+
+  const newPassword = data.newPassword;
+  const { valid: newPasswordValid, error: newPasswordError } = validateField('password', newPassword);
+  if (!newPasswordValid) {
+    errors.newPassword = newPasswordError;
+  }
+
+  if (newPassword) {
+    const confirmPassword = data.confirmPassword;
+    if (confirmPassword === undefined || confirmPassword === null || confirmPassword === '') {
+      errors.confirmPassword = 'confirmPassword is required';
+    } else if (String(confirmPassword) !== String(newPassword)) {
+      errors.confirmPassword = 'confirmPassword must match newPassword';
+    }
+  }
+
+  return {
+    valid: Object.keys(errors).length === 0,
+    errors,
+  };
+};
+
+/**
  * Validate registration data based on role
  * @param {object} data - Registration data
  * @returns {object} { valid: boolean, errors: object }
@@ -315,5 +348,6 @@ export const validateRegister = (data) => {
 export default {
   validateLogin,
   validateRegister,
+  validateChangePassword,
   validateField,
 };
