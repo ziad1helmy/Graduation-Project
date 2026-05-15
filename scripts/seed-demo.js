@@ -1264,6 +1264,135 @@ async function main() {
     });
   }
 
+  // Additional demo activity scenarios for each test donor to enrich /donor/activity
+  // Aya: appointment created, notification received, points earned
+  await ensureActivity(donors.aya._id, {
+    type: 'appointment',
+    action: 'appointment_created',
+    title: 'Appointment Requested',
+    description: 'Aya requested an urgent appointment for an O+ donation.',
+    referenceId: `activity_appointment_${appointments.ayaUrgent._id}`,
+    referenceType: 'Request',
+    icon: 'calendar-plus',
+    metadata: { appointmentId: appointments.ayaUrgent._id.toString(), hospitalId: hospitals.cairoCare._id.toString() },
+  });
+
+  await ensureActivity(donors.aya._id, {
+    type: 'emergency_response',
+    action: 'notification_received',
+    title: 'Urgent Request Notification',
+    description: 'Aya received an urgent request nearby and was notified.',
+    referenceId: 'activity_notif_aya_urgent_request',
+    referenceType: 'Request',
+    icon: 'bell',
+    metadata: { demoKey: 'notif_aya_urgent_request', requestId: requests.cairoCriticalBlood._id.toString() },
+  });
+
+  await ensureActivity(donors.aya._id, {
+    type: 'achievement',
+    action: 'points_awarded',
+    title: 'Points Earned',
+    description: 'Points awarded for profile completion.',
+    referenceId: 'activity_points_aya_profile',
+    referenceType: 'PointsTransaction',
+    icon: 'plus-circle',
+    metadata: { points: 100, transactionType: 'PROFILE_COMPLETION' },
+  });
+
+  // Omar: appointment confirmed, responded to request, location update
+  await ensureActivity(donors.omar._id, {
+    type: 'appointment',
+    action: 'appointment_confirmed',
+    title: 'Appointment Confirmed',
+    description: 'Omar has a confirmed appointment at Nile Hope.',
+    referenceId: `activity_appointment_${appointments.omarScheduled._id}`,
+    referenceType: 'Request',
+    icon: 'calendar-check',
+    metadata: { appointmentId: appointments.omarScheduled._id.toString(), hospitalId: hospitals.nileHope._id.toString() },
+  });
+
+  await ensureActivity(donors.omar._id, {
+    type: 'profile_update',
+    action: 'location_updated',
+    title: 'Location Updated',
+    description: 'Omar updated his location to Giza for nearby requests.',
+    referenceId: 'activity_location_omar_giza',
+    referenceType: 'User',
+    icon: 'map-pin',
+    metadata: { city: 'Giza', coordinates: donors.omar.location?.coordinates || {} },
+  });
+
+  // Noor: QR verification, profile completion
+  await ensureActivity(donors.noor._id, {
+    type: 'appointment',
+    action: 'qr_verified',
+    title: 'QR Verified',
+    description: 'Noor verified appointment QR at Cairo Care.',
+    referenceId: `activity_qr_${appointments.noorVerify._id}`,
+    referenceType: 'User',
+    icon: 'qrcode',
+    metadata: { qrToken: appointments.noorVerify.qrToken, appointmentId: appointments.noorVerify._id.toString() },
+  });
+
+  await ensureActivity(donors.noor._id, {
+    type: 'profile_update',
+    action: 'profile_completed',
+    title: 'Profile Completed',
+    description: 'Noor completed her donor profile and enabled alerts.',
+    referenceId: 'activity_profile_noor',
+    referenceType: 'User',
+    icon: 'user-check',
+    metadata: { fields: ['phoneNumber', 'location', 'healthHistory'] },
+  });
+
+  // Leila: appointment cancelled and donation cancelled entries
+  await ensureActivity(donors.leila._id, {
+    type: 'appointment',
+    action: 'appointment_cancelled',
+    title: 'Appointment Cancelled',
+    description: 'Leila cancelled her appointment at Nile Hope.',
+    referenceId: `activity_appointment_cancel_${appointments.leilaCancelled._id}`,
+    referenceType: 'Request',
+    icon: 'calendar-x',
+    metadata: { appointmentId: appointments.leilaCancelled._id.toString(), cancelledAt: appointments.leilaCancelled.cancelledAt?.toISOString() },
+  });
+
+  await ensureActivity(donors.leila._id, {
+    type: 'donation',
+    action: 'donation_cancelled',
+    title: 'Donation Cancelled',
+    description: 'Leila has a cancelled donation linked to a resolved request.',
+    referenceId: donations.leilaCancelled._id.toString(),
+    referenceType: 'Donation',
+    icon: 'x-circle',
+    metadata: { requestId: requests.gizaCancelledBlood._id.toString() },
+  });
+
+  // Responders: emergency matched and confirmed acceptance
+  await ensureActivity(donors.cairoResponder._id, {
+    type: 'emergency_response',
+    action: 'matched_for_emergency',
+    title: 'Emergency Match',
+    description: 'Yasmine was matched to an O+ emergency request for Cairo Care.',
+    referenceId: donations.cairoResponderEmergency._id.toString(),
+    referenceType: 'Donation',
+    icon: 'shield-alert',
+    metadata: { requestId: requests.cairoEmergencyForResponder._id.toString(), bloodType: 'O+' },
+  });
+
+  await ensureActivity(donors.gizaResponder._id, {
+    type: 'emergency_response',
+    action: 'matched_for_emergency',
+    title: 'Emergency Match',
+    description: 'Tarek was matched to an A- emergency request for Nile Hope.',
+    referenceId: donations.gizaResponderEmergency._id.toString(),
+    referenceType: 'Donation',
+    icon: 'shield-alert',
+    metadata: { requestId: requests.gizaEmergencyForResponder._id.toString(), bloodType: 'A-' },
+  });
+
+  // Mariam: points, multiple donations and reward interactions already seeded above
+
   await ensureAuditLog({
     adminId: admin._id,
     action: 'user.verify',

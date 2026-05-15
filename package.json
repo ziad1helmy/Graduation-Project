@@ -34,12 +34,12 @@
     "qrcode": "^1.5.4",
     "resend": "^6.12.3",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "mongodb-memory-server": "^11.0.1",
     "supertest": "^7.2.2",
-    "vitest": "^4.1.5",
-    "yaml": "^2.9.0"
+    "vitest": "^4.1.5"
   }
 }
