@@ -3831,6 +3831,103 @@ paths:
           description: Missing or invalid JWT token
         "403":
           description: Access denied - donor role required
+  /donor/activity:
+    get:
+      tags:
+        - Donor
+      summary: Get user activity timeline
+      description: >-
+        Retrieve paginated activity timeline for the authenticated donor. The
+        demo seed (`npm run seed-demo`) populates representative activity
+        entries (appointments, notifications, donations, rewards, badges,
+        and emergency matches) for testing.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          description: Page number (1-indexed)
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          description: Items per page (max 100)
+          example: 20
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum:
+              - donation
+              - reward
+              - emergency_response
+              - profile_update
+              - appointment
+              - badge
+              - achievement
+              - referral
+              - subscription
+              - admin_action
+          description: Optional activity category filter
+      responses:
+        "200":
+          description: Activity timeline retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Activity timeline retrieved successfully
+                data:
+                  activities:
+                    - id: 69f3df915f42685cbbbcbb18
+                      title: Profile Completed
+                      description: Aya Hassan completed her donor profile and enabled donation alerts.
+                      type: profile_update
+                      action: profile_completed
+                      referenceType: User
+                      referenceId: activity_profile_aya_hassan
+                      icon: user-check
+                      metadata:
+                        completedFields: [phoneNumber, location, availability, healthHistory]
+                      createdAt: 2026-05-10T09:00:00.000Z
+                    - id: 69fe540565ff7785a031314f
+                      title: Urgent Request Nearby
+                      description: Cairo Care Hospital needs O+ blood donors for an urgent case.
+                      type: emergency_response
+                      action: notification_received
+                      referenceType: Request
+                      referenceId: 69fe540565ff7785a031314f
+                      icon: bell
+                      metadata:
+                        requestId: 69fe540565ff7785a031314f
+                        demoKey: notif_aya_urgent_request
+                      createdAt: 2026-05-11T08:00:00.000Z
+                    - id: 69fe540565ff7785a031315b
+                      title: Appointment Requested
+                      description: Aya requested an urgent appointment for an O+ donation.
+                      type: appointment
+                      action: appointment_created
+                      referenceType: Request
+                      referenceId: 69fe540565ff7785a031315b
+                      icon: calendar-plus
+                      metadata:
+                        appointmentId: 69fe540565ff7785a031315b
+                        hospitalId: 69f3df915f42685cbbbcbb1b
+                      createdAt: 2026-05-11T09:00:00.000Z
+                  pagination:
+                    total: 5
+                    page: 1
+                    limit: 20
+                    totalPages: 1
+                    hasNextPage: false
+                    hasPrevPage: false
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - donor role required
   /donor/matches:
     get:
       tags:

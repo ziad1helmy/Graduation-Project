@@ -1,4 +1,7 @@
 import Activity from '../models/Activity.model.js';
+import Request from '../models/Request.model.js';
+import Donation from '../models/Donation.model.js';
+import Hospital from '../models/Hospital.model.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 
@@ -160,6 +163,71 @@ export const getUserTimeline = async (userId, filters = {}) => {
       .limit(limit)
       .select('-__v') // Exclude Mongoose version field
       .lean(); // Return plain objects (faster)
+
+    // Enrich activities with hospitalName when metadata lacks it.
+    try {
+      const requestIds = new Set();
+      const hospitalIds = new Set();
+      const donationIds = new Set();
+
+      activities.forEach((act) => {
+        if (!act.metadata) act.metadata = {};
+        const meta = act.metadata || {};
+        const hasHospital = meta.hospitalName || meta.hospital;
+        if (!hasHospital) {
+          if (meta.requestId) requestIds.add(meta.requestId);
+          if (meta.hospitalId) hospitalIds.add(meta.hospitalId);
+          if (!meta.requestId && act.referenceType === 'Donation' && act.referenceId) {
+            donationIds.add(act.referenceId);
+          }
+        }
+      });
+
+      // If we have donations to resolve to requests, fetch them first
+      if (donationIds.size > 0) {
+        const donations = await Donation.find({ _id: { $in: Array.from(donationIds) } }).lean();
+        donations.forEach((d) => {
+          if (d.requestId) requestIds.add(String(d.requestId));
+        });
+      }
+
+      // Fetch requests and map to hospital names
+      const requestMap = new Map();
+      if (requestIds.size > 0) {
+        const requests = await Request.find({ _id: { $in: Array.from(requestIds) } })
+          .populate('hospitalId', 'hospitalName name')
+          .lean();
+
+        requests.forEach((r) => {
+          const hospitalName = r.hospitalName || r.hospitalId?.hospitalName || r.hospitalId?.name || null;
+          requestMap.set(String(r._id), hospitalName);
+        });
+      }
+
+      // Fetch hospitals directly when provided
+      const hospitalMap = new Map();
+      if (hospitalIds.size > 0) {
+        const hospitals = await Hospital.find({ _id: { $in: Array.from(hospitalIds) } }).lean();
+        hospitals.forEach((h) => {
+          const name = h.hospitalName || h.name || null;
+          hospitalMap.set(String(h._id), name);
+        });
+      }
+
+      // Apply resolved names back to activities
+      activities.forEach((act) => {
+        const meta = act.metadata || {};
+        if (!meta.hospitalName && !meta.hospital) {
+          let found = null;
+          if (meta.requestId) found = requestMap.get(String(meta.requestId));
+          // fallback to hospitalId from metadata
+          if (!found && meta.hospitalId) found = hospitalMap.get(String(meta.hospitalId));
+          if (found) meta.hospitalName = found;
+        }
+      });
+    } catch (e) {
+      logger.warn('activity enrichment failed', { error: e.message });
+    }
 
     return {
       activities,
