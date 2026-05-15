@@ -15,6 +15,7 @@ import Notification from '../models/Notification.model.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import RolePermission from '../models/RolePermission.model.js';
 import * as hospitalService from './hospital.service.js';
+import { sendToMultiple } from '../utils/fcm.js';
 import { ERR } from '../utils/errorCodes.js';
 import { env } from '../config/env.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
@@ -1057,12 +1058,28 @@ export const sendEmergencyBroadcast = async (data, adminId) => {
 
   await logAudit(adminId, 'emergency.broadcast', 'System', null);
 
-  // Collect FCM tokens for push notifications (handled by fcm.js utility)
+  // Collect FCM tokens and send push notifications
   const fcmTokens = donors.flatMap((d) => d.fcmTokens || []).filter(Boolean);
+
+  if (fcmTokens.length > 0) {
+    sendToMultiple(
+      fcmTokens,
+      title || 'Emergency Blood Request',
+      message || 'An emergency blood request has been issued in your area.',
+      {
+        type: 'emergency_broadcast',
+        governorate: governorate || 'all',
+        city: city || 'all',
+        bloodTypes: bloodTypes ? bloodTypes.join(',') : 'all',
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      { channelId: 'emergency_requests', priority: 'high', sound: 'default' }
+    ).catch((err) => logger.error('FCM emergency broadcast failed', { message: err.message }));
+  }
 
   return {
     donorsNotified: donors.length,
-    fcmTokens, // caller can pass these to fcm.sendToMultiple()
+    pushTokenCount: fcmTokens.length,
     governorate: governorate || 'all',
     city: city || 'all',
   };
