@@ -12,7 +12,6 @@ import * as activityService from '../../src/services/activity.service.js';
  * 1. Activities are created correctly through the service
  * 2. The controller can retrieve them with proper pagination
  * 3. Response formatting is correct
- * 4. Filtering by type works
  */
 
 setupTestDB();
@@ -78,7 +77,7 @@ describe('Activity API Integration', () => {
       expect(activity).toHaveProperty('metadata');
     });
 
-    it('should support type filtering', async () => {
+    it('should return all activity types in a unified timeline', async () => {
       const donor = await createDonor();
 
       // Create donation activities
@@ -103,31 +102,17 @@ describe('Activity API Integration', () => {
         });
       }
 
-      // Filter by donation type
-      const donationResult = await activityService.getUserTimeline(donor._id, {
+      const timelineResult = await activityService.getUserTimeline(donor._id, {
         page: 1,
         limit: 20,
-        type: 'donation',
       });
 
-      expect(donationResult.activities).toHaveLength(5);
-      donationResult.activities.forEach(activity => {
-        expect(activity.type).toBe('donation');
-      });
-      expect(donationResult.pagination.total).toBe(5);
+      expect(timelineResult.activities).toHaveLength(8);
+      expect(timelineResult.pagination.total).toBe(8);
 
-      // Filter by reward type
-      const rewardResult = await activityService.getUserTimeline(donor._id, {
-        page: 1,
-        limit: 20,
-        type: 'reward',
-      });
-
-      expect(rewardResult.activities).toHaveLength(3);
-      rewardResult.activities.forEach(activity => {
-        expect(activity.type).toBe('reward');
-      });
-      expect(rewardResult.pagination.total).toBe(3);
+      const types = new Set(timelineResult.activities.map((activity) => activity.type));
+      expect(types.has('donation')).toBe(true);
+      expect(types.has('reward')).toBe(true);
     });
 
     it('should return latest 5 activities for dashboard', async () => {

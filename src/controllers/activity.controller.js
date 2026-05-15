@@ -2,7 +2,7 @@ import response from '../utils/response.js';
 import { parsePagination } from '../utils/pagination.js';
 import * as activityService from '../services/activity.service.js';
 import { logger } from '../utils/logger.js';
-import { ACTIVITY_TYPES, formatActivityForTimeline } from '../utils/activity.formatter.js';
+import { formatActivityForTimeline } from '../utils/activity.formatter.js';
 
 /**
  * Activity Controller
@@ -14,17 +14,16 @@ import { ACTIVITY_TYPES, formatActivityForTimeline } from '../utils/activity.for
  */
 
 /**
- * Get user activity timeline with optional filtering
+ * Get user activity timeline with pagination
  *
- * @endpoint GET /donor/activity?page=1&limit=20&type=donation
+ * @endpoint GET /donor/activity?page=1&limit=20
  * @auth JWT required (donor only)
  * @query {number} page - Page number (default: 1)
  * @query {number} limit - Items per page (default: 20, max: 100)
- * @query {string} type - Optional type filter: donation, reward, emergency_response, profile_update, appointment, badge, achievement, referral, subscription, admin_action
  *
  * @returns {object} activities array + pagination metadata
  * @example
- * GET /donor/activity?page=1&limit=20&type=donation
+ * GET /donor/activity?page=1&limit=20
  * Response:
  * {
  *   "success": true,
@@ -58,7 +57,7 @@ const isPositiveIntegerString = (value) => /^\d+$/.test(String(value).trim());
 export const getTimeline = async (req, res, next) => {
   try {
     const userId = req.user.userId;
-    const { page: pageParam, limit: limitParam, type: rawType } = req.query;
+    const { page: pageParam, limit: limitParam } = req.query;
 
     if (pageParam !== undefined && !isPositiveIntegerString(pageParam)) {
       return response.error(res, 400, 'Page must be a positive integer');
@@ -69,18 +68,11 @@ export const getTimeline = async (req, res, next) => {
     }
 
     const { page, limit } = parsePagination(req.query, 20, 100);
-    const type = typeof rawType === 'string' ? rawType.trim().toLowerCase() : undefined;
 
-    // Validate optional type filter
-    if (type && !ACTIVITY_TYPES.includes(type)) {
-      return response.error(res, 400, `Invalid type. Must be one of: ${ACTIVITY_TYPES.join(', ')}`);
-    }
-
-    // Call service with filters
+    // Call service with pagination only.
     const result = await activityService.getUserTimeline(userId, {
       page,
       limit,
-      type: type || undefined, // pass undefined if not provided to skip filter
     });
 
     response.success(res, 200, 'Activity timeline retrieved successfully', {

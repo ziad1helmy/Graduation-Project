@@ -119,7 +119,7 @@ export const logActivity = async (userId, payload) => {
 // ──────────────────────────────────────────────
 
 /**
- * Get user's activity timeline with pagination and optional type filter.
+ * Get user's activity timeline with pagination.
  *
  * Core timeline query used by the `/donor/activity` endpoint.
  * Returns paginated activities sorted newest-first.
@@ -128,7 +128,6 @@ export const logActivity = async (userId, payload) => {
  * @param {object} filters - Query filters
  * @param {number} [filters.page=1] - Page number (1-indexed)
  * @param {number} [filters.limit=20] - Activities per page (max 100)
- * @param {string} [filters.type] - Optional activity type filter (donation, reward, etc.)
  *
  * @returns {Promise<{activities: Activity[], pagination: object}>}
  *  - activities: Array of activity documents (newest first)
@@ -137,8 +136,7 @@ export const logActivity = async (userId, payload) => {
  * @example
  * const result = await activityService.getUserTimeline(donorId, {
  *   page: 1,
- *   limit: 20,
- *   type: 'donation'
+ *   limit: 20
  * });
  * console.log(result.activities); // [{ type, action, title, ... }, ...]
  * console.log(result.pagination); // { total: 42, page: 1, ... }
@@ -151,11 +149,6 @@ export const getUserTimeline = async (userId, filters = {}) => {
 
     // Build query: always scoped to userId
     const query = { userId };
-
-    // Optional type filter
-    if (filters.type) {
-      query.type = filters.type;
-    }
 
     // Fetch total matching documents (for pagination metadata)
     const total = await Activity.countDocuments(query);

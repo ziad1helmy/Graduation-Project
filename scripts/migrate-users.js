@@ -225,8 +225,8 @@ const migrateHospital = async (user) => {
     if (!hospital.hospitalName) {
       log.warning(`Hospital ${user.email} missing hospitalName`);
     }
-    if (!hospital.licenseNumber) {
-      log.warning(`Hospital ${user.email} missing licenseNumber`);
+    if (!hospital.hospitalId) {
+      log.warning(`Hospital ${user.email} missing hospitalId`);
     }
 
     // Apply updates atomically using updateOne if there are changes

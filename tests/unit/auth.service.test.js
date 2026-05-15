@@ -31,6 +31,23 @@ describe('Auth Service', () => {
     expect(user).toBeTruthy();
   });
 
+  it('registers a donor with location coordinates', async () => {
+    const email = 'dave@example.com';
+    const data = buildDonor({
+      email,
+      location: { lat: 30.0444, lng: 31.2357 },
+    });
+
+    const res = await authService.register(data);
+
+    expect(res.user).toBeDefined();
+    expect(res.user.location).toBeDefined();
+    expect(res.user.location.coordinates).toEqual({ lat: 30.0444, lng: 31.2357 });
+
+    const user = await Donor.findOne({ email });
+    expect(user.location?.coordinates).toEqual({ lat: 30.0444, lng: 31.2357 });
+  });
+
   it('allows login when email is verified', async () => {
     const email = 'bob@example.com';
     const password = 'Secret123!';

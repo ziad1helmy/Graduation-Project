@@ -6,11 +6,30 @@
 
 import { calculateAge } from '../utils/age.js';
 import { isValidArabicEnglishText } from '../utils/textNormalization.js';
+import { ERR } from '../utils/errorCodes.js';
 
 // Regex pattern for Arabic + English text (letters + spaces + dash + dot)
 // Allows: Arabic (ا-ي, ء-ة), English (a-z, A-Z), spaces, dots (.), dashes (-)
 // Rejects: numbers, special characters
 const ARABIC_ENGLISH_PATTERN = /^[\u0600-\u06FFa-zA-Z\s\.\-]+$/;
+
+const parseLocationCoordinates = (location) => {
+  if (!location || typeof location !== 'object' || Array.isArray(location)) {
+    return { lat: undefined, lng: undefined };
+  }
+
+  const rawLat = location.coordinates?.lat ?? location.lat ?? location.latitude;
+  const rawLng = location.coordinates?.lng ?? location.lng ?? location.longitude;
+
+  return {
+    lat: rawLat === '' || rawLat === undefined || rawLat === null ? undefined : Number(rawLat),
+    lng: rawLng === '' || rawLng === undefined || rawLng === null ? undefined : Number(rawLng),
+  };
+};
+
+const isValidCoordinate = (value, min, max) => (
+  typeof value === 'number' && Number.isFinite(value) && value >= min && value <= max
+);
 
 // BASE VALIDATION RULES (all roles)
 const BASE_RULES = {
@@ -73,9 +92,9 @@ const HOSPITAL_RULES = {
     pattern: ARABIC_ENGLISH_PATTERN,
     errorMessage: 'hospitalName can contain Arabic and English letters, spaces, dots, and dashes only',
   },
-  licenseNumber: {
+  hospitalId: {
     required: true,
-    minLength: 5,
+    minLength: 3,
     maxLength: 50,
   },
   address: {
@@ -169,7 +188,7 @@ const validateField = (fieldName, value) => {
 
 /**
  * Validate login data with role-specific requirements
- * @param {object} data - Login data { email, password, role, licenseNumber?, adminCode? }
+ * @param {object} data - Login data { email, password, role, hospitalId?, adminCode? }
  * @returns {object} { valid: boolean, errors: object }
  */
 export const validateLogin = (data) => {
@@ -186,13 +205,13 @@ export const validateLogin = (data) => {
 
   // Role-specific validation
   if (role === 'hospital') {
-    // Hospital requires licenseNumber
-    if (data.licenseNumber === undefined || data.licenseNumber === null || data.licenseNumber === '') {
-      errors.licenseNumber = 'licenseNumber is required for hospital login';
+    // Hospital requires hospitalId
+    if (data.hospitalId === undefined || data.hospitalId === null || data.hospitalId === '') {
+      errors.hospitalId = 'hospitalId is required for hospital login';
     } else {
-      const { valid, error } = validateField('licenseNumber', data.licenseNumber);
+      const { valid, error } = validateField('hospitalId', data.hospitalId);
       if (!valid) {
-        errors.licenseNumber = error;
+        errors.hospitalId = error;
       }
     }
   } else if (role === 'admin') {
@@ -270,6 +289,20 @@ export const validateRegister = (data) => {
     const { valid: btValid, error: btError } = validateField('bloodType', data.bloodType);
     if (!btValid) {
       errors.bloodType = btError;
+    }
+
+    if (data.location && typeof data.location === 'object' && !Array.isArray(data.location)) {
+      const { lat, lng } = parseLocationCoordinates(data.location);
+      const hasLat = lat !== undefined;
+      const hasLng = lng !== undefined;
+
+      if (hasLat || hasLng) {
+        if (!hasLat || !hasLng) {
+          errors.location = ERR.LOCATION_INVALID_PAIR;
+        } else if (!isValidCoordinate(lat, -90, 90) || !isValidCoordinate(lng, -180, 180)) {
+          errors.location = ERR.LOCATION_OUT_OF_RANGE;
+        }
+      }
     }
   }
 

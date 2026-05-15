@@ -150,8 +150,8 @@ export const validateCreateHospitalByAdminBody = (body) => {
     errors.push('phone is required');
   }
 
-  if (!body.licenseNumber || typeof body.licenseNumber !== 'string') {
-    errors.push('licenseNumber is required');
+  if (!body.hospitalId || typeof body.hospitalId !== 'string') {
+    errors.push('hospitalId is required');
   }
 
   if (body.bloodBanksAvailable !== undefined) {

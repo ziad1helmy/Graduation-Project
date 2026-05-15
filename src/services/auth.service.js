@@ -99,14 +99,14 @@ const buildAuthPayload = (user) => {
   };
 };
 
-const loadLoginUser = async ({ email, password, role, licenseNumber }) => {
+const loadLoginUser = async ({ email, password, role, hospitalId }) => {
   if (!email) throw new Error('Email is required');
   if (!password) throw new Error('Password is required');
   if (!role) throw new Error('Role is required');
 
   const normalizedEmail = String(email).trim().toLowerCase();
   const user = await User.findOne({ email: normalizedEmail })
-    .select('+password +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +licenseNumber')
+    .select('+password +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +hospitalId')
     .lean();
 
   if (!user) {
@@ -133,8 +133,8 @@ const loadLoginUser = async ({ email, password, role, licenseNumber }) => {
   }
 
   if (role === 'hospital') {
-    if (!licenseNumber || user.licenseNumber !== licenseNumber) {
-      throw new Error('Invalid hospital license number');
+    if (!hospitalId || user.hospitalId !== hospitalId) {
+      throw new Error('Invalid hospital ID');
     }
   }
 
@@ -413,13 +413,31 @@ export const register = async (data, trace = {}) => {
         throw new Error('Email is already registered');
     }
 
+    let normalizedLocation = location;
+    if (location && typeof location === 'object' && !Array.isArray(location)) {
+      const rawLat = location.coordinates?.lat ?? location.lat ?? location.latitude;
+      const rawLng = location.coordinates?.lng ?? location.lng ?? location.longitude;
+      const lat = rawLat === '' || rawLat === undefined || rawLat === null ? undefined : Number(rawLat);
+      const lng = rawLng === '' || rawLng === undefined || rawLng === null ? undefined : Number(rawLng);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        normalizedLocation = {
+          ...location,
+          coordinates: { lat, lng },
+        };
+        delete normalizedLocation.lat;
+        delete normalizedLocation.lng;
+        delete normalizedLocation.latitude;
+        delete normalizedLocation.longitude;
+      }
+    }
+
     // Base user data (shared across all roles)
     const baseData = {
         fullName,
         email,
         password,
         role,
-        ...(location && { location }),
+        ...(normalizedLocation && { location: normalizedLocation }),
     };
 
     let user;
@@ -476,20 +494,49 @@ export const register = async (data, trace = {}) => {
       saveMs: Number(hrtimeMs(tokenSaveStartedAt).toFixed(3)),
     });
 
-    // Send the verification email asynchronously to avoid blocking the signup request
-    void sendEmailVerificationEmail({
+    // Attempt to send verification email with a short timeout to prevent blocking signup
+    let verificationEmail = null;
+    const emailPromise = sendEmailVerificationEmail({
       to: user.email,
       fullName: user.fullName,
       otp: verificationOtp,
-    }).catch((err) => {
-      logger.warn('Verification-email send failed', {
-        traceId,
-        email: user.email,
-        message: err?.message,
-      });
     });
 
-    logger.info('Signup completed (verification email scheduled)', {
+    try {
+      verificationEmail = await Promise.race([
+        emailPromise,
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+      ]);
+    } catch (err) {
+      if (err.message === 'timeout') {
+        verificationEmail = { pending: true };
+        // Continue in the background
+        emailPromise.catch((backgroundErr) => {
+          logger.warn('Background verification-email send failed', {
+            traceId,
+            email: user.email,
+            message: backgroundErr?.message,
+          });
+        });
+      } else {
+        verificationEmail = { sent: false, error: err?.message || 'Failed to send verification email' };
+        logger.warn('Verification-email send failed', {
+          traceId,
+          email: user.email,
+          message: err?.message,
+        });
+      }
+    }
+
+    if (verificationEmail?.skipped) {
+      logger.warn('Verification-email skipped', {
+        traceId,
+        email: user.email,
+        reason: verificationEmail.reason,
+      });
+    }
+
+    logger.info('Signup completed', {
       traceId,
       email,
       role,
@@ -502,7 +549,7 @@ export const register = async (data, trace = {}) => {
       user,
       accessToken: authPayload.accessToken,
       refreshToken: authPayload.refreshToken,
-      verificationEmail: { sent: true },
+      verificationEmail,
     };
 };
 
@@ -528,7 +575,7 @@ export const loginDonor = async (data) => {
   return loginUser({ ...data, role: 'donor' });
 };
 
-// Dedicated hospital login - does not require licenseNumber here (simple email+password)
+// Dedicated hospital login - does not require hospitalId here (simple email+password)
 export const loginHospital = async (data) => {
   const { email, password } = data || {};
   if (!email) throw new Error('Email is required');

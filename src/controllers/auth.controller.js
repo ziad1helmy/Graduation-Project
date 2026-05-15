@@ -36,6 +36,17 @@ const normalizeRegisterPayload = (body) => {
     delete payload.address.governrate;
   }
 
+  const rawTopLevelLat = payload.lat ?? payload.latitude;
+  const rawTopLevelLng = payload.lng ?? payload.longitude;
+  if (rawTopLevelLat !== undefined || rawTopLevelLng !== undefined) {
+    payload.location = payload.location && typeof payload.location === 'object' ? { ...payload.location } : {};
+    payload.location = {
+      ...payload.location,
+      lat: payload.location.lat ?? payload.location.latitude ?? rawTopLevelLat,
+      lng: payload.location.lng ?? payload.location.longitude ?? rawTopLevelLng,
+    };
+  }
+
   if (payload.location && typeof payload.location === 'object') {
     payload.location = {
       ...payload.location,
@@ -53,6 +64,11 @@ const normalizeRegisterPayload = (body) => {
       payload.location.coordinates = { lat, lng };
       payload.location.lastUpdated = new Date();
     }
+
+    delete payload.lat;
+    delete payload.lng;
+    delete payload.latitude;
+    delete payload.longitude;
   }
 
   // Accept string locations like "City, Governorate" and map to location object
@@ -98,12 +114,19 @@ export const register = async (req, res, next) => {
     }
 
     const result = await authService.register(payload, { traceId });
+    const locationRequired = !(
+      result.user?.location?.coordinates &&
+      Number.isFinite(result.user.location.coordinates.lat) &&
+      Number.isFinite(result.user.location.coordinates.lng)
+    );
+
     response.success(res, 201, 'User registered successfully', {
       user: result.user,
       tokens: {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       },
+      locationRequired,
       ...(result.verificationEmail ? { verificationEmail: result.verificationEmail } : {}),
     });
   } catch (error) {

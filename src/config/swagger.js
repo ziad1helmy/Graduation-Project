@@ -1,4 +1,5 @@
-import swaggerJsdoc from 'swagger-jsdoc';
+import { readFileSync } from 'fs';
+import { parse as parseYAML } from 'yaml';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { env } from './env.js';
@@ -58,7 +59,6 @@ const DEMO_EXAMPLE_IDS = {
   appointmentIdVerify: '69fe540565ff7785a031315d',
   rewardId: '69fe540565ff7785a0313165',
   notificationId: '69fe540565ff7785a0313170',
-  staffId: '69fe540565ff7785a0313180',
 };
 
 const DEMO_EXAMPLES = {
@@ -70,6 +70,8 @@ const DEMO_EXAMPLES = {
   hospitalLogin: {
     email: 'ops@cairocare.demo',
     password: 'HospitalPass@123',
+    role: 'hospital',
+    hospitalId: 'HOSP-CAIRO-001',
   },
   adminLogin: {
     email: 'admin@lifelink.demo',
@@ -258,7 +260,6 @@ const getDemoParameterExample = (path, parameter) => {
     if (path.includes('/admin/donors/')) return DEMO_EXAMPLE_IDS.donorId;
     if (path.includes('/admin/hospitals/')) return DEMO_EXAMPLE_IDS.hospitalId;
     if (path.includes('/admin/users/')) return DEMO_EXAMPLE_IDS.donorId;
-    if (path.includes('/hospital/staff/')) return DEMO_EXAMPLE_IDS.staffId;
     if (path.includes('/notifications/')) return DEMO_EXAMPLE_IDS.notificationId;
     if (path.includes('/hospitals/')) return DEMO_EXAMPLE_IDS.hospitalId;
     return DEMO_EXAMPLE_IDS.requestIdCritical;
@@ -361,15 +362,13 @@ const getDemoRequestExample = (path, method) => {
       automaticNotifications: true,
       notificationEmail: 'ops@cairocare.demo',
     },
-    'PUT /hospital/notification-preferences': { email: true, push: true, sms: false },
-    'POST /hospital/staff': {
-      name: 'Sara Fawzy',
-      position: 'PHLEBOTOMIST',
-      status: 'ON_DUTY',
-      phone: '01170000001',
-      shiftStart: '09:00',
-      shiftEnd: '17:00',
+    'PUT /hospital/appointment-settings': {
+      slotsPerHour: 5,
+      workingHoursStart: 9,
+      workingHoursEnd: 17,
     },
+    'PUT /hospital/notification-preferences': { email: true, push: true, sms: false },
+
     'POST /admin/system/maintenance': { enabled: false, message: 'Demo mode active' },
     'PUT /admin/donors/{id}': {
       fullName: 'Aya Hassan',
@@ -384,7 +383,7 @@ const getDemoRequestExample = (path, method) => {
       email: 'alex.demo@lifelink.demo',
       password: 'HospitalPass@123',
       hospitalName: 'Alexandria Demo Hospital',
-      licenseNumber: 'LIC-ALEX-2001',
+      hospitalId: 'HOSP-ALEX-001',
       contactNumber: '1066666666',
       lat: 31.2001,
       long: 29.9187,
@@ -537,46 +536,13 @@ const enrichSwaggerExamples = (spec) => {
   return spec;
 };
 
-const swaggerOptions = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'LifeLink API',
-      version: '1.0.0',
-      description:
-        'OpenAPI documentation for the LifeLink donation platform API. ' +
-        'All routes are mounted at root paths. ' +
-        'For realistic data and examples, run `npm run seed-demo` and use the seeded demo credentials, QR tokens, and printed IDs.',
-    },
-    servers: [
-      {
-        url: 'https://graduation-project-cy61.onrender.com',
-        description: 'Production server',
-      },
-      {
-        url: 'http://localhost:5000',
-        description: 'Development server',
-      },
-    ],
-    tags: swaggerTags,
-    components: {
-      securitySchemes: {
-        bearerAuth: {
-          type: 'http',
-          scheme: 'bearer',
-          bearerFormat: 'JWT',
-        },
-      },
-    },
-    security: [{ bearerAuth: [] }],
-  },
+// ─── Load OpenAPI spec from openapi.yaml file ─────────────────────────────────
+// Replaces swagger-jsdoc scanning: all API documentation now lives in /openapi.yaml
+// This file is the single source of truth for the API specification.
+const yamlPath = join(__dirname, '../../openapi.yaml');
+const yamlContent = readFileSync(yamlPath, 'utf-8');
+const baseSpec = parseYAML(yamlContent);
 
-  // join(__dirname, '../routes/*.js') resolves to an absolute path:
-  //   Local:  C:\...\src\routes\*.js
-  //   Render: /opt/render/project/src/src/routes/*.js
-  // Both are correct regardless of where Node was started from.
-  apis: [join(__dirname, '../routes/*.js')],
-};
-
-export const swaggerSpec = enrichSwaggerExamples(swaggerJsdoc(swaggerOptions));
+// Apply demo examples enrichment to the loaded spec
+export const swaggerSpec = enrichSwaggerExamples(baseSpec);
 export default swaggerSpec;

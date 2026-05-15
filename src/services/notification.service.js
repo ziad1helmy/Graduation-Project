@@ -1,5 +1,12 @@
 import mongoose from 'mongoose';
+import Donor from '../models/Donor.model.js';
 import Notification from '../models/Notification.model.js';
+import { sendToMultiple } from '../utils/fcm.js';
+import {
+  buildEmergencyRequestFcmData,
+  buildEmergencyRequestNotificationData,
+  buildEmergencyRequestNotificationContent,
+} from '../utils/emergency-notification.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -51,21 +58,54 @@ export const notifyRequest = async (donorIds, request) => {
       return [];
     }
 
+    const populatedRequest = typeof request?.populate === 'function'
+      ? await request.populate('hospitalId', 'fullName hospitalName address location contactNumber')
+      : request;
+
+    const donors = await Donor.find({ _id: { $in: donorIds } })
+      .select('_id fullName location fcmTokens settings')
+      .lean(false);
+
+    if (donors.length === 0) {
+      return [];
+    }
+
+    const isEmergency = request.isEmergency || ['high', 'critical'].includes(request.urgency);
+    const notificationType = isEmergency ? 'emergency' : 'request';
     const notifications = await Notification.insertMany(
-      donorIds.map((donorId) => ({
-        userId: donorId,
-        type: 'request',
-        title: 'New Donation Request Available',
-        message: `A ${request.urgency} priority ${request.type === 'blood' ? request.bloodType + ' blood' : request.organType + ' organ'} request is available`,
-        relatedId: request._id,
-        relatedType: 'Request',
-        data: {
-          requestId: request._id,
-          requestType: request.type,
-          urgency: request.urgency,
-          hospitalId: request.hospitalId,
-        },
-      }))
+      donors.map((donor) => {
+        const content = buildEmergencyRequestNotificationContent(populatedRequest, donor);
+        const notificationData = buildEmergencyRequestNotificationData(populatedRequest, donor);
+
+        return {
+          userId: donor._id,
+          type: notificationType,
+          title: content.title,
+          message: content.body,
+          relatedId: request._id,
+          relatedType: 'Request',
+          data: notificationData,
+        };
+      })
+    );
+
+    await Promise.allSettled(
+      donors
+        .filter((donor) => Array.isArray(donor.fcmTokens) && donor.fcmTokens.length > 0)
+        .map((donor) => {
+          const content = buildEmergencyRequestNotificationContent(populatedRequest, donor);
+          const data = buildEmergencyRequestFcmData(populatedRequest, donor);
+          const options = {
+            channelId: 'emergency_requests',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            apnsCategory: 'emergency_request',
+            titleLocKey: data.title_loc_key,
+            bodyLocKey: data.body_loc_key,
+            bodyLocArgs: [data.bloodType || '', data.hospitalName || ''],
+          };
+
+          return sendToMultiple(donor.fcmTokens, content.title, content.body, data, options);
+        })
     );
 
     return notifications;

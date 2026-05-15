@@ -99,6 +99,32 @@ describe('validateRegister - donor', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.gender).toBeDefined();
   });
+
+  it('should accept valid donor signup with location coordinates', () => {
+    const result = validateRegister({
+      ...validDonor,
+      location: { lat: 30.0444, lng: 31.2357 },
+    });
+    expect(result.valid).toBe(true);
+  });
+
+  it('should reject donor signup when only lat is provided', () => {
+    const result = validateRegister({
+      ...validDonor,
+      location: { lat: 30.0444 },
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.location).toBeDefined();
+  });
+
+  it('should reject invalid coordinate range', () => {
+    const result = validateRegister({
+      ...validDonor,
+      location: { lat: 120, lng: 31.2357 },
+    });
+    expect(result.valid).toBe(false);
+    expect(result.errors.location).toBeDefined();
+  });
 });
 
 describe('validateRegister - public signup restrictions', () => {
@@ -110,7 +136,7 @@ describe('validateRegister - public signup restrictions', () => {
       confirmPassword: 'SecurePass@123',
       role: 'hospital',
       hospitalName: 'Cairo Care Hospital',
-      licenseNumber: 'LIC-CAIRO-1001',
+      hospitalId: 'HOSP-CAIRO-001',
     });
 
     expect(result.valid).toBe(false);

@@ -21,7 +21,7 @@ import mongoose from 'mongoose';
  *
  * Indexes:
  *  - { userId, createdAt: -1 }                  — primary timeline query
- *  - { userId, type, createdAt: -1 }            — per-category filtering
+ *  - { userId, type, createdAt: -1 }            — supports internal category lookups
  *  - { userId, action, referenceId } (unique)   — deduplication
  *  - { createdAt } TTL                          — auto-prune after 365 days
  */
@@ -117,7 +117,7 @@ const activitySchema = new mongoose.Schema(
 // Primary timeline query: GET /donor/activity?page=1&limit=20
 activitySchema.index({ userId: 1, createdAt: -1 });
 
-// Per-category filter: GET /donor/activity?type=donation
+// Secondary index for activity category lookups.
 activitySchema.index({ userId: 1, type: 1, createdAt: -1 });
 
 // Deduplication: prevent duplicate activities for the same event.

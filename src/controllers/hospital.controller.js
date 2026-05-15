@@ -4,9 +4,9 @@ import Hospital from '../models/Hospital.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import * as notificationService from '../services/notification.service.js';
+import * as matchingService from '../services/matching.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
-import HospitalStaff from '../models/HospitalStaff.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as hospitalService from '../services/hospital.service.js';
 import { validateCreateHospitalByAdminBody } from '../validation/admin.validation.js';
@@ -182,6 +182,15 @@ export const createRequest = async (req, res, next) => {
 
     const donRequest = await Request.create(requestData);
     await donRequest.populate('hospitalId', 'fullName hospitalName address contactNumber');
+
+    if (requestData.isEmergency) {
+      const compatibleDonors = await matchingService.findCompatibleDonors(donRequest._id);
+      const donorIds = compatibleDonors.map(({ donor }) => donor._id);
+
+      if (donorIds.length > 0) {
+        await notificationService.notifyRequest(donorIds, donRequest);
+      }
+    }
 
     response.success(res, 201, 'Donation request created successfully', donRequest);
   } catch (error) {
@@ -507,22 +516,7 @@ export const getMonthlyReports = async (req, res, next) => {
   }
 };
 
-export const listStaff = async (req, res, next) => {
-  try {
-    const { skip, limit, page } = parsePagination(req.query, 20);
-    const [staff, total] = await Promise.all([
-      HospitalStaff.find({ hospitalId: req.user.userId }).sort({ createdAt: -1 }).skip(skip).limit(limit),
-      HospitalStaff.countDocuments({ hospitalId: req.user.userId }),
-    ]);
 
-    return response.success(res, 200, 'Staff retrieved successfully', {
-      staff,
-      pagination: paginationMeta(total, page, limit),
-    });
-  } catch (error) {
-    next(error);
-  }
-};
 
 export const createHospital = async (req, res, next) => {
   try {
@@ -544,34 +538,75 @@ export const createHospital = async (req, res, next) => {
   }
 };
 
-export const createStaff = async (req, res, next) => {
+
+// GET /hospital/appointment-settings
+export const getAppointmentSettings = async (req, res, next) => {
   try {
-    const { name, position, status, phone, shiftStart, shiftEnd } = req.body;
-    if (!name || !position) {
-      return response.error(res, 400, 'name and position are required');
-    }
+    const hospital = await Hospital.findById(req.user.userId).select(
+      'slotsPerHour workingHoursStart workingHoursEnd'
+    );
+    if (!hospital) return response.error(res, 404, 'Hospital not found');
 
-    const staff = await HospitalStaff.create({
-      hospitalId: req.user.userId,
-      name,
-      position,
-      status,
-      phone,
-      shiftStart,
-      shiftEnd,
+    return response.success(res, 200, 'Appointment settings retrieved', {
+      slotsPerHour: hospital.slotsPerHour ?? 5,
+      workingHoursStart: hospital.workingHoursStart ?? 9,
+      workingHoursEnd: hospital.workingHoursEnd ?? 17,
     });
-
-    return response.success(res, 201, 'Staff created successfully', { staff });
   } catch (error) {
     next(error);
   }
 };
 
-export const deleteStaff = async (req, res, next) => {
+// PUT /hospital/appointment-settings
+export const updateAppointmentSettings = async (req, res, next) => {
   try {
-    const staff = await HospitalStaff.findOneAndDelete({ _id: req.params.id, hospitalId: req.user.userId });
-    if (!staff) return response.error(res, 404, 'Staff not found');
-    return response.success(res, 200, 'Staff deleted successfully');
+    const { slotsPerHour, workingHoursStart, workingHoursEnd } = req.body;
+
+    const errors = [];
+    if (slotsPerHour !== undefined) {
+      const v = Number(slotsPerHour);
+      if (!Number.isInteger(v) || v < 1 || v > 100) {
+        errors.push('slotsPerHour must be an integer between 1 and 100');
+      }
+    }
+    if (workingHoursStart !== undefined) {
+      const v = Number(workingHoursStart);
+      if (!Number.isInteger(v) || v < 0 || v > 23) {
+        errors.push('workingHoursStart must be an integer between 0 and 23');
+      }
+    }
+    if (workingHoursEnd !== undefined) {
+      const v = Number(workingHoursEnd);
+      if (!Number.isInteger(v) || v < 0 || v > 24) {
+        errors.push('workingHoursEnd must be an integer between 0 and 24');
+      }
+    }
+    if (
+      workingHoursStart !== undefined &&
+      workingHoursEnd !== undefined &&
+      Number(workingHoursEnd) <= Number(workingHoursStart)
+    ) {
+      errors.push('workingHoursEnd must be greater than workingHoursStart');
+    }
+    if (errors.length) return response.error(res, 400, errors.join(', '));
+
+    const updateData = {};
+    if (slotsPerHour !== undefined) updateData.slotsPerHour = Number(slotsPerHour);
+    if (workingHoursStart !== undefined) updateData.workingHoursStart = Number(workingHoursStart);
+    if (workingHoursEnd !== undefined) updateData.workingHoursEnd = Number(workingHoursEnd);
+
+    const hospital = await Hospital.findByIdAndUpdate(
+      req.user.userId,
+      { $set: updateData },
+      { new: true, runValidators: true, select: 'slotsPerHour workingHoursStart workingHoursEnd' }
+    );
+    if (!hospital) return response.error(res, 404, 'Hospital not found');
+
+    return response.success(res, 200, 'Appointment settings updated', {
+      slotsPerHour: hospital.slotsPerHour,
+      workingHoursStart: hospital.workingHoursStart,
+      workingHoursEnd: hospital.workingHoursEnd,
+    });
   } catch (error) {
     next(error);
   }

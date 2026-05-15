@@ -34,6 +34,8 @@ export const ERR = Object.freeze({
   // ── Registration ────────────────────────────
   EMAIL_ALREADY_EXISTS:            'Email is already registered',
   UNDERAGE_DONOR:                  'You must be at least 17 years old to donate',
+  LOCATION_INVALID_PAIR:           'Both lat and lng must be provided together',
+  LOCATION_OUT_OF_RANGE:           'Coordinates are outside valid range',
 
   // ── Donor Eligibility ───────────────────────
   DONOR_NOT_ELIGIBLE:              'Donor is not eligible to donate',

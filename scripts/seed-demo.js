@@ -4,7 +4,6 @@ import { connectDB, disconnectDB } from '../src/config/db.js';
 import User from '../src/models/User.model.js';
 import Donor from '../src/models/Donor.model.js';
 import Hospital from '../src/models/Hospital.model.js';
-import HospitalStaff from '../src/models/HospitalStaff.model.js';
 import Request from '../src/models/Request.model.js';
 import Donation from '../src/models/Donation.model.js';
 import Notification from '../src/models/Notification.model.js';
@@ -45,6 +44,8 @@ const demoCredentials = [
   { role: 'donor', email: 'mariam.adel@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'leila.mansour@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'noor.tarek@lifelink.demo', password: 'DonorPass@123' },
+  { role: 'donor', email: 'cairo.responder@lifelink.demo', password: 'DonorPass@123' },
+  { role: 'donor', email: 'giza.responder@lifelink.demo', password: 'DonorPass@123' },
   { role: 'hospital', email: 'ops@cairocare.demo', password: 'HospitalPass@123' },
   { role: 'hospital', email: 'bloodbank@nilehope.demo', password: 'HospitalPass@123' },
 ];
@@ -75,7 +76,7 @@ const donorsData = [
     settings: {
       pushNotifications: true,
       emergencyAlerts: true,
-      privacy: 'public',
+      privacyMode: false,
       language: 'en',
     },
     location: {
@@ -110,7 +111,7 @@ const donorsData = [
     settings: {
       pushNotifications: true,
       emergencyAlerts: false,
-      privacy: 'private',
+      privacyMode: true,
       language: 'ar',
     },
     location: {
@@ -146,7 +147,7 @@ const donorsData = [
     settings: {
       pushNotifications: true,
       emergencyAlerts: true,
-      privacy: 'friends',
+      privacyMode: false,
       language: 'en',
     },
     location: {
@@ -181,7 +182,7 @@ const donorsData = [
     settings: {
       pushNotifications: false,
       emergencyAlerts: false,
-      privacy: 'private',
+      privacyMode: true,
       language: 'en',
     },
     location: {
@@ -216,13 +217,83 @@ const donorsData = [
     settings: {
       pushNotifications: true,
       emergencyAlerts: true,
-      privacy: 'public',
+      privacyMode: false,
       language: 'en',
     },
     location: {
       city: 'Heliopolis',
       governorate: 'Cairo',
       coordinates: { lat: 30.091, lng: 31.3214 },
+      lastUpdated: now,
+    },
+  },
+  {
+    key: 'cairoResponder',
+    fullName: 'Yasmine Farouk',
+    email: 'cairo.responder@lifelink.demo',
+    password: 'DonorPass@123',
+    role: 'donor',
+    phoneNumber: '01066666666',
+    dateOfBirth: new Date('1995-07-19'),
+    gender: 'female',
+    bloodType: 'O+',
+    isAvailable: true,
+    weight: 65,
+    hemoglobinLevel: 14.2,
+    healthHistory: {
+      chronicConditions: [],
+      medications: [],
+      allergies: [],
+      recentIllness: '',
+      notes: 'Nearby emergency responder for Cairo Care Hospital.',
+      lastCheckupDate: pastDate(12),
+      updatedAt: now,
+    },
+    settings: {
+      pushNotifications: true,
+      emergencyAlerts: true,
+      privacyMode: false,
+      language: 'en',
+    },
+    location: {
+      city: 'Cairo',
+      governorate: 'Cairo',
+      coordinates: { lat: 30.0518, lng: 31.2439 },
+      lastUpdated: now,
+    },
+  },
+  {
+    key: 'gizaResponder',
+    fullName: 'Tarek Mahmoud',
+    email: 'giza.responder@lifelink.demo',
+    password: 'DonorPass@123',
+    role: 'donor',
+    phoneNumber: '01077777777',
+    dateOfBirth: new Date('1993-02-10'),
+    gender: 'male',
+    bloodType: 'A-',
+    isAvailable: true,
+    weight: 80,
+    hemoglobinLevel: 14.6,
+    healthHistory: {
+      chronicConditions: [],
+      medications: [],
+      allergies: [],
+      recentIllness: '',
+      notes: 'Local responder for Nile Hope emergency requests.',
+      lastCheckupDate: pastDate(18),
+      updatedAt: now,
+    },
+    settings: {
+      pushNotifications: true,
+      emergencyAlerts: true,
+      privacyMode: false,
+      language: 'en',
+    },
+    location: {
+      city: 'Giza',
+      governorate: 'Giza',
+      coordinates: { lat: 29.9965, lng: 31.2091 },
       lastUpdated: now,
     },
   },
@@ -237,7 +308,8 @@ const hospitalsData = [
     role: 'hospital',
     hospitalName: 'Cairo Care Hospital',
     name: 'Cairo Care Hospital',
-    licenseNumber: 'LIC-CAIRO-1001',
+    hospitalId: 'HOSP-CAIRO-001',
+
     contactNumber: '1044444444',
     phone: '1044444444',
     city: 'Cairo',
@@ -265,7 +337,8 @@ const hospitalsData = [
     role: 'hospital',
     hospitalName: 'Nile Hope Medical Center',
     name: 'Nile Hope Medical Center',
-    licenseNumber: 'LIC-GIZA-1002',
+    hospitalId: 'HOSP-GIZA-001',
+
     contactNumber: '1055555555',
     phone: '1055555555',
     city: 'Giza',
@@ -434,9 +507,6 @@ async function ensureAppointment(filter, data) {
   return Appointment.findOneAndUpdate(filter, { $set: data }, { upsert: true, returnDocument: 'after', runValidators: true });
 }
 
-async function ensureStaff(filter, data) {
-  return HospitalStaff.findOneAndUpdate(filter, { $set: data }, { upsert: true, returnDocument: 'after', runValidators: true });
-}
 
 function printCredentials() {
   console.log('');
@@ -666,6 +736,42 @@ async function main() {
     }
   );
 
+  requests.cairoEmergencyForResponder = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-emergency-responder-o-plus' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      type: 'blood',
+      bloodType: 'O+',
+      urgency: 'critical',
+      status: 'pending',
+      requiredBy: futureDate(1),
+      quantity: 2,
+      cause: 'Emergency blood loss response - critical responder match',
+      notes: '[demo-seed] cairo-emergency-responder-o-plus',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
+    }
+  );
+
+  requests.gizaEmergencyForResponder = await ensureRequest(
+    { hospitalId: hospitals.nileHope._id, notes: '[demo-seed] giza-emergency-responder-a-negative' },
+    {
+      hospitalId: hospitals.nileHope._id,
+      type: 'blood',
+      bloodType: 'A-',
+      urgency: 'critical',
+      status: 'pending',
+      requiredBy: futureDate(1),
+      quantity: 2,
+      cause: 'Emergency blood loss response - critical responder match',
+      notes: '[demo-seed] giza-emergency-responder-a-negative',
+      hospitalContact: hospitals.nileHope.contactNumber,
+      hospitalLocation: hospitals.nileHope.location.coordinates,
+      hospitalName: hospitals.nileHope.hospitalName,
+    }
+  );
+
   const donations = {};
   donations.ayaPending = await ensureDonation(
     { donorId: donors.aya._id, requestId: requests.cairoCriticalBlood._id, status: 'pending' },
@@ -724,6 +830,28 @@ async function main() {
     }
   );
 
+  donations.cairoResponderPending = await ensureDonation(
+    { donorId: donors.cairoResponder._id, requestId: requests.cairoCriticalBlood._id, status: 'pending' },
+    {
+      donorId: donors.cairoResponder._id,
+      requestId: requests.cairoCriticalBlood._id,
+      status: 'pending',
+      quantity: 1,
+      notes: 'Nearby responder accepted urgent O+ request for Cairo Care Hospital.',
+    }
+  );
+
+  donations.gizaResponderPending = await ensureDonation(
+    { donorId: donors.gizaResponder._id, requestId: requests.gizaHighBlood._id, status: 'pending' },
+    {
+      donorId: donors.gizaResponder._id,
+      requestId: requests.gizaHighBlood._id,
+      status: 'pending',
+      quantity: 1,
+      notes: 'Nearby responder accepted urgent A- request for Nile Hope Medical Center.',
+    }
+  );
+
   donations.leilaCancelled = await ensureDonation(
     { donorId: donors.leila._id, requestId: requests.gizaCancelledBlood._id, status: 'cancelled' },
     {
@@ -755,6 +883,28 @@ async function main() {
       status: 'pending',
       quantity: 1,
       notes: 'Platelets donation for cancer patient support.',
+    }
+  );
+
+  donations.cairoResponderEmergency = await ensureDonation(
+    { donorId: donors.cairoResponder._id, requestId: requests.cairoEmergencyForResponder._id, status: 'pending' },
+    {
+      donorId: donors.cairoResponder._id,
+      requestId: requests.cairoEmergencyForResponder._id,
+      status: 'pending',
+      quantity: 1,
+      notes: 'Emergency responder Yasmine Farouk - matched O+ emergency request for Cairo Care Hospital.',
+    }
+  );
+
+  donations.gizaResponderEmergency = await ensureDonation(
+    { donorId: donors.gizaResponder._id, requestId: requests.gizaEmergencyForResponder._id, status: 'pending' },
+    {
+      donorId: donors.gizaResponder._id,
+      requestId: requests.gizaEmergencyForResponder._id,
+      status: 'pending',
+      quantity: 1,
+      notes: 'Emergency responder Tarek Mahmoud - matched A- emergency request for Nile Hope Medical Center.',
     }
   );
 
@@ -820,57 +970,6 @@ async function main() {
     }
   );
 
-  await ensureStaff(
-    { hospitalId: hospitals.cairoCare._id, name: 'Sara Fawzy' },
-    {
-      hospitalId: hospitals.cairoCare._id,
-      name: 'Sara Fawzy',
-      position: 'PHLEBOTOMIST',
-      status: 'ON_DUTY',
-      phone: '01170000001',
-      shiftStart: '09:00',
-      shiftEnd: '17:00',
-    }
-  );
-
-  await ensureStaff(
-    { hospitalId: hospitals.cairoCare._id, name: 'Ahmed Samir' },
-    {
-      hospitalId: hospitals.cairoCare._id,
-      name: 'Ahmed Samir',
-      position: 'DOCTOR',
-      status: 'AVAILABLE',
-      phone: '01170000002',
-      shiftStart: '10:00',
-      shiftEnd: '18:00',
-    }
-  );
-
-  await ensureStaff(
-    { hospitalId: hospitals.nileHope._id, name: 'Mona Hany' },
-    {
-      hospitalId: hospitals.nileHope._id,
-      name: 'Mona Hany',
-      position: 'NURSE',
-      status: 'ON_DUTY',
-      phone: '01180000001',
-      shiftStart: '08:00',
-      shiftEnd: '16:00',
-    }
-  );
-
-  await ensureStaff(
-    { hospitalId: hospitals.nileHope._id, name: 'Khaled Adel' },
-    {
-      hospitalId: hospitals.nileHope._id,
-      name: 'Khaled Adel',
-      position: 'PHLEBOTOMIST',
-      status: 'OFF_DUTY',
-      phone: '01180000002',
-      shiftStart: '12:00',
-      shiftEnd: '20:00',
-    }
-  );
 
   await ensureNotification({
     userId: donors.aya._id,
@@ -1217,10 +1316,10 @@ async function main() {
   printCredentials();
 
   printReferenceBlock('Seeded demo coverage:', [
-    '5 donors with varied blood types, availability, settings, health history, points, and activity',
+    '7 donors with varied blood types, availability, settings, health history, points, and activity',
     '2 hospitals with discovery-ready coordinates, slot configuration, blood bank settings, and staff',
-    '6 requests covering blood + organ and pending/in-progress/completed/cancelled states',
-    '6 donations covering pending/scheduled/completed/cancelled/rejected states',
+    '8 requests covering blood + organ and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
+    '8 donations covering pending/scheduled/completed/cancelled/rejected states, including emergency responder matches',
     '4 appointments covering pending/confirmed/cancelled and QR verification flows',
     'Notifications, rewards, badges, support messages, audit logs, and 2FA seed data',
   ]);
@@ -1232,6 +1331,8 @@ async function main() {
     `cancelled blood request: ${requests.gizaCancelledBlood._id}`,
     `organ request: ${requests.cairoOrgan._id}`,
     `pending O- request: ${requests.gizaOminus._id}`,
+    `cairo emergency (O+ responder match): ${requests.cairoEmergencyForResponder._id}`,
+    `giza emergency (A- responder match): ${requests.gizaEmergencyForResponder._id}`,
   ]);
 
   printReferenceBlock('Key appointment / QR tokens:', [
@@ -1245,9 +1346,13 @@ async function main() {
     `Aya donorId: ${donors.aya._id}`,
     `Omar donorId: ${donors.omar._id}`,
     `Mariam donorId: ${donors.mariam._id}`,
+    `Cairo Responder (Yasmine) donorId: ${donors.cairoResponder._id}`,
+    `Giza Responder (Tarek) donorId: ${donors.gizaResponder._id}`,
     `Cairo Care hospitalId: ${hospitals.cairoCare._id}`,
     `Nile Hope hospitalId: ${hospitals.nileHope._id}`,
     `Mariam completed donationId: ${donations.mariamCompleted._id}`,
+    `Cairo responder emergency donationId: ${donations.cairoResponderEmergency._id}`,
+    `Giza responder emergency donationId: ${donations.gizaResponderEmergency._id}`,
   ]);
 
   printSnippetBlock('Quick test snippets:', [

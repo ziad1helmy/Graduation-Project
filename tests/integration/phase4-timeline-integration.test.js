@@ -14,7 +14,6 @@ import Donation from '../../src/models/Donation.model.js';
  *  2. Activity is logged (fire-and-forget)
  *  3. Activity appears in timeline query
  *  4. Timeline includes proper pagination
- *  5. Activities can be filtered by type
  *
  * These tests ensure the activity system works correctly in production scenarios
  * where timelines are retrieved immediately after actions.
@@ -104,7 +103,7 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
       expect(page2.pagination.hasPrevPage).toBe(true);
     });
 
-    it('should filter timeline by type (donation)', async () => {
+    it('should return timeline without requiring a type query parameter', async () => {
       const req = await createRequest(testHospital._id, {
         bloodType: testDonor.bloodType,
       });
@@ -116,13 +115,11 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
       const timeline = await activityService.getUserTimeline(testDonor._id, {
         page: 1,
         limit: 20,
-        type: 'donation',
       });
 
       expect(timeline.activities.length).toBeGreaterThan(0);
-      timeline.activities.forEach((activity) => {
-        expect(activity.type).toBe('donation');
-      });
+      expect(timeline.pagination.page).toBe(1);
+      expect(timeline.pagination.limit).toBe(20);
     });
 
     it('should retrieve newest activities first (descending createdAt)', async () => {
@@ -215,7 +212,7 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
       expect(timeline.activities.length).toBeGreaterThan(0);
     });
 
-    it('should handle type filter efficiently with index', async () => {
+    it('should retrieve timeline efficiently with pagination', async () => {
       for (let i = 0; i < 50; i++) {
         const req = await createRequest(testHospital._id, {
           bloodType: testDonor.bloodType,
@@ -229,15 +226,11 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
       const timeline = await activityService.getUserTimeline(testDonor._id, {
         page: 1,
         limit: 20,
-        type: 'donation',
       });
       const queryTime = Date.now() - startTime;
 
       expect(queryTime).toBeLessThan(500);
       expect(timeline.activities.length).toBeGreaterThan(0);
-      timeline.activities.forEach((a) => {
-        expect(a.type).toBe('donation');
-      });
     });
   });
 
@@ -310,7 +303,7 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
   });
 
   describe('Complex Timeline Scenarios', () => {
-    it('should handle mixed activity types with filtering', async () => {
+    it('should handle mixed activity types in one timeline', async () => {
       for (let i = 0; i < 3; i++) {
         const req = await createRequest(testHospital._id, {
           bloodType: testDonor.bloodType,
@@ -321,13 +314,9 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
       await new Promise((resolve) => setTimeout(resolve, 200));
 
       const allActivities = await activityService.getUserTimeline(testDonor._id);
-      const donations = await activityService.getUserTimeline(testDonor._id, {
-        type: 'donation',
-      });
 
       expect(allActivities.pagination.total).toBe(3);
-      expect(donations.pagination.total).toBe(3);
-      donations.activities.forEach((a) => {
+      allActivities.activities.forEach((a) => {
         expect(a.type).toBe('donation');
       });
     });

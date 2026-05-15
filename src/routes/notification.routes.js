@@ -2,118 +2,24 @@ import { Router } from 'express';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import * as notificationController from '../controllers/notification.controller.js';
 
+// ─── API CONTRACT ────────────────────────────────────────────────────────────
+// Swagger/OpenAPI documentation for this router lives in /openapi.yaml
+// Update openapi.yaml whenever you add, change, or remove an endpoint here.
+// Do NOT add inline @openapi JSDoc to this file.
+// ─────────────────────────────────────────────────────────────────────────────
+
+
 const router = Router();
 
-/**
- * @swagger
- * tags:
- *   - name: Notifications
- *     description: Authenticated user notifications
- */
-
-/**
- * @swagger
- * /notifications:
- *   get:
- *     summary: List notifications for authenticated user
- *     tags: [Donor]
- *     security: [{ bearerAuth: [] }]
- *     parameters:
- *       - in: query
- *         name: page
- *         schema: { type: integer, default: 1 }
- *       - in: query
- *         name: limit
- *         schema: { type: integer, default: 20 }
- *       - in: query
- *         name: read
- *         schema: { type: boolean }
- *       - in: query
- *         name: type
- *         schema: { type: string }
- *     responses:
- *       200:
- *         description: Notifications list
- *   delete:
- *     summary: Delete all notifications for authenticated user
- *     tags: [Donor]
- *     security: [{ bearerAuth: [] }]
- *     responses:
- *       200:
- *         description: All notifications deleted
- */
 router.get('/', authMiddleware, notificationController.getNotifications);
 router.delete('/', authMiddleware, notificationController.deleteAllNotifications);
 
-/**
- * @swagger
- * /notifications/{id}/read:
- *   patch:
- *     summary: Mark one notification as read
- *     tags: [Donor]
- *     security: [{ bearerAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200:
- *         description: Notification marked as read
- */
 router.patch('/:id/read', authMiddleware, notificationController.markNotificationRead);
 
-/**
- * @swagger
- * /notifications/read-all:
- *   patch:
- *     summary: Mark all notifications as read
- *     tags: [Donor]
- *     security: [{ bearerAuth: [] }]
- *     responses:
- *       200:
- *         description: All notifications marked as read
- */
 router.patch('/read-all', authMiddleware, notificationController.markAllNotificationsRead);
 
-/**
- * @swagger
- * /notifications/{id}:
- *   get:
- *     summary: Get one notification
- *     tags: [Donor]
- *     security: [{ bearerAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200:
- *         description: Notification retrieved successfully
- *       400:
- *         description: Invalid notification id
- *       404:
- *         description: Notification not found
- */
 router.get('/:id', authMiddleware, notificationController.getNotificationById);
 
-/**
- * @swagger
- * /notifications/{id}:
- *   delete:
- *     summary: Delete one notification
- *     tags: [Donor]
- *     security: [{ bearerAuth: [] }]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: string }
- *     responses:
- *       200:
- *         description: Notification deleted
- */
 router.delete('/:id', authMiddleware, notificationController.deleteNotificationById);
 
 export default router;

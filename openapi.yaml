@@ -56,8 +56,10 @@ components:
           format: password
         role:
           type: string
-        enum:
-          - donor
+          enum:
+            - donor
+            - hospital
+            - admin
     SignupDonorRequest:
       allOf:
         - $ref: "#/components/schemas/BaseUser"
@@ -78,17 +80,43 @@ components:
             confirmPassword:
               type: string
               format: password
+            location:
+              type: object
+              properties:
+                lat:
+                  type: number
+                  format: float
+                  description: Donor latitude coordinate (-90 to 90)
+                lng:
+                  type: number
+                  format: float
+                  description: Donor longitude coordinate (-180 to 180)
+                latitude:
+                  type: number
+                  format: float
+                  description: Alias for lat
+                longitude:
+                  type: number
+                  format: float
+                  description: Alias for lng
+                coordinates:
+                  type: object
+                  properties:
+                    lat:
+                      type: number
+                    lng:
+                      type: number
     SignupHospitalRequest:
       allOf:
         - $ref: "#/components/schemas/BaseUser"
         - type: object
           required:
             - hospitalName
-            - licenseNumber
+            - hospitalId
           properties:
             hospitalName:
               type: string
-            licenseNumber:
+            hospitalId:
               type: string
             phone:
               type: string
@@ -116,6 +144,12 @@ components:
             - donor
             - hospital
             - admin
+        hospitalId:
+          type: string
+          description: Required only for hospital login
+        adminCode:
+          type: string
+          description: Required only for admin login
     RefreshTokenRequest:
       type: object
       required:
@@ -182,6 +216,9 @@ components:
           description: Created user document
         tokens:
           $ref: "#/components/schemas/AuthTokens"
+        locationRequired:
+          type: boolean
+          description: true when registration completed without GPS coordinates
         verificationEmail:
           $ref: "#/components/schemas/VerificationEmailStatus"
     FcmTokenRequest:
@@ -213,166 +250,6 @@ components:
 security:
   - bearerAuth: []
 paths:
-  /donor/activity:
-    get:
-      tags:
-        - Donor
-      summary: Get the authenticated user's activity timeline
-      description: >-
-        Returns a paginated, timestamped history of all user actions (donations,
-        rewards, urgent responses, profile updates).
-
-        Supports optional filtering by activity type.
-
-        Results are sorted newest-first.
-
-
-
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
-      security:
-        - bearerAuth: []
-      parameters:
-        - name: page
-          in: query
-          description: Page number (1-indexed, default 1)
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          example: 1
-        - name: limit
-          in: query
-          description: Items per page (default 20, max 100)
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          example: 10
-        - name: type
-          in: query
-          description: Optional activity type filter
-          schema:
-            type: string
-            enum:
-              - donation
-              - reward
-              - emergency_response
-              - profile_update
-              - appointment
-              - badge
-              - achievement
-              - referral
-              - subscription
-              - admin_action
-          example: blood
-      responses:
-        "200":
-          description: Activity timeline retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  data:
-                    type: object
-                    properties:
-                      activities:
-                        type: array
-                        items:
-                          type: object
-                          properties:
-                            id:
-                              type: string
-                              example: 5f9d4a1b9d7c2e3c4f5a6b7c
-                            title:
-                              type: string
-                              example: Blood Donation Completed
-                            hospital:
-                              type: string
-                              nullable: true
-                              example: Cairo Hospital
-                            points:
-                              type: number
-                              example: 200
-                            createdAt:
-                              type: string
-                              format: date-time
-                              example: 2026-05-04T12:00:00.000Z
-                            relativeTime:
-                              type: string
-                              example: 3 days ago
-                            type:
-                              type: string
-                              enum:
-                                - donation
-                                - reward
-                                - emergency_response
-                                - profile_update
-                                - appointment
-                                - badge
-                                - achievement
-                                - referral
-                                - subscription
-                                - admin_action
-                            status:
-                              type: string
-                              example: success
-                            icon:
-                              type: string
-                              example: heart
-                      pagination:
-                        type: object
-                        properties:
-                          total:
-                            type: integer
-                            example: 42
-                          page:
-                            type: integer
-                            example: 1
-                          limit:
-                            type: integer
-                            example: 20
-                          totalPages:
-                            type: integer
-                            example: 3
-                          hasNextPage:
-                            type: boolean
-                            example: true
-                          hasPrevPage:
-                            type: boolean
-                            example: false
-              example:
-                success: true
-                data:
-                  activities:
-                    - id: 5f9d4a1b9d7c2e3c4f5a6b7c
-                      title: Blood Donation Completed
-                      hospital: Cairo Hospital
-                      points: 200
-                      createdAt: 2026-05-04T12:00:00.000Z
-                      relativeTime: 3 days ago
-                      type: donation
-                      status: success
-                      icon: heart
-                  pagination:
-                    total: 42
-                    page: 1
-                    limit: 20
-                    totalPages: 3
-                    hasNextPage: true
-                    hasPrevPage: false
-        "400":
-          description: Invalid query parameters
-        "401":
-          description: Missing or invalid JWT
-        "500":
-          description: Server error
   /admin/login:
     post:
       summary: Login for admin and superadmin accounts
@@ -407,6 +284,12 @@ paths:
                   format: password
                   description: Admin password
                   example: SecurePassword123!
+                adminCode:
+                  type: string
+                  description: Required only for admin login
+                hospitalId:
+                  type: string
+                  description: Required only for hospital login
                 adminKey:
                   type: string
                   description: Admin secret key for authentication
@@ -1365,7 +1248,6 @@ paths:
                 - password
                 - hospitalName
                 - hospitalId
-                - licenseNumber
                 - lat
                 - long
               properties:
@@ -1378,8 +1260,6 @@ paths:
                 hospitalName:
                   type: string
                 hospitalId:
-                  type: number
-                licenseNumber:
                   type: string
                 address:
                   type: object
@@ -1405,7 +1285,7 @@ paths:
               email: alex.demo@lifelink.demo
               password: HospitalPass@123
               hospitalName: Alexandria Demo Hospital
-              licenseNumber: LIC-ALEX-2001
+              hospitalId: HOSP-ALEX-001
               contactNumber: "1066666666"
               lat: 31.2001
               long: 29.9187
@@ -2461,6 +2341,14 @@ paths:
               dateOfBirth: 2026-05-08
               bloodType: string
               confirmPassword: P@ssw0rd123
+              location:
+                lat: 1
+                lng: 1
+                latitude: 1
+                longitude: 1
+                coordinates:
+                  lat: 1
+                  lng: 1
       responses:
         "201":
           description: User registered successfully - Email verification processed
@@ -2542,9 +2430,22 @@ paths:
             example:
               email: ops@cairocare.demo
               password: HospitalPass@123
+              role: hospital
+              hospitalId: HOSP-CAIRO-001
       responses:
         "200":
           description: Hospital login successful
+          content:
+            application/json:
+              example:
+                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                user:
+                  _id: 69f3df915f42685cbbbcbb1b
+                  fullName: Cairo Care Operations
+                  email: ops@cairocare.demo
+                  role: hospital
+                hospitalId: HOSP-CAIRO-001
         "400":
           description: Validation error or invalid credentials
         "403":
@@ -3519,9 +3420,6 @@ paths:
                   hospitalId: 69f3df915f42685cbbbcbb1b
                   date: 2026-05-20
                   donationType: platelets
-            example:
-              hospitalId: 69f3df915f42685cbbbcbb1b
-              date: 2026-05-12T10:00:00.000Z
       responses:
         "200":
           description: Donation eligibility checked successfully
@@ -4006,6 +3904,7 @@ paths:
               - scheduled
               - completed
               - cancelled
+              - rejected
           example: pending
         - in: query
           name: skip
@@ -4398,7 +4297,6 @@ paths:
                   hospitalName: Cairo General Hospital
                   email: info@cairohospital.com
                   role: hospital
-                  licenseNumber: LIC-2026-001
                   contactNumber: "01099998888"
                   lat: 30.0444
                   long: 31.2357
@@ -4459,10 +4357,6 @@ paths:
                   type: number
                   description: Hospital longitude coordinate (-180 to 180)
                   example: 31.2357
-                licenseNumber:
-                  type: string
-                  description: Hospital license number
-                  example: LIC-2026-001
             example:
               fullName: Cairo Care Operations
               hospitalName: Cairo Care Hospital
@@ -4902,26 +4796,45 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /hospital/staff:
+  /hospital/appointment-settings:
     get:
       tags:
         - Hospital
-      summary: List hospital staff
+      summary: Get appointment slot configuration
+      description: >-
+        Returns the hospital's current appointment slot configuration:
+        how many donors can book per hour (slotsPerHour) and the
+        working hours window (workingHoursStart / workingHoursEnd).
+        These values drive the available-slots calculation seen by donors.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Staff retrieved successfully
+          description: Appointment settings retrieved successfully
           content:
             application/json:
-              example: *a1
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    post:
+              example:
+                success: true
+                message: Appointment settings retrieved
+                data:
+                  slotsPerHour: 5
+                  workingHoursStart: 9
+                  workingHoursEnd: 17
+        "401":
+          description: Unauthorized
+    put:
       tags:
         - Hospital
-      summary: Create hospital staff member
+      summary: Update appointment slot configuration
+      description: >-
+        Set how many donors can book per hour and adjust the hospital's
+        working hours window. All fields are optional — send only what you
+        want to change.
+
+        **Constraints**
+        - `slotsPerHour`: integer 1–100
+        - `workingHoursStart`: integer 0–23 (hour in 24h format)
+        - `workingHoursEnd`: integer 1–24, must be greater than workingHoursStart
       security:
         - bearerAuth: []
       requestBody:
@@ -4930,42 +4843,45 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - name
-                - position
+              properties:
+                slotsPerHour:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  description: Maximum donors bookable per hour
+                  example: 5
+                workingHoursStart:
+                  type: integer
+                  minimum: 0
+                  maximum: 23
+                  description: Opening hour in 24h format (e.g. 9 = 9 AM)
+                  example: 9
+                workingHoursEnd:
+                  type: integer
+                  minimum: 1
+                  maximum: 24
+                  description: Closing hour in 24h format (e.g. 17 = 5 PM)
+                  example: 17
             example:
-              name: Sara Fawzy
-              position: PHLEBOTOMIST
-              status: ON_DUTY
-              phone: "01170000001"
-              shiftStart: 09:00
-              shiftEnd: 17:00
-      responses:
-        "201":
-          description: Staff created successfully
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /hospital/staff/{id}:
-    delete:
-      tags:
-        - Hospital
-      summary: Delete hospital staff member
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a0313180
+              slotsPerHour: 5
+              workingHoursStart: 9
+              workingHoursEnd: 17
       responses:
         "200":
-          description: Staff deleted successfully
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+          description: Appointment settings updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Appointment settings updated
+                data:
+                  slotsPerHour: 5
+                  workingHoursStart: 9
+                  workingHoursEnd: 17
+        "400":
+          description: Validation error (invalid range or end <= start)
+        "401":
+          description: Unauthorized
   /notifications:
     get:
       summary: List notifications for authenticated user
@@ -5010,10 +4926,31 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: All notifications deleted
+          description: All notifications deleted successfully
           content:
             application/json:
-              example: *a1
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: All notifications deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      deletedCount:
+                        type: integer
+                        example: 5
+              example:
+                success: true
+                message: All notifications deleted successfully
+                data:
+                  deletedCount: 5
+        "401":
+          description: Unauthorized - missing or invalid JWT token
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -5089,10 +5026,31 @@ paths:
           required: true
           schema:
             type: string
+          description: The notification ID to delete
           example: 69fe540565ff7785a0313170
       responses:
         "200":
-          description: Notification deleted
+          description: Notification deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Notification deleted successfully
+              example:
+                success: true
+                message: Notification deleted successfully
+        "400":
+          description: Invalid notification id format
+        "401":
+          description: Unauthorized - missing or invalid JWT token
+        "404":
+          description: Notification not found or does not belong to user
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -5241,7 +5199,7 @@ paths:
                       bloodType: O+
                       urgency: critical
                       quantity: 3
-                      requiredBy: 2026-05-20T00:00:00Z
+                      requiredBy: 2026-05-20T00:00:00.000Z
                       hospitalName: Cairo Care Hospital
                       cause: Emergency surgery support
                       respondents: 5
@@ -5256,7 +5214,7 @@ paths:
                       bloodType: AB+
                       urgency: critical
                       quantity: 5
-                      requiredBy: 2026-05-19T00:00:00Z
+                      requiredBy: 2026-05-19T00:00:00.000Z
                       hospitalName: Cairo Care Hospital
                       cause: Trauma patient requiring urgent plasma transfusion
                       respondents: 3
@@ -5271,7 +5229,7 @@ paths:
                       bloodType: O+
                       urgency: high
                       quantity: 3
-                      requiredBy: 2026-05-20T00:00:00Z
+                      requiredBy: 2026-05-20T00:00:00.000Z
                       hospitalName: Nile Hope Medical Center
                       cause: Cancer patient undergoing chemotherapy
                       respondents: 2
