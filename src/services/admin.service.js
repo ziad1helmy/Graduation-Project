@@ -988,7 +988,7 @@ export const broadcastRequest = async (id, adminId) => {
     donorQuery['location.governorate'] = hospitalLocation.governorate;
   }
 
-  const donors = await Donor.find(donorQuery).select('_id fullName');
+  const donors = await Donor.find(donorQuery).select('_id fullName fcmTokens');
 
   // Create in-app notifications for all matched donors
   if (donors.length > 0) {
@@ -1010,10 +1010,32 @@ export const broadcastRequest = async (id, adminId) => {
     await Notification.insertMany(notifications);
   }
 
+  // Collect FCM tokens and send push notifications
+  const fcmTokens = donors.flatMap((d) => d.fcmTokens || []).filter(Boolean);
+
+  if (fcmTokens.length > 0) {
+    sendToMultiple(
+      fcmTokens,
+      'Urgent Blood Request',
+      `${request.hospitalId?.hospitalName || 'A hospital'} needs ${request.bloodType || request.organType} donors urgently. ${request.urgency} priority.`,
+      {
+        type: 'request_broadcast',
+        requestId: String(request._id),
+        requestType: request.type || 'blood',
+        urgency: request.urgency || 'normal',
+        bloodType: request.bloodType || '',
+        governorate: hospitalLocation?.governorate || 'all',
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      { channelId: 'emergency_requests', priority: 'high', sound: 'default' }
+    ).catch((err) => logger.error('FCM broadcast push failed', { message: err.message }));
+  }
+
   await logAudit(adminId, 'request.broadcast', 'Request', id);
 
   return {
     donorsNotified: donors.length,
+    pushTokenCount: fcmTokens.length,
     governorate: hospitalLocation?.governorate || 'all',
     bloodType: request.bloodType || 'all',
   };
