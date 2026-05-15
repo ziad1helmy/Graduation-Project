@@ -292,7 +292,11 @@ export const login = loginUser;
 // Logout a user
 export const logout = async (req, res, next) => {
   try {
-    await authService.logout(req.body.refreshToken || req.body.refresh_token);
+    await authService.logout(
+      req.body.refreshToken || req.body.refresh_token,
+      req.body.fcmToken || req.body.fcm_token || null,
+      req.user?.userId || null
+    );
     response.success(res, 200, 'Logged out successfully');
   } catch (error) {
     if (error.message === ERR.AUTH_REFRESH_TOKEN_REQUIRED || error.message === ERR.AUTH_REFRESH_TOKEN_INVALID) {

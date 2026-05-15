@@ -2,6 +2,7 @@ import { env } from '../config/env.js';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { logger } from './logger.js';
+import User from '../models/User.model.js';
 
 /**
  * FCM (Firebase Cloud Messaging) utility for push notifications.
@@ -33,13 +34,13 @@ const initFirebase = async () => {
     let clientEmail = env.FIREBASE_CLIENT_EMAIL;
     let privateKey = env.FIREBASE_PRIVATE_KEY;
 
-    if ((!projectId || !clientEmail || !privateKey) && env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+    if (env.FIREBASE_SERVICE_ACCOUNT_PATH) {
       try {
         const serviceAccountPath = resolve(process.cwd(), env.FIREBASE_SERVICE_ACCOUNT_PATH);
         const parsed = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
-        projectId = projectId || parsed.project_id;
-        clientEmail = clientEmail || parsed.client_email;
-        privateKey = privateKey || parsed.private_key;
+        projectId = parsed.project_id || projectId;
+        clientEmail = parsed.client_email || clientEmail;
+        privateKey = parsed.private_key || privateKey;
       } catch (fileError) {
         logger.warn('Failed to load Firebase service account file', {
           path: env.FIREBASE_SERVICE_ACCOUNT_PATH,
@@ -81,11 +82,29 @@ const initFirebase = async () => {
 /**
  * Build FCM platform-specific notification options from a generic config.
  */
+/**
+ * Maximum tokens per FCM multicast call (Firebase limit).
+ */
+const FCM_MULTICAST_LIMIT = 500;
+
+/**
+ * FCM error codes that indicate an invalid/expired token that should be removed.
+ */
+const INVALID_TOKEN_ERRORS = new Set([
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+  'messaging/invalid-argument',
+]);
+
+/**
+ * Build FCM platform-specific notification options from a generic config.
+ */
 const buildPlatformNotification = (data = {}, options = {}) => {
   const androidNotification = {};
 
   if (options.channelId) androidNotification.channelId = options.channelId;
   if (options.clickAction) androidNotification.clickAction = options.clickAction;
+  if (options.sound) androidNotification.sound = options.sound;
   if (options.titleLocKey || data.title_loc_key) {
     androidNotification.titleLocKey = options.titleLocKey || data.title_loc_key;
   }
@@ -99,13 +118,24 @@ const buildPlatformNotification = (data = {}, options = {}) => {
   if (options.apnsCategory) {
     apnsPayload.category = options.apnsCategory;
   }
+  if (options.sound) {
+    apnsPayload.sound = options.sound;
+  }
 
   const payload = {};
-  if (Object.keys(androidNotification).length > 0) {
-    payload.android = { notification: androidNotification };
-  }
-  if (Object.keys(apnsPayload).length > 0) {
-    payload.apns = { payload: { aps: apnsPayload } };
+
+  // Android config: priority + notification
+  const androidConfig = {};
+  if (options.priority === 'high') androidConfig.priority = 'high';
+  if (Object.keys(androidNotification).length > 0) androidConfig.notification = androidNotification;
+  if (Object.keys(androidConfig).length > 0) payload.android = androidConfig;
+
+  // APNS config: priority + payload
+  if (Object.keys(apnsPayload).length > 0 || options.priority === 'high') {
+    payload.apns = {
+      ...(options.priority === 'high' ? { headers: { 'apns-priority': '10' } } : {}),
+      payload: { aps: apnsPayload },
+    };
   }
 
   return payload;
@@ -154,7 +184,49 @@ export const sendToDevice = async (fcmToken, title, body, data = {}, options = {
 };
 
 /**
+ * Remove invalid FCM tokens from user records (fire-and-forget).
+ * Called automatically after multicast sends detect expired/invalid tokens.
+ */
+const cleanupInvalidTokens = (invalidTokens) => {
+  if (!invalidTokens || invalidTokens.length === 0) return;
+
+  User.updateMany(
+    { fcmTokens: { $in: invalidTokens } },
+    { $pull: { fcmTokens: { $in: invalidTokens } } }
+  ).catch((err) => {
+    logger.warn('FCM token cleanup failed', { message: err.message, count: invalidTokens.length });
+  });
+
+  logger.info('FCM invalid tokens queued for cleanup', { count: invalidTokens.length });
+};
+
+/**
+ * Send a single multicast batch (up to 500 tokens) and collect invalid tokens.
+ */
+const sendMulticastBatch = async (tokens, message) => {
+  const batchMessage = { ...message, tokens };
+  const response = await firebaseAdmin.messaging().sendEachForMulticast(batchMessage);
+
+  // Collect invalid/expired tokens for cleanup
+  const invalidTokens = [];
+  if (response.responses) {
+    response.responses.forEach((resp, idx) => {
+      if (resp.error && INVALID_TOKEN_ERRORS.has(resp.error.code)) {
+        invalidTokens.push(tokens[idx]);
+      }
+    });
+  }
+
+  return {
+    successCount: response.successCount,
+    failureCount: response.failureCount,
+    invalidTokens,
+  };
+};
+
+/**
  * Send push notification to multiple devices.
+ * Automatically chunks into batches of 500 (FCM limit) and cleans up invalid tokens.
  * @param {string[]} fcmTokens - Array of device FCM tokens
  * @param {string} title - Notification title
  * @param {string} body - Notification body
@@ -183,19 +255,33 @@ export const sendToMultiple = async (fcmTokens, title, body, data = {}, options 
   }
 
   try {
-    const message = {
+    const baseMessage = {
       notification: { title, body },
       ...buildPlatformNotification(data, options),
       data: Object.fromEntries(
         Object.entries(data).map(([k, v]) => [k, String(v)])
       ),
-      tokens: uniqueTokens,
     };
 
-    const response = await firebaseAdmin.messaging().sendEachForMulticast(message);
+    let totalSuccess = 0;
+    let totalFailure = 0;
+    const allInvalidTokens = [];
+
+    // Chunk tokens into batches of FCM_MULTICAST_LIMIT (500)
+    for (let i = 0; i < uniqueTokens.length; i += FCM_MULTICAST_LIMIT) {
+      const batch = uniqueTokens.slice(i, i + FCM_MULTICAST_LIMIT);
+      const result = await sendMulticastBatch(batch, baseMessage);
+      totalSuccess += result.successCount;
+      totalFailure += result.failureCount;
+      allInvalidTokens.push(...result.invalidTokens);
+    }
+
+    // Fire-and-forget cleanup of invalid tokens
+    cleanupInvalidTokens(allInvalidTokens);
+
     return {
-      successCount: response.successCount,
-      failureCount: response.failureCount,
+      successCount: totalSuccess,
+      failureCount: totalFailure,
     };
   } catch (error) {
     logger.error('FCM batch send error', {

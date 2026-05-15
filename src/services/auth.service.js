@@ -621,6 +621,11 @@ export const getMe = async (userId) => {
   return user;
 };
 
+/**
+ * Maximum number of FCM tokens allowed per user (prevents abuse).
+ */
+const MAX_TOKENS_PER_USER = 10;
+
 export const registerFcmToken = async (userId, fcmToken) => {
   const normalizedToken = normalizeFcmToken(fcmToken);
 
@@ -634,7 +639,12 @@ export const registerFcmToken = async (userId, fcmToken) => {
   }
 
   const currentTokens = user.fcmTokens || [];
-  const cleanedTokens = uniqueCleanTokens([...currentTokens, normalizedToken]);
+  let cleanedTokens = uniqueCleanTokens([...currentTokens, normalizedToken]);
+
+  // Enforce per-user token cap — keep most recently added tokens
+  if (cleanedTokens.length > MAX_TOKENS_PER_USER) {
+    cleanedTokens = cleanedTokens.slice(-MAX_TOKENS_PER_USER);
+  }
 
   user.fcmTokens = cleanedTokens;
   await user.save({ validateBeforeSave: false });
@@ -695,7 +705,7 @@ export const removeFcmToken = async (userId, fcmToken) => {
 };
 
 // Logout
-export const logout = async (refreshToken) => {
+export const logout = async (refreshToken, fcmToken = null, userId = null) => {
   if (!refreshToken) throw new Error('Refresh token is required');
 
   const decoded = jwt.verifyRefreshToken(refreshToken);
@@ -717,6 +727,16 @@ export const logout = async (refreshToken) => {
     },
     { upsert: true }
   );
+
+  // Remove the FCM token for this device so push notifications stop after logout
+  const resolvedUserId = userId || decoded.userId;
+  const normalizedFcmToken = fcmToken ? normalizeFcmToken(fcmToken) : null;
+  if (normalizedFcmToken && resolvedUserId) {
+    User.updateOne(
+      { _id: resolvedUserId },
+      { $pull: { fcmTokens: normalizedFcmToken } }
+    ).catch(() => {}); // fire-and-forget — never block logout
+  }
 
   return { success: true };
 };

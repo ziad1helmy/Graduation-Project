@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import Donor from '../models/Donor.model.js';
+import User from '../models/User.model.js';
 import Notification from '../models/Notification.model.js';
 import { sendToMultiple } from '../utils/fcm.js';
 import {
@@ -14,7 +15,7 @@ import { logger } from '../utils/logger.js';
  */
 
 /**
- * Create and send a match notification to hospital
+ * Create and send a match notification to hospital (in-app + FCM push)
  * @param {string} userId - Hospital user ID
  * @param {Object} donation - Donation document
  * @param {Object} request - Request document
@@ -22,19 +23,41 @@ import { logger } from '../utils/logger.js';
  */
 export const notifyMatch = async (userId, donation, request) => {
   try {
+    const notificationTitle = 'New Donor Matched';
+    const notificationMessage = `A donor has matched your ${request.type === 'blood' ? request.bloodType + ' blood' : request.organType + ' organ'} request`;
+    const notificationData = {
+      donationId: donation._id,
+      requestId: request._id,
+      requestType: request.type,
+    };
+
     const notification = await Notification.create({
       userId,
       type: 'match',
-      title: 'New Donor Matched',
-      message: `A donor has matched your ${request.type === 'blood' ? request.bloodType + ' blood' : request.organType + ' organ'} request`,
+      title: notificationTitle,
+      message: notificationMessage,
       relatedId: donation._id,
       relatedType: 'Donation',
-      data: {
-        donationId: donation._id,
-        requestId: request._id,
-        requestType: request.type,
-      },
+      data: notificationData,
     });
+
+    // Send FCM push notification to hospital (fire-and-forget)
+    const hospital = await User.findById(userId).select('fcmTokens');
+    if (hospital?.fcmTokens?.length > 0) {
+      sendToMultiple(
+        hospital.fcmTokens,
+        notificationTitle,
+        notificationMessage,
+        {
+          type: 'match',
+          donationId: String(donation._id),
+          requestId: String(request._id),
+          requestType: request.type || 'blood',
+          click_action: 'FLUTTER_NOTIFICATION_CLICK',
+        },
+        { channelId: 'donation_matches' }
+      ).catch((err) => logger.error('FCM match push failed', { message: err.message }));
+    }
 
     return notification;
   } catch (error) {
@@ -99,6 +122,8 @@ export const notifyRequest = async (donorIds, request) => {
             channelId: 'emergency_requests',
             clickAction: 'FLUTTER_NOTIFICATION_CLICK',
             apnsCategory: 'emergency_request',
+            priority: 'high',
+            sound: 'default',
             titleLocKey: data.title_loc_key,
             bodyLocKey: data.body_loc_key,
             bodyLocArgs: [data.bloodType || '', data.hospitalName || ''],
