@@ -34,13 +34,13 @@ const initFirebase = async () => {
     let clientEmail = env.FIREBASE_CLIENT_EMAIL;
     let privateKey = env.FIREBASE_PRIVATE_KEY;
 
-    if ((!projectId || !clientEmail || !privateKey) && env.FIREBASE_SERVICE_ACCOUNT_PATH) {
+    if (env.FIREBASE_SERVICE_ACCOUNT_PATH) {
       try {
         const serviceAccountPath = resolve(process.cwd(), env.FIREBASE_SERVICE_ACCOUNT_PATH);
         const parsed = JSON.parse(readFileSync(serviceAccountPath, 'utf8'));
-        projectId = projectId || parsed.project_id;
-        clientEmail = clientEmail || parsed.client_email;
-        privateKey = privateKey || parsed.private_key;
+        projectId = parsed.project_id || projectId;
+        clientEmail = parsed.client_email || clientEmail;
+        privateKey = parsed.private_key || privateKey;
       } catch (fileError) {
         logger.warn('Failed to load Firebase service account file', {
           path: env.FIREBASE_SERVICE_ACCOUNT_PATH,
