@@ -3999,6 +3999,16 @@ paths:
                         appointmentId: 69fe540565ff7785a031315b
                         hospitalId: 69f3df915f42685cbbbcbb1b
                       createdAt: 2026-05-11T09:00:00.000Z
+                    - id: 69fe540565ff7785a0313157
+                      title: 200 Points Earned — Blood Donation
+                      description: Points awarded for completed blood donation (includes campaign multiplier where applicable).
+                      type: reward
+                      action: earned_points
+                      referenceType: PointsTransaction
+                      referenceId: points_donation_69fe540565ff7785a0313157
+                      points: 200
+                      icon: gift
+                      createdAt: 2026-05-12T10:00:00.000Z
                   pagination:
                     total: 5
                     page: 1

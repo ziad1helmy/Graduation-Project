@@ -31,7 +31,7 @@ import { formatActivityForTimeline, ACTIVITY_TYPES } from '../utils/activity.for
  *     "activities": [
  *       {
  *         "id": "5f9d4a1b9d7c2e3c4f5a6b7c",
- *         "title": "Blood Donation Completed",
+ *         "title": "200 Points Earned — Blood Donation",
  *         "hospital": "Cairo Hospital",
  *         "points": 200,
  *         "createdAt": "2026-05-04T12:00:00.000Z",

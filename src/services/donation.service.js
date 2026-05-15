@@ -4,6 +4,7 @@ import Request from '../models/Request.model.js';
 import * as matchingService from './matching.service.js';
 import * as rewardService from './reward.service.js';
 import * as activityService from './activity.service.js';
+import { ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -74,7 +75,7 @@ export const createDonation = async (donorId, requestId, data = {}) => {
       .logActivity(donorId, {
         type: 'donation',
         action: 'created_donation',
-        title: 'Donation Created',
+        title: ACTIVITY_TITLE_MAP.donation_created,
         description: `Started donating ${donation.quantity} unit(s) of blood`,
         referenceId: donation._id.toString(),
         referenceType: 'Donation',
@@ -148,7 +149,7 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
         .logActivity(donation.donorId, {
           type: 'donation',
           action: 'completed_donation',
-          title: 'Donation Completed',
+          title: ACTIVITY_TITLE_MAP.donation_completed,
           description: `Successfully completed donation of ${donation.quantity} unit(s)`,
           referenceId: donation._id.toString(),
           referenceType: 'Donation',
@@ -175,7 +176,7 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
         .logActivity(donation.donorId, {
           type: 'donation',
           action: 'cancelled_donation',
-          title: 'Donation Cancelled',
+          title: ACTIVITY_TITLE_MAP.donation_cancelled,
           description: `Donation cancelled (${donation.quantity} unit(s))`,
           referenceId: donation._id.toString(),
           referenceType: 'Donation',
@@ -308,7 +309,7 @@ export const cancelDonation = async (donationId) => {
       .logActivity(donation.donorId, {
         type: 'donation',
         action: 'cancelled_donation',
-        title: 'Donation Cancelled',
+        title: ACTIVITY_TITLE_MAP.donation_cancelled,
         description: `Donation cancelled (${donation.quantity} unit(s))`,
         referenceId: donation._id.toString(),
         referenceType: 'Donation',

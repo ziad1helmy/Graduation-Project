@@ -1,0 +1,94 @@
+{
+  "activity": {
+    "earned_points": "{{points}} Points Earned — {{reason}}",
+    "tier_promoted": "Tier Promoted",
+    "badge_unlocked": "Badge Unlocked",
+    "redeemed_reward": "Reward Redeemed",
+    "redeemed_reward_notification": "🎁 Reward Redeemed!",
+    "donation_created": "Donation Created",
+    "donation_verified": "Donation Verified",
+    "donation_confirmed": "Donation Confirmed",
+    "donation_completed": "Donation Completed",
+    "donation_cancelled": "Donation Cancelled"
+  },
+
+  "badge": {
+    "First Timer": {
+      "name": "First Timer",
+      "description": "Completed your first blood donation"
+    },
+    "Regular Donor": {
+      "name": "Regular Donor",
+      "description": "Completed 5 blood donations"
+    },
+    "Life Saver": {
+      "name": "Life Saver",
+      "description": "Completed 10 blood donations"
+    },
+    "Hero": {
+      "name": "Hero",
+      "description": "Completed 20 blood donations"
+    },
+    "Legend": {
+      "name": "Legend",
+      "description": "Completed 50 blood donations"
+    },
+    "Emergency Responder": {
+      "name": "Emergency Responder",
+      "description": "Responded to 10 emergency requests"
+    },
+    "Community Helper": {
+      "name": "Community Helper",
+      "description": "Responded to 25 emergency requests"
+    }
+  },
+
+  "reward": {
+    "Coffee Voucher": "Coffee Voucher",
+    "Movie Tickets": "Movie Tickets",
+    "Restaurant Gift Card": "Restaurant Gift Card",
+    "Health Check-up": "Health Check-up",
+    "Premium Badge": "Premium Badge",
+    "Gym Membership": "Gym Membership",
+    "redeemed_success": "Reward redeemed successfully",
+    "insufficient_points": "Insufficient points"
+  },
+
+  "notification": {
+    "badge_unlocked_title": "🏆 Badge Unlocked: {{badgeName}}",
+    "badge_unlocked_message": "{{badgeDescription}}",
+    "tier_up_title": "🎉 Tier Upgraded to {{tier}}!",
+    "tier_up_message": "Congratulations! You've reached {{tier}} tier. Keep donating to unlock more rewards!",
+    "reward_redeemed_title": "🎁 Reward Redeemed!",
+    "reward_redeemed_message": "Your {{rewardName}} is confirmed. Code: {{confirmationCode}}"
+  },
+
+  "email": {
+    "verify_subject": "Verify Your LifeLink Email",
+    "reset_subject": "Reset Your LifeLink Password",
+    "otp_subject": "Your LifeLink Password Reset Code",
+    "verify_body": "Please click the link to verify your email.",
+    "reset_body": "Use the following code to reset your password: {{code}}"
+  },
+
+  "tier": {
+    "bronze": "Bronze",
+    "silver": "Silver",
+    "gold": "Gold",
+    "platinum": "Platinum",
+    "benefits": {
+      "bronze": ["Access to basic rewards"],
+      "silver": ["10% more points per donation", "Early access to limited rewards"],
+      "gold": ["15% more points per donation", "Exclusive gold rewards"],
+      "platinum": ["20% more points per donation", "VIP support", "All exclusive rewards"]
+    }
+  },
+
+  "ui": {
+    "donation_completed_success": "Donation completed successfully",
+    "donation_verified_success": "Donation verified successfully",
+    "donation_confirmed_success": "Donation confirmed successfully",
+    "reward_redeemed_success": "Reward redeemed successfully",
+    "profile_completed": "Profile Completed"
+  }
+}
