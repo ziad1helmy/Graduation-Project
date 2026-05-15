@@ -379,7 +379,7 @@
           "Donor"
         ],
         "summary": "Get the authenticated user's activity timeline",
-        "description": "Returns a paginated, timestamped history of all user actions (donations, rewards, urgent responses, profile updates).\nSupports optional filtering by activity type.\nResults are sorted newest-first.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns a paginated, timestamped history of all user actions (donations, rewards, urgent responses, profile updates).\nSupports optional filtering by activity type.\nResults are sorted newest-first.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -7231,16 +7231,11 @@
                 },
                 "example": {
                   "success": true,
-                  "message": "All notifications deleted successfully",
-                  "data": {
-                    "deletedCount": 5
-                  }
+                  "message": "Example response",
+                  "data": {}
                 }
               }
             }
-          },
-          "401": {
-            "description": "Unauthorized - missing or invalid JWT token"
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
@@ -7363,37 +7358,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Notification deleted successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "success": {
-                      "type": "boolean",
-                      "example": true
-                    },
-                    "message": {
-                      "type": "string",
-                      "example": "Notification deleted successfully"
-                    }
-                  }
-                },
-                "example": {
-                  "success": true,
-                  "message": "Notification deleted successfully"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid notification id format"
-          },
-          "401": {
-            "description": "Unauthorized - missing or invalid JWT token"
-          },
-          "404": {
-            "description": "Notification not found or does not belong to user"
+            "description": "Notification deleted"
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
