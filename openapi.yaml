@@ -282,6 +282,86 @@ paths:
                 password:
                   type: string
                   format: password
+            Activity:
+              type: object
+              required:
+                - id
+                - title
+                - description
+                - type
+                - createdAt
+              properties:
+                id:
+                  type: string
+                  description: Activity unique identifier
+                title:
+                  type: string
+                  description: Display title for the activity
+                description:
+                  type: string
+                  description: Short human-readable summary
+                type:
+                  type: string
+                  description: Activity category
+                  enum:
+                    - donation
+                    - reward
+                    - emergency_response
+                    - profile_update
+                    - appointment
+                    - badge
+                    - achievement
+                    - referral
+                    - subscription
+                    - admin_action
+                action:
+                  type: string
+                  description: Granular action identifier (e.g. completed_donation)
+                referenceType:
+                  type: string
+                  description: Related entity type
+                referenceId:
+                  type: string
+                  description: Related entity id or external reference
+                icon:
+                  type: string
+                  description: UI icon identifier
+                metadata:
+                  type: object
+                  description: Lightweight snapshot for client display
+                createdAt:
+                  type: string
+                  format: date-time
+                  description: Timestamp when activity was created
+            ActivitiesResponse:
+              type: object
+              properties:
+                success:
+                  type: boolean
+                message:
+                  type: string
+                data:
+                  type: object
+                  properties:
+                    activities:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/Activity'
+                    pagination:
+                      type: object
+                      properties:
+                        total:
+                          type: integer
+                        page:
+                          type: integer
+                        limit:
+                          type: integer
+                        totalPages:
+                          type: integer
+                        hasNextPage:
+                          type: boolean
+                        hasPrevPage:
+                          type: boolean
                   description: Admin password
                   example: SecurePassword123!
                 adminCode:
@@ -3877,6 +3957,8 @@ paths:
           description: Activity timeline retrieved successfully
           content:
             application/json:
+              schema:
+                $ref: '#/components/schemas/ActivitiesResponse'
               example:
                 success: true
                 message: Activity timeline retrieved successfully
@@ -3917,6 +3999,16 @@ paths:
                         appointmentId: 69fe540565ff7785a031315b
                         hospitalId: 69f3df915f42685cbbbcbb1b
                       createdAt: 2026-05-11T09:00:00.000Z
+                    - id: 69fe540565ff7785a0313157
+                      title: 200 Points Earned — Blood Donation
+                      description: Points awarded for completed blood donation (includes campaign multiplier where applicable).
+                      type: reward
+                      action: earned_points
+                      referenceType: PointsTransaction
+                      referenceId: points_donation_69fe540565ff7785a0313157
+                      points: 200
+                      icon: gift
+                      createdAt: 2026-05-12T10:00:00.000Z
                   pagination:
                     total: 5
                     page: 1

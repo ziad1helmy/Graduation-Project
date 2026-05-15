@@ -2,7 +2,7 @@ import response from '../utils/response.js';
 import { parsePagination } from '../utils/pagination.js';
 import * as activityService from '../services/activity.service.js';
 import { logger } from '../utils/logger.js';
-import { formatActivityForTimeline } from '../utils/activity.formatter.js';
+import { formatActivityForTimeline, ACTIVITY_TYPES } from '../utils/activity.formatter.js';
 
 /**
  * Activity Controller
@@ -31,7 +31,7 @@ import { formatActivityForTimeline } from '../utils/activity.formatter.js';
  *     "activities": [
  *       {
  *         "id": "5f9d4a1b9d7c2e3c4f5a6b7c",
- *         "title": "Blood Donation Completed",
+ *         "title": "200 Points Earned — Blood Donation",
  *         "hospital": "Cairo Hospital",
  *         "points": 200,
  *         "createdAt": "2026-05-04T12:00:00.000Z",
@@ -68,6 +68,14 @@ export const getTimeline = async (req, res, next) => {
     }
 
     const { page, limit } = parsePagination(req.query, 20, 100);
+
+    // Validate optional `type` filter when provided
+    const typeParam = req.query?.type;
+    if (typeParam !== undefined && String(typeParam).trim() !== '') {
+      if (!ACTIVITY_TYPES.includes(String(typeParam))) {
+        return response.error(res, 400, `Invalid type filter: ${typeParam}`);
+      }
+    }
 
     // Call service with pagination only.
     const result = await activityService.getUserTimeline(userId, {

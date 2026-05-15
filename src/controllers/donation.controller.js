@@ -3,6 +3,7 @@ import Appointment from '../models/Appointment.model.js';
 import Donation from '../models/Donation.model.js';
 import Donor from '../models/Donor.model.js';
 import * as activityService from '../services/activity.service.js';
+import { ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
 import * as eligibilityService from '../services/eligibility.service.js';
 import * as donationService from '../services/donation.service.js';
 import * as rewardService from '../services/reward.service.js';
@@ -143,7 +144,7 @@ export const verifyQr = async (req, res, next) => {
 
     activityService.logActivity(donor._id, {
       type: 'donation', action: 'qr_verified',
-      title: 'Donation Verified', description: 'Hospital QR verified',
+      title: ACTIVITY_TITLE_MAP.donation_verified, description: 'Hospital QR verified',
       referenceId: donation._id.toString(), referenceType: 'Donation',
     }).catch(() => {});
 
@@ -230,7 +231,7 @@ export const scanQr = async (req, res, next) => {
     activityService.logActivity(donor._id, {
       type: 'donation',
       action: 'qr_scanned',
-      title: 'Donation Confirmed',
+      title: ACTIVITY_TITLE_MAP.donation_confirmed,
       description: 'Hospital QR code scanned to confirm donation',
       referenceId: donation._id.toString(),
       referenceType: 'Donation',

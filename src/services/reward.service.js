@@ -13,6 +13,7 @@ import * as campaignService from './campaign.service.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 import Donor from '../models/Donor.model.js';
+import { formatPointsTitle, ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
 
 // Points awarded per request/donation type
 export const POINTS_BY_TYPE = {
@@ -113,6 +114,8 @@ const isMongoDuplicateKeyError = (err) => {
   return err?.code === 11000 || (typeof err?.message === 'string' && err.message.includes('E11000'));
 };
 
+// formatPointsTitle moved to src/constants/rewards.constants.js for reuse
+
 /**
  * Award points to a donor atomically.
  * Handles tier promotion detection and bonus points.
@@ -198,7 +201,7 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
       .logActivity(donorId, {
         type: 'reward',
         action: 'tier_promoted',
-        title: 'Tier Promoted',
+        title: ACTIVITY_TITLE_MAP.tier_promoted,
         description: `Congratulations! You've reached ${result.newTier} tier.`,
         referenceId: `tier_${result.newTier}_${donorId}`,
         referenceType: 'PointsTransaction',
@@ -225,7 +228,7 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
       .logActivity(donorId, {
         type: 'reward',
         action: 'earned_points',
-        title: 'Points Earned',
+        title: formatPointsTitle(amount, type, description),
         description: description,
         referenceId: normalizedReferenceId || `points_${donorId}_${Date.now()}`,
         referenceType: 'PointsTransaction',
@@ -399,7 +402,7 @@ export const checkAndUpdateBadges = async (donorId) => {
           .logActivity(donorId, {
             type: 'reward',
             action: 'badge_unlocked',
-            title: 'Badge Unlocked',
+            title: ACTIVITY_TITLE_MAP.badge_unlocked,
             description: `You've unlocked the ${badge.badgeName} badge: ${badge.badgeDescription}`,
             referenceId: badge._id.toString(),
             referenceType: 'Badge',
@@ -662,7 +665,7 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
     .logActivity(donorId, {
       type: 'reward',
       action: 'redeemed_reward',
-      title: 'Reward Redeemed',
+      title: ACTIVITY_TITLE_MAP.redeemed_reward,
       description: `Redeemed ${reward.name} for ${reward.pointsCost} points`,
       referenceId: redemption._id.toString(),
       referenceType: 'RewardRedemption',
@@ -681,7 +684,7 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
   Notification.create({
     userId: donorId,
     type: 'system',
-    title: '🎁 Reward Redeemed!',
+      title: ACTIVITY_TITLE_MAP.redeemed_reward_notification,
     message: `Your ${reward.name} is confirmed. Code: ${redemption.confirmationCode}`,
   }).catch(() => {});
 
