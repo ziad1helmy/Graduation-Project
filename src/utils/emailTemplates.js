@@ -121,8 +121,51 @@ export const resetPasswordOtpTemplate = ({ otp, expiresInMinutes = 10, name = 'L
     `,
   });
 
+export const passwordChangedTemplate = ({ name = 'LifeLink user' }) =>
+  renderShell({
+    preheader: 'Your LifeLink password was changed successfully.',
+    content: `
+      <p style="margin:0 0 10px; color:${BRAND.primary}; font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">Security alert</p>
+      <h1 style="margin:0 0 16px; font-size:30px; line-height:1.2;">Password Changed</h1>
+      <p style="margin:0 0 16px; font-size:16px; line-height:1.7;">Hello ${name},</p>
+      <p style="margin:0 0 24px; font-size:16px; line-height:1.7;">
+        Your LifeLink account password was changed successfully. If you made this change, no further action is needed.
+      </p>
+      <div style="padding:16px 18px; background:#FEF2F2; border:1px solid #FECACA; border-left:4px solid ${BRAND.primary}; border-radius:14px; font-size:15px; line-height:1.7;">
+        <strong style="color:${BRAND.primaryDark};">Did not change your password?</strong><br>
+        Contact our support team immediately at
+        <a href="mailto:support@lifelink.eg" style="color:${BRAND.primary}; text-decoration:none;">support@lifelink.eg</a>
+        to secure your account.
+      </div>
+    `,
+  });
+
+export const emailVerifiedTemplate = ({ name = 'LifeLink user' }) =>
+  renderShell({
+    preheader: 'Your LifeLink email address has been verified. Welcome!',
+    content: `
+      <p style="margin:0 0 10px; color:${BRAND.primary}; font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">Account verified</p>
+      <h1 style="margin:0 0 16px; font-size:30px; line-height:1.2;">Email Verified ✓</h1>
+      <p style="margin:0 0 16px; font-size:16px; line-height:1.7;">Hello ${name},</p>
+      <p style="margin:0 0 24px; font-size:16px; line-height:1.7;">
+        Your email address has been verified successfully. Your LifeLink account is now fully active and ready to use.
+      </p>
+      <div style="margin:0 0 24px; padding:24px; background:${BRAND.accent}; border:1px solid #FECACA; border-radius:18px; text-align:center;">
+        <div style="font-size:48px; line-height:1; margin-bottom:12px;">🎉</div>
+        <div style="font-size:18px; font-weight:700; color:${BRAND.primary};">Welcome to LifeLink!</div>
+        <div style="margin-top:8px; font-size:14px; color:${BRAND.muted};">You can now schedule donations and help save lives.</div>
+      </div>
+      <div style="padding:16px 18px; background:#F9FAFB; border:1px solid ${BRAND.border}; border-radius:14px; font-size:14px; line-height:1.7;">
+        If you did not create a LifeLink account, please contact us at
+        <a href="mailto:support@lifelink.eg" style="color:${BRAND.primary}; text-decoration:none;">support@lifelink.eg</a>.
+      </div>
+    `,
+  });
+
 export default {
   confirmEmailTemplate,
   resetPasswordTemplate,
   resetPasswordOtpTemplate,
+  passwordChangedTemplate,
+  emailVerifiedTemplate,
 };

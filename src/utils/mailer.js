@@ -3,6 +3,8 @@ import { env } from '../config/env.js';
 import { logger } from './logger.js';
 import {
   confirmEmailTemplate,
+  emailVerifiedTemplate,
+  passwordChangedTemplate,
   resetPasswordOtpTemplate,
   resetPasswordTemplate,
 } from './emailTemplates.js';
@@ -256,11 +258,7 @@ export async function sendPasswordResetConfirmationEmail({ to, fullName }) {
     'If you did not do this, please contact support immediately.',
   ].join('\n');
 
-  const html = `
-    <p>Hello ${fullName || 'there'},</p>
-    <p>Your password was changed successfully.</p>
-    <p>If you did not do this, please <a href="mailto:support@lifelink.eg">contact support</a> immediately.</p>
-  `;
+  const html = passwordChangedTemplate({ name: fullName || 'LifeLink user' });
 
   const result = await sendMail({ to, subject, text, html });
   return normalizeMailResult(result);
@@ -295,11 +293,7 @@ export async function sendEmailVerificationConfirmationEmail({ to, fullName }) {
     'Welcome to LifeLink!',
   ].join('\n');
 
-  const html = `
-    <p>Hello ${fullName || 'there'},</p>
-    <p>Your email address has been verified successfully.</p>
-    <p>Welcome to LifeLink! 🎉</p>
-  `;
+  const html = emailVerifiedTemplate({ name: fullName || 'LifeLink user' });
 
   const result = await sendMail({ to, subject, text, html });
   return normalizeMailResult(result);
