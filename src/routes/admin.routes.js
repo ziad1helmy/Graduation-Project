@@ -13,8 +13,6 @@ import * as hospitalController from '../controllers/hospital.controller.js';
 
 const router = Router();
 
-router.post('/login', adminController.loginAdmin);
-
 // All admin routes require authentication + admin or superadmin role
 router.use(authMiddleware, requireRole('admin', 'superadmin'));
 

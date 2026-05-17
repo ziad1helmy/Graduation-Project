@@ -7374,7 +7374,34 @@
         ],
         "responses": {
           "200": {
-            "description": "Notification marked as read"
+            "description": "Notification marked as read",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Notification marked as read",
+                  "data": {
+                    "notification": {
+                      "_id": "69fe540565ff7785a0313170",
+                      "userId": "69f3df915f42685cbbbcbb18",
+                      "type": "emergency",
+                      "title": "Emergency blood request near you",
+                      "message": "A hospital near you needs O+ blood for an urgent request. Tap to view details.",
+                      "read": true,
+                      "relatedId": "69fe540565ff7785a031314f",
+                      "relatedType": "Request",
+                      "data": {
+                        "requestId": "69fe540565ff7785a031314f",
+                        "hospitalName": "Cairo Care Hospital",
+                        "requestType": "blood"
+                      },
+                      "createdAt": "2026-05-16T13:24:00.000Z",
+                      "updatedAt": "2026-05-16T13:24:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
@@ -7398,8 +7425,10 @@
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Example response",
-                  "data": {}
+                  "message": "All notifications marked as read",
+                  "data": {
+                    "modifiedCount": 12
+                  }
                 }
               }
             }
@@ -7432,7 +7461,34 @@
         ],
         "responses": {
           "200": {
-            "description": "Notification retrieved successfully"
+            "description": "Notification retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Notification retrieved successfully",
+                  "data": {
+                    "notification": {
+                      "_id": "69fe540565ff7785a0313170",
+                      "userId": "69f3df915f42685cbbbcbb18",
+                      "type": "emergency",
+                      "title": "Emergency blood request near you",
+                      "message": "A hospital near you needs O+ blood for an urgent request. Tap to view details.",
+                      "read": false,
+                      "relatedId": "69fe540565ff7785a031314f",
+                      "relatedType": "Request",
+                      "data": {
+                        "requestId": "69fe540565ff7785a031314f",
+                        "hospitalName": "Cairo Care Hospital",
+                        "requestType": "blood"
+                      },
+                      "createdAt": "2026-05-16T13:24:00.000Z",
+                      "updatedAt": "2026-05-16T13:24:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
           },
           "400": {
             "description": "Invalid notification id"

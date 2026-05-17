@@ -13,7 +13,7 @@ LifeLink has four roles stored in the `User.role` field:
 | `admin` | Platform administrator | Superadmin only |
 | `superadmin` | Full-access administrator | System seeded / another superadmin |
 
-All four roles share the `users` MongoDB collection via **Mongoose discriminators** (`__t` field).
+Donor and Hospital extend the base User via Mongoose discriminators (the `__t` field is automatically set). Admin and superadmin are plain User documents — they do not use a discriminator, they are identified only by `role: 'admin'` or `role: 'superadmin'`.
 
 ---
 
@@ -106,7 +106,7 @@ POST /auth/hospital/login (hospital)
 ## Admin Login Flow
 
 ```
-POST /auth/admin/login  (or POST /admin/login)
+POST /auth/admin/login
     │
     ├── email + password + adminKey required
     ├── Find user where role IN ['admin', 'superadmin']

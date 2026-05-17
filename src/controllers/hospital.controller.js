@@ -33,6 +33,33 @@ const normalizeLocationInput = (location) => {
   return Object.keys(normalized).length ? normalized : null;
 };
 
+const toNumber = (value) => {
+  if (value === undefined || value === null || value === '') return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const parseBooleanQuery = (value, defaultValue) => {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  if (typeof value === 'boolean') return value;
+
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes'].includes(normalized)) return true;
+  if (['false', '0', 'no'].includes(normalized)) return false;
+  return null;
+};
+
+const resolveHospitalCoordinates = (hospital) => {
+  const latitude = toNumber(hospital?.location?.coordinates?.lat ?? hospital?.lat);
+  const longitude = toNumber(hospital?.location?.coordinates?.lng ?? hospital?.long);
+
+  if (latitude === null || longitude === null) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
+
 /**
  * Hospital Controller - Handles hospital-specific operations
  */
@@ -45,6 +72,108 @@ export const getProfile = async (req, res, next) => {
       return response.error(res, 404, 'Hospital profile not found');
     }
     response.success(res, 200, 'Hospital profile retrieved successfully', hospital);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const findDonors = async (req, res, next) => {
+  try {
+    const bloodType = typeof req.query.bloodType === 'string' && req.query.bloodType.trim()
+      ? req.query.bloodType.replace(/\s+/g, '+').trim().toUpperCase()
+      : null;
+    const radiusKm = toNumber(req.query.radiusKm) ?? 5;
+    const lat = toNumber(req.query.lat);
+    const lng = toNumber(req.query.lng);
+    const availability = parseBooleanQuery(req.query.availability, true);
+    const { page, limit, skip } = parsePagination(req.query, 20);
+
+    if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
+      return response.error(res, 400, 'Invalid bloodType');
+    }
+
+    if (!Number.isFinite(radiusKm) || radiusKm <= 0) {
+      return response.error(res, 400, 'radiusKm must be a positive number');
+    }
+
+    if (lat !== null && (lat < -90 || lat > 90)) {
+      return response.error(res, 400, 'lat must be between -90 and 90');
+    }
+
+    if (lng !== null && (lng < -180 || lng > 180)) {
+      return response.error(res, 400, 'lng must be between -180 and 180');
+    }
+
+    if ((lat === null) !== (lng === null)) {
+      return response.error(res, 400, 'lat and lng must be provided together');
+    }
+
+    if (availability === null) {
+      return response.error(res, 400, 'availability must be a boolean value');
+    }
+
+    let searchCoordinates = lat !== null && lng !== null ? { latitude: lat, longitude: lng } : null;
+
+    if (!searchCoordinates) {
+      if (req.user.role !== 'hospital') {
+        return response.error(res, 400, 'lat and lng are required for admin and superadmin users');
+      }
+
+      const hospital = await Hospital.findById(req.user.userId).select('location lat long');
+      if (!hospital) {
+        return response.error(res, 404, 'Hospital profile not found');
+      }
+
+      searchCoordinates = resolveHospitalCoordinates(hospital);
+      if (!searchCoordinates) {
+        return response.error(res, 400, 'Hospital coordinates are required to search for donors');
+      }
+    }
+
+    const searchLocation = {
+      coordinates: {
+        lat: searchCoordinates.latitude,
+        lng: searchCoordinates.longitude,
+      },
+    };
+
+    const matches = await matchingService.searchCompatibleDonors({
+      bloodType,
+      availability,
+      radiusKm,
+      location: searchLocation,
+    });
+
+    const donors = matches.map(({ donor, distanceKm }) => ({
+      donorId: donor._id.toString(),
+      fullName: donor.fullName,
+      bloodType: donor.bloodType,
+      distanceKm,
+      distanceMeters: distanceKm === null ? null : Math.round(distanceKm * 1000),
+      isAvailable: Boolean(donor.isAvailable),
+      phoneNumber: donor.phoneNumber || null,
+      location: {
+        latitude: donor.location?.coordinates?.lat ?? null,
+        longitude: donor.location?.coordinates?.lng ?? null,
+      },
+    }));
+
+    const paginatedDonors = donors.slice(skip, skip + limit);
+    const pagination = paginationMeta(donors.length, page, limit);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Nearby donors retrieved successfully',
+      data: {
+        donors: paginatedDonors,
+        pagination: {
+          page: pagination.page,
+          limit: pagination.limit,
+          total: pagination.total,
+          totalPages: pagination.totalPages,
+        },
+      },
+    });
   } catch (error) {
     next(error);
   }

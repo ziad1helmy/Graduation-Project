@@ -31,6 +31,10 @@ tags:
     description: Authenticated user notifications
   - name: Support
     description: Support contact endpoint
+  - name: Requests
+    description: Donation request discovery, acceptance, cancellation, and QR flows
+  - name: Webhooks
+    description: Inbound third-party webhook callbacks
 components:
   securitySchemes:
     bearerAuth:
@@ -125,6 +129,65 @@ components:
             type:
               type: string
               example: hospital
+    Notification:
+      type: object
+      properties:
+        _id:
+          type: string
+          example: 69fe540565ff7785a0313170
+        userId:
+          type: string
+          example: 69f3df915f42685cbbbcbb18
+        type:
+          type: string
+          enum:
+            - match
+            - request
+            - emergency
+            - milestone
+            - system
+            - admin
+            - appointment
+          example: emergency
+        title:
+          type: string
+          example: "Emergency blood request near you"
+        message:
+          type: string
+          example: "A hospital near you needs O+ blood for an urgent request. Tap to view details."
+        read:
+          type: boolean
+          example: false
+        relatedId:
+          type: string
+          example: 69fe540565ff7785a031314f
+        relatedType:
+          type: string
+          example: Request
+        data:
+          type: object
+          properties:
+            requestId:
+              type: string
+              example: 69fe540565ff7785a031314f
+            donationId:
+              type: string
+              example: 69fe540565ff7785a031315c
+            requestType:
+              type: string
+              example: blood
+            hospitalName:
+              type: string
+              example: Cairo Care Hospital
+          additionalProperties: true
+        createdAt:
+          type: string
+          format: date-time
+          example: 2026-05-16T13:24:00.000Z
+        updatedAt:
+          type: string
+          format: date-time
+          example: 2026-05-16T13:24:00.000Z
     LoginRequest:
       type: object
       required:
@@ -247,144 +310,89 @@ components:
     ApiErrorResponse:
       allOf:
         - $ref: "#/components/schemas/ErrorResponse"
+    Activity:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - type
+        - createdAt
+      properties:
+        id:
+          type: string
+          description: Activity unique identifier
+        title:
+          type: string
+          description: Display title for the activity
+        description:
+          type: string
+          description: Short human-readable summary
+        type:
+          type: string
+          description: Activity category
+          enum:
+            - donation
+            - reward
+            - emergency_response
+            - profile_update
+            - appointment
+            - badge
+            - achievement
+            - referral
+            - subscription
+            - admin_action
+        action:
+          type: string
+          description: Granular action identifier (e.g. completed_donation)
+        referenceType:
+          type: string
+          description: Related entity type
+        referenceId:
+          type: string
+          description: Related entity id or external reference
+        icon:
+          type: string
+          description: UI icon identifier
+        metadata:
+          type: object
+          description: Lightweight snapshot for client display
+        createdAt:
+          type: string
+          format: date-time
+          description: Timestamp when activity was created
+    ActivitiesResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+          properties:
+            activities:
+              type: array
+              items:
+                $ref: "#/components/schemas/Activity"
+            pagination:
+              type: object
+              properties:
+                total:
+                  type: integer
+                page:
+                  type: integer
+                limit:
+                  type: integer
+                totalPages:
+                  type: integer
+                hasNextPage:
+                  type: boolean
+                hasPrevPage:
+                  type: boolean
 security:
   - bearerAuth: []
 paths:
-  /admin/login:
-    post:
-      summary: Login for admin and superadmin accounts
-      tags:
-        - Admin
-      description: >-
-        Authenticate admin or superadmin user. Returns JWT token for subsequent
-        requests
-
-
-        Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible.
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - email
-                - password
-                - adminKey
-              properties:
-                email:
-                  type: string
-                  format: email
-                  description: Admin email address
-                  example: admin@lifelink.com
-                password:
-                  type: string
-                  format: password
-            Activity:
-              type: object
-              required:
-                - id
-                - title
-                - description
-                - type
-                - createdAt
-              properties:
-                id:
-                  type: string
-                  description: Activity unique identifier
-                title:
-                  type: string
-                  description: Display title for the activity
-                description:
-                  type: string
-                  description: Short human-readable summary
-                type:
-                  type: string
-                  description: Activity category
-                  enum:
-                    - donation
-                    - reward
-                    - emergency_response
-                    - profile_update
-                    - appointment
-                    - badge
-                    - achievement
-                    - referral
-                    - subscription
-                    - admin_action
-                action:
-                  type: string
-                  description: Granular action identifier (e.g. completed_donation)
-                referenceType:
-                  type: string
-                  description: Related entity type
-                referenceId:
-                  type: string
-                  description: Related entity id or external reference
-                icon:
-                  type: string
-                  description: UI icon identifier
-                metadata:
-                  type: object
-                  description: Lightweight snapshot for client display
-                createdAt:
-                  type: string
-                  format: date-time
-                  description: Timestamp when activity was created
-            ActivitiesResponse:
-              type: object
-              properties:
-                success:
-                  type: boolean
-                message:
-                  type: string
-                data:
-                  type: object
-                  properties:
-                    activities:
-                      type: array
-                      items:
-                        $ref: '#/components/schemas/Activity'
-                    pagination:
-                      type: object
-                      properties:
-                        total:
-                          type: integer
-                        page:
-                          type: integer
-                        limit:
-                          type: integer
-                        totalPages:
-                          type: integer
-                        hasNextPage:
-                          type: boolean
-                        hasPrevPage:
-                          type: boolean
-                  description: Admin password
-                  example: SecurePassword123!
-                adminCode:
-                  type: string
-                  description: Required only for admin login
-                hospitalId:
-                  type: string
-                  description: Required only for hospital login
-                adminKey:
-                  type: string
-                  description: Admin secret key for authentication
-                  example: admin-secret-key-2026
-            example:
-              email: admin@lifelink.com
-              password: SecurePassword123!
-              adminKey: admin-secret-key-2026
-      responses:
-        "200":
-          description: Admin login successful - returns JWT token
-        "401":
-          description: Invalid credentials
-        "403":
-          description: Admin key invalid or account not authorized
   /admin/profile:
     get:
       summary: Get admin profile
@@ -2101,12 +2109,12 @@ paths:
                 message: Available slots retrieved successfully
                 data:
                   timeSlots:
+                    - 08:00 AM
                     - 09:00 AM
                     - 10:00 AM
-                    - 11:00 AM
                   hospitalId: 69f3df915f42685cbbbcbb1b
                   date: 2026-05-12T00:00:00.000Z
-                  slotsPerHour: 5
+                  slotsPerHour: 4
         "400":
           description: Invalid hospitalId or date
         "404":
@@ -4025,6 +4033,19 @@ paths:
       tags:
         - Donor
       summary: List donation requests matched to the authenticated donor
+      description: >-
+        Returns requests produced by the shared matching engine in
+        `src/services/matching.service.js` (`findCompatibleRequests`).
+
+        This is the donor-facing endpoint that already uses the same blood-type,
+        availability, eligibility, and location-aware matching logic referenced
+        by hospital emergency flows.
+
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       parameters:
@@ -4056,18 +4077,35 @@ paths:
                 success: true
                 message: Matching requests retrieved successfully
                 data:
-                  matches: []
+                  matches:
+                    - score: 96.8
+                      locationScore: 73.5
+                      compatibility:
+                        bloodTypeMatch: true
+                        eligible: true
+                      request:
+                        _id: 69fe540565ff7785a031314f
+                        type: blood
+                        bloodType: O+
+                        urgency: critical
+                        status: pending
+                        isEmergency: true
+                        quantity: 3
+                        unitsNeeded: 3
+                        requiredBy: 2026-05-20T00:00:00.000Z
+                        hospitalName: Cairo Care Hospital
+                        hospitalContact: "1044444444"
+                        locationHospital:
+                          latitude: 30.0511
+                          longitude: 31.2435
                   pagination:
                     page: 1
                     limit: 10
-                    total: 0
+                    total: 1
         "401":
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
   /donor/respond/{requestId}:
     post:
       tags:
@@ -4538,6 +4576,143 @@ paths:
           description: Access denied - hospital role required
         "404":
           description: Hospital profile not found
+  /hospital/find-donors:
+    get:
+      tags:
+        - Hospital
+      summary: Find nearby compatible donors for the hospital donor search screen
+      description: >-
+        Returns real compatible donors for the Hospital "Find Donors" UI using
+        the shared matching infrastructure in `src/services/matching.service.js`.
+
+        Search coordinates come from `lat` and `lng` when supplied. Otherwise,
+        hospital users fall back to their saved hospital coordinates. Admin and
+        superadmin users must provide `lat` and `lng` explicitly.
+
+        Results are filtered by radius, optional blood type compatibility,
+        optional availability, sorted by nearest distance first, and paginated.
+
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: bloodType
+          required: false
+          schema:
+            type: string
+            enum:
+              - A+
+              - A-
+              - B+
+              - B-
+              - AB+
+              - AB-
+              - O+
+              - O-
+          description: Recipient blood type to match against compatible donor blood types
+          example: O+
+        - in: query
+          name: radiusKm
+          required: false
+          schema:
+            type: number
+            default: 5
+            minimum: 0.1
+          description: Search radius in kilometers
+          example: 5
+        - in: query
+          name: lat
+          required: false
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+          description: Search latitude. If omitted, hospital users fall back to saved hospital coordinates.
+          example: 30.0444
+        - in: query
+          name: lng
+          required: false
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+          description: Search longitude. If omitted, hospital users fall back to saved hospital coordinates.
+          example: 31.2357
+        - in: query
+          name: availability
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: When true, only currently available donors are returned. When false, only unavailable donors are returned.
+          example: true
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+          example: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Page size
+          example: 20
+      responses:
+        "200":
+          description: Nearby donors retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Nearby donors retrieved successfully
+                data:
+                  donors:
+                    - donorId: 69f3df915f42685cbbbcbb18
+                      fullName: Sarah J.
+                      bloodType: O+
+                      distanceKm: 2.3
+                      distanceMeters: 2300
+                      isAvailable: true
+                      phoneNumber: "01012345678"
+                      location:
+                        latitude: 30.0444
+                        longitude: 31.2357
+                    - donorId: 69f3df915f42685cbbbcbb19
+                      fullName: Omar F.
+                      bloodType: O-
+                      distanceKm: 4.1
+                      distanceMeters: 4100
+                      isAvailable: true
+                      phoneNumber: "01098765432"
+                      location:
+                        latitude: 30.061
+                        longitude: 31.229
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 2
+                    totalPages: 1
+        "400":
+          description: Invalid query parameters or missing coordinates
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - role not allowed
+        "404":
+          description: Hospital profile not found when hospital coordinate fallback is needed
     put:
       tags:
         - Hospital
@@ -5032,8 +5207,13 @@ paths:
     get:
       tags:
         - Hospital
+      deprecated: true
       summary: Get appointment slot configuration
       description: >-
+        Controller logic exists in `hospital.controller.js`, but this endpoint is
+        not mounted in `hospital.routes.js`, so it is not currently reachable at
+        runtime.
+
         Returns the hospital's current appointment slot configuration:
         how many donors can book per hour (slotsPerHour) and the
         working hours window (workingHoursStart / workingHoursEnd).
@@ -5049,16 +5229,24 @@ paths:
                 success: true
                 message: Appointment settings retrieved
                 data:
-                  slotsPerHour: 5
-                  workingHoursStart: 9
-                  workingHoursEnd: 17
+                  slotsPerHour: 4
+                  workingHoursStart: 8
+                  workingHoursEnd: 19
         "401":
           description: Unauthorized
     put:
       tags:
         - Hospital
+      deprecated: true
       summary: Update appointment slot configuration
       description: >-
+        Controller logic exists in `hospital.controller.js`, but this endpoint is
+        not mounted in `hospital.routes.js`, so it is not currently reachable at
+        runtime.
+
+        The real backend request body only accepts numeric `slotsPerHour`,
+        `workingHoursStart`, and `workingHoursEnd`.
+
         Set how many donors can book per hour and adjust the hospital's
         working hours window. All fields are optional — send only what you
         want to change.
@@ -5081,23 +5269,23 @@ paths:
                   minimum: 1
                   maximum: 100
                   description: Maximum donors bookable per hour
-                  example: 5
+                  example: 4
                 workingHoursStart:
                   type: integer
                   minimum: 0
                   maximum: 23
-                  description: Opening hour in 24h format (e.g. 9 = 9 AM)
-                  example: 9
+                  description: Opening hour in 24h format (e.g. 8 = 8 AM)
+                  example: 8
                 workingHoursEnd:
                   type: integer
                   minimum: 1
                   maximum: 24
-                  description: Closing hour in 24h format (e.g. 17 = 5 PM)
-                  example: 17
+                  description: Closing hour in 24h format (e.g. 19 = 7 PM)
+                  example: 19
             example:
-              slotsPerHour: 5
-              workingHoursStart: 9
-              workingHoursEnd: 17
+              slotsPerHour: 4
+              workingHoursStart: 8
+              workingHoursEnd: 19
       responses:
         "200":
           description: Appointment settings updated successfully
@@ -5107,9 +5295,9 @@ paths:
                 success: true
                 message: Appointment settings updated
                 data:
-                  slotsPerHour: 5
-                  workingHoursStart: 9
-                  workingHoursEnd: 17
+                  slotsPerHour: 4
+                  workingHoursStart: 8
+                  workingHoursEnd: 19
         "400":
           description: Validation error (invalid range or end <= start)
         "401":
@@ -5143,13 +5331,37 @@ paths:
           name: type
           schema:
             type: string
-          example: blood
+          example: emergency
       responses:
         "200":
           description: Notifications list
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+          content:
+            application/json:
+              example:
+                success: true
+                message: Notifications retrieved successfully
+                data:
+                  notifications:
+                    - _id: 69fe540565ff7785a0313170
+                      userId: 69f3df915f42685cbbbcbb18
+                      type: emergency
+                      title: "Emergency blood request near you"
+                      message: "A hospital near you needs O+ blood for an urgent request. Tap to view details."
+                      read: false
+                      relatedId: 69fe540565ff7785a031314f
+                      relatedType: Request
+                      data:
+                        requestId: 69fe540565ff7785a031314f
+                        hospitalName: Cairo Care Hospital
+                        requestType: blood
+                      createdAt: 2026-05-16T13:24:00.000Z
+                      updatedAt: 2026-05-16T13:24:00.000Z
+                  unreadCount: 3
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 42
+                    pages: 3
     delete:
       summary: Delete all notifications for authenticated user
       tags:
@@ -5203,6 +5415,27 @@ paths:
       responses:
         "200":
           description: Notification marked as read
+          content:
+            application/json:
+              example:
+                success: true
+                message: Notification marked as read
+                data:
+                  notification:
+                    _id: 69fe540565ff7785a0313170
+                    userId: 69f3df915f42685cbbbcbb18
+                    type: emergency
+                    title: "Emergency blood request near you"
+                    message: "A hospital near you needs O+ blood for an urgent request. Tap to view details."
+                    read: true
+                    relatedId: 69fe540565ff7785a031314f
+                    relatedType: Request
+                    data:
+                      requestId: 69fe540565ff7785a031314f
+                      hospitalName: Cairo Care Hospital
+                      requestType: blood
+                    createdAt: 2026-05-16T13:24:00.000Z
+                    updatedAt: 2026-05-16T13:24:00.000Z
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -5218,7 +5451,11 @@ paths:
           description: All notifications marked as read
           content:
             application/json:
-              example: *a1
+              example:
+                success: true
+                message: All notifications marked as read
+                data:
+                  modifiedCount: 12
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -5239,6 +5476,27 @@ paths:
       responses:
         "200":
           description: Notification retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Notification retrieved successfully
+                data:
+                  notification:
+                    _id: 69fe540565ff7785a0313170
+                    userId: 69f3df915f42685cbbbcbb18
+                    type: emergency
+                    title: "Emergency blood request near you"
+                    message: "A hospital near you needs O+ blood for an urgent request. Tap to view details."
+                    read: false
+                    relatedId: 69fe540565ff7785a031314f
+                    relatedType: Request
+                    data:
+                      requestId: 69fe540565ff7785a031314f
+                      hospitalName: Cairo Care Hospital
+                      requestType: blood
+                    createdAt: 2026-05-16T13:24:00.000Z
+                    updatedAt: 2026-05-16T13:24:00.000Z
         "400":
           description: Invalid notification id
         "404":
@@ -5290,11 +5548,19 @@ paths:
     get:
       tags:
         - Requests
-      summary: Get nearby urgent requests within an optional radius
+      summary: Get nearby requests around the caller's coordinates
       description: >-
-        Returns urgent donation requests from nearby hospitals.
+        Returns real request records from the backend request store, enriched by
+        `src/controllers/request.controller.js` with distance, hospital contact
+        data, and map coordinates.
 
-        Supports all request types: blood, plasma, platelets, and organ.
+        This endpoint is available to `donor`, `hospital`, `admin`, and
+        `superadmin` roles. It is request-centric, not donor-centric: it returns
+        nearby requests/hospitals, not matched donor cards.
+
+        Current controller behavior filters requests by status
+        (`pending` and `accepted`) and optionally by `bloodType`, `type`,
+        `urgency`, and `isEmergency`.
 
 
 
@@ -5309,28 +5575,27 @@ paths:
           schema:
             type: number
           required: false
-          example: 1
+          description: Viewer latitude used to compute distance and map positioning
+          example: 30.0511
         - in: query
           name: lng
           schema:
             type: number
           required: false
-          example: 1
+          description: Viewer longitude used to compute distance and map positioning
+          example: 31.2435
         - in: query
           name: radius
           schema:
             type: number
-            default: 50
-          description: Search radius in km
-          example: 50
+          description: Optional radius in kilometers. If omitted, the endpoint does not apply a radius filter.
+          example: 25
         - in: query
           name: type
           schema:
             type: string
             enum:
               - blood
-              - plasma
-              - platelets
               - organ
           description: Filter by request type
           example: blood
@@ -5340,41 +5605,91 @@ paths:
             type: string
           description: Filter by blood type (for blood/plasma/platelets)
           example: O+
+        - in: query
+          name: urgency
+          schema:
+            type: string
+            enum:
+              - low
+              - medium
+              - high
+              - critical
+          description: Filter by urgency
+          example: critical
+        - in: query
+          name: isEmergency
+          schema:
+            type: boolean
+          description: When true, only emergency requests are returned
+          example: true
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+          description: Page number for paginated response
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Number of results per page
+          example: 20
       responses:
         "200":
-          description: Nearby requests retrieved
+          description: Nearby requests retrieved successfully
           content:
             application/json:
               example:
                 success: true
-                message: Nearby urgent requests retrieved
+                message: Nearby requests retrieved successfully
                 data:
                   requests:
-                    - _id: 69fe540565ff7785a031314f
+                    - id: 69fe540565ff7785a031314f
+                      requestId: 69fe540565ff7785a031314f
                       type: blood
                       bloodType: O+
                       hospitalName: Cairo Care Hospital
+                      patientType: Emergency surgery support
+                      contactNumber: "1044444444"
+                      unitsNeeded: 3
+                      isEmergency: true
+                      createdAt: 2026-05-16T08:15:00.000Z
+                      status: pending
+                      requestStatus: pending
                       urgency: critical
-                      quantity: 3
-                      distance: 2.5
-                      cause: Emergency surgery support
-                    - _id: 69fe540565ff7785a0313150
-                      type: plasma
-                      bloodType: AB+
-                      hospitalName: Cairo Care Hospital
-                      urgency: critical
-                      quantity: 5
-                      distance: 2.5
-                      cause: Trauma patient requiring urgent plasma
-                    - _id: 69fe540565ff7785a0313154
-                      type: platelets
-                      bloodType: O+
-                      hospitalName: Nile Hope Medical Center
-                      urgency: high
-                      quantity: 3
-                      distance: 12.8
-                      cause: Cancer patient undergoing chemotherapy
-                  total: 3
+                      requiredBy: 2026-05-20T00:00:00.000Z
+                      locationHospital:
+                        latitude: 30.0511
+                        longitude: 31.2435
+                      googleMapsUrl: https://www.google.com/maps/dir/?api=1&destination=30.0511,31.2435
+                      hospital:
+                        id: 69f3df915f42685cbbbcbb1b
+                        name: Cairo Care Hospital
+                        contactNumber: "1044444444"
+                        address: Cairo, Egypt
+                        latitude: 30.0511
+                        longitude: 31.2435
+                      distanceKm: 2.35
+                      distanceMeters: 2350
+                      distance: 2.35 km
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 1
+                    totalPages: 1
+                  viewerLocation:
+                    latitude: 30.0333
+                    longitude: 31.2333
+                  radiusKm: 25
+        "400":
+          description: Invalid geolocation or pagination query
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
   /requests/{id}/google-maps:
     get:
       tags:
@@ -5382,15 +5697,40 @@ paths:
       summary: Get Google Maps navigation URL for a request
       security:
         - bearerAuth: []
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+      description: >-
+        Resolves a request's stored hospital coordinates and returns a Google
+        Maps navigation URL.
+
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+        aligned with the seeded demo dataset where possible.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Request identifier
+          example: 69fe540565ff7785a031314f
       responses:
         "200":
-          description: Example response
+          description: Google Maps URL generated successfully
           content:
             application/json:
-              example: *a1
+              example:
+                success: true
+                message: Google Maps URL generated successfully
+                data:
+                  requestId: 69fe540565ff7785a031314f
+                  googleMapsUrl: https://www.google.com/maps/dir/?api=1&destination=30.0511,31.2435
+                  latitude: 30.0511
+                  longitude: 31.2435
+        "400":
+          description: Invalid request id
+        "404":
+          description: Request not found or request location is not available
   /requests/{id}:
     get:
       tags:
@@ -5523,15 +5863,52 @@ paths:
       summary: Cancel a request or your acceptance of it
       security:
         - bearerAuth: []
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+      description: >-
+        Cancels a request. Donors can cancel only their own accepted request;
+        hospitals can cancel their own request; admins can cancel any request.
+
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+        aligned with the seeded demo dataset where possible.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Request identifier
+          example: 69fe540565ff7785a031314f
       responses:
         "200":
-          description: Example response
+          description: Request cancelled successfully
           content:
             application/json:
-              example: *a1
+              example:
+                success: true
+                message: Request cancelled successfully
+                data:
+                  request:
+                    id: 69fe540565ff7785a031314f
+                    requestId: 69fe540565ff7785a031314f
+                    bloodType: O+
+                    hospitalName: Cairo Care Hospital
+                    contactNumber: "1044444444"
+                    unitsNeeded: 3
+                    isEmergency: true
+                    createdAt: 2026-05-16T08:15:00.000Z
+                    status: cancelled
+                    requestStatus: cancelled
+                    urgency: critical
+                    type: blood
+                    requiredBy: 2026-05-20T00:00:00.000Z
+        "400":
+          description: Invalid request id or request cannot be cancelled
+        "403":
+          description: Request does not belong to caller or donor is not the accepter
+        "404":
+          description: Request not found
   /rewards/points:
     get:
       summary: Get donor's points summary and tier
@@ -6088,4 +6465,681 @@ paths:
       responses:
         "201":
           description: Support request submitted successfully
-
+  /:
+    get:
+      summary: Root service status
+      responses:
+        "200":
+          description: Service is reachable
+          content:
+            application/json:
+              example:
+                app: LifeLink
+                status: ok
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Process health details
+          content:
+            application/json:
+              example:
+                app: LifeLink
+                status: ok
+                pid: 12345
+                startedAt: 2026-05-17T10:00:00.000Z
+                port: 5000
+                env: development
+  /auth/logout:
+    post:
+      tags:
+        - Auth
+      summary: Logout and blacklist a refresh token
+      description: >-
+        Invalidates the provided refresh token. If an `fcmToken` is supplied,
+        it is also removed from the current user's registered push tokens.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - refreshToken
+              properties:
+                refreshToken:
+                  type: string
+                refresh_token:
+                  type: string
+                fcmToken:
+                  type: string
+                fcm_token:
+                  type: string
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+              fcmToken: eYJhbGciOi...
+      responses:
+        "200":
+          description: Logout completed successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Logged out successfully
+        "400":
+          description: Refresh token is missing or invalid
+  /auth/refresh-token:
+    post:
+      tags:
+        - Auth
+      summary: Exchange a refresh token for a new access token
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenRequest"
+            example:
+              refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+      responses:
+        "200":
+          description: Access token refreshed successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Token refreshed
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        "401":
+          description: Refresh token is invalid or expired
+  /auth/me:
+    get:
+      tags:
+        - Auth
+      summary: Get the authenticated user document
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Authenticated user retrieved
+          content:
+            application/json:
+              example:
+                success: true
+                message: User retrieved
+                data:
+                  _id: 69f3df915f42685cbbbcbb18
+                  fullName: Aya Hassan
+                  email: aya.hassan@lifelink.demo
+                  role: donor
+                  isEmailVerified: true
+        "401":
+          description: Missing or invalid JWT
+  /donor/donation-eligibility:
+    get:
+      tags:
+        - Donor
+      summary: Check donor eligibility for a specific request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Eligibility check completed
+          content:
+            application/json:
+              example:
+                success: true
+                message: Eligibility result
+                data:
+                  eligible: true
+                  canProceed: true
+                  reason: Donor is eligible for this request
+        "400":
+          description: requestId is required
+        "404":
+          description: Request or donor not found
+  /donor/dashboard:
+    get:
+      tags:
+        - Donor
+      summary: Get donor dashboard summary
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Donor dashboard retrieved successfully
+          content:
+            application/json:
+              example: *a1
+  /donor/recent-activity:
+    get:
+      tags:
+        - Donor
+      summary: Get recent donor activity cards
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Recent activity retrieved successfully
+          content:
+            application/json:
+              example: *a1
+  /donor/urgent-requests:
+    get:
+      tags:
+        - Donor
+      summary: Get urgent donation requests for the authenticated donor
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Urgent requests retrieved successfully
+          content:
+            application/json:
+              example: *a1
+  /donor/urgent-requests/{requestId}:
+    get:
+      tags:
+        - Donor
+      summary: Get details for one urgent donation request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Urgent request details retrieved successfully
+          content:
+            application/json:
+              example: *a1
+        "404":
+          description: Request not found
+  /donor/urgent-requests/{requestId}/decline:
+    post:
+      tags:
+        - Donor
+      summary: Decline an urgent donation request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Urgent request declined successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Urgent request declined successfully
+        "404":
+          description: Request not found
+  /donor/points:
+    get:
+      tags:
+        - Donor
+      deprecated: true
+      summary: Compatibility alias for reward points
+      description: Same behavior as `/rewards/points`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Points summary with tier info
+          content:
+            application/json:
+              example:
+                success: true
+                message: Points retrieved successfully
+                data:
+                  points: 2340
+                  tier: SILVER
+                  nextTier: GOLD
+                  pointsToNextTier: 660
+                  bonusMultiplier: 1
+                  rewardsAvailable: 5
+  /donor/badges:
+    get:
+      tags:
+        - Donor
+      deprecated: true
+      summary: Compatibility alias for donor badges
+      description: Same behavior as `/rewards/badges`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Badge list with unlock status and progress
+          content:
+            application/json:
+              example: *a1
+  /donor/redemptions:
+    get:
+      tags:
+        - Donor
+      deprecated: true
+      summary: Compatibility alias for donor reward redemptions
+      description: Same behavior as `/rewards/redemptions`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - ALL
+              - PENDING
+              - CONFIRMED
+              - DELIVERED
+              - CANCELLED
+              - EXPIRED
+          example: pending
+        - in: query
+          name: page
+          schema:
+            type: integer
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          example: 10
+      responses:
+        "200":
+          description: Paginated redemption history
+  /donor/notifications:
+    get:
+      tags:
+        - Donor
+      deprecated: true
+      summary: Compatibility alias for authenticated notifications
+      description: Same behavior as `GET /notifications`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          example: 10
+        - in: query
+          name: read
+          schema:
+            type: boolean
+          example: false
+        - in: query
+          name: type
+          schema:
+            type: string
+          example: emergency
+      responses:
+        "200":
+          description: Notifications list
+          content:
+            application/json:
+              example:
+                success: true
+                message: Notifications retrieved successfully
+                data:
+                  notifications: []
+                  unreadCount: 0
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 0
+                    pages: 0
+  /hospital/requests/create-emergency:
+    post:
+      tags:
+        - Hospital
+      deprecated: true
+      summary: Compatibility alias for creating an emergency request
+      description: >-
+        Backwards-compatible alias for hospital emergency request creation. Same
+        controller behavior as `/hospital/request`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - requiredBy
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - blood
+                    - organ
+                bloodType:
+                  type: string
+                organType:
+                  type: string
+                urgency:
+                  type: string
+                  enum:
+                    - low
+                    - medium
+                    - high
+                    - critical
+                requiredBy:
+                  type: string
+                  format: date-time
+                quantity:
+                  type: number
+                unitsNeeded:
+                  type: number
+                patientType:
+                  type: string
+                contactNumber:
+                  type: string
+                isEmergency:
+                  type: boolean
+                notes:
+                  type: string
+            example:
+              type: blood
+              bloodType: O+
+              requiredBy: 2026-05-20T10:00:00.000Z
+              quantity: 3
+              isEmergency: true
+              notes: Emergency surgery support
+      responses:
+        "201":
+          description: Donation request created successfully
+        "400":
+          description: Invalid request payload
+  /hospital/dashboard:
+    get:
+      tags:
+        - Hospital
+      deprecated: true
+      summary: Compatibility alias for the monthly hospital report
+      description: Same controller behavior as `/hospital/reports/monthly`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: month
+          schema:
+            type: string
+            example: 2026-05
+          example: 2026-05
+      responses:
+        "200":
+          description: Monthly report retrieved successfully
+  /hospital/requests/{requestId}/close:
+    post:
+      tags:
+        - Hospital
+      summary: Close a hospital request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a0313150
+      responses:
+        "200":
+          description: Request closed successfully
+        "400":
+          description: Request is already completed
+        "403":
+          description: Role not allowed or unauthorized access
+        "404":
+          description: Request not found
+  /admin/dashboard:
+    get:
+      tags:
+        - Admin
+      deprecated: true
+      summary: Compatibility alias for admin dashboard analytics
+      description: Same controller behavior as `/admin/analytics/dashboard`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              example: *a1
+  /dashboard:
+    get:
+      tags:
+        - Donor
+      summary: Flutter-facing donor dashboard alias
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Donor dashboard retrieved successfully
+          content:
+            application/json:
+              example: *a1
+  /activity:
+    get:
+      tags:
+        - Donor
+      summary: Flutter-facing donor activity timeline alias
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          example: 20
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum:
+              - donation
+              - reward
+              - emergency_response
+              - profile_update
+              - appointment
+              - badge
+              - achievement
+              - referral
+              - subscription
+              - admin_action
+      responses:
+        "200":
+          description: Activity timeline retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivitiesResponse"
+              example:
+                success: true
+                message: Activity timeline retrieved successfully
+                data:
+                  activities: []
+                  pagination:
+                    total: 0
+                    page: 1
+                    limit: 20
+                    totalPages: 0
+                    hasNextPage: false
+                    hasPrevPage: false
+  /urgent-requests:
+    get:
+      tags:
+        - Donor
+      summary: Flutter-facing urgent request feed alias
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Urgent requests retrieved successfully
+          content:
+            application/json:
+              example: *a1
+  /urgent-requests/{requestId}:
+    get:
+      tags:
+        - Donor
+      summary: Flutter-facing urgent request detail alias
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Urgent request details retrieved successfully
+          content:
+            application/json:
+              example: *a1
+        "404":
+          description: Request not found
+  /urgent-requests/{requestId}/accept:
+    post:
+      tags:
+        - Donor
+      summary: Flutter-facing urgent request acceptance alias
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: number
+                  example: 1
+            example:
+              quantity: 1
+      responses:
+        "201":
+          description: Response submitted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Response submitted successfully
+                data:
+                  _id: 66f100000000000000000010
+                  donorId: 66f100000000000000000002
+                  requestId: 66f100000000000000000020
+                  quantity: 1
+                  status: pending
+  /urgent-requests/{requestId}/decline:
+    post:
+      tags:
+        - Donor
+      summary: Flutter-facing urgent request decline alias
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Urgent request declined successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Urgent request declined successfully
+  /badges:
+    get:
+      tags:
+        - Donor
+      summary: Flutter-facing badges alias
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Badge list with unlock status and progress
+          content:
+            application/json:
+              example: *a1
+  /api/webhooks/resend:
+    post:
+      tags:
+        - Webhooks
+      summary: Receive Resend email delivery webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - email.delivered
+                    - email.bounced
+                    - email.complained
+                data:
+                  type: object
+                  additionalProperties: true
+            example:
+              type: email.delivered
+              data:
+                to: aya.hassan@lifelink.demo
+      responses:
+        "200":
+          description: Webhook accepted
+          content:
+            application/json:
+              example:
+                received: true

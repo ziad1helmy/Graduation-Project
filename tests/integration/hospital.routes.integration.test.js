@@ -20,7 +20,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
 import { connect, clearDatabase, closeDatabase } from '../helpers/db.js';
-import { createHospital, createDonor, createRequest, createDonation } from '../helpers/factories.js';
+import { createHospital, createDonor, createRequest, createDonation, createAdmin } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -93,6 +93,230 @@ describe('GET /hospital/profile', () => {
     // Email must be present; password must never be exposed
     expect(res.body.data.email).toBe(hospital.email);
     expect(res.body.data.password).toBeUndefined();
+  });
+});
+
+describe('GET /hospital/find-donors', () => {
+  it('returns nearby compatible donors for an authenticated hospital sorted by nearest distance', async () => {
+    const hospital = await createHospital({
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.05, lng: 31.24 },
+        lastUpdated: new Date(),
+      },
+    });
+    const token = tokenFor(hospital);
+
+    await createDonor({
+      fullName: 'Nearest Donor',
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.051, lng: 31.241 },
+        lastUpdated: new Date(),
+      },
+    });
+    await createDonor({
+      fullName: 'Farther Donor',
+      bloodType: 'O-',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.07, lng: 31.26 },
+        lastUpdated: new Date(),
+      },
+    });
+    await createDonor({
+      fullName: 'Different Blood Type',
+      bloodType: 'A+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0505, lng: 31.2405 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .get('/hospital/find-donors?bloodType=O+&radiusKm=5')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe('Nearby donors retrieved successfully');
+    expect(res.body.data.donors).toHaveLength(2);
+    expect(res.body.data.donors[0].fullName).toBe('Nearest Donor');
+    expect(res.body.data.donors[1].fullName).toBe('Farther Donor');
+    expect(res.body.data.donors[0].distanceKm).toBeLessThan(res.body.data.donors[1].distanceKm);
+  });
+
+  it('applies radius filtering', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    await createDonor({
+      fullName: 'Inside Radius',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0512, lng: 31.2437 },
+        lastUpdated: new Date(),
+      },
+    });
+    await createDonor({
+      fullName: 'Outside Radius',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.2, lng: 31.4 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .get('/hospital/find-donors?radiusKm=1')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.donors).toHaveLength(1);
+    expect(res.body.data.donors[0].fullName).toBe('Inside Radius');
+  });
+
+  it('supports pagination', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    await createDonor({
+      fullName: 'Donor One',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0512, lng: 31.2437 },
+        lastUpdated: new Date(),
+      },
+    });
+    await createDonor({
+      fullName: 'Donor Two',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0515, lng: 31.2439 },
+        lastUpdated: new Date(),
+      },
+    });
+    await createDonor({
+      fullName: 'Donor Three',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.052, lng: 31.2441 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .get('/hospital/find-donors?radiusKm=5&page=2&limit=1')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.donors).toHaveLength(1);
+    expect(res.body.data.pagination).toMatchObject({
+      page: 2,
+      limit: 1,
+      total: 3,
+      totalPages: 3,
+    });
+  });
+
+  it('can filter by availability=false', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    await createDonor({
+      fullName: 'Unavailable Donor',
+      isAvailable: false,
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0512, lng: 31.2437 },
+        lastUpdated: new Date(),
+      },
+    });
+    await createDonor({
+      fullName: 'Available Donor',
+      isAvailable: true,
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0515, lng: 31.2439 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .get('/hospital/find-donors?radiusKm=5&availability=false')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.donors).toHaveLength(1);
+    expect(res.body.data.donors[0]).toMatchObject({
+      fullName: 'Unavailable Donor',
+      isAvailable: false,
+    });
+  });
+
+  it('handles missing hospital coordinates gracefully', async () => {
+    const hospital = await createHospital({
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: null, lng: null },
+        lastUpdated: new Date(),
+      },
+      lat: null,
+      long: null,
+    });
+    const token = tokenFor(hospital);
+
+    const res = await request(app)
+      .get('/hospital/find-donors')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toBe('Hospital coordinates are required to search for donors');
+  });
+
+  it('rejects unauthorized users', async () => {
+    const donor = await createDonor();
+    const res = await request(app)
+      .get('/hospital/find-donors')
+      .set('Authorization', `Bearer ${tokenFor(donor)}`);
+
+    expect(res.status).toBe(403);
+  });
+
+  it('allows admin users when explicit coordinates are provided', async () => {
+    const admin = await createAdmin();
+    const token = tokenFor(admin);
+
+    await createDonor({
+      fullName: 'Admin Search Donor',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0445, lng: 31.2358 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .get('/hospital/find-donors?lat=30.0444&lng=31.2357&radiusKm=2')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.donors[0].fullName).toBe('Admin Search Donor');
   });
 });
 

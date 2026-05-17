@@ -1,6 +1,6 @@
 # LifeLink Documentation Index
 
-This is the canonical documentation hub for LifeLink. All documents listed here reflect the **current, real state** of the codebase as of the forensic audit (May 2026).
+This is the canonical documentation hub for LifeLink. All documents listed here reflect the **current, real state** of the codebase as of May 17, 2026, after the latest audit and doc sync.
 
 ---
 
@@ -21,7 +21,6 @@ This is the canonical documentation hub for LifeLink. All documents listed here 
 | [PROJECT_STATUS.md](PROJECT_STATUS.md) | Comprehensive implementation audit (what's done, what's not) |
 | [SETUP_AND_DEPLOYMENT.md](SETUP_AND_DEPLOYMENT.md) | Installation, environment config, and deployment guide |
 | [KNOWN_ISSUES.md](KNOWN_ISSUES.md) | Bugs, technical debt, and inconsistencies |
-| [ROADMAP.md](ROADMAP.md) | Planned features and improvement priorities |
 | [SECURITY.md](SECURITY.md) | Security controls, threat mitigations, hardening notes |
 | [TESTING.md](TESTING.md) | Test strategy, coverage, and how to run tests |
 
@@ -43,6 +42,7 @@ These documents reflect earlier design decisions or sprint retrospectives. They 
 | `implementation_plan_for_donor_missing.md` | 📚 Historical sprint plan |
 | `CURL_EXAMPLES.sh` | 🔧 Useful but not maintained |
 | `LifeLink-Auth-API.postman_collection.json` | 🔧 May be outdated |
+| `ROADMAP.md` | 📚 Superseded by PROJECT_STATUS.md and implementation_plan.md |
 
 ### `/docs/feature-research/` — Deep-Dive Technical Research
 

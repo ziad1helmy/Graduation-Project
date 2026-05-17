@@ -60,7 +60,13 @@
     "tier_up_title": "🎉 Tier Upgraded to {{tier}}!",
     "tier_up_message": "Congratulations! You've reached {{tier}} tier. Keep donating to unlock more rewards!",
     "reward_redeemed_title": "🎁 Reward Redeemed!",
-    "reward_redeemed_message": "Your {{rewardName}} is confirmed. Code: {{confirmationCode}}"
+    "reward_redeemed_message": "Your {{rewardName}} is confirmed. Code: {{confirmationCode}}",
+    "emergency_request_title": "🚨 Emergency Blood Request",
+    "emergency_request_body": "Critical {{bloodType}} blood needed near {{hospitalName}}",
+    "urgent_request_accepted_title": "Urgent Request Accepted",
+    "urgent_request_accepted_message": "You accepted an urgent {{requestType}} request with {{urgency}} urgency.",
+    "urgent_request_declined_title": "Urgent Request Declined",
+    "urgent_request_declined_message": "You declined an urgent {{requestType}} request with {{urgency}} urgency."
   },
 
   "email": {
@@ -85,6 +91,16 @@
   },
 
   "ui": {
+    "accept": "Accept",
+    "decline": "Decline",
+    "view_details": "View Details",
+    "emergency_requests": "Emergency Requests",
+    "urgent_requests": "Urgent Requests",
+    "urgent_request_not_found": "Urgent request not found",
+    "urgent_request_retrieved": "Urgent request retrieved successfully",
+    "urgent_requests_retrieved": "Urgent requests retrieved",
+    "urgent_request_already_declined": "Urgent request already declined",
+    "urgent_request_declined_success": "Urgent request declined successfully",
     "donation_completed_success": "Donation completed successfully",
     "donation_verified_success": "Donation verified successfully",
     "donation_confirmed_success": "Donation confirmed successfully",

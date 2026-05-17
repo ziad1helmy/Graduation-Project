@@ -12,6 +12,13 @@ import * as hospitalController from '../controllers/hospital.controller.js';
 
 const router = Router();
 
+router.get(
+  '/find-donors',
+  authMiddleware,
+  requireRole('hospital', 'admin', 'superadmin'),
+  hospitalController.findDonors
+);
+
 // Apply auth and role middleware to all hospital routes
 router.use(authMiddleware, requireRole('hospital'));
 

@@ -177,34 +177,6 @@ export const listAdmins = async (req, res, next) => {
 
 export const getAllAdmins = listAdmins;
 
-export const loginAdmin = async (req, res, next) => {
-  try {
-    const { email, password, adminKey } = req.body || {};
-
-    if (!email || !password || !adminKey) {
-      return response.error(res, 400, 'email, password and adminKey are required');
-    }
-
-    const result = await adminService.loginAdmin(email, password, adminKey);
-    if (result.requires2FA) {
-      return response.success(res, 200, '2FA verification required', result);
-    }
-
-    return response.success(res, 200, 'Admin login successful', result);
-  } catch (error) {
-    if (error.message === ERR.AUTH_INVALID_ADMIN_KEY) {
-      return response.error(res, 401, error.message);
-    }
-    if (error.message === ERR.AUTH_ACCOUNT_SUSPENDED) {
-      return response.error(res, 403, error.message);
-    }
-    if (error.message === ERR.AUTH_EMAIL_NOT_VERIFIED || error.message === ERR.AUTH_INVALID_CREDENTIALS) {
-      return response.error(res, 401, error.message);
-    }
-    next(error);
-  }
-};
-
 export const getAdminById = async (req, res, next) => {
   try {
     const user = await adminService.getUserById(req.params.id);

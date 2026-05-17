@@ -167,6 +167,18 @@
 
 ---
 
+## Appointment Endpoints `/donations/book-appointment`
+
+> Donor role.
+
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | `/donations/book-appointment` | Donor | Create a new appointment |
+| GET | `/donations/my-appointments` | Donor | List donor's appointments |
+| DELETE | `/donations/book-appointment/:id` | Donor | Cancel an appointment |
+
+---
+
 ## Rewards Endpoints `/rewards`
 
 > Donor role.
@@ -176,7 +188,7 @@
 | GET | `/rewards/summary` | Points balance, tier, next tier |
 | GET | `/rewards/history` | Points transaction history |
 | GET | `/rewards/badges` | Badge progress and status |
-| GET | `/rewards/leaderboard` | Public leaderboard |
+| GET | `/rewards/leaderboard` | Returns top N donors ranked by lifetime points |
 | POST | `/rewards/redeem` | Redeem points for reward |
 
 ### Query Parameters

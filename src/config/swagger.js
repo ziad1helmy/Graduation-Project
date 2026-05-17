@@ -23,7 +23,7 @@ const swaggerTags = [
   {
     name: 'Donor',
     description:
-      'All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals, analytics, campaigns',
+      'All donor-facing endpoints: profile, dashboard, urgent requests, appointments, donation history, rewards, badges, activity, settings, notifications, hospitals, analytics',
   },
   {
     name: 'Hospital',
@@ -31,7 +31,7 @@ const swaggerTags = [
   },
   {
     name: 'Admin',
-    description: 'Admin operations: user management, analytics, rewards, campaigns, system maintenance, metrics, and audit logs',
+    description: 'Admin operations: user management, analytics, rewards, system maintenance, metrics, and audit logs',
   },
 ];
 
@@ -295,6 +295,18 @@ const getDemoRequestExample = (path, method) => {
     'POST /auth/hospital/login': DEMO_EXAMPLES.hospitalLogin,
     'POST /auth/admin/login': DEMO_EXAMPLES.adminLogin,
     'POST /auth/forgot-password': { email: DEMO_EXAMPLES.supportEmail },
+    'POST /auth/register': {
+      fullName: 'Aya Hassan',
+      email: 'aya.hassan@lifelink.demo',
+      password: 'DonorPass@123',
+      bloodType: 'O+',
+      phoneNumber: '01011111111',
+      gender: 'female',
+      birthDate: '1995-06-15',
+      weight: 60,
+      governorate: 'Cairo',
+      city: 'Cairo',
+    },
     'POST /auth/reset-password': { email: DEMO_EXAMPLES.supportEmail, otp: '123456', password: 'NewPass@123' },
     'POST /auth/verify-otp': { email: DEMO_EXAMPLES.supportEmail, otp: '123456' },
     'POST /auth/verify-email': { email: DEMO_EXAMPLES.supportEmail },
@@ -312,7 +324,11 @@ const getDemoRequestExample = (path, method) => {
       appointmentDate: '2026-05-12T10:00:00.000Z',
       notes: 'Available in the morning.',
     },
-    'PATCH /donations/book-appointment/{appointmentId}': { date: '2026-05-13', time: '11:00 AM' },
+    'GET /donations/book-appointment/available-slots': {},
+    'PATCH /donations/book-appointment/{appointmentId}': {
+      date: '2026-05-13',
+      time: '11:00 AM',
+    },
     'POST /appointments/verify-qr': { qrToken: DEMO_EXAMPLES.qrToken },
     'PUT /donor/profile': {
       fullName: 'Aya Hassan',
@@ -322,6 +338,8 @@ const getDemoRequestExample = (path, method) => {
       location: { city: 'Cairo', governorate: 'Cairo' },
     },
     'POST /donor/respond/{requestId}': { quantity: 1 },
+    'POST /urgent-requests/{requestId}/accept': { quantity: 1 },
+    'POST /urgent-requests/{requestId}/decline': { reason: 'Not available today' },
     'PUT /donor/availability': { isAvailable: true },
     'PATCH /donor/health-history': {
       chronicConditions: [],
@@ -385,9 +403,11 @@ const getDemoRequestExample = (path, method) => {
       hospitalName: 'Alexandria Demo Hospital',
       hospitalId: 'HOSP-ALEX-001',
       contactNumber: '1066666666',
-      lat: 31.2001,
-      long: 29.9187,
-      address: { city: 'Alexandria', governorate: 'Alexandria' },
+      location: {
+        city: 'Alexandria',
+        governorate: 'Alexandria',
+        coordinates: { lat: 31.2001, lng: 29.9187 },
+      },
     },
     'PATCH /admin/users/{id}/suspend': { reason: 'Repeated policy violation' },
     'PATCH /admin/requests/{id}/cancel': { reason: 'Transferred to another hospital' },
@@ -437,7 +457,7 @@ const enrichMediaType = (mediaType, spec, fallbackExample = GENERIC_JSON_EXAMPLE
 const appendDemoDescription = (operation, path, method) => {
   const demoRequestExample = getDemoRequestExample(path, method);
   const demoNote = [
-    'Demo seed available via `npm run seed-demo`.',
+    'Demo seed available via `npm run seed`.',
     `Base URL example: ${DEMO_EXAMPLES.baseUrl}`,
     demoRequestExample ? 'This operation includes a seeded demo request example.' : 'Parameter examples are aligned with the seeded demo dataset where possible.',
   ].join(' ');

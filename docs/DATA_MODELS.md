@@ -40,7 +40,7 @@ Admin and superadmin accounts are stored as `User` documents with `role: 'admin'
 | `resetPasswordExpires` | Date | — | |
 | `passwordChangedAt` | Date | — | Used for refresh token invalidation |
 | `fcmTokens` | [String] | — | Firebase device tokens, max 10 |
-| `location` | Object | — | `{ coordinates: { lat, lng }, city, state, country }` |
+| `location` | Object | — | Location is stored as `{ lat: Number, lng: Number }` using a standard compound index. Distance calculations use the Haversine formula implemented in `src/utils/geo.js` at the application layer. There is no MongoDB 2dsphere index and coordinates are not stored in GeoJSON Point format. |
 | `adminKey` | String | — | Admin-only: third login factor |
 | `createdAt` | Date | — | Auto |
 | `updatedAt` | Date | — | Auto |

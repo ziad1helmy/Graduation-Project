@@ -32,6 +32,11 @@ const getCompatibleDonorTypes = (recipientBloodType) => {
     .map(([donorType]) => donorType);
 };
 
+const hasCoordinates = (location) => {
+  const coords = location?.coordinates;
+  return Number.isFinite(coords?.lat) && Number.isFinite(coords?.lng);
+};
+
 /**
  * Calculate geo-based location score using Haversine distance.
  * Returns 0-100 where 100 = same location, 0 = beyond maxDistance km.
@@ -163,6 +168,84 @@ export const findCompatibleDonors = async (requestId) => {
   }
 
   return compatibleDonors.sort((a, b) => b.score - a.score);
+};
+
+export const searchCompatibleDonors = async ({
+  bloodType = null,
+  location = null,
+  radiusKm = 5,
+  availability = true,
+} = {}) => {
+  const donorQuery = { isSuspended: { $ne: true } };
+
+  if (typeof availability === 'boolean') {
+    donorQuery.isAvailable = availability;
+  }
+
+  if (bloodType) {
+    donorQuery.bloodType = { $in: getCompatibleDonorTypes(bloodType) };
+  }
+
+  const donors = await Donor.find(donorQuery).limit(500);
+  const searchRequest = bloodType ? { type: 'blood', bloodType } : { type: 'search' };
+  const compatibleDonors = [];
+  const normalizedRadiusKm = Number.isFinite(radiusKm) ? radiusKm : 5;
+
+  for (const donor of donors) {
+    const eligibility = await checkEligibility(donor, searchRequest);
+    if (!eligibility.eligible) {
+      continue;
+    }
+
+    let distanceKm = null;
+    let locationScore = 50;
+
+    if (hasCoordinates(location) && hasCoordinates(donor.location)) {
+      distanceKm = geoUtil.calculateDistance(
+        {
+          latitude: location.coordinates.lat,
+          longitude: location.coordinates.lng,
+        },
+        {
+          latitude: donor.location.coordinates.lat,
+          longitude: donor.location.coordinates.lng,
+        }
+      );
+
+      if (distanceKm > normalizedRadiusKm) {
+        continue;
+      }
+
+      locationScore = geoUtil.getLocationScore(distanceKm, 100);
+    } else if (hasCoordinates(location)) {
+      continue;
+    } else if (Number.isFinite(normalizedRadiusKm)) {
+      // Without a valid search location, radius filtering cannot be applied consistently.
+      continue;
+    }
+
+    let score = 100;
+    if (bloodType && donor.bloodType === bloodType) {
+      score += 20;
+    }
+    score = (score + locationScore) / 2;
+
+    compatibleDonors.push({
+      donor,
+      score: Math.round(score * 10) / 10,
+      locationScore,
+      eligibility: eligibility.reason,
+      distanceKm: distanceKm === null ? null : Math.round(distanceKm * 100) / 100,
+    });
+  }
+
+  return compatibleDonors.sort((a, b) => {
+    if (a.distanceKm === null && b.distanceKm === null) return b.score - a.score;
+    if (a.distanceKm === null) return 1;
+    if (b.distanceKm === null) return -1;
+    if (a.distanceKm !== b.distanceKm) return a.distanceKm - b.distanceKm;
+    return b.score - a.score;
+  });
 };
 
 /**
