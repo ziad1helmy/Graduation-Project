@@ -92,7 +92,6 @@
 #### Rewards & Gamification
 - [x] Points awarded on donation completion (`onDonationCompleted`)
 - [x] Emergency bonus points (critical urgency multiplier)
-- [x] Campaign multipliers (active campaign boosts point awards)
 - [x] Tier system: Bronze → Silver → Gold → Platinum (configurable thresholds)
 - [x] Tier bonus on tier upgrade
 - [x] Badge system: Bronze Donor, Silver Donor, Gold Donor, Platinum Donor, Super Donor, Emergency Hero, Frequent Donor, Blood Champion
@@ -186,7 +185,7 @@
 - **Status**: Infrastructure is in place (Vitest + mongodb-memory-server + supertest)
 - **Gap**: Not all controllers and services have tests. Coverage percentage unknown without running `--coverage`.
 - **Known tested**: Auth flows, some request flows, matching logic
-- **Gap areas**: Reward service edge cases, notification delivery, campaign multipliers, appointment QR flow
+- **Gap areas**: Reward service edge cases, notification delivery, appointment QR flow
 
 #### Arabic Localization
 - **Status**: `en.json` locale file exists with 40+ string keys

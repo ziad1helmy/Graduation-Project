@@ -193,14 +193,11 @@ export const TRANSACTION_TYPE_BY_TYPE = {
 
 ## Future Enhancements
 
-1. **Campaign Multipliers**: Apply 1.0x - 3.0x multipliers during seasonal campaigns (e.g., "Summer Blood Drive: 2.0x points for blood donations")
-   - Already implemented in `campaign.service.js` and integrated with `reward.service.js`
+1. **Social Rewards**: Bonus points for referral, milestone celebrations
 
-2. **Social Rewards**: Bonus points for referral, milestone celebrations
+2. **Admin Dashboard**: Reward analytics, point adjustments, fraud detection
 
-3. **Admin Dashboard**: Reward analytics, point adjustments, fraud detection
-
-4. **Tier Acceleration**: Temporary boosts for achieving milestones
+3. **Tier Acceleration**: Temporary boosts for achieving milestones
 
 ---
 

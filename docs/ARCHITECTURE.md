@@ -34,7 +34,7 @@ LifeLink is a **3-tier REST API** backend built on Node.js / Express, designed t
 │                     Service Layer (14 services)                    │
 │  Business logic │ Orchestration │ External service calls           │
 │  auth, admin, matching, notification, reward, donation,            │
-│  eligibility, analytics, activity, hospital, campaign,             │
+│  eligibility, analytics, activity, hospital,                       │
 │  rewardsConfig, donation, fcm utils                                │
 └──────────────┬─────────────────────────────────┬───────────────────┘
                │                                 │
@@ -111,7 +111,6 @@ All three share the same `users` MongoDB collection. Role-specific fields are is
 | PointsTransaction | pointstransactions | Reward points ledger |
 | RewardsConfig | rewardsconfigs | Configurable points values |
 | Badge | badges | Badge definitions |
-| Campaign | campaigns | Points multiplier campaigns |
 | Activity | activities | Donor activity/timeline feed |
 | HospitalSettings | hospitalsettings | Per-hospital config |
 | RolePermission | rolepermissions | Admin role permission matrix |
@@ -139,7 +138,6 @@ Each controller contains only:
 | `reward.controller.js` | Points, badges, leaderboard, redemption |
 | `notification.controller.js` | Notification inbox |
 | `analytics.controller.js` | Donor-facing stats |
-| `campaign.controller.js` | Campaign management |
 | `helpDocument.controller.js` | Help content |
 | `support.controller.js` | Support messages |
 | `hospital.controller.js` | Hospital discovery |
@@ -161,7 +159,6 @@ All business logic lives here.
 | `eligibility.service.js` | Donor eligibility rules evaluation |
 | `analytics.service.js` | Dashboard metrics, trends, blood type distribution |
 | `activity.service.js` | Activity log creation and retrieval |
-| `campaign.service.js` | Campaign CRUD and points multiplier application |
 | `hospital.service.js` | Hospital creation (admin) and profile |
 | `donation.service.js` | Donation CRUD and status transitions |
 | `helpDocument.service.js` | Help content CRUD |

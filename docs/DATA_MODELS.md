@@ -209,7 +209,7 @@ Admin and superadmin accounts are stored as `User` documents with `role: 'admin'
 | Field | Type | Notes |
 |-------|------|-------|
 | `donorId` | ObjectId | |
-| `transactionType` | String | `BLOOD_DONATION`, `REDEMPTION`, `TIER_BONUS`, `BADGE_BONUS`, `CAMPAIGN_BONUS` |
+| `transactionType` | String | `BLOOD_DONATION`, `REDEMPTION`, `TIER_BONUS`, `BADGE_BONUS` |
 | `pointsAmount` | Number | Positive (earn) or negative (redeem) |
 | `referenceId` | String | e.g., `"donation_<id>"` |
 | `description` | String | |
@@ -311,23 +311,6 @@ Seeded on startup: `maintenance_mode: false`, `maintenance_message: ''`
 | `updatedAt` | Date | |
 
 Seeded on startup with default point values, tier thresholds, redemption limits.
-
----
-
-## Campaign
-
-**Collection**: `campaigns`
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `name` | String | Required |
-| `description` | String | |
-| `multiplier` | Number | Points multiplier (e.g., 2.0) |
-| `startDate` | Date | Required |
-| `endDate` | Date | Required |
-| `isActive` | Boolean | Default: true |
-| `targetBloodTypes` | [String] | Optional: filter by blood type |
-| `createdBy` | ObjectId | Admin |
 
 ---
 

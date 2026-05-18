@@ -26,6 +26,10 @@ router.use(authMiddleware, requireRole('hospital'));
 router.get('/profile', hospitalController.getProfile);
 router.put('/profile', hospitalController.updateProfile);
 
+// Appointment settings routes
+router.get('/appointment-settings', hospitalController.getAppointmentSettings);
+router.put('/appointment-settings', hospitalController.updateAppointmentSettings);
+
 // Request management routes
 router.post('/request', hospitalController.createRequest);
 // Backwards-compatible alias for emergency shortcut

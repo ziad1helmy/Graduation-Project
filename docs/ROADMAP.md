@@ -82,7 +82,6 @@
 | ✅ | Admin dashboard with analytics | 2025 |
 | ✅ | Appointment booking with QR verification | 2026 |
 | ✅ | Eligibility rules engine | 2025 |
-| ✅ | Campaign-based points multipliers | 2026 |
 | ✅ | Fix: `broadcastRequest` not triggering FCM | May 2026 |
 | ✅ | Fix: Maintenance mode cache invalidation | May 2026 |
 | ✅ | Production-grade documentation | May 2026 |

@@ -15,7 +15,7 @@ This is the canonical documentation hub for LifeLink. All documents listed here 
 | [DATA_MODELS.md](DATA_MODELS.md) | MongoDB schema reference (all 25 models) |
 | [NOTIFICATION_SYSTEM.md](NOTIFICATION_SYSTEM.md) | FCM + in-app notification architecture |
 | [MATCHING_ENGINE.md](MATCHING_ENGINE.md) | Blood-type compatibility + geo-proximity matching |
-| [REWARDS_SYSTEM.md](REWARDS_SYSTEM.md) | Points, tiers, badges, campaigns, and redemption |
+| [REWARDS_SYSTEM.md](REWARDS_SYSTEM.md) | Points, tiers, badges, and redemption |
 | [ELIGIBILITY_RULES.md](ELIGIBILITY_RULES.md) | Donor eligibility rules engine |
 | [ADMIN_SYSTEM.md](ADMIN_SYSTEM.md) | Admin panel capabilities, role permissions, audit log |
 | [PROJECT_STATUS.md](PROJECT_STATUS.md) | Comprehensive implementation audit (what's done, what's not) |
@@ -53,7 +53,6 @@ These documents contain deeper technical analysis of specific subsystems. They r
 | `REWARD_SYSTEM_ARCHITECTURE.md` | Rewards engine design decisions |
 | `EMERGENCY_NOTIFICATION_SYSTEM.md` | Emergency broadcast design |
 | `LOCATION_FLOW_COMPLETE.md` | Geo-location handling flow |
-| `ANALYTICS_CAMPAIGNS.md` | Campaign and analytics design |
 | `POINTS_SYSTEM.md` | Points calculation details |
 | `2FA_SYSTEM_REVIEW.md` | 2FA implementation review |
 | `SUPPORT_SYSTEM_REVIEW.md` | Support/help system review |

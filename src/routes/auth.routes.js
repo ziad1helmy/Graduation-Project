@@ -38,9 +38,3 @@ router.put('/fcm-token', authMiddleware, AUC.replaceFcmToken);
 router.delete('/fcm-token', authMiddleware, AUC.removeFcmToken);
 
 export default router;
-
-// ─── API CONTRACT ────────────────────────────────────────────────────────────
-// Swagger/OpenAPI documentation for this router lives in /openapi.yaml
-// Update openapi.yaml whenever you add, change, or remove an endpoint here.
-// Do NOT add inline @openapi JSDoc to this file.
-// ─────────────────────────────────────────────────────────────────────────────

@@ -60,6 +60,311 @@ const resolveHospitalCoordinates = (hospital) => {
   return { latitude, longitude };
 };
 
+const APPOINTMENT_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DEFAULT_APPOINTMENT_OPENING_TIME = '08:00';
+const DEFAULT_APPOINTMENT_CLOSING_TIME = '19:00';
+const DEFAULT_APPOINTMENT_WORKING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const DEFAULT_APPOINTMENT_DONATION_TYPES = ['Whole', 'Plasma', 'Platelets'];
+const DEFAULT_APPOINTMENT_PREPARATION_TIPS = [
+  'Eat a healthy meal before donation',
+  'Drink plenty of water',
+  'Bring a valid ID',
+  "Get a good night's sleep",
+];
+const APPOINTMENT_TIME_PATTERN = /^(?:[01]\d|2[0-3]):00$/;
+
+const formatHourLabel = (hour) => `${String(hour).padStart(2, '0')}:00`;
+
+const parseHourLabel = (value) => {
+  if (typeof value !== 'string' || !APPOINTMENT_TIME_PATTERN.test(value)) {
+    return null;
+  }
+
+  const [hourPart, minutePart] = value.split(':').map(Number);
+  if (minutePart !== 0) {
+    return null;
+  }
+
+  return hourPart;
+};
+
+const toPlainObject = (value) => {
+  if (!value) return {};
+  if (typeof value.toObject === 'function') return value.toObject();
+  if (value instanceof Map) return Object.fromEntries(value.entries());
+  return typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
+};
+
+const buildHourlySlots = (openingTime, closingTime, slotsPerHour, preservedSlots = {}, overrides = {}) => {
+  const startHour = parseHourLabel(openingTime);
+  const endHour = parseHourLabel(closingTime);
+
+  if (startHour === null || endHour === null || endHour <= startHour) {
+    return null;
+  }
+
+  const preserved = toPlainObject(preservedSlots);
+  const provided = toPlainObject(overrides);
+  const hourlySlots = {};
+
+  for (let hour = startHour; hour < endHour; hour += 1) {
+    const label = formatHourLabel(hour);
+
+    if (Object.prototype.hasOwnProperty.call(provided, label)) {
+      hourlySlots[label] = Number(provided[label]);
+      continue;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(preserved, label)) {
+      hourlySlots[label] = Number(preserved[label]);
+      continue;
+    }
+
+    hourlySlots[label] = Number(slotsPerHour);
+  }
+
+  return hourlySlots;
+};
+
+const sumHourlySlots = (hourlySlots = {}) => Object.values(hourlySlots).reduce((total, value) => total + Number(value || 0), 0);
+
+const getDefaultAppointmentSettings = () => {
+  const hourlySlots = buildHourlySlots(
+    DEFAULT_APPOINTMENT_OPENING_TIME,
+    DEFAULT_APPOINTMENT_CLOSING_TIME,
+    4
+  );
+
+  return {
+    openingTime: DEFAULT_APPOINTMENT_OPENING_TIME,
+    closingTime: DEFAULT_APPOINTMENT_CLOSING_TIME,
+    workingDays: [...DEFAULT_APPOINTMENT_WORKING_DAYS],
+    defaultSlotsPerHour: 4,
+    hourlySlots,
+    totalDailyCapacity: sumHourlySlots(hourlySlots),
+    isActive: true,
+    supportedDonationTypes: [...DEFAULT_APPOINTMENT_DONATION_TYPES],
+    minAdvanceHours: 24,
+    maxAdvanceDays: 30,
+    preparationTips: [...DEFAULT_APPOINTMENT_PREPARATION_TIPS],
+    rescheduleAllowed: true,
+    maxReschedules: 3,
+    cancellationAllowedHours: 12,
+  };
+};
+
+const normalizeAppointmentSettings = (settings, payload = {}) => {
+  const current = {
+    ...getDefaultAppointmentSettings(),
+    ...(settings || {}),
+  };
+
+  const errors = [];
+
+  const openingTime = payload.openingTime ?? current.openingTime;
+  const closingTime = payload.closingTime ?? current.closingTime;
+  const defaultSlotsPerHour = payload.defaultSlotsPerHour ?? current.defaultSlotsPerHour;
+
+  if (typeof openingTime !== 'string' || !APPOINTMENT_TIME_PATTERN.test(openingTime)) {
+    errors.push('openingTime must be in HH:mm format and aligned to the hour');
+  }
+
+  if (typeof closingTime !== 'string' || !APPOINTMENT_TIME_PATTERN.test(closingTime)) {
+    errors.push('closingTime must be in HH:mm format and aligned to the hour');
+  }
+
+  const startHour = parseHourLabel(openingTime);
+  const endHour = parseHourLabel(closingTime);
+  if (startHour !== null && endHour !== null && endHour <= startHour) {
+    errors.push('closingTime must be later than openingTime');
+  }
+
+  if (!Number.isInteger(Number(defaultSlotsPerHour)) || Number(defaultSlotsPerHour) < 1 || Number(defaultSlotsPerHour) > 100) {
+    errors.push('defaultSlotsPerHour must be an integer between 1 and 100');
+  }
+
+  const validateStringArray = (value, fieldName, allowedValues, allowEmpty = true) => {
+    if (value === undefined) return undefined;
+    if (!Array.isArray(value)) {
+      errors.push(`${fieldName} must be an array`);
+      return undefined;
+    }
+
+    const normalized = [];
+    for (const item of value) {
+      if (typeof item !== 'string' || !allowedValues.includes(item)) {
+        errors.push(`${fieldName} contains an invalid value: ${item}`);
+        continue;
+      }
+      if (!normalized.includes(item)) {
+        normalized.push(item);
+      }
+    }
+
+    if (!allowEmpty && normalized.length === 0) {
+      errors.push(`${fieldName} must contain at least one value`);
+    }
+
+    return normalized;
+  };
+
+  const workingDays = validateStringArray(payload.workingDays, 'workingDays', APPOINTMENT_DAYS);
+  const supportedDonationTypes = validateStringArray(
+    payload.supportedDonationTypes,
+    'supportedDonationTypes',
+    DEFAULT_APPOINTMENT_DONATION_TYPES
+  );
+
+  const preparationTips = payload.preparationTips === undefined
+    ? undefined
+    : Array.isArray(payload.preparationTips) && payload.preparationTips.every((tip) => typeof tip === 'string' && tip.trim())
+      ? payload.preparationTips
+      : (() => {
+          errors.push('preparationTips must be an array of non-empty strings');
+          return undefined;
+        })();
+
+  const booleanFields = ['isActive', 'rescheduleAllowed'];
+  for (const field of booleanFields) {
+    if (payload[field] !== undefined && typeof payload[field] !== 'boolean') {
+      errors.push(`${field} must be a boolean`);
+    }
+  }
+
+  const numericFields = [
+    ['minAdvanceHours', 0, 3650],
+    ['maxAdvanceDays', 0, 3650],
+    ['maxReschedules', 0, 100],
+    ['cancellationAllowedHours', 0, 3650],
+  ];
+  for (const [field, minValue, maxValue] of numericFields) {
+    if (payload[field] === undefined) continue;
+    const value = Number(payload[field]);
+    if (!Number.isInteger(value) || value < minValue || value > maxValue) {
+      errors.push(`${field} must be an integer between ${minValue} and ${maxValue}`);
+    }
+  }
+
+  let quickActionValue;
+  if (payload.setAllSlotsTo !== undefined && payload.closeAllSlots !== undefined) {
+    errors.push('Use either setAllSlotsTo or closeAllSlots, not both');
+  }
+
+  if (payload.setAllSlotsTo !== undefined) {
+    const value = Number(payload.setAllSlotsTo);
+    if (!Number.isInteger(value) || value < 0 || value > 100) {
+      errors.push('setAllSlotsTo must be an integer between 0 and 100');
+    } else {
+      quickActionValue = value;
+    }
+  }
+
+  if (payload.closeAllSlots !== undefined && typeof payload.closeAllSlots !== 'boolean') {
+    errors.push('closeAllSlots must be a boolean');
+  }
+
+  const providedHourlySlots = payload.hourlySlots && typeof payload.hourlySlots === 'object' && !Array.isArray(payload.hourlySlots)
+    ? payload.hourlySlots
+    : undefined;
+
+  if (payload.hourlySlots !== undefined && !providedHourlySlots) {
+    errors.push('hourlySlots must be an object keyed by HH:mm');
+  }
+
+  const generatedHourlySlots = buildHourlySlots(
+    openingTime,
+    closingTime,
+    defaultSlotsPerHour,
+    current.hourlySlots,
+    providedHourlySlots || {}
+  );
+
+  if (!generatedHourlySlots) {
+    errors.push('hourlySlots could not be generated for the supplied openingTime and closingTime');
+  }
+
+  if (providedHourlySlots && generatedHourlySlots) {
+    const allowedKeys = new Set(Object.keys(generatedHourlySlots));
+    for (const [hour, value] of Object.entries(providedHourlySlots)) {
+      if (!APPOINTMENT_TIME_PATTERN.test(hour) || !allowedKeys.has(hour)) {
+        errors.push(`hourlySlots contains an invalid time key: ${hour}`);
+        continue;
+      }
+
+      const numericValue = Number(value);
+      if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 100) {
+        errors.push(`hourlySlots.${hour} must be an integer between 0 and 100`);
+      }
+    }
+  }
+
+  if (errors.length) {
+    return { errors };
+  }
+
+  const hourlySlots = {};
+  for (const hour of Object.keys(generatedHourlySlots)) {
+    if (payload.closeAllSlots === true) {
+      hourlySlots[hour] = 0;
+      continue;
+    }
+
+    if (quickActionValue !== undefined) {
+      hourlySlots[hour] = quickActionValue;
+      continue;
+    }
+
+    if (providedHourlySlots && providedHourlySlots[hour] !== undefined) {
+      hourlySlots[hour] = Number(providedHourlySlots[hour]);
+      continue;
+    }
+
+    hourlySlots[hour] = Number(generatedHourlySlots[hour]);
+  }
+
+  return {
+    errors: [],
+    appointmentSettings: {
+      openingTime,
+      closingTime,
+      workingDays: workingDays ?? current.workingDays,
+      defaultSlotsPerHour: Number(defaultSlotsPerHour),
+      hourlySlots,
+      totalDailyCapacity: sumHourlySlots(hourlySlots),
+      isActive: payload.isActive !== undefined ? payload.isActive : current.isActive ?? true,
+      supportedDonationTypes: supportedDonationTypes ?? current.supportedDonationTypes,
+      minAdvanceHours: payload.minAdvanceHours !== undefined ? Number(payload.minAdvanceHours) : current.minAdvanceHours,
+      maxAdvanceDays: payload.maxAdvanceDays !== undefined ? Number(payload.maxAdvanceDays) : current.maxAdvanceDays,
+      preparationTips: preparationTips ?? current.preparationTips,
+      rescheduleAllowed: payload.rescheduleAllowed !== undefined ? payload.rescheduleAllowed : current.rescheduleAllowed ?? true,
+      maxReschedules: payload.maxReschedules !== undefined ? Number(payload.maxReschedules) : current.maxReschedules,
+      cancellationAllowedHours: payload.cancellationAllowedHours !== undefined
+        ? Number(payload.cancellationAllowedHours)
+        : current.cancellationAllowedHours,
+    },
+  };
+};
+
+const getOrCreateHospitalSettings = async (hospitalId) => {
+  let settings = await HospitalSettings.findOne({ hospitalId });
+
+  if (!settings) {
+    settings = new HospitalSettings({
+      hospitalId,
+      appointmentSettings: getDefaultAppointmentSettings(),
+    });
+    await settings.save();
+    return settings;
+  }
+
+  if (!settings.appointmentSettings) {
+    settings.appointmentSettings = getDefaultAppointmentSettings();
+    await settings.save();
+  }
+
+  return settings;
+};
+
 /**
  * Hospital Controller - Handles hospital-specific operations
  */
@@ -671,16 +976,8 @@ export const createHospital = async (req, res, next) => {
 // GET /hospital/appointment-settings
 export const getAppointmentSettings = async (req, res, next) => {
   try {
-    const hospital = await Hospital.findById(req.user.userId).select(
-      'slotsPerHour workingHoursStart workingHoursEnd'
-    );
-    if (!hospital) return response.error(res, 404, 'Hospital not found');
-
-    return response.success(res, 200, 'Appointment settings retrieved', {
-      slotsPerHour: hospital.slotsPerHour ?? 5,
-      workingHoursStart: hospital.workingHoursStart ?? 9,
-      workingHoursEnd: hospital.workingHoursEnd ?? 17,
-    });
+    const settings = await getOrCreateHospitalSettings(req.user.userId);
+    return response.success(res, 200, 'Appointment settings retrieved successfully', settings.appointmentSettings);
   } catch (error) {
     next(error);
   }
@@ -689,53 +986,17 @@ export const getAppointmentSettings = async (req, res, next) => {
 // PUT /hospital/appointment-settings
 export const updateAppointmentSettings = async (req, res, next) => {
   try {
-    const { slotsPerHour, workingHoursStart, workingHoursEnd } = req.body;
+    const settings = await getOrCreateHospitalSettings(req.user.userId);
+    const normalized = normalizeAppointmentSettings(settings.appointmentSettings, req.body);
 
-    const errors = [];
-    if (slotsPerHour !== undefined) {
-      const v = Number(slotsPerHour);
-      if (!Number.isInteger(v) || v < 1 || v > 100) {
-        errors.push('slotsPerHour must be an integer between 1 and 100');
-      }
+    if (normalized.errors.length) {
+      return response.error(res, 400, normalized.errors.join(', '));
     }
-    if (workingHoursStart !== undefined) {
-      const v = Number(workingHoursStart);
-      if (!Number.isInteger(v) || v < 0 || v > 23) {
-        errors.push('workingHoursStart must be an integer between 0 and 23');
-      }
-    }
-    if (workingHoursEnd !== undefined) {
-      const v = Number(workingHoursEnd);
-      if (!Number.isInteger(v) || v < 0 || v > 24) {
-        errors.push('workingHoursEnd must be an integer between 0 and 24');
-      }
-    }
-    if (
-      workingHoursStart !== undefined &&
-      workingHoursEnd !== undefined &&
-      Number(workingHoursEnd) <= Number(workingHoursStart)
-    ) {
-      errors.push('workingHoursEnd must be greater than workingHoursStart');
-    }
-    if (errors.length) return response.error(res, 400, errors.join(', '));
 
-    const updateData = {};
-    if (slotsPerHour !== undefined) updateData.slotsPerHour = Number(slotsPerHour);
-    if (workingHoursStart !== undefined) updateData.workingHoursStart = Number(workingHoursStart);
-    if (workingHoursEnd !== undefined) updateData.workingHoursEnd = Number(workingHoursEnd);
+    settings.appointmentSettings = normalized.appointmentSettings;
+    await settings.save();
 
-    const hospital = await Hospital.findByIdAndUpdate(
-      req.user.userId,
-      { $set: updateData },
-      { new: true, runValidators: true, select: 'slotsPerHour workingHoursStart workingHoursEnd' }
-    );
-    if (!hospital) return response.error(res, 404, 'Hospital not found');
-
-    return response.success(res, 200, 'Appointment settings updated', {
-      slotsPerHour: hospital.slotsPerHour,
-      workingHoursStart: hospital.workingHoursStart,
-      workingHoursEnd: hospital.workingHoursEnd,
-    });
+    return response.success(res, 200, 'Appointment settings updated successfully', settings.appointmentSettings);
   } catch (error) {
     next(error);
   }
