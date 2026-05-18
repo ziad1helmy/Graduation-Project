@@ -56,6 +56,18 @@ router.put('/rewards/config', adminController.updateRewardsConfig);
 
 
 router.get('/audit-logs', adminController.getAuditLogs);
+
+// Inbound email management
+
+router.get('/inbound-emails', adminController.listInboundEmails);
+
+router.get('/inbound-emails/:id', adminController.getInboundEmailById);
+
+router.patch('/inbound-emails/:id/read', adminController.markInboundEmailRead);
+
+router.patch('/inbound-emails/:id/archive', adminController.archiveInboundEmail);
+
+router.delete('/inbound-emails/:id', adminController.deleteInboundEmail);
 // Dedicated donor/hospital listing aliases
 
 router.get('/donors', adminController.listDonors);

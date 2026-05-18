@@ -556,7 +556,7 @@ export const getDashboard = async (req, res, next) => {
       },
       stats: {
         totalDonations: donationStats?.totalDonations || 0,
-        points: pointsSummary?.pointsBalance || pointsSummary?.totalPoints || 0,
+        points: pointsSummary?.pointsBalance ?? 0,
         livesSaved: (donationStats?.totalDonations || 0) * 3,
       },
       recentActivity: (latestActivity || []).map((activity) => formatActivityForTimeline(activity)),

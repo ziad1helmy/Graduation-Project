@@ -8,6 +8,18 @@
 import jwt from 'jsonwebtoken';
 import { env } from '../config/env.js';
 
+const getRefreshSecret = () => {
+  if (env.JWT_REFRESH_SECRET) {
+    return env.JWT_REFRESH_SECRET;
+  }
+
+  if (env.NODE_ENV === 'production') {
+    throw new Error('JWT_REFRESH_SECRET is not configured. Cannot use refresh tokens in production.');
+  }
+
+  return env.JWT_SECRET;
+};
+
 // Re-export JWT error types so middleware can distinguish expired vs invalid tokens.
 export const TokenExpiredError = jwt.TokenExpiredError;
 export const JsonWebTokenError = jwt.JsonWebTokenError;
@@ -38,7 +50,7 @@ export function signToken(payload, options = {}) {
  * @throws {Error} If JWT_SECRET is not set.
  */
 export function signRefreshToken(payload) {
-  const refreshSecret = env.JWT_REFRESH_SECRET || env.JWT_SECRET;
+  const refreshSecret = getRefreshSecret();
   if (!refreshSecret) {
     throw new Error('JWT_REFRESH_SECRET is not configured. Cannot sign refresh tokens.');
   }
@@ -61,10 +73,7 @@ export function verifyRefreshToken(token) {
     throw new Error('Token is required and must be a non-empty string.');
   }
 
-  const refreshSecret = env.JWT_REFRESH_SECRET || env.JWT_SECRET;
-  if (!refreshSecret) {
-    throw new Error('JWT_REFRESH_SECRET is not configured. Cannot verify refresh tokens.');
-  }
+  const refreshSecret = getRefreshSecret();
 
   return jwt.verify(trimmed, refreshSecret);
 }

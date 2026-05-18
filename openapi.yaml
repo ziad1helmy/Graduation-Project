@@ -16,7 +16,7 @@ tags:
   - name: Hospital
     description: "Hospital self-management: profile, blood bank, capacity, QR verification, request management"
   - name: Admin
-    description: "Admin operations: user management, analytics, rewards, system maintenance, metrics, and audit logs"
+    description: "Admin operations: user management, analytics, rewards, system maintenance, metrics, audit logs, and inbound email management"
   - name: Requests
     description: Donation request discovery, acceptance, cancellation, and QR flows
   - name: Webhooks
@@ -89,6 +89,92 @@ components:
                   type: number
                   format: float
                   description: Alias for lng
+    InboundEmail:
+      type: object
+      properties:
+        _id:
+          type: string
+        provider:
+          type: string
+          example: resend
+        providerEventId:
+          type: string
+          nullable: true
+        messageId:
+          type: string
+          nullable: true
+        from:
+          type: string
+          example: donor@example.com
+        to:
+          type: array
+          items:
+            type: string
+        cc:
+          type: array
+          items:
+            type: string
+        bcc:
+          type: array
+          items:
+            type: string
+        subject:
+          type: string
+        text:
+          type: string
+        html:
+          type: string
+        headers:
+          type: object
+          additionalProperties: true
+        attachments:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        isRead:
+          type: boolean
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+        isArchived:
+          type: boolean
+        archivedAt:
+          type: string
+          format: date-time
+          nullable: true
+        receivedAt:
+          type: string
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    InboundEmailListResponse:
+      type: object
+      properties:
+        inboundEmails:
+          type: array
+          items:
+            $ref: "#/components/schemas/InboundEmail"
+        pagination:
+          type: object
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            limit:
+              type: integer
+            totalPages:
+              type: integer
+            hasNextPage:
+              type: boolean
+            hasPrevPage:
+              type: boolean
     LoginRequest:
       type: object
       required:
@@ -2279,6 +2365,7 @@ paths:
                           example: 31.2435
             example:
               fullName: Cairo Care Operations
+
               hospitalName: Cairo Care Hospital
               contactNumber: "1044444444"
               address:
@@ -3804,6 +3891,181 @@ paths:
                   page: 1
                   limit: 10
       description: "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+  /admin/inbound-emails:
+    get:
+      summary: List inbound emails
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Page size
+        - in: query
+          name: read
+          schema:
+            type: boolean
+          description: Filter by read status
+        - in: query
+          name: archived
+          schema:
+            type: boolean
+          description: Filter by archived status
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search across sender, subject, body, and recipients
+      responses:
+        "200":
+          description: Inbound emails retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Inbound emails retrieved successfully
+                data:
+                  inboundEmails:
+                    - _id: 66f700000000000000000001
+                      provider: resend
+                      from: donor@example.com
+                      to:
+                        - support@lifelink.example
+                      subject: Donation follow-up
+                      isRead: false
+                      isArchived: false
+                      receivedAt: 2026-05-18T08:30:00.000Z
+                  pagination:
+                    total: 1
+                    page: 1
+                    limit: 20
+                    totalPages: 1
+                    hasNextPage: false
+                    hasPrevPage: false
+
+  /admin/inbound-emails/{id}:
+    get:
+      summary: Get an inbound email by ID
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inbound email retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Inbound email retrieved successfully
+                data:
+                  inboundEmail:
+                    _id: 66f700000000000000000001
+                    provider: resend
+                    from: donor@example.com
+                    to:
+                      - support@lifelink.example
+                    subject: Donation follow-up
+                    text: Please contact me about the donation process.
+                    isRead: false
+                    isArchived: false
+                    receivedAt: 2026-05-18T08:30:00.000Z
+        "404":
+          description: Inbound email not found
+    delete:
+      summary: Delete an inbound email
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inbound email deleted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Inbound email deleted successfully
+                data:
+                  inboundEmail:
+                    _id: 66f700000000000000000001
+
+  /admin/inbound-emails/{id}/read:
+    patch:
+      summary: Mark an inbound email as read
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inbound email marked as read
+          content:
+            application/json:
+              example:
+                success: true
+                message: Inbound email marked as read
+                data:
+                  inboundEmail:
+                    _id: 66f700000000000000000001
+                    isRead: true
+                    readAt: 2026-05-18T09:00:00.000Z
+
+  /admin/inbound-emails/{id}/archive:
+    patch:
+      summary: Archive an inbound email
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Inbound email archived
+          content:
+            application/json:
+              example:
+                success: true
+                message: Inbound email archived
+                data:
+                  inboundEmail:
+                    _id: 66f700000000000000000001
+                    isArchived: true
+                    archivedAt: 2026-05-18T09:05:00.000Z
   /admin/donors:
     get:
       tags:
@@ -8092,17 +8354,23 @@ paths:
                     - email.delivered
                     - email.bounced
                     - email.complained
+                    - email.received
                 data:
                   type: object
                   additionalProperties: true
             example:
-              type: email.delivered
+              type: email.received
               data:
-                to: aya.hassan@lifelink.demo
+                from: donor@example.com
+                to:
+                  - support@lifelink.example
+                subject: Donation follow-up
       responses:
         "200":
           description: Webhook accepted
           content:
             application/json:
               example:
-                received: true
+                success: true
+                data:
+                  received: true

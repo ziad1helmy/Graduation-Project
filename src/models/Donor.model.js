@@ -43,8 +43,8 @@ const donorSchema = new mongoose.Schema({
 
     weight: {
         type: Number,
-        default: null,
-        min: 0
+            default: null,
+            min: [0, 'Weight must be a positive number'],
     },
 
     hemoglobinLevel: {
@@ -115,12 +115,6 @@ const donorSchema = new mongoose.Schema({
     isAvailable: {
         type: Boolean,
         default: true,
-    },
-
-    weight: {
-        type: Number,
-        default: null,
-        min: [0, 'Weight must be a positive number'],
     },
 
     settings: {

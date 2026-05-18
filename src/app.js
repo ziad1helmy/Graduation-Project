@@ -29,6 +29,7 @@ import * as rc from './controllers/reward.controller.js';
 import { authLimiter, limiter } from './middlewares/rateLimit.middleware.js';
 import maintenanceMiddleware from './middlewares/maintenance.middleware.js';
 import webhookRoutes from './routes/webhook.routes.js';
+import i18nMiddleware from './middlewares/i18n.middleware.js';
 
 const app = express();
 const startedAt = new Date().toISOString();
@@ -41,8 +42,14 @@ app.use(cors({ origin: env.CORS_ORIGIN }));
 // Logging middleware (logs all requests with response time)
 app.use(requestLogger);
 
+// Webhooks need the raw request body, so mount them before JSON parsing.
+app.use('/api/webhooks', webhookRoutes);
+
 // Body parsing
 app.use(express.json({ limit: '1mb' }));
+
+// Internationalization helper (exposes `req.t()` and `req.lang`)
+app.use(i18nMiddleware);
 
 // ─── NoSQL injection sanitizer ────────────────────────────────────────────────
 const sanitizeInPlace = (obj, { replaceWith = '_', request, onSanitize } = {}) => {
@@ -171,7 +178,6 @@ app.use('/hospitals', limiter, discoveryRoutes);
 app.use('/analytics', limiter, analyticsRoutes);
 app.use('/help', helpRoutes);
 app.use('/support', limiter, supportRoutes);
-app.use('/api/webhooks', webhookRoutes);
 
 // Flutter-facing aliases that keep the newer root paths stable.
 app.get('/dashboard', authMiddleware, requireRole('donor'), donorController.getDashboard);
