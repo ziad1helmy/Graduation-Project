@@ -151,10 +151,9 @@ Add the test bypass header (dev only):
 ## Known Test Gaps
 
 1. **Notification delivery tests** — FCM calls are not mocked; notification integration tests skip push delivery verification
-2. **Campaign multiplier tests** — no unit tests for campaign points calculation
-3. **Appointment QR flow** — no integration test for QR generation + scan + completion cycle
-4. **Admin emergency broadcast** — no integration test
-5. **Rate limiting behavior** — rate limit bypass header is used in all tests; no test verifying limits are enforced
+2. **Appointment QR flow** — no integration test for QR generation + scan + completion cycle
+3. **Admin emergency broadcast** — no integration test
+4. **Rate limiting behavior** — rate limit bypass header is used in all tests; no test verifying limits are enforced
 
 ---
 

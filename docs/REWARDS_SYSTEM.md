@@ -33,7 +33,6 @@ Default point values stored in `RewardsConfig` model (seeded on startup):
 | Platelet donation | 90 |
 | Organ donation | 500 |
 | Emergency bonus (critical urgency) | +50% multiplier |
-| Campaign bonus | Configurable multiplier |
 
 > All values are configurable via `PUT /admin/rewards/config` without code changes.
 
@@ -44,7 +43,7 @@ Every point award or deduction creates a `PointsTransaction` document:
 ```javascript
 {
   donorId: ObjectId,
-  transactionType: String,  // BLOOD_DONATION, REDEMPTION, TIER_BONUS, BADGE_BONUS, CAMPAIGN_BONUS
+  transactionType: String,  // BLOOD_DONATION, REDEMPTION, TIER_BONUS, BADGE_BONUS
   pointsAmount: Number,     // positive (earn) or negative (redeem)
   referenceId: String,      // e.g. "donation_<donationId>"
   description: String,
@@ -127,43 +126,6 @@ for each unlocked badge not yet in donor.badges:
     }
   ]
 }
-```
-
----
-
-## Campaign System
-
-Campaigns provide time-limited points multipliers for specific actions.
-
-```javascript
-// Campaign model
-{
-  name: String,
-  description: String,
-  multiplier: Number,         // e.g. 2.0 = double points
-  startDate: Date,
-  endDate: Date,
-  isActive: Boolean,
-  targetBloodTypes: [String], // optional: apply only to specific blood types
-}
-```
-
-When a donation is completed, the reward service checks for active campaigns:
-
-```
-activeCampaign = Campaign.findOne({
-  isActive: true,
-  startDate: { $lte: now },
-  endDate: { $gte: now },
-  $or: [
-    { targetBloodTypes: { $size: 0 } },  // all blood types
-    { targetBloodTypes: donor.bloodType }
-  ]
-})
-
-if activeCampaign:
-  bonusPoints = basePoints * (activeCampaign.multiplier - 1)
-  awardCampaignBonus(donorId, bonusPoints, campaign)
 ```
 
 ---

@@ -14,19 +14,17 @@ const router = Router();
 
 // All analytics routes require authentication
 router.use(authMiddleware);
-
+
+
 router.get('/my-stats', requireRole('donor'), ac.getMyStats);
-
+
+
 router.get('/leaderboard', requireRole('donor'), ac.getLeaderboard);
-
+
+
 router.get('/donation-types', requireRole('donor'), ac.getDonationTypeStats);
-
+
+
 router.get('/dashboard', requireRole('admin'), ac.getDashboardSummary);
 
 export default router;
-
-// ─── API CONTRACT ────────────────────────────────────────────────────────────
-// Swagger/OpenAPI documentation for this router lives in /openapi.yaml
-// Update openapi.yaml whenever you add, change, or remove an endpoint here.
-// Do NOT add inline @openapi JSDoc to this file.
-// ─────────────────────────────────────────────────────────────────────────────

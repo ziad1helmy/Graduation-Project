@@ -235,18 +235,6 @@
 
 ---
 
-## Campaigns Endpoints `/campaigns`
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/campaigns` | Public | List active campaigns |
-| GET | `/campaigns/:id` | Public | Campaign details |
-| POST | `/campaigns` | Admin | Create campaign |
-| PATCH | `/campaigns/:id` | Admin | Update campaign |
-| DELETE | `/campaigns/:id` | Admin | Delete campaign |
-
----
-
 ## Admin Endpoints `/admin`
 
 > All require `admin` or `superadmin` role (except login).

@@ -35,7 +35,6 @@ LifeLink solves this by providing:
 | Appointment booking system | ✅ Complete |
 | Points + tier rewards system | ✅ Complete |
 | Badges & gamification engine | ✅ Complete |
-| Campaign-based points multipliers | ✅ Complete |
 | Admin dashboard & analytics | ✅ Complete |
 | Maintenance mode with admin bypass | ✅ Complete |
 | Audit logging | ✅ Complete |
@@ -79,8 +78,7 @@ LifeLink solves this by providing:
 - Donations: completion endpoint and donor appointment listing alias. Support for blood, plasma, platelets, and organ donations with type-specific cooldowns.
 - Rewards: points/history, earning rules, catalog/listing aliases, redeem aliases, badges, redemptions, leaderboard, type-specific point multipliers.
 - Analytics: personal donation stats, leaderboard, donation type statistics, system dashboard metrics (donor, admin).
-- Campaigns: active campaigns listing, admin campaign CRUD, campaign performance metrics, seasonal point multipliers (1.0x - 3.0x).
-- Admin: system health, maintenance, rewards config management, analytics/alerts, campaigns management, donor/hospital management, admin management, role-permissions management.
+- Admin: system health, maintenance, rewards config management, analytics/alerts, donor/hospital management, admin management, role-permissions management.
 - Discovery/Help/Support/Notifications: hospital discovery endpoints, FAQ/documents, contact/support messaging, notification listing and mark-read.
 >>>>>>> Stashed changes
 
@@ -251,7 +249,7 @@ Detailed architectural notes, request collections, and OpenAPI files are located
 - **[docs/LifeLink-Auth-API.postman_collection.json](docs/LifeLink-Auth-API.postman_collection.json)**: Importable Postman workspace.
 - **[openapi.yaml](openapi.yaml)**: OpenAPI / Swagger source of truth.
 
-## Analytics & Campaigns Features
+## Analytics Features
 
 ### Analytics System
 
@@ -261,34 +259,6 @@ Track donor engagement and participation with detailed statistics:
 - **Leaderboard** (`GET /analytics/leaderboard`): Top donors by points over specified period
 - **Donation Types Stats** (`GET /analytics/donation-types`): System-wide distribution of blood, plasma, platelets, and organ donations
 - **Dashboard** (`GET /analytics/dashboard`, Admin only): System metrics including total donors, completed donations, and points distributed
-
-**Documentation**: See [docs/ANALYTICS_CAMPAIGNS.md](docs/ANALYTICS_CAMPAIGNS.md)
-
-### Seasonal Campaigns System
-
-Boost donor participation with time-limited campaigns featuring point multipliers:
-
-- **Campaign Properties**: Name, multiplier (1.0x - 3.0x), date range, eligible donation types, optional blood type targeting
-- **Active Campaigns** (`GET /campaigns/active`): Public endpoint showing current promotional campaigns
-- **Campaign Management** (Admin):
-  - Create campaigns: `POST /campaigns`
-  - Update campaigns: `PUT /campaigns/{id}`
-  - Activate/Deactivate: `POST /campaigns/{id}/activate` and `POST /campaigns/{id}/deactivate`
-  - View metrics: `GET /campaigns/{id}/metrics`
-  - List all: `GET /campaigns` with filters
-
-**Example Campaign**:
-```json
-{
-  "name": "Summer Blood Drive 2026",
-  "multiplier": 2.0,
-  "donationTypes": ["blood", "plasma"],
-  "startDate": "2026-06-01T00:00:00Z",
-  "endDate": "2026-08-31T23:59:59Z",
-  "tags": ["seasonal", "summer"]
-}
->>>>>>> Stashed changes
-```
 
 Server starts on `http://localhost:5000`  
 API docs at `http://localhost:5000/api-docs`  
@@ -351,7 +321,6 @@ Interactive docs: `/api-docs`
 | Rewards | `/rewards` | Points, badges, leaderboard |
 | Notifications | `/notifications` | In-app notification inbox |
 | Analytics | `/analytics` | Donor-facing analytics |
-| Campaigns | `/campaigns` | Points multiplier campaigns |
 | Discovery | `/hospitals` | Hospital search |
 | Help | `/help` | Help documents |
 | Support | `/support` | Support messages |

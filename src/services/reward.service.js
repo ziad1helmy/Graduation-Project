@@ -9,7 +9,6 @@ import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
 import * as activityService from './activity.service.js';
 import { getRewardsConfig } from './rewardsConfig.service.js';
-import * as campaignService from './campaign.service.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 import Donor from '../models/Donor.model.js';
@@ -261,15 +260,11 @@ export const onDonationCompleted = async (donorId, donationId, isEmergency = fal
     // Determine donation type via the Donation -> Request relationship.
     let donation = null;
     let donationType = 'blood';
-    let bloodType = null;
-    let urgencyLevel = null;
     try {
       const isValidId = mongoose.Types.ObjectId.isValid(String(donationId));
       if (isValidId) {
         donation = await Donation.findById(donationId).populate('requestId');
         donationType = donation?.requestId?.type || 'blood';
-        bloodType = donation?.requestId?.bloodType;
-        urgencyLevel = donation?.requestId?.urgency;
       }
     } catch (e) {
       // Ignore lookup errors and fallback to defaults
@@ -281,22 +276,13 @@ export const onDonationCompleted = async (donorId, donationId, isEmergency = fal
     const basePoints = POINTS_BY_TYPE[donationType] ?? rewardsConfig.points.bloodDonation ?? 0;
     const txType = TRANSACTION_TYPE_BY_TYPE[donationType] || 'BLOOD_DONATION';
 
-    // Get campaign multiplier (if any active campaigns apply)
-    let multiplier = 1.0;
-    try {
-      multiplier = await campaignService.getApplicableMultiplier(donationType, bloodType, urgencyLevel);
-    } catch (e) {
-      // Silently ignore campaign service errors, use base multiplier
-      logger.debug('Campaign multiplier lookup skipped', { error: e?.message });
-    }
-
-    const finalPoints = Math.round(basePoints * multiplier);
+    const finalPoints = basePoints;
 
     await awardPoints(
       donorId,
       finalPoints,
       txType,
-      `${donationType.charAt(0).toUpperCase() + donationType.slice(1)} Donation - Successful${multiplier > 1 ? ` (${multiplier}x bonus)` : ''}`,
+      `${donationType.charAt(0).toUpperCase() + donationType.slice(1)} Donation - Successful`,
       `donation_${donationId}`,
       rewardsConfig
     );
