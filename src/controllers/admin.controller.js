@@ -1,10 +1,12 @@
 import response from '../utils/response.js';
+import mongoose from 'mongoose';
 import { ERR } from '../utils/errorCodes.js';
 import User from '../models/User.model.js';
+import InboundEmail from '../models/InboundEmail.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as analyticsService from '../services/analytics.service.js';
 import * as rewardsConfigService from '../services/rewardsConfig.service.js';
-import { parsePagination } from '../utils/pagination.js';
+import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import {
   validateMaintenanceBody,
   validateListUsersQuery,
@@ -114,6 +116,191 @@ export const getAuditLogs = async (req, res, next) => {
       { page, limit }
     );
     return response.success(res, 200, 'Audit logs', result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+const parseBooleanQuery = (value, defaultValue = null) => {
+  if (value === undefined || value === null || value === '') return defaultValue;
+  if (typeof value === 'boolean') return value;
+
+  const normalized = String(value).trim().toLowerCase();
+  if (['true', '1', 'yes'].includes(normalized)) return true;
+  if (['false', '0', 'no'].includes(normalized)) return false;
+  return defaultValue;
+};
+
+const toInboundEmailResponse = (email) => {
+  if (!email) return null;
+
+  return {
+    _id: email._id,
+    provider: email.provider,
+    providerEventId: email.providerEventId,
+    messageId: email.messageId,
+    from: email.from,
+    to: email.to,
+    cc: email.cc,
+    bcc: email.bcc,
+    subject: email.subject,
+    text: email.text,
+    html: email.html,
+    headers: email.headers,
+    attachments: email.attachments,
+    receivedAt: email.receivedAt,
+    read: email.read,
+    readAt: email.readAt,
+    archived: email.archived,
+    archivedAt: email.archivedAt,
+    isRead: email.isRead,
+    isArchived: email.isArchived,
+    createdAt: email.createdAt,
+    updatedAt: email.updatedAt,
+  };
+};
+
+// ──────────────────────────────────────────────
+//  Inbound Email Management
+// ──────────────────────────────────────────────
+
+/** GET /admin/inbound-emails */
+export const listInboundEmails = async (req, res, next) => {
+  try {
+    const { page, limit, skip } = parsePagination(req.query, 20, 100);
+    const read = parseBooleanQuery(req.query.read);
+    const archived = parseBooleanQuery(req.query.archived);
+    const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
+
+    const filter = {};
+    if (read !== null) {
+      filter.isRead = read;
+    }
+    if (archived !== null) {
+      filter.isArchived = archived;
+    }
+    if (search) {
+      filter.$or = [
+        { from: { $regex: search, $options: 'i' } },
+        { subject: { $regex: search, $options: 'i' } },
+        { text: { $regex: search, $options: 'i' } },
+        { to: { $regex: search, $options: 'i' } },
+      ];
+    }
+
+    const [inboundEmails, total] = await Promise.all([
+      InboundEmail.find(filter)
+        .sort({ receivedAt: -1, createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      InboundEmail.countDocuments(filter),
+    ]);
+
+    return response.success(res, 200, 'Inbound emails retrieved successfully', {
+      inboundEmails: inboundEmails.map(toInboundEmailResponse),
+      pagination: paginationMeta(total, page, limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** GET /admin/inbound-emails/:id */
+export const getInboundEmailById = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return response.error(res, 400, 'Invalid inbound email id');
+    }
+
+    const inboundEmail = await InboundEmail.findById(req.params.id).lean();
+    if (!inboundEmail) {
+      return response.error(res, 404, 'Inbound email not found');
+    }
+
+    return response.success(res, 200, 'Inbound email retrieved successfully', {
+      inboundEmail: toInboundEmailResponse(inboundEmail),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** PATCH /admin/inbound-emails/:id/read */
+export const markInboundEmailRead = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return response.error(res, 400, 'Invalid inbound email id');
+    }
+
+    const inboundEmail = await InboundEmail.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          isRead: true,
+          readAt: new Date(),
+        },
+      },
+      { new: true }
+    ).lean();
+
+    if (!inboundEmail) {
+      return response.error(res, 404, 'Inbound email not found');
+    }
+
+    return response.success(res, 200, 'Inbound email marked as read', {
+      inboundEmail: toInboundEmailResponse(inboundEmail),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** PATCH /admin/inbound-emails/:id/archive */
+export const archiveInboundEmail = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return response.error(res, 400, 'Invalid inbound email id');
+    }
+
+    const inboundEmail = await InboundEmail.findByIdAndUpdate(
+      req.params.id,
+      {
+        $set: {
+          isArchived: true,
+          archivedAt: new Date(),
+        },
+      },
+      { new: true }
+    ).lean();
+
+    if (!inboundEmail) {
+      return response.error(res, 404, 'Inbound email not found');
+    }
+
+    return response.success(res, 200, 'Inbound email archived', {
+      inboundEmail: toInboundEmailResponse(inboundEmail),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** DELETE /admin/inbound-emails/:id */
+export const deleteInboundEmail = async (req, res, next) => {
+  try {
+    if (!mongoose.isValidObjectId(req.params.id)) {
+      return response.error(res, 400, 'Invalid inbound email id');
+    }
+
+    const inboundEmail = await InboundEmail.findByIdAndDelete(req.params.id).lean();
+    if (!inboundEmail) {
+      return response.error(res, 404, 'Inbound email not found');
+    }
+
+    return response.success(res, 200, 'Inbound email deleted successfully', {
+      inboundEmail: toInboundEmailResponse(inboundEmail),
+    });
   } catch (error) {
     next(error);
   }

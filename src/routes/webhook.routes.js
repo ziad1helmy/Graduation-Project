@@ -1,3 +1,4 @@
+import express from 'express';
 import { Router } from 'express';
 import { handleResendWebhook } from '../controllers/webhook.controller.js';
 
@@ -8,6 +9,7 @@ import { handleResendWebhook } from '../controllers/webhook.controller.js';
 // ─────────────────────────────────────────────────────────────────────────────
 const router = Router();
 
-router.post('/resend', handleResendWebhook);
+// Use raw body parser for webhook route so signatures can be verified
+router.post('/resend', express.raw({ type: 'application/json' }), handleResendWebhook);
 
 export default router;

@@ -222,6 +222,11 @@ export const getDonorStats = async (donorId) => {
     if (!donor) throw new Error('Donor not found');
 
     const donations = await Donation.find({ donorId, status: 'completed' }).lean();
+    const requestIds = [...new Set(donations.map((donation) => donation.requestId).filter(Boolean))];
+    const requests = requestIds.length
+      ? await Request.find({ _id: { $in: requestIds } }).select('_id type').lean()
+      : [];
+    const requestTypeById = new Map(requests.map((request) => [request._id.toString(), request.type]));
     
     // Group donations by type
     const donationsByType = {
@@ -236,8 +241,7 @@ export const getDonorStats = async (donorId) => {
     const lastDonationDate = donor.lastDonationDate;
 
     for (const donation of donations) {
-      const request = await Request.findById(donation.requestId).lean();
-      const donationType = request?.type || 'blood';
+      const donationType = requestTypeById.get(donation.requestId?.toString?.()) || 'blood';
       donationsByType[donationType]++;
       totalDonations++;
     }

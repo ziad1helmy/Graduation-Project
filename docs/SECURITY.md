@@ -9,7 +9,7 @@
 | HTTP Security Headers | Helmet.js | ✅ |
 | CORS | express/cors | ✅ |
 | NoSQL Injection Prevention | express-mongo-sanitize | ✅ |
-| Rate Limiting | express-rate-limit (in-memory) | 🔶 (no Redis) |
+| Rate Limiting | express-rate-limit (in-memory) | ✅ |
 | Password Hashing | bcryptjs (10 rounds) | ✅ |
 | JWT Access Tokens | HS256, 7-day TTL | ✅ |
 | JWT Refresh Tokens | HS256, 30-day TTL, blacklisted | ✅ |
@@ -25,8 +25,8 @@
 | Invalid FCM Token Cleanup | Automatic on delivery failure | ✅ |
 | Strict Schema Mode (Hospital) | `hospitalSchema.strict('throw')` | ✅ |
 | HTTPS | Not managed by app (handled by reverse proxy) | — |
-| Redis Rate Limiting | Not implemented | ❌ |
-| Security Monitoring / SIEM | Not implemented | ❌ |
+| Redis Rate Limiting | Future enhancement for multi-instance scaling | ◻️ |
+| Security Monitoring / SIEM | Future enhancement for centralized alerting | ◻️ |
 
 ---
 
@@ -127,14 +127,16 @@ Security events are structured logs — integrate with a SIEM or log aggregation
 
 ## Known Security Gaps
 
-1. **No Redis rate limiting** — in-memory rate limits reset on restart, ineffective at scale (see KNOWN_ISSUES.md)
-2. **`adminKey` plaintext storage** — consider hashing with bcrypt if treating as a long-lived secret
+1. **In-memory rate limiting only** — counters reset on restart and do not scale across multiple instances (see KNOWN_ISSUES.md)
+2. **`adminKey` plaintext storage** — consider hashing with bcrypt if treating it as a long-lived secret
 3. **2FA no time drift window** — strict 30-second TOTP window may cause UX issues with clock skew
 4. **`JWT_REFRESH_SECRET` optional** — should be required in production
 5. **`service-account.json` may be committed** — CRITICAL, see KNOWN_ISSUES.md
 6. **No HTTPS enforcement** — must be handled by reverse proxy (Nginx/Cloudflare) in production
 7. **`privacyMode` not enforced** — donor privacy mode flag has no API-level enforcement
 8. **No security audit logging to external systems** — logs are file-based only
+9. **No Redis-backed limiter** — only needed if the deployment expands beyond a single server or restarts must preserve counters
+10. **No SIEM integration** — only needed for centralized alerting and compliance-grade monitoring
 
 ---
 
@@ -145,8 +147,8 @@ Security events are structured logs — integrate with a SIEM or log aggregation
 3. Use separate `JWT_SECRET` and `JWT_REFRESH_SECRET`
 4. Set `BCRYPT_SALT_ROUNDS=12`
 5. Restrict `CORS_ORIGIN` to your specific frontend domain
-6. Use Redis-backed rate limiting
+6. Use Redis-backed rate limiting only if you deploy multiple app instances
 7. Deploy behind HTTPS-terminating reverse proxy (Nginx + Let's Encrypt)
 8. Rotate Firebase service account credentials and use environment variables only (no file)
 9. Enable MongoDB Atlas network access controls (IP whitelist)
-10. Set up log aggregation and alerting on security events
+10. Set up log aggregation and alerting on security events if you need centralized monitoring

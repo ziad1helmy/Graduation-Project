@@ -1,0 +1,59 @@
+{
+  "activity": {
+    "earned_points": "[AR] {{points}} نقاط — {{reason}}",
+    "tier_promoted": "[AR] تمت الترقية",
+    "badge_unlocked": "[AR] تم فتح الشارة",
+    "redeemed_reward": "[AR] تم استرداد المكافأة",
+    "redeemed_reward_notification": "[AR] 🎁 تم استرداد المكافأة!",
+    "donation_created": "[AR] تم إنشاء التبرع",
+    "donation_verified": "[AR] تم التحقق من التبرع",
+    "donation_confirmed": "[AR] تم تأكيد التبرع",
+    "donation_completed": "[AR] اكتمل التبرع",
+    "donation_cancelled": "[AR] تم إلغاء التبرع"
+  },
+
+  "badge": {
+    "First Timer": {
+      "name": "[AR] أول مرة",
+      "description": "[AR] أكملت أول تبرع بالدم"
+    },
+    "Regular Donor": {
+      "name": "[AR] متبرع منتظم",
+      "description": "[AR] أكملت 5 تبرعات بالدم"
+    }
+  },
+
+  "reward": {
+    "Coffee Voucher": "[AR] قسيمة قهوة",
+    "redeemed_success": "[AR] تم استرداد المكافأة بنجاح",
+    "insufficient_points": "[AR] نقاط غير كافية"
+  },
+
+  "notification": {
+    "badge_unlocked_title": "[AR] 🏆 تم فتح الشارة: {{badgeName}}",
+    "tier_up_title": "[AR] 🎉 تم الترقية إلى {{tier}}!",
+    "reward_redeemed_title": "[AR] 🎁 تم استرداد المكافأة!",
+    "emergency_request_title": "[AR] 🚨 طلب دم طارئ"
+  },
+
+  "email": {
+    "verify_subject": "[AR] تحقق من بريدك الإلكتروني",
+    "reset_subject": "[AR] إعادة تعيين كلمة المرور"
+  },
+
+  "tier": {
+    "bronze": "[AR] برونز",
+    "silver": "[AR] فضي",
+    "gold": "[AR] ذهبي",
+    "platinum": "[AR] بلاتينيوم"
+  },
+
+  "ui": {
+    "accept": "[AR] قبول",
+    "decline": "[AR] رفض",
+    "view_details": "[AR] عرض التفاصيل",
+    "emergency_requests": "[AR] طلبات الطوارئ",
+    "donation_completed_success": "[AR] اكتمل التبرع بنجاح",
+    "profile_completed": "[AR] اكتمال الملف الشخصي"
+  }
+}
