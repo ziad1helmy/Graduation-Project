@@ -33,7 +33,7 @@ afterAll(async () => {
 });
 
 describe('Donation Lifecycle Smoke E2E Flow', () => {
-  it('executes the full donation lifecycle (create -> respond -> complete -> points)', async () => {
+  it('executes the full donation lifecycle (book -> verify QR -> checklist -> complete -> points)', async () => {
     // Seed
     const hospital = await createHospital();
     const hospitalToken = signToken({ userId: hospital._id.toString(), role: 'hospital', isEmailVerified: true });
@@ -59,26 +59,65 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
     const requestId = res.body.data._id || res.body.data.id;
     expect(requestId).toBeDefined();
 
-    // 2. Donor responds
+    // 2. Donor books a hospital appointment for the request
     res = await request(app)
-      .post(`/donor/respond/${requestId}`)
+      .post('/donations/book-appointment')
       .set('Authorization', `Bearer ${donorToken}`)
-      .send({ quantity: 1 });
+      .send({
+        hospitalId: hospital._id.toString(),
+        requestId,
+        appointmentDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+        donationType: 'Whole Blood',
+        notes: 'Book a verified appointment',
+      });
       
     expect(res.status).toBe(201);
-    const donationId = res.body.data._id || res.body.data.id;
-    expect(donationId).toBeDefined();
+    const appointmentId = res.body.data._id || res.body.data.id;
+    const qrToken = res.body.data.qrToken;
+    expect(appointmentId).toBeDefined();
+    expect(qrToken).toBeDefined();
 
-    // 3. Hospital marks donation complete
+    // 3. Hospital scans the donor QR and starts verification
+    res = await request(app)
+      .post('/appointments/verify-qr')
+      .set('Authorization', `Bearer ${hospitalToken}`)
+      .send({ qrToken });
+      
+    expect(res.status).toBe(200);
+    expect(res.body.data.verificationStatus).toBe('pending');
+
+    // 4. Hospital completes the checklist and continues to donation details
+    res = await request(app)
+      .post(`/appointments/${appointmentId}/arrival`)
+      .set('Authorization', `Bearer ${hospitalToken}`)
+      .send({
+        checklist: {
+          idVerified: true,
+          questionnaireCompleted: true,
+          consentSigned: true,
+        },
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.readyForDonation).toBe(true);
+
+    // 5. Hospital confirms the donation with medical validation
     res = await request(app)
       .post('/donations/complete')
       .set('Authorization', `Bearer ${hospitalToken}`)
-      .send({ donationId });
-      
-    expect(res.status).toBe(200);
-    expect(res.body.data.status).toBe('completed');
+      .send({
+        appointmentId,
+        hemoglobinLevel: 14.8,
+        weight: 72,
+        unitsCollected: 1,
+        notes: 'Donation completed successfully.',
+      });
 
-    // 4. Verify DonorPoints balance increased
+    expect(res.status).toBe(200);
+    expect(res.body.data.donation.status).toBe('completed');
+    expect(res.body.data.pointsEarned).toBeGreaterThan(0);
+
+    // 6. Verify DonorPoints balance increased
     await new Promise(r => setTimeout(r, 200));
     const account = await DonorPoints.findOne({ donorId });
     expect(account).not.toBeNull();

@@ -22,6 +22,8 @@ router.get(
 // Apply auth and role middleware to all hospital routes
 router.use(authMiddleware, requireRole('hospital'));
 
+router.post('/donors/:donorId/appointments', hospitalController.bookDonorAppointment);
+
 // Profile routes
 router.get('/profile', hospitalController.getProfile);
 router.put('/profile', hospitalController.updateProfile);

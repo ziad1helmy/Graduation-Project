@@ -86,6 +86,57 @@ const appointmentSchema = new mongoose.Schema(
       default: null,
     },
 
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'rejected', 'completed'],
+      default: 'pending',
+    },
+
+    verificationSessionId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+
+    verificationStartedAt: {
+      type: Date,
+      default: null,
+    },
+
+    verificationVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+
+    verificationRejectedAt: {
+      type: Date,
+      default: null,
+    },
+
+    verificationRejectedReason: {
+      type: String,
+      default: null,
+    },
+
+    verificationChecklist: {
+      idVerified: {
+        type: Boolean,
+        default: false,
+      },
+      questionnaireCompleted: {
+        type: Boolean,
+        default: false,
+      },
+      consentSigned: {
+        type: Boolean,
+        default: false,
+      },
+      completedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+
     // Dev 1: Donation type selection
     donationType: {
       type: String,

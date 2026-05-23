@@ -58,9 +58,18 @@ const getRequestCoordinates = (request) => {
   return { latitude, longitude };
 };
 
-const buildGoogleMapsUrl = (coordinates) => {
-  if (!coordinates) return null;
-  return `https://www.google.com/maps/dir/?api=1&destination=${coordinates.latitude},${coordinates.longitude}`;
+const toLocation = (coordinates) => {
+  const lat = Number(coordinates?.lat ?? coordinates?.latitude);
+  const lng = Number(coordinates?.lng ?? coordinates?.longitude);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+  };
 };
 
 const formatDistance = (distanceKm) => {
@@ -124,7 +133,7 @@ export const buildRequestPayload = (request, viewerLocation = null, { donationCo
           longitude: requestLocation.longitude,
         }
       : null,
-    googleMapsUrl: buildGoogleMapsUrl(requestLocation),
+    location: toLocation(requestLocation),
     qrToken: request.qrToken || null,
     qrCreatedAt: request.qrCreatedAt || null,
     qrExpiresAt: request.qrExpiresAt || null,
@@ -393,11 +402,12 @@ export const getRequestGoogleMaps = async (req, res, next) => {
       return response.error(res, 404, 'Request location is not available');
     }
 
-    return response.success(res, 200, 'Google Maps URL generated successfully', {
+    return response.success(res, 200, 'Request location retrieved successfully', {
       requestId: request._id.toString(),
-      googleMapsUrl: buildGoogleMapsUrl(coordinates),
-      latitude: coordinates.latitude,
-      longitude: coordinates.longitude,
+      location: {
+        lat: coordinates.latitude,
+        lng: coordinates.longitude,
+      },
     });
   } catch (error) {
     next(error);

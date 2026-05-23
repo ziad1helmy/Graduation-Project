@@ -132,12 +132,15 @@ describe('GET /hospital/find-donors', () => {
       .get('/hospital/find-donors?bloodType=O+&radiusKm=5')
       .set('Authorization', `Bearer ${token}`);
 
-    console.log('GET /hospital/find-donors response body:', JSON.stringify(res.body, null, 2));
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe('Nearby donors retrieved successfully');
     expect(res.body.data.donors).toHaveLength(2);
     expect(res.body.data.donors[0].fullName).toBe('Nearest Donor');
+    expect(res.body.data.donors[0].email).toContain('@test.com');
+    expect(res.body.data.donors[0].phoneNumber).toMatch(/^\d{11}$/);
+    expect(res.body.data.donors[0].distance).toBeDefined();
+    expect(res.body.data.donors[0].location).toEqual({ lat: 30.051, lng: 31.241 });
     expect(res.body.data.donors[1].fullName).toBe('Farther Donor');
     expect(res.body.data.donors[0].distanceKm).toBeLessThan(res.body.data.donors[1].distanceKm);
   });
@@ -307,6 +310,39 @@ describe('GET /hospital/find-donors', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.donors[0].fullName).toBe('Admin Search Donor');
+  });
+
+  it('creates a hospital-side donor appointment from a search result', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+    const donor = await createDonor({
+      fullName: 'Appointment Donor',
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.051, lng: 31.241 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const appointmentDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const res = await request(app)
+      .post(`/hospital/donors/${donor._id}/appointments`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        appointmentDate: appointmentDate.toISOString(),
+        notes: 'Confirmed through hospital donor search',
+        donationType: 'Whole Blood',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.donorDetails.fullName).toBe('Appointment Donor');
+    expect(res.body.data.donorDetails.email).toContain('@test.com');
+    expect(String(res.body.data.hospitalId._id || res.body.data.hospitalId)).toBe(hospital._id.toString());
+    expect(res.body.data.appointmentDate).toBeDefined();
   });
 });
 

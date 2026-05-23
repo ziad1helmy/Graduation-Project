@@ -22,6 +22,14 @@ const donationSchema = new mongoose.Schema(
       ref: 'User',
       required: [true, 'Donor ID is required'],
     },
+
+    appointmentId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Appointment',
+      default: null,
+      index: true,
+      sparse: true,
+    },
     
     requestId: {
       type: mongoose.Schema.Types.ObjectId,
@@ -42,6 +50,24 @@ const donationSchema = new mongoose.Schema(
       type: Number,
       required: [true, 'Quantity is required'],
       min: [1, 'Quantity must be at least 1'],
+    },
+
+    unitsCollected: {
+      type: Number,
+      default: null,
+      min: [1, 'Units collected must be at least 1'],
+    },
+
+    hemoglobinLevel: {
+      type: Number,
+      default: null,
+      min: [0, 'Hemoglobin level must be a positive number'],
+    },
+
+    weight: {
+      type: Number,
+      default: null,
+      min: [0, 'Weight must be a positive number'],
     },
     
     scheduledDate: {
@@ -70,6 +96,10 @@ const donationSchema = new mongoose.Schema(
       type: String,
       maxlength: [1000, 'Notes cannot exceed 1000 characters'],
     },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
     // Optional QR token issued by hospital for on-site confirmation
     qrToken: {
       type: String,
@@ -92,6 +122,13 @@ donationSchema.index({ requestId: 1 });
 donationSchema.index({ status: 1 });
 donationSchema.index({ donorId: 1, status: 1 });
 donationSchema.index({ requestId: 1, status: 1 });
+donationSchema.index(
+  { appointmentId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { appointmentId: { $type: 'objectId' } },
+  }
+);
 
 const Donation = mongoose.model('Donation', donationSchema);
 

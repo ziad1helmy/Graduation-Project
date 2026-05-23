@@ -5,12 +5,13 @@ import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import * as notificationService from '../services/notification.service.js';
 import * as matchingService from '../services/matching.service.js';
+import * as appointmentService from '../services/appointment.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as hospitalService from '../services/hospital.service.js';
 import { validateCreateHospitalByAdminBody } from '../validation/admin.validation.js';
-import { DEFAULT_SUPPORTED_DONATION_TYPES } from '../constants/donation.constants.js';
+import { DEFAULT_SUPPORTED_DONATION_TYPES, DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
 
 const normalizeLocationInput = (location) => {
   if (!location || typeof location !== 'object') return null;
@@ -48,6 +49,50 @@ const parseBooleanQuery = (value, defaultValue) => {
   if (['true', '1', 'yes'].includes(normalized)) return true;
   if (['false', '0', 'no'].includes(normalized)) return false;
   return null;
+};
+
+const toLocation = (coordinates) => {
+  const lat = Number(coordinates?.lat ?? coordinates?.latitude);
+  const lng = Number(coordinates?.lng ?? coordinates?.longitude);
+
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null;
+  }
+
+  return {
+    lat,
+    lng,
+  };
+};
+
+const formatDistance = (distanceKm) => {
+  if (!Number.isFinite(distanceKm)) return null;
+  if (distanceKm < 1) return `${Math.round(distanceKm * 1000)} m`;
+  return `${distanceKm.toFixed(2)} km`;
+};
+
+const buildAppointmentDate = ({ appointmentDate, date, time }) => {
+  if (appointmentDate) return new Date(appointmentDate);
+  if (!date) return null;
+
+  const scheduledDate = new Date(date);
+  if (Number.isNaN(scheduledDate.getTime())) return null;
+
+  if (time) {
+    const match = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (!match) return null;
+
+    let hour = Number(match[1]);
+    const minute = Number(match[2]);
+    const period = match[3].toUpperCase();
+
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+
+    scheduledDate.setHours(hour, minute, 0, 0);
+  }
+
+  return scheduledDate;
 };
     
 const resolveHospitalCoordinates = (hospital) => {
@@ -453,14 +498,13 @@ export const findDonors = async (req, res, next) => {
       donorId: donor._id.toString(),
       fullName: donor.fullName,
       bloodType: donor.bloodType,
+      email: donor.email || null,
+      distance: formatDistance(distanceKm),
       distanceKm,
       distanceMeters: distanceKm === null ? null : Math.round(distanceKm * 1000),
       isAvailable: Boolean(donor.isAvailable),
       phoneNumber: donor.phoneNumber || null,
-      location: {
-        latitude: donor.location?.coordinates?.lat ?? null,
-        longitude: donor.location?.coordinates?.lng ?? null,
-      },
+      location: toLocation(donor.location?.coordinates),
     }));
 
     const paginatedDonors = donors.slice(offset, offset + limit);
@@ -480,6 +524,66 @@ export const findDonors = async (req, res, next) => {
       },
     });
   } catch (error) {
+    next(error);
+  }
+};
+
+export const bookDonorAppointment = async (req, res, next) => {
+  try {
+    const donorId = req.params.donorId;
+    const { appointmentDate, date, time, notes, donationType, requestId } = req.body;
+
+    if (!donorId) {
+      return response.error(res, 400, 'donorId is required');
+    }
+
+    const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
+    if (!normalizedAppointmentDate || Number.isNaN(normalizedAppointmentDate.getTime())) {
+      return response.error(res, 400, 'appointmentDate is required');
+    }
+
+    const normalizedDonationType = donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD;
+    if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
+      return response.error(res, 400, 'Invalid donation type');
+    }
+
+    const appointment = await appointmentService.bookAppointment(
+      donorId,
+      req.user.userId,
+      requestId || null,
+      normalizedAppointmentDate,
+      notes || '',
+      normalizedDonationType
+    );
+
+    const appointmentObj = appointment.toObject ? appointment.toObject() : appointment;
+
+    return res.status(201).json({
+      success: true,
+      message: 'Appointment booked successfully',
+      data: appointmentObj,
+    });
+  } catch (error) {
+    if (error.message === 'Donor not found' || error.message === 'Hospital not found' || error.message === 'Request not found') {
+      return response.error(res, 404, error.message);
+    }
+    if (
+      error.message === 'Invalid donor or hospital id' ||
+      error.message === 'Invalid appointment id' ||
+      error.message === 'Invalid request id' ||
+      error.message === 'Appointment date must be in the future' ||
+      error.message === 'Request does not belong to this hospital' ||
+      error.message === 'Donor is not currently available' ||
+      error.message === 'Donor is suspended' ||
+      error.message === 'Donor has not provided blood type information' ||
+      error.message.startsWith('Donor blood type ') ||
+      error.message.startsWith('Must wait ')
+    ) {
+      return response.error(res, 400, error.message);
+    }
+    if (error.message === 'You already have an active appointment at this hospital') {
+      return response.error(res, 409, error.message);
+    }
     next(error);
   }
 };

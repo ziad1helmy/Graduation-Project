@@ -157,7 +157,7 @@
           },
           "from": {
             "type": "string",
-            "example": "donor@example.com"
+            "example": "donor.followup@lifelink.demo"
           },
           "to": {
             "type": "array",
@@ -598,22 +598,22 @@
                 "$ref": "#/components/schemas/SignupDonorRequest"
               },
               "example": {
-                "fullName": "string",
-                "email": "user@example.com",
-                "password": "P@ssw0rd123",
-                "role": "string",
-                "phoneNumber": "string",
-                "dateOfBirth": "2026-05-08",
-                "bloodType": "string",
+                "fullName": "Aya Hassan",
+                "email": "aya.hassan@lifelink.demo",
+                "password": "DonorPass@123",
+                "role": "donor",
+                "phoneNumber": "01011111111",
+                "dateOfBirth": "1995-05-15",
+                "bloodType": "O+",
                 "confirmPassword": "P@ssw0rd123",
                 "location": {
-                  "lat": 1,
-                  "lng": 1,
-                  "latitude": 1,
-                  "longitude": 1,
+                  "lat": 30.0444,
+                  "lng": 31.2357,
+                  "latitude": 30.0444,
+                  "longitude": 31.2357,
                   "coordinates": {
-                    "lat": 1,
-                    "lng": 1
+                    "lat": 30.0444,
+                    "lng": 31.2357
                   }
                 }
               }
@@ -645,8 +645,8 @@
                   "success": true,
                   "data": {
                     "user": {
-                      "fullName": "ziad",
-                      "email": "user@example.com",
+                      "fullName": "Aya Hassan",
+                      "email": "aya.hassan@lifelink.demo",
                       "role": "donor"
                     },
                     "tokens": {
@@ -698,9 +698,16 @@
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "TEST",
+                  "message": "Login successful",
                   "data": {
-                    "ok": true
+                    "accessToken": "eyJ...access",
+                    "refreshToken": "eyJ...refresh",
+                    "user": {
+                      "_id": "69f3df915f42685cbbbcbb18",
+                      "fullName": "Aya Hassan",
+                      "email": "aya.hassan@lifelink.demo",
+                      "role": "donor"
+                    }
                   }
                 }
               }
@@ -820,7 +827,7 @@
                     "user": {
                       "_id": "66f200000000000000000001",
                       "fullName": "Noura Hassan",
-                      "email": "admin@lifelink.example",
+                      "email": "admin@lifelink.demo",
                       "role": "admin",
                       "phone": "01099998888"
                     }
@@ -1474,7 +1481,7 @@
           "Donor"
         ],
         "summary": "Get the authenticated donor profile",
-        "description": "Retrieve the authenticated donor's profile information including blood type, availability status, and location\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Retrieve the authenticated donor's profile information including blood type, availability status, location, stats, and badge progress\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -1490,14 +1497,34 @@
                   "message": "Donor profile retrieved successfully",
                   "data": {
                     "_id": "66f100000000000000000002",
-                    "fullName": "Ahmed Hassan",
-                    "email": "ahmed@example.com",
+                    "fullName": "Aya Hassan",
+                    "email": "aya.hassan@example.com",
                     "role": "donor",
-                    "phoneNumber": "01012345678",
+                    "phoneNumber": "01011111111",
                     "bloodType": "O+",
-                    "gender": "male",
+                    "gender": "female",
+                    "weight": 60,
+                    "location": {
+                      "city": "Cairo",
+                      "governorate": "Cairo"
+                    },
+                    "dateOfBirth": "1995-05-15",
                     "isAvailable": true,
-                    "dateOfBirth": "1995-05-15"
+                    "verificationStatus": "verified",
+                    "age": 31,
+                    "stats": {
+                      "totalDonations": 8,
+                      "points": 2340,
+                      "livesSaved": 24
+                    },
+                    "currentBadge": "First Timer",
+                    "nextBadge": "Regular Donor",
+                    "progressPercentage": 40,
+                    "badgeProgress": {
+                      "currentBadge": "First Timer",
+                      "nextBadge": "Regular Donor",
+                      "progressPercentage": 40
+                    }
                   }
                 }
               }
@@ -1519,7 +1546,7 @@
           "Donor"
         ],
         "summary": "Update the authenticated donor profile",
-        "description": "Update donor profile information such as name, phone, blood type, gender, location, and availability\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "description": "Update donor profile information such as name, email, phone, date of birth, blood type, gender, location, and weight\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -1535,13 +1562,13 @@
                   "fullName": {
                     "type": "string",
                     "description": "Donor full name",
-                    "example": "Ahmed Hassan"
+                    "example": "Aya Hassan"
                   },
                   "email": {
                     "type": "string",
                     "format": "email",
                     "description": "Donor email address. Changing this will require re-verification.",
-                    "example": "ahmed@example.com"
+                    "example": "aya.hassan@example.com"
                   },
                   "dateOfBirth": {
                     "type": "string",
@@ -1552,17 +1579,16 @@
                   "phoneNumber": {
                     "type": "string",
                     "description": "Donor phone number",
-                    "example": "01012345678"
+                    "example": "01011111111"
                   },
                   "gender": {
                     "type": "string",
                     "enum": [
                       "male",
-                      "female",
-                      "other"
+                      "female"
                     ],
                     "description": "Donor gender",
-                    "example": "male"
+                    "example": "female"
                   },
                   "bloodType": {
                     "type": "string",
@@ -1579,10 +1605,10 @@
                     "description": "Blood type of the donor",
                     "example": "O+"
                   },
-                  "isAvailable": {
-                    "type": "boolean",
-                    "description": "Donation availability status",
-                    "example": true
+                  "weight": {
+                    "type": "number",
+                    "description": "Donor weight in kilograms",
+                    "example": 60
                   },
                   "location": {
                     "type": "object",
@@ -1602,9 +1628,12 @@
               },
               "example": {
                 "fullName": "Aya Hassan",
+                "email": "aya.hassan@example.com",
                 "phoneNumber": "01011111111",
                 "gender": "female",
                 "weight": 60,
+                "bloodType": "O+",
+                "dateOfBirth": "1995-05-15",
                 "location": {
                   "city": "Cairo",
                   "governorate": "Cairo"
@@ -1623,9 +1652,18 @@
                   "message": "Donor profile updated successfully",
                   "data": {
                     "_id": "66f100000000000000000002",
-                    "fullName": "Ahmed Hassan",
-                    "email": "ahmed@example.com",
+                    "fullName": "Aya Hassan",
+                    "email": "aya.hassan@example.com",
                     "role": "donor",
+                    "phoneNumber": "01011111111",
+                    "bloodType": "O+",
+                    "gender": "female",
+                    "weight": 60,
+                    "location": {
+                      "city": "Cairo",
+                      "governorate": "Cairo"
+                    },
+                    "dateOfBirth": "1995-05-15",
                     "isAvailable": true
                   }
                 }
@@ -1665,9 +1703,9 @@
                   "success": true,
                   "message": "Donor stats retrieved",
                   "data": {
-                    "totalDonations": 5,
-                    "points": 1200,
-                    "livesSaved": 15
+                    "totalDonations": 8,
+                    "points": 2340,
+                    "livesSaved": 24
                   }
                 }
               }
@@ -1700,7 +1738,7 @@
                   "success": true,
                   "message": "Donor rewards retrieved",
                   "data": {
-                    "currentPoints": 1200,
+                    "currentPoints": 2340,
                     "earnedBadges": [
                       {
                         "id": "664a0f1a2b3c4d5e6f7a8b9c",
@@ -1716,7 +1754,7 @@
                         "target": 5
                       }
                     ],
-                    "nextMilestone": 1800
+                    "nextMilestone": 3000
                   }
                 }
               }
@@ -1942,7 +1980,10 @@
                           "latitude": 30.0511,
                           "longitude": 31.2435
                         },
-                        "googleMapsUrl": "https://www.google.com/maps/dir/?api=1&destination=30.0511,31.2435",
+                        "location": {
+                          "lat": 30.0511,
+                          "lng": 31.2435
+                        },
                         "qrToken": "demo-request-qr-token",
                         "qrCreatedAt": "2026-05-07T10:00:00.000Z",
                         "qrExpiresAt": "2026-05-07T12:00:00.000Z",
@@ -3131,12 +3172,12 @@
                 "properties": {
                   "isAvailable": {
                     "type": "boolean",
-                    "example": true
+                    "example": false
                   }
                 }
               },
               "example": {
-                "isAvailable": true
+                "isAvailable": false
               }
             }
           }
@@ -3148,7 +3189,12 @@
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Availability status updated successfully"
+                  "message": "Availability status updated successfully",
+                  "data": {
+                    "_id": "66f100000000000000000002",
+                    "fullName": "Aya Hassan",
+                    "isAvailable": false
+                  }
                 }
               }
             }
@@ -3286,26 +3332,30 @@
                         "donorId": "69f3df915f42685cbbbcbb18",
                         "fullName": "Sarah J.",
                         "bloodType": "O+",
+                        "email": "sarah.j@example.com",
+                        "distance": "2.30 km",
                         "distanceKm": 2.3,
                         "distanceMeters": 2300,
                         "isAvailable": true,
                         "phoneNumber": "01012345678",
                         "location": {
-                          "latitude": 30.0444,
-                          "longitude": 31.2357
+                          "lat": 30.0444,
+                          "lng": 31.2357
                         }
                       },
                       {
                         "donorId": "69f3df915f42685cbbbcbb19",
                         "fullName": "Omar F.",
                         "bloodType": "O-",
+                        "email": "omar.f@example.com",
+                        "distance": "4.10 km",
                         "distanceKm": 4.1,
                         "distanceMeters": 4100,
                         "isAvailable": true,
                         "phoneNumber": "01098765432",
                         "location": {
-                          "latitude": 30.061,
-                          "longitude": 31.229
+                          "lat": 30.061,
+                          "lng": 31.229
                         }
                       }
                     ],
@@ -3335,6 +3385,109 @@
         }
       }
     },
+    "/hospital/donors/{donorId}/appointments": {
+      "post": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Confirm a donor appointment from the hospital Find Donors flow",
+        "description": "Books an appointment for a donor selected from the hospital donor search modal.\nUse this after the hospital has contacted the donor and agreed on an appointment time.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "donorId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Donor user ID returned by the search endpoint"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "appointmentDate"
+                ],
+                "properties": {
+                  "appointmentDate": {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  "notes": {
+                    "type": "string"
+                  },
+                  "donationType": {
+                    "type": "string",
+                    "enum": [
+                      "Whole Blood",
+                      "Plasma",
+                      "Platelets",
+                      "Double Red Cells"
+                    ]
+                  },
+                  "requestId": {
+                    "type": "string",
+                    "description": "Optional existing request to attach the appointment to"
+                  }
+                }
+              },
+              "example": {
+                "appointmentDate": "2026-05-30T10:00:00.000Z",
+                "notes": "Confirmed after phone call",
+                "donationType": "Whole Blood"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Appointment booked successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Appointment booked successfully",
+                  "data": {
+                    "donorId": "69f3df915f42685cbbbcbb18",
+                    "donorDetails": {
+                      "fullName": "Sarah J.",
+                      "phoneNumber": "01012345678",
+                      "bloodType": "O+",
+                      "email": "sarah.j@example.com"
+                    },
+                    "hospitalId": "69f3df915f42685cbbbcbb20",
+                    "appointmentDate": "2026-05-30T10:00:00.000Z",
+                    "status": "pending",
+                    "donationType": "Whole Blood"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Validation error or donor is not eligible"
+          },
+          "401": {
+            "description": "Missing or invalid JWT token"
+          },
+          "403": {
+            "description": "Access denied - role not allowed"
+          },
+          "404": {
+            "description": "Donor or hospital not found"
+          }
+        }
+      }
+    },
     "/hospital/profile": {
       "get": {
         "tags": [
@@ -3357,13 +3510,34 @@
                   "message": "Hospital profile retrieved successfully",
                   "data": {
                     "_id": "66f100000000000000000001",
-                    "fullName": "Cairo General Hospital",
-                    "hospitalName": "Cairo General Hospital",
-                    "email": "info@cairohospital.com",
+                    "fullName": "Cairo Care Operations",
+                    "hospitalName": "Cairo Care Hospital",
+                    "type": "hospital",
+                    "hospitalType": "General Hospital",
+                    "email": "info@cairocare.demo",
                     "role": "hospital",
-                    "contactNumber": "01099998888",
+                    "contactNumber": "1044444444",
+                    "phone": "1044444444",
+                    "address": {
+                      "city": "Cairo",
+                      "governorate": "Cairo"
+                    },
+                    "city": "Cairo",
+                    "state": "Cairo",
+                    "zipCode": "11511",
+                    "hospitalId": "cairo-care-hospital",
+                    "adminContactName": "Dr. Sara Mahmoud",
+                    "adminContactPhone": "01123456789",
+                    "emergencyContact": "01055555555",
+                    "bloodBanksAvailable": [
+                      "O+",
+                      "O-",
+                      "A+"
+                    ],
+                    "capacity": 120,
                     "lat": 30.0444,
-                    "long": 31.2357
+                    "long": 31.2357,
+                    "workingHours": "9AM - 5PM"
                   }
                 }
               }
@@ -3481,6 +3655,8 @@
                     "_id": "66f100000000000000000001",
                     "fullName": "Cairo Care Operations",
                     "hospitalName": "Cairo Care Hospital",
+                    "type": "hospital",
+                    "hospitalType": "General Hospital",
                     "contactNumber": "1044444444",
                     "licenseNumber": "LIC-CAIRO-009",
                     "location": {
@@ -3623,7 +3799,8 @@
                           "example": [
                             "Whole",
                             "Plasma",
-                            "Platelets - Double Red Cells - Double Red Cells"
+                            "Platelets",
+                            "Double Red Cells"
                           ]
                         },
                         "minAdvanceHours": {
@@ -3695,7 +3872,8 @@
                     "supportedDonationTypes": [
                       "Whole",
                       "Plasma",
-                      "Platelets - Double Red Cells - Double Red Cells"
+                      "Platelets",
+                      "Double Red Cells"
                     ],
                     "minAdvanceHours": 24,
                     "maxAdvanceDays": 30,
@@ -4021,7 +4199,8 @@
                     "supportedDonationTypes": [
                       "Whole",
                       "Plasma",
-                      "Platelets - Double Red Cells - Double Red Cells"
+                      "Platelets",
+                      "Double Red Cells"
                     ],
                     "minAdvanceHours": 24,
                     "maxAdvanceDays": 30,
@@ -4237,7 +4416,7 @@
                   "success": true,
                   "message": "Monthly report retrieved successfully",
                   "data": {
-                    "month": "2026-04",
+                    "month": "2026-05",
                     "totalRequests": 9,
                     "totalCompleted": 6,
                     "totalCancelled": 2,
@@ -4998,7 +5177,7 @@
             "name": "month",
             "schema": {
               "type": "string",
-              "example": "2026-04"
+              "example": "2026-05"
             },
             "example": "2026-05"
           }
@@ -5050,10 +5229,17 @@
                     "admin": {
                       "_id": "66f200000000000000000001",
                       "fullName": "Noura Hassan",
-                      "email": "admin@lifelink.example",
+                      "email": "admin@lifelink.demo",
                       "role": "admin",
+                      "phone": "01122223333",
+                      "address": {
+                        "city": "Cairo",
+                        "governorate": "Cairo"
+                      },
                       "isVerified": true,
-                      "createdAt": "2026-01-10T08:30:00.000Z"
+                      "isSuspended": false,
+                      "createdAt": "2026-01-10T08:30:00.000Z",
+                      "updatedAt": "2026-05-18T08:30:00.000Z"
                     }
                   }
                 }
@@ -5609,7 +5795,7 @@
                         "adminId": {
                           "_id": "66f200000000000000000001",
                           "fullName": "Noura Hassan",
-                          "email": "admin@lifelink.example",
+                          "email": "admin@lifelink.demo",
                           "role": "admin"
                         },
                         "action": "user.suspend",
@@ -5699,9 +5885,9 @@
                       {
                         "_id": "66f700000000000000000001",
                         "provider": "resend",
-                        "from": "donor@example.com",
+                        "from": "donor.followup@lifelink.demo",
                         "to": [
-                          "support@lifelink.example"
+                          "support@lifelink.demo"
                         ],
                         "subject": "Donation follow-up",
                         "isRead": false,
@@ -5758,9 +5944,9 @@
                     "inboundEmail": {
                       "_id": "66f700000000000000000001",
                       "provider": "resend",
-                      "from": "donor@example.com",
+                      "from": "donor.followup@lifelink.demo",
                       "to": [
-                        "support@lifelink.example"
+                        "support@lifelink.demo"
                       ],
                       "subject": "Donation follow-up",
                       "text": "Please contact me about the donation process.",
@@ -6192,7 +6378,7 @@
                       "hospitalName": "Cairo Care Hospital",
                       "email": "ops@cairocare.demo",
                       "role": "hospital",
-                      "contactNumber": "0223456789",
+                      "contactNumber": "1044444444",
                       "isEmailVerified": true,
                       "isSuspended": false,
                       "totalRequests": 24,
@@ -6231,14 +6417,14 @@
                       {
                         "_id": "66f200000000000000000001",
                         "fullName": "Noura Hassan",
-                        "email": "admin@lifelink.example",
+                        "email": "admin@lifelink.demo",
                         "role": "admin",
                         "isEmailVerified": true
                       },
                       {
                         "_id": "66f200000000000000000002",
                         "fullName": "Youssef Fathy",
-                        "email": "superadmin@lifelink.example",
+                        "email": "superadmin@lifelink.demo",
                         "role": "superadmin",
                         "isEmailVerified": true
                       }
@@ -6299,9 +6485,9 @@
                 }
               },
               "example": {
-                "fullName": "string",
-                "email": "user@example.com",
-                "password": "string",
+                "fullName": "Salma Mostafa",
+                "email": "salma.mostafa@lifelink.demo",
+                "password": "AdminPass@123",
                 "role": "admin"
               }
             }
@@ -6319,7 +6505,7 @@
                     "admin": {
                       "_id": "66f200000000000000000003",
                       "fullName": "Salma Mostafa",
-                      "email": "salma.mostafa@lifelink.example",
+                      "email": "salma.mostafa@lifelink.demo",
                       "role": "admin",
                       "isEmailVerified": true,
                       "adminKey": "a1b2c3d4e5f67890123456789abcdef0"
@@ -6376,7 +6562,7 @@
                     "user": {
                       "_id": "66f200000000000000000003",
                       "fullName": "Salma Mostafa",
-                      "email": "salma.mostafa@lifelink.example",
+                      "email": "salma.mostafa@lifelink.demo",
                       "role": "admin",
                       "phone": "01022223333",
                       "isEmailVerified": true,
@@ -6444,9 +6630,9 @@
                 }
               },
               "example": {
-                "fullName": "string",
-                "email": "user@example.com",
-                "password": "string",
+                "fullName": "Salma Mostafa",
+                "email": "salma.mostafa@lifelink.demo",
+                "password": "AdminPass@123",
                 "role": "admin",
                 "isEmailVerified": true,
                 "isSuspended": true
@@ -6466,7 +6652,7 @@
                     "admin": {
                       "_id": "66f200000000000000000003",
                       "fullName": "Salma Mostafa",
-                      "email": "salma.mostafa@lifelink.example",
+                      "email": "salma.mostafa@lifelink.demo",
                       "role": "admin",
                       "phone": "01022223333",
                       "address": {
@@ -6842,10 +7028,10 @@
                 }
               },
               "example": {
-                "role": "string",
-                "displayName": "string",
-                "description": "string",
-                "isSystemRole": true
+                "role": "custom-ops",
+                "displayName": "Operations Manager",
+                "description": "Handles hospital reporting and coordination dashboards",
+                "isSystemRole": false
               }
             }
           }
@@ -8772,18 +8958,18 @@
                   }
                 },
                 "example": {
-                  "donorId": "string",
-                  "fullName": "string",
-                  "email": "string",
-                  "bloodType": "string",
-                  "pointsBalance": 1,
-                  "totalPointsEarned": 1,
-                  "totalDonations": 1,
+                  "donorId": "69f3df915f42685cbbbcbb18",
+                  "fullName": "Aya Hassan",
+                  "email": "aya.hassan@lifelink.demo",
+                  "bloodType": "O+",
+                  "pointsBalance": 2340,
+                  "totalPointsEarned": 2600,
+                  "totalDonations": 8,
                   "donationsByType": {
-                    "blood": 1,
+                    "blood": 6,
                     "plasma": 1,
                     "platelets": 1,
-                    "organ": 1
+                    "organ": 0
                   },
                   "lastDonationDate": "2026-05-08T12:00:00.000Z",
                   "joinDate": "2026-05-08T12:00:00.000Z"
@@ -9167,16 +9353,16 @@
                         "_id": "69fe540565ff7785a031315c",
                         "donorId": {
                           "_id": "69f3df915f42685cbbbcbb18",
-                          "fullName": "Noor Ahmed",
-                          "phoneNumber": "01123456789",
+                          "fullName": "Aya Hassan",
+                          "phoneNumber": "01011111111",
                           "bloodType": "O+",
-                          "email": "noor.ahmed@example.com"
+                          "email": "aya.hassan@lifelink.demo"
                         },
                         "donorDetails": {
-                          "fullName": "Noor Ahmed",
-                          "phoneNumber": "01123456789",
+                          "fullName": "Aya Hassan",
+                          "phoneNumber": "01011111111",
                           "bloodType": "O+",
-                          "email": "noor.ahmed@example.com"
+                          "email": "aya.hassan@lifelink.demo"
                         },
                         "hospitalId": {
                           "_id": "69f3df915f42685cbbbcbb1b",
@@ -9190,7 +9376,7 @@
                         "requestId": "69fe540565ff7785a031314f",
                         "appointmentDate": "2026-05-12T10:00:00.000Z",
                         "status": "pending",
-                        "notes": "Test appointment",
+                        "notes": "Donation follow-up appointment",
                         "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
                         "qrExpiresAt": "2026-05-13T10:00:00.000Z",
                         "donationType": "Whole Blood"
@@ -9251,16 +9437,16 @@
                     "_id": "69fe540565ff7785a031315c",
                     "donorId": {
                       "_id": "69f3df915f42685cbbbcbb18",
-                      "fullName": "Noor Ahmed",
-                      "phoneNumber": "01123456789",
+                      "fullName": "Aya Hassan",
+                      "phoneNumber": "01011111111",
                       "bloodType": "O+",
-                      "email": "noor.ahmed@example.com"
+                      "email": "aya.hassan@lifelink.demo"
                     },
                     "donorDetails": {
-                      "fullName": "Noor Ahmed",
-                      "phoneNumber": "01123456789",
+                      "fullName": "Aya Hassan",
+                      "phoneNumber": "01011111111",
                       "bloodType": "O+",
-                      "email": "noor.ahmed@example.com"
+                      "email": "aya.hassan@lifelink.demo"
                     },
                     "hospitalId": {
                       "_id": "69f3df915f42685cbbbcbb1b",
@@ -9274,7 +9460,7 @@
                     "requestId": "69fe540565ff7785a031314f",
                     "appointmentDate": "2026-05-12T10:00:00.000Z",
                     "status": "pending",
-                    "notes": "Test appointment",
+                    "notes": "Donation follow-up appointment",
                     "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
                     "qrExpiresAt": "2026-05-13T10:00:00.000Z",
                     "donationType": "Whole Blood"
@@ -9455,7 +9641,7 @@
           "Hospital"
         ],
         "summary": "Verify donor QR code at hospital check-in",
-        "description": "Hospital staff scans the donor's QR code to confirm the donation.\n- Validates the QR token, checks expiry and one-time usage\n- Marks the appointment as completed\n- Creates a Donation record\n- Updates donor statistics and triggers reward/badge flow\n\n**Role required:** hospital | admin | superadmin\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "description": "Hospital staff scans the donor's QR code to start the hospital verification flow.\n- Validates the QR token, checks expiry and one-time usage\n- Confirms donor eligibility and appointment activity\n- Returns the donor profile and appointment details for the verification screen\n\nSubsequent steps use the checklist, reject, and rescan endpoints before the final donation confirmation.\n\n**Role required:** hospital | admin | superadmin\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -9486,21 +9672,42 @@
         },
         "responses": {
           "200": {
-            "description": "Donation verified successfully",
+            "description": "Donation verification started successfully",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Donation verified successfully",
+                  "message": "Donation verification started successfully",
                   "data": {
-                    "donation": {
-                      "donationId": "664a0f1a2b3c4d5e6f7a8b9c",
-                      "type": "Whole Blood",
-                      "date": "2026-05-07T12:00:00.000Z",
-                      "location": "City General Hospital",
-                      "status": "confirmed"
+                    "verificationStatus": "pending",
+                    "verificationSessionId": "2a9d4f6f5f4e4f2e8e2f5a2d1e0c9b8a",
+                    "appointment": {
+                      "id": "69fe540565ff7785a031315c",
+                      "appointmentDate": "2026-05-07T12:00:00.000Z",
+                      "status": "confirmed",
+                      "donationType": "Whole Blood",
+                      "qrToken": "demo-qr-noor-verify",
+                      "qrScannedAt": "2026-05-07T09:00:00.000Z",
+                      "qrExpiresAt": "2026-05-08T09:00:00.000Z"
                     },
-                    "pointsEarned": 100
+                    "donor": {
+                      "id": "69f3df915f42685cbbbcbb18",
+                      "fullName": "Aya Hassan",
+                      "initials": "AH",
+                      "bloodType": "O+",
+                      "phoneNumber": "01011111111",
+                      "email": "aya.hassan@lifelink.demo",
+                      "navigationUrl": "https://www.google.com/maps/dir/?api=1&destination=30.0444,31.2357"
+                    },
+                    "eligibility": {
+                      "eligible": true,
+                      "reason": "Donor is eligible"
+                    },
+                    "checklistRequirements": {
+                      "idVerified": true,
+                      "questionnaireCompleted": true,
+                      "consentSigned": true
+                    }
                   }
                 }
               }
@@ -9520,6 +9727,196 @@
           },
           "409": {
             "description": "QR code already used"
+          }
+        }
+      }
+    },
+    "/appointments/{appointmentId}/arrival": {
+      "post": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Confirm donor arrival after checklist completion",
+        "description": "Requires a verified QR scan and all checklist items to be completed before the hospital can continue to donation details.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointmentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "69fe540565ff7785a031315c"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "checklist"
+                ],
+                "properties": {
+                  "checklist": {
+                    "type": "object",
+                    "required": [
+                      "idVerified",
+                      "questionnaireCompleted",
+                      "consentSigned"
+                    ],
+                    "properties": {
+                      "idVerified": {
+                        "type": "boolean"
+                      },
+                      "questionnaireCompleted": {
+                        "type": "boolean"
+                      },
+                      "consentSigned": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              },
+              "example": {
+                "checklist": {
+                  "idVerified": true,
+                  "questionnaireCompleted": true,
+                  "consentSigned": true
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Arrival confirmed successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Arrival confirmed successfully",
+                  "data": {
+                    "readyForDonation": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Checklist incomplete or appointment not verified"
+          },
+          "401": {
+            "description": "Missing or invalid JWT token"
+          },
+          "403": {
+            "description": "Role not allowed"
+          },
+          "404": {
+            "description": "Appointment not found"
+          }
+        }
+      }
+    },
+    "/appointments/{appointmentId}/reject": {
+      "post": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Reject the current verification flow",
+        "description": "Safely rejects a verification session so the hospital can stop the flow without confirming the donation.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointmentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "69fe540565ff7785a031315c"
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              },
+              "example": {
+                "reason": "Patient not ready"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Verification rejected successfully"
+          },
+          "401": {
+            "description": "Missing or invalid JWT token"
+          },
+          "403": {
+            "description": "Role not allowed"
+          },
+          "404": {
+            "description": "Appointment not found"
+          }
+        }
+      }
+    },
+    "/appointments/{appointmentId}/rescan": {
+      "post": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Reset the current verification session",
+        "description": "Clears the current verification state so the hospital can scan another donor or restart the flow safely.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "appointmentId",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "example": "69fe540565ff7785a031315c"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Verification reset successfully"
+          },
+          "401": {
+            "description": "Missing or invalid JWT token"
+          },
+          "403": {
+            "description": "Role not allowed"
+          },
+          "404": {
+            "description": "Appointment not found"
           }
         }
       }
@@ -10065,8 +10462,8 @@
         "tags": [
           "Donor"
         ],
-        "summary": "Mark a donation as completed and award points",
-        "description": "Completes a donation and triggers point award based on donation type:\n- Blood: 200 points\n- Plasma: 150 points\n- Platelets\n                                    - Double Red Cells\n                                  - Double Red Cells: 175 points\n- Organ: 500 points\n\nAlso triggers first-donation bonus if applicable.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "summary": "Confirm a verified donation and award points",
+        "description": "Confirms a verified appointment after medical validation and triggers point award based on donation type.\nLegacy `donationId` completion is still supported for older callers.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -10078,23 +10475,42 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "donationId",
-                  "isEmergency"
-                ],
+                "required": null,
                 "properties": {
+                  "appointmentId": {
+                    "type": "string",
+                    "description": "Appointment ObjectId to confirm after QR verification and checklist completion"
+                  },
                   "donationId": {
                     "type": "string",
-                    "description": "Donation ObjectId to complete"
+                    "description": "Legacy Donation ObjectId to complete"
                   },
-                  "isEmergency": {
-                    "type": "boolean",
-                    "description": "Whether this was an emergency donation (for analytics)"
+                  "hemoglobinLevel": {
+                    "type": "number",
+                    "description": "Measured hemoglobin value in g/dL"
+                  },
+                  "weight": {
+                    "type": "number",
+                    "description": "Donor weight in kg at the donation site"
+                  },
+                  "unitsCollected": {
+                    "type": "integer",
+                    "enum": [
+                      1,
+                      2
+                    ],
+                    "description": "Number of units collected during the donation"
+                  },
+                  "notes": {
+                    "type": "string"
                   }
                 }
               },
               "example": {
-                "donationId": "69fe540565ff7785a0313157",
+                "appointmentId": "69fe540565ff7785a031315c",
+                "hemoglobinLevel": 14.8,
+                "weight": 72,
+                "unitsCollected": 1,
                 "notes": "Donation completed successfully."
               }
             }
@@ -10112,19 +10528,22 @@
                     "donation": {
                       "_id": "69fe540565ff7785a0313157",
                       "donorId": "69f3df915f42685cbbbcbb18",
+                      "appointmentId": "69fe540565ff7785a031315c",
                       "requestId": "69fe540565ff7785a0313151",
+                      "quantity": 1,
+                      "unitsCollected": 1,
+                      "hemoglobinLevel": 14.8,
+                      "weight": 72,
                       "status": "completed",
                       "completedDate": "2026-05-11T10:00:00.000Z"
                     },
-                    "points": {
-                      "awarded": 200,
-                      "multiplier": 1,
-                      "bonusEarned": false,
-                      "transaction": {
-                        "type": "BLOOD_DONATION",
-                        "amount": 200
-                      }
-                    }
+                    "appointment": {
+                      "id": "69fe540565ff7785a031315c",
+                      "status": "completed",
+                      "verificationStatus": "completed",
+                      "donationType": "Whole Blood"
+                    },
+                    "pointsEarned": 100
                   }
                 }
               }
@@ -10161,16 +10580,16 @@
                         "_id": "69fe540565ff7785a031315c",
                         "donorId": {
                           "_id": "69f3df915f42685cbbbcbb18",
-                          "fullName": "Noor Ahmed",
-                          "phoneNumber": "01123456789",
+                          "fullName": "Aya Hassan",
+                          "phoneNumber": "01011111111",
                           "bloodType": "O+",
-                          "email": "noor.ahmed@example.com"
+                          "email": "aya.hassan@lifelink.demo"
                         },
                         "donorDetails": {
-                          "fullName": "Noor Ahmed",
-                          "phoneNumber": "01123456789",
+                          "fullName": "Aya Hassan",
+                          "phoneNumber": "01011111111",
                           "bloodType": "O+",
-                          "email": "noor.ahmed@example.com"
+                          "email": "aya.hassan@lifelink.demo"
                         },
                         "hospitalId": {
                           "_id": "69f3df915f42685cbbbcbb1b",
@@ -10179,7 +10598,7 @@
                         },
                         "appointmentDate": "2026-05-12T10:00:00.000Z",
                         "status": "pending",
-                        "notes": "Test appointment",
+                        "notes": "Donation follow-up appointment",
                         "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
                         "donationType": "Whole Blood"
                       }
@@ -10762,7 +11181,10 @@
                           "latitude": 30.0511,
                           "longitude": 31.2435
                         },
-                        "googleMapsUrl": "https://www.google.com/maps/dir/?api=1&destination=30.0511,31.2435",
+                        "location": {
+                          "lat": 30.0511,
+                          "lng": 31.2435
+                        },
                         "hospital": {
                           "id": "69f3df915f42685cbbbcbb1b",
                           "name": "Cairo Care Hospital",
@@ -10809,9 +11231,9 @@
         "tags": [
           "Requests"
         ],
-        "summary": "Get Google Maps navigation URL for a request",
+        "summary": "Get request location coordinates for navigation",
         "security": null,
-        "description": "Resolves a request's stored hospital coordinates and returns a Google Maps navigation URL.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Resolves a request's stored hospital coordinates and returns raw latitude/longitude for client-side navigation.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "parameters": [
           {
             "in": "path",
@@ -10826,17 +11248,18 @@
         ],
         "responses": {
           "200": {
-            "description": "Google Maps URL generated successfully",
+            "description": "Request location retrieved successfully",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Google Maps URL generated successfully",
+                  "message": "Request location retrieved successfully",
                   "data": {
                     "requestId": "69fe540565ff7785a031314f",
-                    "googleMapsUrl": "https://www.google.com/maps/dir/?api=1&destination=30.0511,31.2435",
-                    "latitude": 30.0511,
-                    "longitude": 31.2435
+                    "location": {
+                      "lat": 30.0511,
+                      "lng": 31.2435
+                    }
                   }
                 }
               }
@@ -10901,7 +11324,10 @@
                       "latitude": 30.0444,
                       "longitude": 31.2357
                     },
-                    "googleMapsUrl": "https://www.google.com/maps/dir/?api=1&destination=30.0444,31.2357",
+                    "location": {
+                      "lat": 30.0444,
+                      "lng": 31.2357
+                    },
                     "qrToken": null,
                     "qrCreatedAt": null,
                     "qrExpiresAt": null,
@@ -11048,9 +11474,12 @@
                       "requiredBy": "2026-05-18T16:00:00.000Z",
                       "locationHospital": {
                         "latitude": 30.0444,
-                        "longitude": 31.2357
+                        "longitude": 31.2357,
+                        "location": {
+                          "lat": 30.0444,
+                          "lng": 31.2357
+                        }
                       },
-                      "googleMapsUrl": "https://www.google.com/maps/dir/?api=1&destination=30.0444,31.2357",
                       "qrToken": null,
                       "qrCreatedAt": null,
                       "qrExpiresAt": null,
@@ -11585,7 +12014,7 @@
                         "description": "Free coffee at partner cafe",
                         "category": "FOOD",
                         "pointsRequired": 300,
-                        "image": "https://api.example.com/images/coffee.jpg",
+                        "image": "https://graduation-project-cy61.onrender.com/assets/rewards/coffee-voucher.jpg",
                         "stock": 50,
                         "redeemed": 12,
                         "isAvailable": true,
@@ -11597,7 +12026,7 @@
                         "description": "Two movie tickets at partner cinema",
                         "category": "ENTERTAINMENT",
                         "pointsRequired": 800,
-                        "image": "https://api.example.com/images/movie.jpg",
+                        "image": "https://graduation-project-cy61.onrender.com/assets/rewards/movie-ticket.jpg",
                         "stock": 25,
                         "redeemed": 5,
                         "isAvailable": true,
@@ -12247,9 +12676,9 @@
               "example": {
                 "type": "email.received",
                 "data": {
-                  "from": "donor@example.com",
+                  "from": "donor.followup@lifelink.demo",
                   "to": [
-                    "support@lifelink.example"
+                    "support@lifelink.demo"
                   ],
                   "subject": "Donation follow-up"
                 }

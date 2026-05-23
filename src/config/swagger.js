@@ -317,7 +317,13 @@ const getDemoRequestExample = (path, method) => {
     'PUT /auth/fcm-token': { fcmToken: 'fcm-test-token-2' },
     'DELETE /auth/fcm-token': { fcmToken: 'fcm-test-token-2' },
     'POST /donations/validate': { hospitalId: DEMO_EXAMPLE_IDS.hospitalId, date: '2026-05-12T10:00:00.000Z' },
-    'POST /donations/complete': { donationId: DEMO_EXAMPLE_IDS.donationIdCompleted, notes: 'Donation completed successfully.' },
+    'POST /donations/complete': {
+      appointmentId: DEMO_EXAMPLE_IDS.appointmentIdConfirmed,
+      hemoglobinLevel: 14.8,
+      weight: 72,
+      unitsCollected: 1,
+      notes: 'Donation completed successfully.',
+    },
     'POST /donations/book-appointment': {
       hospitalId: DEMO_EXAMPLE_IDS.hospitalId,
       requestId: DEMO_EXAMPLE_IDS.requestIdCritical,
@@ -330,6 +336,15 @@ const getDemoRequestExample = (path, method) => {
       time: '11:00 AM',
     },
     'POST /appointments/verify-qr': { qrToken: DEMO_EXAMPLES.qrToken },
+    'POST /appointments/{appointmentId}/arrival': {
+      checklist: {
+        idVerified: true,
+        questionnaireCompleted: true,
+        consentSigned: true,
+      },
+    },
+    'POST /appointments/{appointmentId}/reject': { reason: 'Patient not ready' },
+    'POST /appointments/{appointmentId}/rescan': { },
     'PUT /donor/profile': {
       fullName: 'Aya Hassan',
       phoneNumber: '01011111111',

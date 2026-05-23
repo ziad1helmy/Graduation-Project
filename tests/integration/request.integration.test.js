@@ -37,7 +37,7 @@ describe('Request Details Integration', () => {
     expect(response.body.data.contactNumber).toBe(hospital.contactNumber);
     expect(response.body.data.unitsNeeded).toBe(3);
     expect(response.body.data.isEmergency).toBe(true);
-    expect(response.body.data.googleMapsUrl).toContain('google.com/maps/dir');
+    expect(response.body.data.location).toEqual({ lat: 30.0511, lng: 31.2435 });
     expect(response.body.data.distanceKm).toBeDefined();
   });
 
