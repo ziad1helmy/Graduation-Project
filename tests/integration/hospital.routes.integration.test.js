@@ -13,13 +13,12 @@
  *  - Blood inventory: GET /hospital/blood-inventory
  *  - Notification prefs: GET/PUT /hospital/notification-preferences
  *  - Reports: GET /hospital/reports/monthly
- *  - Staff: GET /hospital/staff, POST /hospital/staff, DELETE /hospital/staff/:id
  */
 
-import { describe, it, expect, beforeAll, afterEach, afterAll } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
-import { connect, clearDatabase, closeDatabase } from '../helpers/db.js';
+import { setupTestDB } from '../helpers/db.js';
 import { createHospital, createDonor, createRequest, createDonation, createAdmin } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
 
@@ -43,19 +42,9 @@ const validRequestBody = () => ({
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DB lifecycle
+// DB lifecycle — uses setupTestDB() to share the singleton connection correctly
 // ─────────────────────────────────────────────────────────────────────────────
-beforeAll(async () => {
-  await connect();
-}, 30_000);
-
-afterEach(async () => {
-  await clearDatabase();
-});
-
-afterAll(async () => {
-  await closeDatabase();
-});
+setupTestDB();
 
 // ═════════════════════════════════════════════════════════════════════════════
 // AUTH ENFORCEMENT
@@ -143,6 +132,7 @@ describe('GET /hospital/find-donors', () => {
       .get('/hospital/find-donors?bloodType=O+&radiusKm=5')
       .set('Authorization', `Bearer ${token}`);
 
+    console.log('GET /hospital/find-donors response body:', JSON.stringify(res.body, null, 2));
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
     expect(res.body.message).toBe('Nearby donors retrieved successfully');
@@ -726,5 +716,3 @@ describe('GET /hospital/reports/monthly', () => {
     expect(res.status).toBe(200);
   });
 });
-
-

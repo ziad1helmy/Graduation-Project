@@ -340,7 +340,7 @@ export const getNearbyRequests = async (req, res, next) => {
 
     const viewerLocation = parseViewerLocation(req.query);
     const radiusKm = req.query.radius === undefined || req.query.radius === '' ? null : Number(req.query.radius);
-    const { page, limit, skip } = parsePagination(req.query, 20);
+    const { page, limit, offset } = parsePagination(req.query, 20);
 
     const query = {
       status: { $in: ['pending', 'accepted'] },
@@ -358,7 +358,7 @@ export const getNearbyRequests = async (req, res, next) => {
     );
 
     const filtered = filterNearbyRequests(requests, viewerLocation, Number.isFinite(radiusKm) ? radiusKm : null);
-    const paginated = filtered.slice(skip, skip + limit);
+    const paginated = filtered.slice(offset, offset + limit);
 
     return response.success(res, 200, 'Nearby requests retrieved successfully', {
       requests: paginated,

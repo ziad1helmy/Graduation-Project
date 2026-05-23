@@ -40,7 +40,7 @@ const mapHospital = (h, extras = {}) => ({
 export const listHospitals = async (req, res, next) => {
   try {
     const { city, governorate, search } = req.query;
-    const { skip, limit, page } = parsePagination(req.query, 20);
+    const { offset, limit, page } = parsePagination(req.query, 20);
 
     const query = { role: 'hospital', deletedAt: null, isSuspended: false, isEmailVerified: true };
     if (city) query['address.city'] = city;
@@ -53,7 +53,7 @@ export const listHospitals = async (req, res, next) => {
     }
 
     const [hospitals, total] = await Promise.all([
-      Hospital.find(query).sort({ hospitalName: 1, fullName: 1 }).skip(skip).limit(limit),
+      Hospital.find(query).sort({ hospitalName: 1, fullName: 1 }).skip(offset).limit(limit),
       Hospital.countDocuments(query),
     ]);
 
@@ -152,8 +152,8 @@ export const getNearbyHospitals = async (req, res, next) => {
       return a.distanceKm - b.distanceKm;
     });
 
-    const { skip, limit, page } = parsePagination(req.query, 20);
-    const paginated = mapped.slice(skip, skip + limit);
+    const { offset, limit, page } = parsePagination(req.query, 20);
+    const paginated = mapped.slice(offset, offset + limit);
 
     return response.success(res, 200, 'Nearby hospitals retrieved successfully', {
       hospitals: paginated,

@@ -1351,13 +1351,6 @@ paths:
         - bearerAuth: []
       parameters:
         - in: query
-          name: skip
-          schema:
-            type: integer
-            example: 0
-          description: Legacy pagination alias still supported.
-          example: 0
-        - in: query
           name: limit
           schema:
             type: integer
@@ -1794,13 +1787,6 @@ paths:
               - cancelled
               - rejected
           example: pending
-        - in: query
-          name: skip
-          schema:
-            type: integer
-            example: 0
-          description: Legacy pagination alias still supported.
-          example: 0
         - in: query
           name: limit
           schema:
@@ -2499,6 +2485,8 @@ paths:
                           - Whole
                           - Plasma
                           - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells
                       minAdvanceHours:
                         type: integer
                         example: 24
@@ -2555,6 +2543,8 @@ paths:
                     - Whole
                     - Plasma
                     - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells
                   minAdvanceHours: 24
                   maxAdvanceDays: 30
                   preparationTips:
@@ -2646,10 +2636,14 @@ paths:
                       - Whole
                       - Plasma
                       - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells
                   example:
                     - Whole
                     - Plasma
                     - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells
                 minAdvanceHours:
                   type: integer
                   minimum: 0
@@ -2706,6 +2700,8 @@ paths:
                 - Whole
                 - Plasma
                 - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells
               minAdvanceHours: 24
               maxAdvanceDays: 30
               preparationTips:
@@ -2805,6 +2801,8 @@ paths:
                     - Whole
                     - Plasma
                     - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells
                   minAdvanceHours: 24
                   maxAdvanceDays: 30
                   preparationTips:
@@ -3025,13 +3023,6 @@ paths:
               - organ
           example: blood
         - in: query
-          name: skip
-          schema:
-            type: integer
-            example: 0
-          description: Legacy pagination alias still supported.
-          example: 0
-        - in: query
           name: limit
           schema:
             type: integer
@@ -3229,13 +3220,6 @@ paths:
               - completed
               - cancelled
           example: pending
-        - in: query
-          name: skip
-          schema:
-            type: integer
-            example: 0
-          description: Legacy pagination alias still supported.
-          example: 0
         - in: query
           name: limit
           schema:
@@ -6121,8 +6105,21 @@ paths:
                 message: Appointment booked
                 data:
                   _id: 69fe540565ff7785a031315c
-                  donorId: 69f3df915f42685cbbbcbb18
-                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  donorId:
+                    _id: 69f3df915f42685cbbbcbb18
+                    fullName: Noor Ahmed
+                    phoneNumber: '01123456789'
+                    bloodType: O+
+                    email: noor.ahmed@example.com
+                  donorDetails:
+                    fullName: Noor Ahmed
+                    phoneNumber: '01123456789'
+                    bloodType: O+
+                    email: noor.ahmed@example.com
+                  hospitalId:
+                    _id: 69f3df915f42685cbbbcbb1b
+                    hospitalName: Cairo Care Hospital
+                    fullName: Cairo Care Operations
                   requestId: 69fe540565ff7785a031314f
                   appointmentDate: 2026-05-12T10:00:00.000Z
                   status: pending
@@ -6192,12 +6189,6 @@ paths:
         - bearerAuth: []
       parameters:
         - in: query
-          name: skip
-          schema:
-            type: integer
-            minimum: 0
-          example: 0
-        - in: query
           name: limit
           schema:
             type: integer
@@ -6214,7 +6205,17 @@ paths:
                 data:
                   appointments:
                     - _id: 69fe540565ff7785a031315c
-                      donorId: 69f3df915f42685cbbbcbb18
+                      donorId:
+                        _id: 69f3df915f42685cbbbcbb18
+                        fullName: Noor Ahmed
+                        phoneNumber: '01123456789'
+                        bloodType: O+
+                        email: noor.ahmed@example.com
+                      donorDetails:
+                        fullName: Noor Ahmed
+                        phoneNumber: '01123456789'
+                        bloodType: O+
+                        email: noor.ahmed@example.com
                       hospitalId:
                         _id: 69f3df915f42685cbbbcbb1b
                         hospitalName: Cairo Care Hospital
@@ -6263,7 +6264,17 @@ paths:
                 message: Appointment retrieved
                 data:
                   _id: 69fe540565ff7785a031315c
-                  donorId: 69f3df915f42685cbbbcbb18
+                  donorId:
+                    _id: 69f3df915f42685cbbbcbb18
+                    fullName: Noor Ahmed
+                    phoneNumber: '01123456789'
+                    bloodType: O+
+                    email: noor.ahmed@example.com
+                  donorDetails:
+                    fullName: Noor Ahmed
+                    phoneNumber: '01123456789'
+                    bloodType: O+
+                    email: noor.ahmed@example.com
                   hospitalId:
                     _id: 69f3df915f42685cbbbcbb1b
                     hospitalName: Cairo Care Hospital
@@ -6361,8 +6372,21 @@ paths:
                 message: Appointment cancelled
                 data:
                   _id: 69fe540565ff7785a031315c
-                  donorId: 69f3df915f42685cbbbcbb18
-                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  donorId:
+                    _id: 69f3df915f42685cbbbcbb18
+                    fullName: Noor Ahmed
+                    phoneNumber: '01123456789'
+                    bloodType: O+
+                    email: noor.ahmed@example.com
+                  donorDetails:
+                    fullName: Noor Ahmed
+                    phoneNumber: '01123456789'
+                    bloodType: O+
+                    email: noor.ahmed@example.com
+                  hospitalId:
+                    _id: 69f3df915f42685cbbbcbb1b
+                    hospitalName: Cairo Care Hospital
+                    fullName: Cairo Care Operations
                   appointmentDate: 2026-05-12T10:00:00.000Z
                   status: cancelled
                   cancelledAt: 2026-05-09T10:30:00.000Z
@@ -6482,12 +6506,7 @@ paths:
             default: 20
           description: Items per page (max 100)
           example: 10
-        - in: query
-          name: skip
-          schema:
-            type: integer
-          description: Legacy pagination - number of items to skip. Still supported for compatibility
-          example: 0
+        # legacy `skip` removed; use `page` + `limit`
       responses:
         "200":
           description: Hospitals list retrieved successfully
@@ -6567,12 +6586,7 @@ paths:
             default: 20
           description: Items per page
           example: 10
-        - in: query
-          name: skip
-          schema:
-            type: integer
-          description: Legacy pagination - number of items to skip
-          example: 0
+        # legacy `skip` removed; use `page` + `limit`
       responses:
         "200":
           description: Nearby hospitals list
@@ -6731,7 +6745,9 @@ paths:
         Returns all supported donation types including medical hold periods and point values.
         - Blood: 56-day cooldown, 200 points
         - Plasma: 14-day cooldown, 150 points
-        - Platelets: 7-day cooldown, 175 points
+        - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells: 7-day cooldown, 175 points
         - Organ: 365-day cooldown, 500 points
 
 
@@ -6805,7 +6821,9 @@ paths:
                   enum:
                     - blood
                     - plasma
-                    - platelets
+                    - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells
                     - organ
                   default: blood
                   description: Type of donation - affects cooldown period
@@ -6854,7 +6872,9 @@ paths:
         Completes a donation and triggers point award based on donation type:
         - Blood: 200 points
         - Plasma: 150 points
-        - Platelets: 175 points
+        - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells: 175 points
         - Organ: 500 points
 
         Also triggers first-donation bonus if applicable.
@@ -6924,6 +6944,21 @@ paths:
                 data:
                   appointments:
                     - _id: 69fe540565ff7785a031315c
+                      donorId:
+                        _id: 69f3df915f42685cbbbcbb18
+                        fullName: Noor Ahmed
+                        phoneNumber: '01123456789'
+                        bloodType: O+
+                        email: noor.ahmed@example.com
+                      donorDetails:
+                        fullName: Noor Ahmed
+                        phoneNumber: '01123456789'
+                        bloodType: O+
+                        email: noor.ahmed@example.com
+                      hospitalId:
+                        _id: 69f3df915f42685cbbbcbb1b
+                        hospitalName: Cairo Care Hospital
+                        fullName: Cairo Care Operations
                       appointmentDate: 2026-05-12T10:00:00.000Z
                       status: pending
                       notes: Test appointment
@@ -6998,12 +7033,6 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - in: query
-          name: page
-          schema:
-            type: integer
-            default: 1
-          example: 1
         - in: query
           name: limit
           schema:
@@ -7361,9 +7390,10 @@ paths:
     get:
       tags:
         - Requests
+# Remove problematic line 7393
       summary: Get Google Maps navigation URL for a request
+# Remove problematic line 7395
       security:
-        - bearerAuth: []
       description: |-
         Resolves a request's stored hospital coordinates and returns a Google Maps navigation URL.
 

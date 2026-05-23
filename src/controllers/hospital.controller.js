@@ -10,6 +10,7 @@ import HospitalSettings from '../models/HospitalSettings.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as hospitalService from '../services/hospital.service.js';
 import { validateCreateHospitalByAdminBody } from '../validation/admin.validation.js';
+import { DEFAULT_SUPPORTED_DONATION_TYPES } from '../constants/donation.constants.js';
 
 const normalizeLocationInput = (location) => {
   if (!location || typeof location !== 'object') return null;
@@ -48,7 +49,7 @@ const parseBooleanQuery = (value, defaultValue) => {
   if (['false', '0', 'no'].includes(normalized)) return false;
   return null;
 };
-
+    
 const resolveHospitalCoordinates = (hospital) => {
   const latitude = toNumber(hospital?.location?.coordinates?.lat ?? hospital?.lat);
   const longitude = toNumber(hospital?.location?.coordinates?.lng ?? hospital?.long);
@@ -61,10 +62,9 @@ const resolveHospitalCoordinates = (hospital) => {
 };
 
 const APPOINTMENT_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const DEFAULT_APPOINTMENT_OPENING_TIME = '08:00';
+      
 const DEFAULT_APPOINTMENT_CLOSING_TIME = '19:00';
 const DEFAULT_APPOINTMENT_WORKING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const DEFAULT_APPOINTMENT_DONATION_TYPES = ['Whole', 'Plasma', 'Platelets'];
 const DEFAULT_APPOINTMENT_PREPARATION_TIPS = [
   'Eat a healthy meal before donation',
   'Drink plenty of water',
@@ -143,7 +143,7 @@ const getDefaultAppointmentSettings = () => {
     hourlySlots,
     totalDailyCapacity: sumHourlySlots(hourlySlots),
     isActive: true,
-    supportedDonationTypes: [...DEFAULT_APPOINTMENT_DONATION_TYPES],
+    supportedDonationTypes: [...DEFAULT_SUPPORTED_DONATION_TYPES],
     minAdvanceHours: 24,
     maxAdvanceDays: 30,
     preparationTips: [...DEFAULT_APPOINTMENT_PREPARATION_TIPS],
@@ -212,7 +212,7 @@ const normalizeAppointmentSettings = (settings, payload = {}) => {
   const supportedDonationTypes = validateStringArray(
     payload.supportedDonationTypes,
     'supportedDonationTypes',
-    DEFAULT_APPOINTMENT_DONATION_TYPES
+    DEFAULT_SUPPORTED_DONATION_TYPES
   );
 
   const preparationTips = payload.preparationTips === undefined
@@ -391,7 +391,7 @@ export const findDonors = async (req, res, next) => {
     const lat = toNumber(req.query.lat);
     const lng = toNumber(req.query.lng);
     const availability = parseBooleanQuery(req.query.availability, true);
-    const { page, limit, skip } = parsePagination(req.query, 20);
+    const { page, limit, offset } = parsePagination(req.query, 20);
 
     if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
       return response.error(res, 400, 'Invalid bloodType');
@@ -463,7 +463,7 @@ export const findDonors = async (req, res, next) => {
       },
     }));
 
-    const paginatedDonors = donors.slice(skip, skip + limit);
+    const paginatedDonors = donors.slice(offset, offset + limit);
     const pagination = paginationMeta(donors.length, page, limit);
 
     return res.status(200).json({
@@ -635,11 +635,11 @@ export const createRequest = async (req, res, next) => {
   }
 };
 
-// Get hospital's requests — supports ?page=1&limit=10 or legacy ?skip=0&limit=10
+// Get hospital's requests — supports ?page=1&limit=10
 export const getRequests = async (req, res, next) => {
   try {
     const { status, type } = req.query;
-    const { skip, limit, page } = parsePagination(req.query);
+    const { offset, limit, page } = parsePagination(req.query);
 
     const filter = { hospitalId: req.user.userId };
 
@@ -651,7 +651,7 @@ export const getRequests = async (req, res, next) => {
     }
 
     const [requests, total] = await Promise.all([
-      Request.find(filter).skip(skip).limit(limit).sort({ createdAt: -1 }),
+      Request.find(filter).skip(offset).limit(limit).sort({ createdAt: -1 }),
       Request.countDocuments(filter),
     ]);
 
@@ -789,11 +789,11 @@ export const deleteRequest = async (req, res, next) => {
   }
 };
 
-// Get donations for hospital's requests — supports ?page=1&limit=10 or legacy ?skip=0&limit=10
+// Get donations for hospital's requests — supports ?page=1&limit=10
 export const getDonations = async (req, res, next) => {
   try {
     const { status } = req.query;
-    const { skip, limit, page } = parsePagination(req.query);
+    const { offset, limit, page } = parsePagination(req.query);
 
     // Get all request IDs belonging to this hospital
     const hospitalRequests = await Request.find({ hospitalId: req.user.userId }).select('_id');
@@ -809,7 +809,7 @@ export const getDonations = async (req, res, next) => {
       Donation.find(filter)
         .populate('donorId', 'fullName email phoneNumber location bloodType')
         .populate('requestId', 'type bloodType organType urgency')
-        .skip(skip)
+        .skip(offset)
         .limit(limit)
         .sort({ createdAt: -1 }),
       Donation.countDocuments(filter),

@@ -142,7 +142,7 @@ describe('Appointment model', () => {
     it('accepts all valid donationType enum options', async () => {
       const donor = await createDonor();
       const hospital = await createHospital();
-      const validTypes = ['Whole Blood', 'Platelets', 'Plasma'];
+      const validTypes = ['Whole Blood', 'Plasma', 'Platelets', 'Double Red Cells'];
 
       for (const type of validTypes) {
         const qrToken = crypto.randomBytes(32).toString('hex');

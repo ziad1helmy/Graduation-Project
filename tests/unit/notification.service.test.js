@@ -83,7 +83,7 @@ describe('Notification Service', () => {
     const n2 = await notificationService.notifyMilestone(donor._id, { id: new mongoose.Types.ObjectId(), title: 'T2' });
 
     await notificationService.markAsRead(n1._id);
-    const { notifications, total } = await notificationService.getUserNotifications(donor._id, { skip: 0, limit: 10 });
+    const { notifications, total } = await notificationService.getUserNotifications(donor._id, { offset: 0, limit: 10 });
     expect(total).toBeGreaterThanOrEqual(2);
     const unread = await notificationService.getUnreadNotifications(donor._id);
     expect(unread.find((x) => x._id.toString() === n1._id.toString())).toBeUndefined();

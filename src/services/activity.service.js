@@ -153,6 +153,10 @@ export const getUserTimeline = async (userId, filters = {}) => {
     // Build query: always scoped to userId
     const query = { userId };
 
+    // Optional filters
+    if (filters.type) query.type = filters.type;
+    if (filters.action) query.action = filters.action;
+
     // Fetch total matching documents (for pagination metadata)
     const total = await Activity.countDocuments(query);
 

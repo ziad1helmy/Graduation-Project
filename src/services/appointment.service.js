@@ -9,6 +9,8 @@ import Notification from '../models/Notification.model.js';
 import * as donationService from './donation.service.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
+import { appointmentPopulateOptions, toAppointmentResponse } from '../utils/appointment.dto.js';
+import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
 
 /**
  * Book an appointment
@@ -17,8 +19,9 @@ import { logger } from '../utils/logger.js';
  * @param {string|null} requestId
  * @param {Date|string} appointmentDate
  * @param {string} notes
+ * @param {string} donationType
  */
-export const bookAppointment = async (donorId, hospitalId, requestId = null, appointmentDate, notes = '') => {
+export const bookAppointment = async (donorId, hospitalId, requestId = null, appointmentDate, notes = '', donationType = DONATION_TYPE_LABELS.WHOLE_BLOOD) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(donorId) || !mongoose.Types.ObjectId.isValid(hospitalId)) {
       throw new Error('Invalid donor or hospital id');
@@ -31,6 +34,8 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
     const donor = await Donor.findById(donorId);
     if (!donor) throw new Error('Donor not found');
     if (donor.isSuspended) throw new Error('Donor is suspended');
+
+    const donorDetails = toAppointmentResponse({ donorId: donor }).donorDetails;
 
     const hospital = await User.findById(hospitalId);
     if (!hospital || hospital.role !== 'hospital') throw new Error('Hospital not found');
@@ -54,6 +59,11 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       throw new Error('Appointment date must be in the future');
     }
 
+    const normalizedDonationType = donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD;
+    if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
+      throw new Error('Invalid donation type');
+    }
+
     // Prevent duplicate active appointment for same donor + hospital
     const existing = await Appointment.findOne({
       donorId,
@@ -69,14 +79,18 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
 
     const appointment = await Appointment.create({
       donorId,
+      donorDetails,
       hospitalId,
       requestId,
       appointmentDate: apptDate,
       notes,
       status: 'pending',
+      donationType: normalizedDonationType,
       qrToken,
       qrExpiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 24h
     });
+
+    await appointment.populate(appointmentPopulateOptions);
 
     // Fire-and-forget notification to hospital
     Notification.create({
@@ -91,6 +105,7 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       message: err?.message,
     }));
 
+    // Return the Mongoose document for internal callers; controllers format to DTO.
     return appointment;
   } catch (error) {
     throw error;
@@ -99,19 +114,24 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
 
 export const getMyAppointments = async (donorId, filters = {}) => {
   try {
-    const { skip = 0, limit = 10 } = filters;
+    const { page = 1, limit = 10 } = filters;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = { donorId };
 
     const appointments = await Appointment.find(filter)
-      .populate('hospitalId', 'hospitalName fullName address contactNumber location')
-      .skip(parseInt(skip))
+      .populate(appointmentPopulateOptions)
+      .skip(offset)
       .limit(parseInt(limit))
       .sort({ appointmentDate: -1 });
 
     const total = await Appointment.countDocuments(filter);
 
-    return { appointments, total, meta: paginationMeta(total, skip, limit) };
+    return {
+      appointments: appointments.map(toAppointmentResponse),
+      total,
+      meta: paginationMeta(total, page, limit),
+    };
   } catch (error) {
     throw error;
   }
@@ -132,7 +152,9 @@ export const cancelAppointment = async (appointmentId, donorId) => {
     appointment.cancelledAt = new Date();
     await appointment.save();
 
-    return appointment;
+    await appointment.populate(appointmentPopulateOptions);
+
+    return toAppointmentResponse(appointment);
   } catch (error) {
     throw error;
   }
@@ -142,11 +164,11 @@ export const getAppointmentById = async (appointmentId, donorId) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
 
-    const appointment = await Appointment.findOne({ _id: appointmentId, donorId })
-      .populate('hospitalId', 'hospitalName fullName address contactNumber');
+    const appointment = await Appointment.findOne({ _id: appointmentId, donorId });
 
     if (!appointment) throw new Error('Appointment not found');
 
+    // Return the raw Mongoose document; controllers should populate and call toAppointmentResponse.
     return appointment;
   } catch (error) {
     throw error;
@@ -172,7 +194,9 @@ export const rescheduleAppointment = async (appointmentId, donorId, newDate) => 
     appointment.appointmentDate = apptDate;
     await appointment.save();
 
-    return appointment;
+    await appointment.populate(appointmentPopulateOptions);
+
+    return toAppointmentResponse(appointment);
   } catch (error) {
     throw error;
   }

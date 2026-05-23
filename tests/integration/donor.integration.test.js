@@ -255,19 +255,49 @@ describe('Donor Routes Integration', () => {
     expect(response.body.data).toHaveProperty('eligible');
   });
 
-  it('GET /donor/history returns donation history (alias)', async () => {
+  it('GET /donor/history paginates with page and limit', async () => {
     await clearDatabase();
     const donor = await createDonor();
+    const hospital = await createHospital();
+    const firstRequest = await createRequest(hospital._id, { bloodType: donor.bloodType });
+    const secondRequest = await createRequest(hospital._id, { bloodType: donor.bloodType });
+
+    await Donation.create({
+      donorId: donor._id,
+      requestId: firstRequest._id,
+      quantity: 1,
+      status: 'completed',
+      donationDate: new Date(),
+    });
+    await Donation.create({
+      donorId: donor._id,
+      requestId: secondRequest._id,
+      quantity: 1,
+      status: 'completed',
+      donationDate: new Date(),
+    });
 
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
 
-    const response = await request(app)
-      .get('/donor/history')
+    const firstPage = await request(app)
+      .get('/donor/history?page=1&limit=1')
       .set('Authorization', `Bearer ${token}`);
 
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('donations');
+    const secondPage = await request(app)
+      .get('/donor/history?page=2&limit=1')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(firstPage.status).toBe(200);
+    expect(firstPage.body.success).toBe(true);
+    expect(firstPage.body.data.donations).toHaveLength(1);
+    expect(firstPage.body.data.pagination.currentPage).toBe(1);
+    expect(firstPage.body.data.pagination.total).toBe(2);
+    expect(firstPage.body.data.pagination.totalPages).toBe(2);
+
+    expect(secondPage.status).toBe(200);
+    expect(secondPage.body.success).toBe(true);
+    expect(secondPage.body.data.donations).toHaveLength(1);
+    expect(secondPage.body.data.pagination.currentPage).toBe(2);
   });
 
   it('GET /donor/notifications returns donor notifications', async () => {

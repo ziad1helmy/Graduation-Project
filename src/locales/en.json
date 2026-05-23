@@ -90,6 +90,72 @@
     }
   },
 
+  "requests": {
+    "new_request": "New Request",
+    "create_request": "Create Request",
+    "request_created_success": "Request created successfully",
+    "request_creation_failed": "Failed to create request",
+    "update_request": "Update Request",
+    "request_updated_success": "Request updated successfully",
+    "request_status": {
+      "pending": "Pending",
+      "accepted": "Accepted",
+      "declined": "Declined",
+      "completed": "Completed",
+      "cancelled": "Cancelled"
+    },
+    "form": {
+      "title": "Request Title",
+      "description": "Description",
+      "blood_type": "Blood Type",
+      "units_needed": "Units Needed",
+      "hospital": "Hospital",
+      "city": "City",
+      "urgent": "Urgent",
+      "contact_name": "Contact Name",
+      "contact_phone": "Contact Phone",
+      "notes": "Additional Notes"
+    },
+    "placeholders": {
+      "title": "Enter title",
+      "description": "Enter details",
+      "units_needed": "e.g., 2",
+      "contact_phone": "e.g., +123456789"
+    },
+    "validation": {
+      "title_required": "Title is required",
+      "blood_type_required": "Blood type is required",
+      "units_required": "Number of units is required and must be a positive number",
+      "hospital_required": "Hospital is required",
+      "contact_phone_invalid": "Invalid phone number"
+    },
+    "actions": {
+      "accept": "Accept Request",
+      "decline": "Decline Request",
+      "cancel": "Cancel Request",
+      "share": "Share Request",
+      "navigate": "Navigate"
+    },
+    "list": {
+      "no_requests": "No requests found",
+      "loading": "Loading requests...",
+      "filter_nearby": "Nearby",
+      "filter_urgent": "Urgent",
+      "filter_all": "All requests"
+    },
+    "details": {
+      "requested_by": "Requested by {{name}}",
+      "requested_at": "Requested at {{time}}",
+      "units": "{{count}} unit(s)",
+      "location": "Location",
+      "distance": "{{distance}} km away"
+    },
+    "notifications": {
+      "new_request_title": "🚨 New Blood Request",
+      "new_request_body": "{{bloodType}} needed near {{hospitalName}}. Units: {{units}}"
+    }
+  },
+
   "ui": {
     "accept": "Accept",
     "decline": "Decline",

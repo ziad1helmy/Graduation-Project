@@ -3,7 +3,7 @@ import HelpDocument from '../models/HelpDocument.model.js';
 import SupportMessage from '../models/SupportMessage.model.js';
 
 const FAQS = [
-  { category: 'DONATION', question: 'How often can I donate blood?', answer: 'Whole blood donation is generally allowed every 56 days.' },
+  { category: 'DONATION', question: 'How often can I donate blood?', answer: 'Donation intervals depend on type: whole blood every 56 days, plasma every 14 days, and platelets every 7 days.' },
   { category: 'HEALTH', question: 'Can I donate if I am feeling unwell?', answer: 'No. Please wait until you are fully recovered and meet eligibility requirements.' },
   { category: 'REWARDS', question: 'How do points work?', answer: 'You earn points from successful donations, emergency responses, profile completion, and badges.' },
   { category: 'TECHNICAL', question: 'How do I reset my password?', answer: 'Use the password reset option from the login screen.' },

@@ -443,7 +443,7 @@ export const getPointsSummary = async (donorId) => {
 
 export const getPointsHistory = async (donorId, filters = {}) => {
   const { page = 1, limit = 20, filter = 'ALL', dateFrom, dateTo } = filters;
-  const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
 
   const query = { donorId };
 
@@ -454,7 +454,7 @@ export const getPointsHistory = async (donorId, filters = {}) => {
   if (dateTo) query.createdAt = { ...query.createdAt, $lte: new Date(dateTo) };
 
   const [transactions, total] = await Promise.all([
-    PointsTransaction.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+    PointsTransaction.find(query).sort({ createdAt: -1 }).skip(offset).limit(parseInt(limit)),
     PointsTransaction.countDocuments(query),
   ]);
 
@@ -686,12 +686,12 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
 };
 
 export const getDonorRedemptions = async (donorId, { page = 1, limit = 20, status } = {}) => {
-  const skip = (page - 1) * limit;
+  const offset = (page - 1) * limit;
   const query = { donorId };
   if (status && status !== 'ALL') query.status = status;
 
   const [redemptions, total] = await Promise.all([
-    RewardRedemption.find(query).populate('rewardId', 'name category iconType').sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+    RewardRedemption.find(query).populate('rewardId', 'name category iconType').sort({ createdAt: -1 }).skip(offset).limit(parseInt(limit)),
     RewardRedemption.countDocuments(query),
   ]);
 

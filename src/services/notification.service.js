@@ -264,19 +264,19 @@ export const getUnreadNotifications = async (userId) => {
 /**
  * Get all notifications for a user with pagination
  * @param {string} userId - User ID
- * @param {Object} options - {skip, limit, read, type}
+ * @param {Object} options - {offset, limit, read, type}
  * @returns {Object} - {notifications, total}
  */
 export const getUserNotifications = async (userId, options = {}) => {
   try {
-    const { skip = 0, limit = 10, read = null, type = null } = options;
+    const { offset = 0, limit = 10, read = null, type = null } = options;
 
     const filter = { userId };
     if (read !== null) filter.read = read;
     if (type) filter.type = type;
 
     const notifications = await Notification.find(filter)
-      .skip(parseInt(skip))
+      .skip(parseInt(offset))
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
 

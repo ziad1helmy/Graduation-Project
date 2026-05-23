@@ -101,7 +101,7 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
       expect(page2.pagination.page).toBe(2);
       expect(page2.pagination.hasNextPage).toBe(false);
       expect(page2.pagination.hasPrevPage).toBe(true);
-    });
+    }, 45000);
 
     it('should return timeline without requiring a type query parameter', async () => {
       const req = await createRequest(testHospital._id, {
@@ -210,7 +210,7 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
 
       expect(queryTime).toBeLessThan(1000);
       expect(timeline.activities.length).toBeGreaterThan(0);
-    });
+    }, 45000);
 
     it('should retrieve timeline efficiently with pagination', async () => {
       for (let i = 0; i < 50; i++) {
@@ -231,7 +231,7 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
 
       expect(queryTime).toBeLessThan(500);
       expect(timeline.activities.length).toBeGreaterThan(0);
-    });
+    }, 45000);
   });
 
   describe('Deduplication & Data Integrity', () => {

@@ -198,19 +198,20 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
 /**
  * Get donation history for a donor
  * @param {string} donorId - Donor ID
- * @param {Object} filters - {status, skip, limit}
+ * @param {Object} filters - {status, page, limit}
  * @returns {Object} - {donations, total}
  */
 export const getDonationHistory = async (donorId, filters = {}) => {
   try {
-    const { status, skip = 0, limit = 10 } = filters;
+    const { status, page = 1, limit = 10 } = filters;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = { donorId };
     if (status) filter.status = status;
 
     const donations = await Donation.find(filter)
       .populate('requestId')
-      .skip(parseInt(skip))
+      .skip(offset)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
 
@@ -262,19 +263,20 @@ export const getDonorStats = async (donorId) => {
 /**
  * Get donations for a request
  * @param {string} requestId - Request ID
- * @param {Object} filters - {status, skip, limit}
+ * @param {Object} filters - {status, page, limit}
  * @returns {Object} - {donations, total}
  */
 export const getDonationsForRequest = async (requestId, filters = {}) => {
   try {
-    const { status, skip = 0, limit = 10 } = filters;
+    const { status, page = 1, limit = 10 } = filters;
+    const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = { requestId };
     if (status) filter.status = status;
 
     const donations = await Donation.find(filter)
       .populate('donorId', 'fullName email phoneNumber location bloodType')
-      .skip(parseInt(skip))
+      .skip(offset)
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });
 

@@ -78,7 +78,7 @@ export const isBloodTypeCompatible = (donorBloodType, requestBloodType) => {
  * Check if donor is eligible to donate
  * - Blood type compatible
  * - Available
- * - Sufficient time since last donation (56 days for whole blood)
+ * - Sufficient time since last donation (type-specific cooldowns)
  * @param {Object} donor - Donor document
  * @param {Object} request - Request document
  * @returns {Object} - {eligible: boolean, reason: string}

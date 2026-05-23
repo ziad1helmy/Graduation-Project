@@ -6,32 +6,78 @@ import { createDonor, createHospital, createRequest, createAdmin } from '../help
 import { signToken } from '../../src/utils/jwt.js';
 import Appointment from '../../src/models/Appointment.model.js';
 
+const DONATION_FLOW_TYPES = [
+  { donationType: 'Whole Blood', requestType: 'blood' },
+  { donationType: 'Plasma', requestType: 'plasma' },
+  { donationType: 'Platelets', requestType: 'platelets' },
+  { donationType: 'Double Red Cells', requestType: 'blood' },
+];
+
+const bookAppointmentPayload = ({ hospitalId, requestId, appointmentDate, donationType }) => ({
+  hospitalId: hospitalId.toString(),
+  requestId: requestId.toString(),
+  appointmentDate: appointmentDate.toISOString(),
+  notes: 'Morning preference',
+  donationType,
+});
+
 setupTestDB();
 
 describe('Appointment Routes Integration', () => {
-  it('POST /donations/book-appointment books an appointment for authenticated donor', async () => {
+  it.each(DONATION_FLOW_TYPES)('books and retrieves appointments for %s', async ({ donationType, requestType }) => {
     await clearDatabase();
     const donor = await createDonor({ bloodType: 'O+' });
     const hospital = await createHospital();
-    const request2 = await createRequest(hospital._id);
+    const request2 = await createRequest(hospital._id, {
+      type: requestType,
+      bloodType: 'O+',
+    });
 
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days from now
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const rescheduleDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
 
-    const response = await request(app)
+    const createResponse = await request(app)
       .post('/donations/book-appointment')
       .set('Authorization', `Bearer ${token}`)
+      .send(bookAppointmentPayload({
+        hospitalId: hospital._id,
+        requestId: request2._id,
+        appointmentDate: futureDate,
+        donationType,
+      }));
+
+    expect(createResponse.status).toBe(201);
+    expect(createResponse.body.success).toBe(true);
+    expect(createResponse.body.data).toHaveProperty('_id');
+    expect(createResponse.body.data.donationType).toBe(donationType);
+
+    const appointmentId = createResponse.body.data._id;
+
+    const updateResponse = await request(app)
+      .patch(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${token}`)
       .send({
-        hospitalId: hospital._id.toString(),
-        requestId: request2._id.toString(),
-        appointmentDate: futureDate.toISOString(),
-        notes: 'Morning preference',
+        date: rescheduleDate.toISOString(),
       });
 
-    expect(response.status).toBe(201);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('_id');
-    expect(response.body.data.status).toBe('pending');
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.data.donationType).toBe(donationType);
+
+    const detailResponse = await request(app)
+      .get(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(detailResponse.status).toBe(200);
+    expect(detailResponse.body.data.donationType).toBe(donationType);
+
+    const listResponse = await request(app)
+      .get('/donations/book-appointment/my-appointments')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(listResponse.status).toBe(200);
+    expect(listResponse.body.data.appointments.some((appointment) => appointment._id === appointmentId)).toBe(true);
+    expect(listResponse.body.data.appointments.find((appointment) => appointment._id === appointmentId).donationType).toBe(donationType);
   });
 
   it('POST /donations/book-appointment requires authentication', async () => {
@@ -113,6 +159,8 @@ describe('Appointment Routes Integration', () => {
     expect(response.body.success).toBe(true);
     expect(Array.isArray(response.body.data.appointments)).toBe(true);
     expect(response.body.data.appointments.length).toBeGreaterThan(0);
+    expect(response.body.data.appointments[0].donorId).toBeDefined();
+    expect(response.body.data.appointments[0].donorDetails).toBeDefined();
   });
 
   it('GET /donations/book-appointment/my-appointments requires authentication', async () => {

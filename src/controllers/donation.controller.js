@@ -4,6 +4,11 @@ import Donation from '../models/Donation.model.js';
 import Donor from '../models/Donor.model.js';
 import * as activityService from '../services/activity.service.js';
 import { ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
+import {
+  APPOINTMENT_POINTS_BY_DONATION_TYPE,
+  DONATION_TYPE_LABELS,
+  DONATION_TYPE_OPTIONS,
+} from '../constants/donation.constants.js';
 import * as eligibilityService from '../services/eligibility.service.js';
 import * as donationService from '../services/donation.service.js';
 import * as rewardService from '../services/reward.service.js';
@@ -37,10 +42,13 @@ export const completeDonation = async (req, res, next) => {
 
 export const getDonationTypes = (req, res) => {
   return response.success(res, 200, 'Donation types retrieved successfully', [
-    'Whole Blood',
-    'Platelets',
-    'Plasma',
+    ...DONATION_TYPE_OPTIONS,
   ]);
+};
+
+const getAppointmentPoints = (donationType = DONATION_TYPE_LABELS.WHOLE_BLOOD) => {
+  return APPOINTMENT_POINTS_BY_DONATION_TYPE[donationType]
+    ?? APPOINTMENT_POINTS_BY_DONATION_TYPE[DONATION_TYPE_LABELS.WHOLE_BLOOD];
 };
 
 export const validateDonationEligibility = async (req, res, next) => {
@@ -149,12 +157,12 @@ export const verifyQr = async (req, res, next) => {
     }).catch(() => {});
 
     const hospitalName = appointment.hospitalId?.hospitalName || appointment.hospitalId?.fullName || 'Hospital';
-    const pointsEarned = appointment.donationType === 'Whole Blood' ? 100 : 120;
+    const pointsEarned = getAppointmentPoints(appointment.donationType);
 
     return response.success(res, 200, 'Donation verified successfully', {
       donation: {
         donationId: donation._id,
-        type: appointment.donationType || 'Whole Blood',
+        type: appointment.donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD,
         date: appointment.qrScannedAt,
         location: hospitalName,
         status: 'confirmed',
@@ -242,7 +250,7 @@ export const scanQr = async (req, res, next) => {
       },
     }).catch(() => {});
 
-    const pointsEarned = appointment.donationType === 'Whole Blood' ? 100 : 120;
+    const pointsEarned = getAppointmentPoints(appointment.donationType);
 
     return response.success(res, 200, 'Donation confirmed successfully', {
       donationId: donation._id,

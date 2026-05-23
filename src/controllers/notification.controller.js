@@ -8,11 +8,11 @@ const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 export const getNotifications = async (req, res, next) => {
   try {
     const { read, type } = req.query;
-    const { skip, limit, page } = parsePagination(req.query, 20);
+    const { offset, limit, page } = parsePagination(req.query, 20);
 
     const readFilter = read === undefined ? null : String(read).toLowerCase() === 'true';
     const result = await notificationService.getUserNotifications(req.user.userId, {
-      skip,
+      offset,
       limit,
       read: readFilter,
       type: type || null,

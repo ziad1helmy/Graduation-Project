@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll } from 'vitest';
 import { setupTestDB } from '../helpers/db.js';
 import { createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
 import DonorPoints from '../../src/models/DonorPoints.model.js';

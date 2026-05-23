@@ -30,7 +30,7 @@
     },
     {
       "name": "Admin",
-      "description": "Admin operations: user management, analytics, rewards, system maintenance, metrics, and audit logs"
+      "description": "Admin operations: user management, analytics, rewards, system maintenance, metrics, audit logs, and inbound email management"
     },
     {
       "name": "Requests",
@@ -136,6 +136,130 @@
             }
           }
         ]
+      },
+      "InboundEmail": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string",
+            "example": "resend"
+          },
+          "providerEventId": {
+            "type": "string",
+            "nullable": true
+          },
+          "messageId": {
+            "type": "string",
+            "nullable": true
+          },
+          "from": {
+            "type": "string",
+            "example": "donor@example.com"
+          },
+          "to": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "cc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bcc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "subject": {
+            "type": "string"
+          },
+          "text": {
+            "type": "string"
+          },
+          "html": {
+            "type": "string"
+          },
+          "headers": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "attachments": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
+          },
+          "isRead": {
+            "type": "boolean"
+          },
+          "readAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "isArchived": {
+            "type": "boolean"
+          },
+          "archivedAt": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "receivedAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "createdAt": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updatedAt": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "InboundEmailListResponse": {
+        "type": "object",
+        "properties": {
+          "inboundEmails": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InboundEmail"
+            }
+          },
+          "pagination": {
+            "type": "object",
+            "properties": {
+              "total": {
+                "type": "integer"
+              },
+              "page": {
+                "type": "integer"
+              },
+              "limit": {
+                "type": "integer"
+              },
+              "totalPages": {
+                "type": "integer"
+              },
+              "hasNextPage": {
+                "type": "boolean"
+              },
+              "hasPrevPage": {
+                "type": "boolean"
+              }
+            }
+          }
+        }
       },
       "LoginRequest": {
         "type": "object",
@@ -1863,16 +1987,6 @@
         "parameters": [
           {
             "in": "query",
-            "name": "skip",
-            "schema": {
-              "type": "integer",
-              "example": 0
-            },
-            "description": "Legacy pagination alias still supported.",
-            "example": 0
-          },
-          {
-            "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer",
@@ -2541,16 +2655,6 @@
               ]
             },
             "example": "pending"
-          },
-          {
-            "in": "query",
-            "name": "skip",
-            "schema": {
-              "type": "integer",
-              "example": 0
-            },
-            "description": "Legacy pagination alias still supported.",
-            "example": 0
           },
           {
             "in": "query",
@@ -3519,7 +3623,7 @@
                           "example": [
                             "Whole",
                             "Plasma",
-                            "Platelets"
+                            "Platelets - Double Red Cells - Double Red Cells"
                           ]
                         },
                         "minAdvanceHours": {
@@ -3591,7 +3695,7 @@
                     "supportedDonationTypes": [
                       "Whole",
                       "Plasma",
-                      "Platelets"
+                      "Platelets - Double Red Cells - Double Red Cells"
                     ],
                     "minAdvanceHours": 24,
                     "maxAdvanceDays": 30,
@@ -3709,13 +3813,13 @@
                       "enum": [
                         "Whole",
                         "Plasma",
-                        "Platelets"
+                        "Platelets - Double Red Cells - Double Red Cells"
                       ]
                     },
                     "example": [
                       "Whole",
                       "Plasma",
-                      "Platelets"
+                      "Platelets - Double Red Cells - Double Red Cells"
                     ]
                   },
                   "minAdvanceHours": {
@@ -3785,7 +3889,7 @@
                 "supportedDonationTypes": [
                   "Whole",
                   "Plasma",
-                  "Platelets"
+                  "Platelets - Double Red Cells - Double Red Cells"
                 ],
                 "minAdvanceHours": 24,
                 "maxAdvanceDays": 30,
@@ -3917,7 +4021,7 @@
                     "supportedDonationTypes": [
                       "Whole",
                       "Plasma",
-                      "Platelets"
+                      "Platelets - Double Red Cells - Double Red Cells"
                     ],
                     "minAdvanceHours": 24,
                     "maxAdvanceDays": 30,
@@ -4238,16 +4342,6 @@
           },
           {
             "in": "query",
-            "name": "skip",
-            "schema": {
-              "type": "integer",
-              "example": 0
-            },
-            "description": "Legacy pagination alias still supported.",
-            "example": 0
-          },
-          {
-            "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer",
@@ -4544,16 +4638,6 @@
               ]
             },
             "example": "pending"
-          },
-          {
-            "in": "query",
-            "name": "skip",
-            "schema": {
-              "type": "integer",
-              "example": 0
-            },
-            "description": "Legacy pagination alias still supported.",
-            "example": 0
           },
           {
             "in": "query",
@@ -5544,6 +5628,280 @@
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+      }
+    },
+    "/admin/inbound-emails": {
+      "get": {
+        "summary": "List inbound emails",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "description": "Page number"
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100
+            },
+            "description": "Page size"
+          },
+          {
+            "in": "query",
+            "name": "read",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Filter by read status"
+          },
+          {
+            "in": "query",
+            "name": "archived",
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Filter by archived status"
+          },
+          {
+            "in": "query",
+            "name": "search",
+            "schema": {
+              "type": "string"
+            },
+            "description": "Search across sender, subject, body, and recipients"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inbound emails retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Inbound emails retrieved successfully",
+                  "data": {
+                    "inboundEmails": [
+                      {
+                        "_id": "66f700000000000000000001",
+                        "provider": "resend",
+                        "from": "donor@example.com",
+                        "to": [
+                          "support@lifelink.example"
+                        ],
+                        "subject": "Donation follow-up",
+                        "isRead": false,
+                        "isArchived": false,
+                        "receivedAt": "2026-05-18T08:30:00.000Z"
+                      }
+                    ],
+                    "pagination": {
+                      "total": 1,
+                      "page": 1,
+                      "limit": 20,
+                      "totalPages": 1,
+                      "hasNextPage": false,
+                      "hasPrevPage": false
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/inbound-emails/{id}": {
+      "get": {
+        "summary": "Get an inbound email by ID",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inbound email retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Inbound email retrieved successfully",
+                  "data": {
+                    "inboundEmail": {
+                      "_id": "66f700000000000000000001",
+                      "provider": "resend",
+                      "from": "donor@example.com",
+                      "to": [
+                        "support@lifelink.example"
+                      ],
+                      "subject": "Donation follow-up",
+                      "text": "Please contact me about the donation process.",
+                      "isRead": false,
+                      "isArchived": false,
+                      "receivedAt": "2026-05-18T08:30:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Inbound email not found"
+          }
+        }
+      },
+      "delete": {
+        "summary": "Delete an inbound email",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inbound email deleted successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Inbound email deleted successfully",
+                  "data": {
+                    "inboundEmail": {
+                      "_id": "66f700000000000000000001"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/inbound-emails/{id}/read": {
+      "patch": {
+        "summary": "Mark an inbound email as read",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inbound email marked as read",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Inbound email marked as read",
+                  "data": {
+                    "inboundEmail": {
+                      "_id": "66f700000000000000000001",
+                      "isRead": true,
+                      "readAt": "2026-05-18T09:00:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/admin/inbound-emails/{id}/archive": {
+      "patch": {
+        "summary": "Archive an inbound email",
+        "tags": [
+          "Admin"
+        ],
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "path",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Inbound email archived",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Inbound email archived",
+                  "data": {
+                    "inboundEmail": {
+                      "_id": "66f700000000000000000001",
+                      "isArchived": true,
+                      "archivedAt": "2026-05-18T09:05:00.000Z"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/admin/donors": {
@@ -8660,8 +9018,24 @@
                   "message": "Appointment booked",
                   "data": {
                     "_id": "69fe540565ff7785a031315c",
-                    "donorId": "69f3df915f42685cbbbcbb18",
-                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "donorId": {
+                      "_id": "69f3df915f42685cbbbcbb18",
+                      "fullName": "Noor Ahmed",
+                      "phoneNumber": "01123456789",
+                      "bloodType": "O+",
+                      "email": "noor.ahmed@example.com"
+                    },
+                    "donorDetails": {
+                      "fullName": "Noor Ahmed",
+                      "phoneNumber": "01123456789",
+                      "bloodType": "O+",
+                      "email": "noor.ahmed@example.com"
+                    },
+                    "hospitalId": {
+                      "_id": "69f3df915f42685cbbbcbb1b",
+                      "hospitalName": "Cairo Care Hospital",
+                      "fullName": "Cairo Care Operations"
+                    },
                     "requestId": "69fe540565ff7785a031314f",
                     "appointmentDate": "2026-05-12T10:00:00.000Z",
                     "status": "pending",
@@ -8771,15 +9145,6 @@
         "parameters": [
           {
             "in": "query",
-            "name": "skip",
-            "schema": {
-              "type": "integer",
-              "minimum": 0
-            },
-            "example": 0
-          },
-          {
-            "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer",
@@ -8800,7 +9165,19 @@
                     "appointments": [
                       {
                         "_id": "69fe540565ff7785a031315c",
-                        "donorId": "69f3df915f42685cbbbcbb18",
+                        "donorId": {
+                          "_id": "69f3df915f42685cbbbcbb18",
+                          "fullName": "Noor Ahmed",
+                          "phoneNumber": "01123456789",
+                          "bloodType": "O+",
+                          "email": "noor.ahmed@example.com"
+                        },
+                        "donorDetails": {
+                          "fullName": "Noor Ahmed",
+                          "phoneNumber": "01123456789",
+                          "bloodType": "O+",
+                          "email": "noor.ahmed@example.com"
+                        },
                         "hospitalId": {
                           "_id": "69f3df915f42685cbbbcbb1b",
                           "hospitalName": "Cairo Care Hospital",
@@ -8872,7 +9249,19 @@
                   "message": "Appointment retrieved",
                   "data": {
                     "_id": "69fe540565ff7785a031315c",
-                    "donorId": "69f3df915f42685cbbbcbb18",
+                    "donorId": {
+                      "_id": "69f3df915f42685cbbbcbb18",
+                      "fullName": "Noor Ahmed",
+                      "phoneNumber": "01123456789",
+                      "bloodType": "O+",
+                      "email": "noor.ahmed@example.com"
+                    },
+                    "donorDetails": {
+                      "fullName": "Noor Ahmed",
+                      "phoneNumber": "01123456789",
+                      "bloodType": "O+",
+                      "email": "noor.ahmed@example.com"
+                    },
                     "hospitalId": {
                       "_id": "69f3df915f42685cbbbcbb1b",
                       "hospitalName": "Cairo Care Hospital",
@@ -9017,8 +9406,24 @@
                   "message": "Appointment cancelled",
                   "data": {
                     "_id": "69fe540565ff7785a031315c",
-                    "donorId": "69f3df915f42685cbbbcbb18",
-                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "donorId": {
+                      "_id": "69f3df915f42685cbbbcbb18",
+                      "fullName": "Noor Ahmed",
+                      "phoneNumber": "01123456789",
+                      "bloodType": "O+",
+                      "email": "noor.ahmed@example.com"
+                    },
+                    "donorDetails": {
+                      "fullName": "Noor Ahmed",
+                      "phoneNumber": "01123456789",
+                      "bloodType": "O+",
+                      "email": "noor.ahmed@example.com"
+                    },
+                    "hospitalId": {
+                      "_id": "69f3df915f42685cbbbcbb1b",
+                      "hospitalName": "Cairo Care Hospital",
+                      "fullName": "Cairo Care Operations"
+                    },
                     "appointmentDate": "2026-05-12T10:00:00.000Z",
                     "status": "cancelled",
                     "cancelledAt": "2026-05-09T10:30:00.000Z",
@@ -9173,15 +9578,6 @@
             },
             "description": "Items per page (max 100)",
             "example": 10
-          },
-          {
-            "in": "query",
-            "name": "skip",
-            "schema": {
-              "type": "integer"
-            },
-            "description": "Legacy pagination - number of items to skip. Still supported for compatibility",
-            "example": 0
           }
         ],
         "responses": {
@@ -9296,15 +9692,6 @@
             },
             "description": "Items per page",
             "example": 10
-          },
-          {
-            "in": "query",
-            "name": "skip",
-            "schema": {
-              "type": "integer"
-            },
-            "description": "Legacy pagination - number of items to skip",
-            "example": 0
           }
         ],
         "responses": {
@@ -9523,7 +9910,7 @@
           "Donor"
         ],
         "summary": "Get supported donation types with details",
-        "description": "Returns all supported donation types including medical hold periods and point values.\n- Blood: 56-day cooldown, 200 points\n- Plasma: 14-day cooldown, 150 points\n- Platelets: 7-day cooldown, 175 points\n- Organ: 365-day cooldown, 500 points\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns all supported donation types including medical hold periods and point values.\n- Blood: 56-day cooldown, 200 points\n- Plasma: 14-day cooldown, 150 points\n- Platelets\n                                    - Double Red Cells\n                                  - Double Red Cells: 7-day cooldown, 175 points\n- Organ: 365-day cooldown, 500 points\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "responses": {
           "200": {
             "description": "Donation types retrieved successfully",
@@ -9608,7 +9995,7 @@
                     "enum": [
                       "blood",
                       "plasma",
-                      "platelets",
+                      "Platelets - Double Red Cells - Double Red Cells",
                       "organ"
                     ],
                     "default": "blood",
@@ -9679,7 +10066,7 @@
           "Donor"
         ],
         "summary": "Mark a donation as completed and award points",
-        "description": "Completes a donation and triggers point award based on donation type:\n- Blood: 200 points\n- Plasma: 150 points\n- Platelets: 175 points\n- Organ: 500 points\n\nAlso triggers first-donation bonus if applicable.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "description": "Completes a donation and triggers point award based on donation type:\n- Blood: 200 points\n- Plasma: 150 points\n- Platelets\n                                    - Double Red Cells\n                                  - Double Red Cells: 175 points\n- Organ: 500 points\n\nAlso triggers first-donation bonus if applicable.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -9772,6 +10159,24 @@
                     "appointments": [
                       {
                         "_id": "69fe540565ff7785a031315c",
+                        "donorId": {
+                          "_id": "69f3df915f42685cbbbcbb18",
+                          "fullName": "Noor Ahmed",
+                          "phoneNumber": "01123456789",
+                          "bloodType": "O+",
+                          "email": "noor.ahmed@example.com"
+                        },
+                        "donorDetails": {
+                          "fullName": "Noor Ahmed",
+                          "phoneNumber": "01123456789",
+                          "bloodType": "O+",
+                          "email": "noor.ahmed@example.com"
+                        },
+                        "hospitalId": {
+                          "_id": "69f3df915f42685cbbbcbb1b",
+                          "hospitalName": "Cairo Care Hospital",
+                          "fullName": "Cairo Care Operations"
+                        },
                         "appointmentDate": "2026-05-12T10:00:00.000Z",
                         "status": "pending",
                         "notes": "Test appointment",
@@ -9887,15 +10292,6 @@
           }
         ],
         "parameters": [
-          {
-            "in": "query",
-            "name": "page",
-            "schema": {
-              "type": "integer",
-              "default": 1
-            },
-            "example": 1
-          },
           {
             "in": "query",
             "name": "limit",
@@ -10414,11 +10810,7 @@
           "Requests"
         ],
         "summary": "Get Google Maps navigation URL for a request",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
+        "security": null,
         "description": "Resolves a request's stored hospital coordinates and returns a Google Maps navigation URL.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "parameters": [
           {
@@ -11842,7 +12234,8 @@
                     "enum": [
                       "email.delivered",
                       "email.bounced",
-                      "email.complained"
+                      "email.complained",
+                      "email.received"
                     ]
                   },
                   "data": {
@@ -11852,9 +12245,13 @@
                 }
               },
               "example": {
-                "type": "email.delivered",
+                "type": "email.received",
                 "data": {
-                  "to": "aya.hassan@lifelink.demo"
+                  "from": "donor@example.com",
+                  "to": [
+                    "support@lifelink.example"
+                  ],
+                  "subject": "Donation follow-up"
                 }
               }
             }
@@ -11866,7 +12263,10 @@
             "content": {
               "application/json": {
                 "example": {
-                  "received": true
+                  "success": true,
+                  "data": {
+                    "received": true
+                  }
                 }
               }
             }

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
 
 const appointmentSchema = new mongoose.Schema(
   {
@@ -6,6 +7,25 @@ const appointmentSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
       required: [true, 'Donor ID is required'],
+    },
+
+    donorDetails: {
+      fullName: {
+        type: String,
+        default: null,
+      },
+      phoneNumber: {
+        type: String,
+        default: null,
+      },
+      bloodType: {
+        type: String,
+        default: null,
+      },
+      email: {
+        type: String,
+        default: null,
+      },
     },
 
     hospitalId: {
@@ -69,8 +89,8 @@ const appointmentSchema = new mongoose.Schema(
     // Dev 1: Donation type selection
     donationType: {
       type: String,
-      enum: ['Whole Blood', 'Platelets', 'Plasma'],
-      default: 'Whole Blood',
+      enum: DONATION_TYPE_OPTIONS,
+      default: DONATION_TYPE_LABELS.WHOLE_BLOOD,
     },
   },
   { timestamps: true }

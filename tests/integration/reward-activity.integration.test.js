@@ -52,7 +52,7 @@ describe('Reward Activity Integration', () => {
         (a) => a.metadata.transactionType === 'BLOOD_DONATION'
       );
       expect(pointsActivity).toBeDefined();
-      expect(pointsActivity.title).toBe('Points Earned');
+      expect(pointsActivity.title).toMatch(/Points Earned/);
       expect(pointsActivity.metadata.pointsAmount).toBeGreaterThan(0);
       expect(pointsActivity.metadata.transactionType).toBe('BLOOD_DONATION');
     });

@@ -10,12 +10,12 @@ import { parsePagination, paginationMeta } from '../../src/utils/pagination.js';
 describe('parsePagination', () => {
   it('should default to page 1, limit 10', () => {
     const result = parsePagination({});
-    expect(result).toEqual({ skip: 0, limit: 10, page: 1 });
+    expect(result).toEqual({ offset: 0, limit: 10, page: 1 });
   });
 
   it('should parse page and limit from query', () => {
     const result = parsePagination({ page: '3', limit: '20' });
-    expect(result).toEqual({ skip: 40, limit: 20, page: 3 });
+    expect(result).toEqual({ offset: 40, limit: 20, page: 3 });
   });
 
   it('should clamp limit to maxLimit', () => {
@@ -26,7 +26,7 @@ describe('parsePagination', () => {
   it('should enforce minimum page of 1', () => {
     const result = parsePagination({ page: '0' });
     expect(result.page).toBe(1);
-    expect(result.skip).toBe(0);
+    expect(result.offset).toBe(0);
   });
 
   it('should enforce minimum limit of 1', () => {
@@ -34,15 +34,14 @@ describe('parsePagination', () => {
     expect(result.limit).toBe(1);
   });
 
-  it('should support skip-based mode', () => {
+  it('should ignore legacy skip query values', () => {
     const result = parsePagination({ skip: '20', limit: '10' });
-    expect(result.skip).toBe(20);
-    expect(result.page).toBe(3); // derived: floor(20/10) + 1
+    expect(result).toEqual({ offset: 0, limit: 10, page: 1 });
   });
 
-  it('should prefer page over skip when both are provided', () => {
+  it('should prefer page values when skip is also provided', () => {
     const result = parsePagination({ page: '2', skip: '50', limit: '10' });
-    expect(result.skip).toBe(10); // page wins
+    expect(result.offset).toBe(10);
     expect(result.page).toBe(2);
   });
 });
@@ -66,6 +65,7 @@ describe('paginationMeta', () => {
     expect(meta.totalPages).toBe(1);
     expect(meta.hasNextPage).toBe(false);
     expect(meta.hasPrevPage).toBe(false);
+    expect(meta.currentPage).toBe(1);
   });
 
   it('should handle empty results', () => {

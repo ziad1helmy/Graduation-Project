@@ -24,6 +24,26 @@ describe('Appointment Service', () => {
     expect(found.status).toBe('pending');
   });
 
+  it('persists donationType when booking an appointment', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const apptDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+    const appt = await appointmentService.bookAppointment(
+      donor._id,
+      hospital._id,
+      null,
+      apptDate,
+      'notes',
+      'Double Red Cells'
+    );
+
+    expect(appt.donationType).toBe('Double Red Cells');
+
+    const found = await Appointment.findById(appt._id);
+    expect(found.donationType).toBe('Double Red Cells');
+  });
+
   it('prevents booking in the past', async () => {
     const hospital = await createHospital();
     const donor = await createDonor();

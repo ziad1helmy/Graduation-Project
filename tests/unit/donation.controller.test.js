@@ -31,11 +31,11 @@ const makeRes = () => {
 //  getDonationTypes
 // =============================================================================
 describe('getDonationTypes', () => {
-  it('returns the three supported types', () => {
+  it('returns the four supported types', () => {
     const res = makeRes();
     donationController.getDonationTypes({}, res);
     const data = res.json.mock.calls[0][0].data;
-    expect(data).toEqual(['Whole Blood', 'Platelets', 'Plasma']);
+    expect(data).toEqual(['Whole Blood', 'Plasma', 'Platelets', 'Double Red Cells']);
   });
 });
 

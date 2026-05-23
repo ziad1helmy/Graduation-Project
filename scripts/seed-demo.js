@@ -22,6 +22,7 @@ import HospitalSettings from '../src/models/HospitalSettings.model.js';
 import TwoFactor from '../src/models/TwoFactor.model.js';
 import { seedDefaultSettings, seedDefaultRolePermissions } from '../src/services/admin.service.js';
 import { seedRewardData } from '../src/services/reward.service.js';
+import { DEFAULT_SUPPORTED_DONATION_TYPES } from '../src/constants/donation.constants.js';
 
 const now = new Date();
 const futureDate = (days, hour = 10) => {
@@ -736,6 +737,24 @@ async function main() {
     }
   );
 
+  requests.cairoDoubleRedCells = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-double-red-cells' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      type: 'blood',
+      bloodType: 'A+',
+      urgency: 'medium',
+      status: 'pending',
+      requiredBy: futureDate(4),
+      quantity: 2,
+      cause: 'Elective surgery support requiring red cell replacement',
+      notes: '[demo-seed] cairo-double-red-cells',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
+    }
+  );
+
   requests.cairoEmergencyForResponder = await ensureRequest(
     { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-emergency-responder-o-plus' },
     {
@@ -886,6 +905,18 @@ async function main() {
     }
   );
 
+  donations.mariam_double_red_cells_completed = await ensureDonation(
+    { donorId: donors.mariam._id, requestId: requests.cairoDoubleRedCells._id, status: 'completed' },
+    {
+      donorId: donors.mariam._id,
+      requestId: requests.cairoDoubleRedCells._id,
+      status: 'completed',
+      quantity: 1,
+      completedDate: pastDate(4),
+      notes: 'Double Red Cells donation for elective surgery support.',
+    }
+  );
+
   donations.cairoResponderEmergency = await ensureDonation(
     { donorId: donors.cairoResponder._id, requestId: requests.cairoEmergencyForResponder._id, status: 'pending' },
     {
@@ -971,6 +1002,21 @@ async function main() {
       qrToken: 'demo-qr-noor-verify',
       qrExpiresAt: futureDate(3, 12),
       donationType: 'Plasma',
+    }
+  );
+
+  appointments.mariamDoubleRedCells = await ensureAppointment(
+    { donorId: donors.mariam._id, notes: '[demo-seed] appointment-mariam-double-red-cells' },
+    {
+      donorId: donors.mariam._id,
+      hospitalId: hospitals.cairoCare._id,
+      requestId: requests.cairoDoubleRedCells._id,
+      appointmentDate: futureDate(6, 11),
+      status: 'confirmed',
+      notes: '[demo-seed] appointment-mariam-double-red-cells',
+      qrToken: 'demo-qr-mariam-double-red-cells',
+      qrExpiresAt: futureDate(7, 11),
+      donationType: 'Double Red Cells',
     }
   );
 
@@ -1433,6 +1479,39 @@ async function main() {
   });
 
   await ensureHospitalSettings(hospitals.cairoCare._id, {
+    appointmentSettings: {
+      openingTime: '08:00',
+      closingTime: '19:00',
+      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      defaultSlotsPerHour: 4,
+      hourlySlots: {
+        '08:00': 4,
+        '09:00': 4,
+        '10:00': 4,
+        '11:00': 4,
+        '12:00': 4,
+        '13:00': 4,
+        '14:00': 4,
+        '15:00': 4,
+        '16:00': 4,
+        '17:00': 4,
+        '18:00': 4,
+      },
+      totalDailyCapacity: 44,
+      isActive: true,
+      supportedDonationTypes: [...DEFAULT_SUPPORTED_DONATION_TYPES],
+      minAdvanceHours: 24,
+      maxAdvanceDays: 30,
+      preparationTips: [
+        'Eat a healthy meal before donation',
+        'Drink plenty of water',
+        'Bring a valid ID',
+        "Get a good night's sleep",
+      ],
+      rescheduleAllowed: true,
+      maxReschedules: 3,
+      cancellationAllowedHours: 12,
+    },
     bloodBankSettings: {
       criticalThreshold: { 'O+': 4, 'A-': 2, 'O-': 2 },
       lowThreshold: { 'O+': 12, 'A-': 8, 'O-': 5 },
@@ -1447,6 +1526,39 @@ async function main() {
   });
 
   await ensureHospitalSettings(hospitals.nileHope._id, {
+    appointmentSettings: {
+      openingTime: '08:00',
+      closingTime: '19:00',
+      workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+      defaultSlotsPerHour: 4,
+      hourlySlots: {
+        '08:00': 4,
+        '09:00': 4,
+        '10:00': 4,
+        '11:00': 4,
+        '12:00': 4,
+        '13:00': 4,
+        '14:00': 4,
+        '15:00': 4,
+        '16:00': 4,
+        '17:00': 4,
+        '18:00': 4,
+      },
+      totalDailyCapacity: 44,
+      isActive: true,
+      supportedDonationTypes: [...DEFAULT_SUPPORTED_DONATION_TYPES],
+      minAdvanceHours: 24,
+      maxAdvanceDays: 30,
+      preparationTips: [
+        'Eat a healthy meal before donation',
+        'Drink plenty of water',
+        'Bring a valid ID',
+        "Get a good night's sleep",
+      ],
+      rescheduleAllowed: true,
+      maxReschedules: 3,
+      cancellationAllowedHours: 12,
+    },
     bloodBankSettings: {
       criticalThreshold: { 'B+': 3, 'A-': 2, 'O-': 2 },
       lowThreshold: { 'B+': 10, 'A-': 7, 'O-': 5 },
@@ -1467,9 +1579,9 @@ async function main() {
   printReferenceBlock('Seeded demo coverage:', [
     '7 donors with varied blood types, availability, settings, health history, points, and activity',
     '2 hospitals with discovery-ready coordinates, slot configuration, blood bank settings, and staff',
-    '8 requests covering blood + organ and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
-    '8 donations covering pending/scheduled/completed/cancelled/rejected states, including emergency responder matches',
-    '4 appointments covering pending/confirmed/cancelled and QR verification flows',
+    '9 requests covering blood + organ and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
+    '9 donations covering pending/scheduled/completed/cancelled/rejected states, including emergency responder matches',
+    '5 appointments covering pending/confirmed/cancelled and QR verification flows',
     'Notifications, rewards, badges, support messages, audit logs, and 2FA seed data',
   ]);
 
@@ -1482,6 +1594,7 @@ async function main() {
     `pending O- request: ${requests.gizaOminus._id}`,
     `cairo emergency (O+ responder match): ${requests.cairoEmergencyForResponder._id}`,
     `giza emergency (A- responder match): ${requests.gizaEmergencyForResponder._id}`,
+    `double red cells request: ${requests.cairoDoubleRedCells._id}`,
   ]);
 
   printReferenceBlock('Key appointment / QR tokens:', [

@@ -1,6 +1,8 @@
 import response from '../utils/response.js';
 import * as appointmentService from '../services/appointment.service.js';
 import ERR from '../utils/errorCodes.js';
+import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
+import { toAppointmentResponse, appointmentPopulateOptions } from '../utils/appointment.dto.js';
 
 const getDonorId = (req) => req?.user?.userId || req?.user?._id;
 
@@ -31,12 +33,17 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
 export const bookAppointment = async (req, res, next) => {
   try {
     const donorId = getDonorId(req);
-    const { hospitalId, requestId, appointmentDate, date, time, notes, user } = req.body;
+    const { hospitalId, requestId, appointmentDate, date, time, notes, donationType } = req.body;
 
     const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
+    const normalizedDonationType = donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD;
 
     if (!hospitalId || !normalizedAppointmentDate) {
       return response.error(res, 400, 'hospitalId and appointmentDate are required');
+    }
+
+    if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
+      return response.error(res, 400, 'Invalid donation type');
     }
 
     const appointment = await appointmentService.bookAppointment(
@@ -44,17 +51,11 @@ export const bookAppointment = async (req, res, next) => {
       hospitalId,
       requestId || null,
       normalizedAppointmentDate,
-      notes || ''
+      notes || '',
+      normalizedDonationType
     );
 
     const appointmentObj = appointment.toObject ? appointment.toObject() : appointment;
-    
-    // Maintain legacy status compatibility
-    appointmentObj.status = appointmentObj.status === 'confirmed' ? 'pending' : appointmentObj.status;
-    appointmentObj.actualStatus = appointment.status;
-    appointmentObj.qrCode = appointment.qrToken;
-    appointmentObj.message = 'Appointment confirmed successfully';
-    if (user) appointmentObj.user = user;
 
     return response.success(res, 201, 'Appointment booked', appointmentObj);
   } catch (error) {
@@ -88,9 +89,9 @@ export const bookAppointment = async (req, res, next) => {
 export const getMyAppointments = async (req, res, next) => {
   try {
     const donorId = getDonorId(req);
-    const { skip, limit } = req.query;
+    const { page, limit } = req.query;
 
-    const result = await appointmentService.getMyAppointments(donorId, { skip, limit });
+    const result = await appointmentService.getMyAppointments(donorId, { page, limit });
 
     return response.success(res, 200, 'Appointments fetched', result);
   } catch (error) {
@@ -145,7 +146,10 @@ export const getAppointmentById = async (req, res, next) => {
 
     const appointment = await appointmentService.getAppointmentById(appointmentId, donorId);
 
-    return response.success(res, 200, 'Appointment retrieved', appointment);
+    // Populate for HTTP response then apply DTO transformation.
+    await appointment.populate(appointmentPopulateOptions);
+    const appointmentDto = toAppointmentResponse(appointment);
+    return response.success(res, 200, 'Appointment retrieved', appointmentDto);
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
@@ -157,15 +161,17 @@ export const rescheduleAppointment = async (req, res, next) => {
   try {
     const donorId = getDonorId(req);
     const appointmentId = req.params.appointmentId;
-    const { date, time } = req.body;
-    const newDate = buildAppointmentDate({ date, time });
+    // Accept either { date, time } (human-readable) or a plain ISO date string in `date`.
+    const { date, time, appointmentDate } = req.body;
+    const newDate = buildAppointmentDate({ appointmentDate, date, time });
 
     if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
     if (!newDate) return response.error(res, 400, 'date is required');
 
     const appointment = await appointmentService.rescheduleAppointment(appointmentId, donorId, newDate);
 
-    return response.success(res, 200, 'Appointment rescheduled', appointment);
+    const appointmentDto = toAppointmentResponse(appointment);
+    return response.success(res, 200, 'Appointment rescheduled', appointmentDto);
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');

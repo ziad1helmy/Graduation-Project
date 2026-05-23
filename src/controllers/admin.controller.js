@@ -167,7 +167,7 @@ const toInboundEmailResponse = (email) => {
 /** GET /admin/inbound-emails */
 export const listInboundEmails = async (req, res, next) => {
   try {
-    const { page, limit, skip } = parsePagination(req.query, 20, 100);
+    const { page, limit, offset } = parsePagination(req.query, 20, 100);
     const read = parseBooleanQuery(req.query.read);
     const archived = parseBooleanQuery(req.query.archived);
     const search = typeof req.query.search === 'string' ? req.query.search.trim() : '';
@@ -191,7 +191,7 @@ export const listInboundEmails = async (req, res, next) => {
     const [inboundEmails, total] = await Promise.all([
       InboundEmail.find(filter)
         .sort({ receivedAt: -1, createdAt: -1 })
-        .skip(skip)
+        .skip(offset)
         .limit(limit)
         .lean(),
       InboundEmail.countDocuments(filter),

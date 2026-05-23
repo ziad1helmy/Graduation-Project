@@ -3,6 +3,7 @@ import { parse as parseYAML } from 'yaml';
 import { fileURLToPath } from 'url';
 import { dirname, join } from 'path';
 import { env } from './env.js';
+import { DEFAULT_SUPPORTED_DONATION_TYPES } from '../constants/donation.constants.js';
 
 // ─── Resolve absolute path ────────────────────────────────────────────────────
 // process.cwd() is unreliable on Render — it resolves to the repo root
@@ -222,7 +223,6 @@ const getDemoParameterExample = (path, parameter) => {
   const parameterExamples = {
     page: 1,
     limit: 10,
-    skip: 0,
     read: false,
     month: '2026-05',
     months: 6,
@@ -385,7 +385,7 @@ const getDemoRequestExample = (path, method) => {
       },
       totalDailyCapacity: 44,
       isActive: true,
-      supportedDonationTypes: ['Whole', 'Plasma', 'Platelets'],
+      supportedDonationTypes: [...DEFAULT_SUPPORTED_DONATION_TYPES],
       minAdvanceHours: 24,
       maxAdvanceDays: 30,
       preparationTips: [

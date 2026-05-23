@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { beforeAll, afterEach, afterAll } from 'vitest';
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 
 let replSet;

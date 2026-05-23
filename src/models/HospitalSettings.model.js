@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import { DEFAULT_SUPPORTED_DONATION_TYPES } from '../constants/donation.constants.js';
 
 const APPOINTMENT_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 const DEFAULT_APPOINTMENT_OPENING_TIME = '08:00';
@@ -53,8 +54,8 @@ const appointmentSettingsSchema = new mongoose.Schema(
     },
     supportedDonationTypes: {
       type: [String],
-      enum: ['Whole', 'Plasma', 'Platelets'],
-      default: ['Whole', 'Plasma', 'Platelets'],
+      enum: DEFAULT_SUPPORTED_DONATION_TYPES,
+      default: [...DEFAULT_SUPPORTED_DONATION_TYPES],
     },
     minAdvanceHours: {
       type: Number,
@@ -134,7 +135,7 @@ const hospitalSettingsSchema = new mongoose.Schema(
         hourlySlots: buildDefaultHourlySlots(),
         totalDailyCapacity: DEFAULT_APPOINTMENT_DAILY_CAPACITY,
         isActive: true,
-        supportedDonationTypes: ['Whole', 'Plasma', 'Platelets'],
+        supportedDonationTypes: [...DEFAULT_SUPPORTED_DONATION_TYPES],
         minAdvanceHours: 24,
         maxAdvanceDays: 30,
         preparationTips: [

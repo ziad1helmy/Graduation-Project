@@ -144,11 +144,11 @@ export const updateProfile = async (req, res, next) => {
   }
 };
 
-// Get all active requests — supports ?page=1&limit=10 or legacy ?skip=0&limit=10
+// Get all active requests — supports ?page=1&limit=10
 export const getRequests = async (req, res, next) => {
   try {
     const { type, urgency } = req.query;
-    const { skip, limit, page } = parsePagination(req.query);
+    const { offset, limit, page } = parsePagination(req.query);
 
     const filter = {
       status: { $in: ['pending', 'in-progress'] },
@@ -164,7 +164,7 @@ export const getRequests = async (req, res, next) => {
     const [requests, total] = await Promise.all([
       Request.find(filter)
         .populate('hospitalId', 'fullName hospitalName address contactNumber')
-        .skip(skip)
+        .skip(offset)
         .limit(limit)
         .sort({ createdAt: -1 }),
       Request.countDocuments(filter),
@@ -179,7 +179,7 @@ export const getRequests = async (req, res, next) => {
   }
 };
 
-// Get matching requests for this donor — supports ?page=1&limit=10 or legacy ?skip=0&limit=10
+// Get matching requests for this donor — supports ?page=1&limit=10
 export const getMatches = async (req, res, next) => {
   try {
     const donor = await Donor.findById(req.user.userId);
@@ -187,10 +187,10 @@ export const getMatches = async (req, res, next) => {
       return response.error(res, 404, 'Donor not found');
     }
 
-    const { skip, limit, page } = parsePagination(req.query);
+    const { offset, limit, page } = parsePagination(req.query);
 
     const matches = await matchingService.findCompatibleRequests(donor._id);
-    const paginatedMatches = matches.slice(skip, skip + limit);
+    const paginatedMatches = matches.slice(offset, offset + limit);
 
     response.success(res, 200, 'Matching requests retrieved successfully', {
       matches: paginatedMatches,
@@ -300,11 +300,11 @@ export const respondToRequest = async (req, res, next) => {
   }
 };
 
-// Get donation history — supports ?page=1&limit=10 or legacy ?skip=0&limit=10
+// Get donation history — supports ?page=1&limit=10
 export const getDonationHistory = async (req, res, next) => {
   try {
     const { status } = req.query;
-    const { skip, limit, page } = parsePagination(req.query);
+    const { offset, limit, page } = parsePagination(req.query);
 
     const filter = { donorId: new mongoose.Types.ObjectId(req.user.userId) };
     if (status && ['pending', 'scheduled', 'completed', 'cancelled', 'rejected'].includes(status)) {
@@ -315,7 +315,7 @@ export const getDonationHistory = async (req, res, next) => {
       Donation.aggregate([
         { $match: filter },
         { $sort: { createdAt: -1 } },
-        { $skip: skip }, { $limit: limit },
+        { $skip: offset }, { $limit: limit },
         { $lookup: {
           from: 'pointstransactions',
           let: { donId: { $toString: '$_id' } },
@@ -585,7 +585,7 @@ export const getRecentActivity = async (req, res, next) => {
 export const getUrgentRequests = async (req, res, next) => {
   try {
     const { page = 1, limit = 20, lat, lng } = req.query;
-    const skip = (page - 1) * limit;
+    const offset = (page - 1) * limit;
     const donorId = req.user.userId;
 
     // Exclude requests this donor already declined (cancelled donations)
@@ -604,7 +604,7 @@ export const getUrgentRequests = async (req, res, next) => {
     const [requests, total] = await Promise.all([
       Request.find(filter)
         .populate('hospitalId', 'fullName hospitalName contactNumber lat long')
-        .sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)),
+        .sort({ createdAt: -1 }).skip(offset).limit(parseInt(limit)),
       Request.countDocuments(filter),
     ]);
 
