@@ -180,12 +180,12 @@ app.use('/help', helpRoutes);
 app.use('/support', limiter, supportRoutes);
 
 // Flutter-facing aliases that keep the newer root paths stable.
-app.get('/dashboard', authMiddleware, requireRole('donor'), donorController.getDashboard);
-app.get('/activity', authMiddleware, requireRole('donor'), activityController.getTimeline);
-app.get('/urgent-requests', authMiddleware, requireRole('donor'), donorController.getUrgentRequests);
-app.get('/urgent-requests/:requestId', authMiddleware, requireRole('donor'), donorController.getUrgentRequestDetails);
-app.post('/urgent-requests/:requestId/accept', authMiddleware, requireRole('donor'), donorController.respondToRequest);
-app.post('/urgent-requests/:requestId/decline', authMiddleware, requireRole('donor'), donorController.declineUrgentRequest);
+app.get('/dashboard', limiter, authMiddleware, requireRole('donor'), donorController.getDashboard);
+app.get('/activity', limiter, authMiddleware, requireRole('donor'), activityController.getTimeline);
+app.get('/urgent-requests', limiter, authMiddleware, requireRole('donor'), donorController.getUrgentRequests);
+app.get('/urgent-requests/:requestId', limiter, authMiddleware, requireRole('donor'), donorController.getUrgentRequestDetails);
+app.post('/urgent-requests/:requestId/accept', limiter, authMiddleware, requireRole('donor'), donorController.respondToRequest);
+app.post('/urgent-requests/:requestId/decline', limiter, authMiddleware, requireRole('donor'), donorController.declineUrgentRequest);
 
 // Alias /badges -> /rewards/badges
 app.get('/badges', limiter, authMiddleware, requireRole('donor'), rc.getBadges);
