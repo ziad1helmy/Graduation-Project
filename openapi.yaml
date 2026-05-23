@@ -1245,184 +1245,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /donor/profile:
-    get:
-      tags:
-        - Donor
-      summary: Get the authenticated donor profile
-      description: |-
-        Retrieve the authenticated donor's profile information including blood type, availability status, location, stats, and badge progress
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Donor profile retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/DonorProfileResponse"
-              example:
-                success: true
-                message: Donor profile retrieved successfully
-                data:
-                  _id: 66f100000000000000000002
-                  fullName: Aya Hassan
-                  email: aya.hassan@example.com
-                  role: donor
-                  phoneNumber: "01011111111"
-                  bloodType: O+
-                  gender: female
-                  weight: 60
-                  location:
-                    city: Cairo
-                    governorate: Cairo
-                    coordinates:
-                      lat: 30.0444
-                      lng: 31.2357
-                  dateOfBirth: 1995-05-15
-                  isAvailable: true
-                  verificationStatus: verified
-                  age: 31
-                  stats:
-                    totalDonations: 8
-                    points: 2340
-                    livesSaved: 24
-                  currentBadge: First Timer
-                  nextBadge: Regular Donor
-                  progressPercentage: 40
-                  badgeProgress:
-                    currentBadge: First Timer
-                    nextBadge: Regular Donor
-                    progressPercentage: 40
-        "401":
-          description: Missing or invalid JWT token
-        "403":
-          description: Access denied - donor role required
-        "404":
-          description: Donor profile not found
-    put:
-      tags:
-        - Donor
-      summary: Update the authenticated donor profile
-      description: |-
-        Update donor profile information such as name, email, phone, date of birth, blood type, gender, location, and weight
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateDonorProfileRequest"
-            example:
-              fullName: Aya Hassan
-              email: aya.hassan@example.com
-              phoneNumber: "01011111111"
-              gender: female
-              weight: 60
-              bloodType: O+
-              dateOfBirth: 1995-05-15
-              location:
-                city: Cairo
-                governorate: Cairo
-                coordinates:
-                  lat: 30.0444
-                  lng: 31.2357
-      responses:
-        "200":
-          description: Donor profile updated successfully
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/UpdateDonorProfileResponse"
-              example:
-                success: true
-                message: Donor profile updated successfully
-                data:
-                  _id: 66f100000000000000000002
-                  fullName: Aya Hassan
-                  email: aya.hassan@example.com
-                  role: donor
-                  phoneNumber: "01011111111"
-                  bloodType: O+
-                  gender: female
-                  weight: 60
-                  location:
-                    city: Cairo
-                    governorate: Cairo
-                    coordinates:
-                      lat: 30.0444
-                      lng: 31.2357
-                  dateOfBirth: 1995-05-15
-                  isAvailable: true
-        "400":
-          description: Invalid profile data or validation error
-        "401":
-          description: Missing or invalid JWT token
-        "403":
-          description: Access denied - donor role required
-  /donor/stats:
-    get:
-      tags:
-        - Donor
-      summary: Get lightweight donor statistics
-      description: |-
-        Returns totalDonations, points balance, and livesSaved. Used in home header and profile stats row.
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Donor stats retrieved
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donor stats retrieved
-                data:
-                  totalDonations: 8
-                  points: 2340
-                  livesSaved: 24
-        "401":
-          description: Unauthorized
-  /donor/rewards:
-    get:
-      tags:
-        - Donor
-      summary: Get donor rewards and badge progress
-      description: |-
-        Returns current points, earned badges, locked badges with progress, and next milestone.
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Donor rewards retrieved
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donor rewards retrieved
-                data:
-                  currentPoints: 2340
-                  earnedBadges:
-                    - id: 664a0f1a2b3c4d5e6f7a8b9c
-                      title: First Timer
-                      description: Completed your first blood donation
-                  lockedBadges:
-                    - id: 664a0f1a2b3c4d5e6f7a8b9d
-                      title: Regular Donor
-                      progress: 2
-                      target: 5
-                  nextMilestone: 3000
-        "401":
-          description: Unauthorized
   /donor/dashboard:
     get:
       tags:
@@ -1570,63 +1392,167 @@ paths:
           description: Missing or invalid JWT token
         "403":
           description: Access denied - donor role required
-  /donor/points:
+  /donor/recent-activity:
     get:
       tags:
         - Donor
-      summary: Get donor points summary and tier
+      summary: Get recent donor activity cards
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Points summary with tier info
+          description: Recent activity retrieved successfully
           content:
             application/json:
               example:
                 success: true
-                message: Points retrieved successfully
+                message: Recent activity retrieved successfully
                 data:
-                  points: 2340
-                  tier: SILVER
-                  nextTier: GOLD
-                  pointsToNextTier: 660
-                  bonusMultiplier: 1
-                  rewardsAvailable: 5
-  /donor/badges:
+                  donations:
+                    donations:
+                      - _id: 69fe540565ff7785a0313157
+                        status: completed
+                        quantity: 1
+                        pointsEarned: 200
+                        createdAt: 2026-05-10T12:35:00.000Z
+                    pagination:
+                      total: 1
+                      page: 1
+                      limit: 20
+                      totalPages: 1
+                  points:
+                    transactions:
+                      - _id: 66fc00000000000000000001
+                        pointsAmount: 200
+                        transactionType: BLOOD_DONATION
+                        description: Blood Donation - Successful
+                        balanceAfter: 2340
+                        createdAt: 2026-05-10T12:35:00.000Z
+                    pagination:
+                      total: 1
+                      page: 1
+                      limit: 20
+                      totalPages: 1
+  /donor/profile:
     get:
       tags:
         - Donor
-      summary: Get all badges and donor progress
+      summary: Get the authenticated donor profile
+      description: |-
+        Retrieve the authenticated donor's profile information including blood type, availability status, location, stats, and badge progress
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Badge list with unlock status and progress
+          description: Donor profile retrieved successfully
           content:
             application/json:
+              schema:
+                $ref: "#/components/schemas/DonorProfileResponse"
               example:
                 success: true
-                message: Badges retrieved successfully
+                message: Donor profile retrieved successfully
                 data:
-                  unlockedCount: 3
-                  totalCount: 7
-                  completionPercentage: 43
-                  badges:
-                    - badgeId: 66fd00000000000000000003
-                      badgeName: Life Saver
-                      badgeDescription: Completed 10 blood donations
-                      badgeIcon: star
-                      category: DONATION
-                      rarity: RARE
-                      unlockStatus: LOCKED
-                      unlockedAt: null
-                      progressCurrent: 8
-                      progressTarget: 10
-                      progressPercentage: 80
+                  _id: 66f100000000000000000002
+                  fullName: Aya Hassan
+                  email: aya.hassan@example.com
+                  role: donor
+                  phoneNumber: "01011111111"
+                  bloodType: O+
+                  gender: female
+                  weight: 60
+                  location:
+                    city: Cairo
+                    governorate: Cairo
+                    coordinates:
+                      lat: 30.0444
+                      lng: 31.2357
+                  dateOfBirth: 1995-05-15
+                  isAvailable: true
+                  verificationStatus: verified
+                  age: 31
                   stats:
                     totalDonations: 8
-                    totalEmergencyResponses: 2
-                    daysAsDonor: 123
+                    points: 2340
+                    livesSaved: 24
+                  currentBadge: First Timer
+                  nextBadge: Regular Donor
+                  progressPercentage: 40
+                  badgeProgress:
+                    currentBadge: First Timer
+                    nextBadge: Regular Donor
+                    progressPercentage: 40
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - donor role required
+        "404":
+          description: Donor profile not found
+    put:
+      tags:
+        - Donor
+      summary: Update the authenticated donor profile
+      description: |-
+        Update donor profile information such as name, email, phone, date of birth, blood type, gender, location, and weight
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDonorProfileRequest"
+            example:
+              fullName: Aya Hassan
+              email: aya.hassan@example.com
+              phoneNumber: "01011111111"
+              gender: female
+              weight: 60
+              bloodType: O+
+              dateOfBirth: 1995-05-15
+              location:
+                city: Cairo
+                governorate: Cairo
+                coordinates:
+                  lat: 30.0444
+                  lng: 31.2357
+      responses:
+        "200":
+          description: Donor profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UpdateDonorProfileResponse"
+              example:
+                success: true
+                message: Donor profile updated successfully
+                data:
+                  _id: 66f100000000000000000002
+                  fullName: Aya Hassan
+                  email: aya.hassan@example.com
+                  role: donor
+                  phoneNumber: "01011111111"
+                  bloodType: O+
+                  gender: female
+                  weight: 60
+                  location:
+                    city: Cairo
+                    governorate: Cairo
+                    coordinates:
+                      lat: 30.0444
+                      lng: 31.2357
+                  dateOfBirth: 1995-05-15
+                  isAvailable: true
+        "400":
+          description: Invalid profile data or validation error
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - donor role required
   /donor/settings:
     get:
       tags:
@@ -1864,560 +1790,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /donor/recent-activity:
-    get:
-      tags:
-        - Donor
-      summary: Get recent donor activity cards
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Recent activity retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Recent activity retrieved successfully
-                data:
-                  donations:
-                    donations:
-                      - _id: 69fe540565ff7785a0313157
-                        status: completed
-                        quantity: 1
-                        pointsEarned: 200
-                        createdAt: 2026-05-10T12:35:00.000Z
-                    pagination:
-                      total: 1
-                      page: 1
-                      limit: 20
-                      totalPages: 1
-                  points:
-                    transactions:
-                      - _id: 66fc00000000000000000001
-                        pointsAmount: 200
-                        transactionType: BLOOD_DONATION
-                        description: Blood Donation - Successful
-                        balanceAfter: 2340
-                        createdAt: 2026-05-10T12:35:00.000Z
-                    pagination:
-                      total: 1
-                      page: 1
-                      limit: 20
-                      totalPages: 1
-  /donor/history:
-    get:
-      tags:
-        - Donor
-      summary: List donation history for the authenticated donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: status
-          schema:
-            type: string
-            enum:
-              - pending
-              - scheduled
-              - completed
-              - cancelled
-              - rejected
-          example: pending
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            example: 10
-          example: 10
-        - in: query
-          name: page
-          schema:
-            type: integer
-            example: 1
-          example: 1
-      responses:
-        "200":
-          description: Donation history retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donation history retrieved successfully
-                data:
-                  donations: []
-                  pagination:
-                    page: 1
-                    limit: 10
-                    total: 0
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /donor/donations:
-    get:
-      tags:
-        - Donor
-      summary: Get donor donation history with pointsEarned
-      description: |-
-        Paginated donation history for the authenticated donor.
-        Each record includes `pointsEarned` calculated from the points transaction log.
-
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: page
-          schema:
-            type: integer
-            default: 1
-          example: 1
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 10
-          example: 10
-        - in: query
-          name: status
-          schema:
-            type: string
-            enum:
-              - pending
-              - scheduled
-              - completed
-              - cancelled
-              - rejected
-          example: pending
-      responses:
-        "200":
-          description: Donation history retrieved
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donation history retrieved successfully
-                data:
-                  donations:
-                    - _id: 664a0f1a2b3c4d5e6f7a8b9c
-                      status: completed
-                      quantity: 1
-                      pointsEarned: 100
-                      createdAt: 2026-05-01T10:00:00Z
-                  pagination:
-                    total: 1
-                    page: 1
-                    limit: 10
-                    pages: 1
-        "401":
-          description: Unauthorized
-  /donor/redemptions:
-    get:
-      tags:
-        - Donor
-      summary: Get donor redemption history
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: status
-          required: false
-          schema:
-            type: string
-          description: Optional redemption status filter.
-          example: CONFIRMED
-        - in: query
-          name: page
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            default: 1
-          example: 1
-        - in: query
-          name: limit
-          required: false
-          schema:
-            type: integer
-            minimum: 1
-            maximum: 100
-            default: 20
-          example: 20
-      responses:
-        "200":
-          description: Redemptions retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Redemptions retrieved successfully
-                data:
-                  redemptions:
-                    - _id: 66f400000000000000000001
-                      donorId: 66f100000000000000000002
-                      rewardId:
-                        _id: 66f400000000000000000101
-                        name: Gift Card
-                        category: voucher
-                        iconType: gift
-                      pointsSpent: 500
-                      confirmationCode: RWD-2026-ABC123
-                      status: CONFIRMED
-                      deliveryMethod: IN_APP
-                      deliveryContact: null
-                      expiresAt: 2026-06-17T10:00:00.000Z
-                  pagination:
-                    total: 1
-                    page: 1
-                    limit: 20
-                    pages: 1
-  /donor/requests:
-    get:
-      tags:
-        - Donor
-      summary: List active donation requests available to donors
-      description: |-
-        Retrieve paginated list of blood and organ donation requests that match donor eligibility criteria. Filters by type and urgency
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: type
-          schema:
-            type: string
-            enum:
-              - blood
-              - organ
-          description: Request type filter
-          example: blood
-        - in: query
-          name: urgency
-          schema:
-            type: string
-            enum:
-              - low
-              - medium
-              - high
-              - critical
-          description: Urgency level filter
-          example: critical
-        - in: query
-          name: page
-          schema:
-            type: integer
-            example: 1
-          description: Page number for pagination
-          example: 1
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            example: 20
-          description: Items per page
-          example: 10
-      responses:
-        "200":
-          description: Requests retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Requests retrieved successfully
-                data:
-                  requests:
-                    - id: 69fe540565ff7785a031314f
-                      requestId: 69fe540565ff7785a031314f
-                      bloodType: O+
-                      hospitalName: Cairo Care Hospital
-                      patientType: Emergency surgery support
-                      contactNumber: "1044444444"
-                      unitsNeeded: 3
-                      isEmergency: true
-                      createdAt: 2026-05-07T09:00:00.000Z
-                      status: pending
-                      requestStatus: pending
-                      urgency: critical
-                      type: blood
-                      requiredBy: 2026-05-11T10:00:00.000Z
-                      locationHospital:
-                        latitude: 30.0511
-                        longitude: 31.2435
-                      location:
-                        lat: 30.0511
-                        lng: 31.2435
-                      qrToken: demo-request-qr-token
-                      qrCreatedAt: 2026-05-07T10:00:00.000Z
-                      qrExpiresAt: 2026-05-07T12:00:00.000Z
-                      hospital:
-                        id: 69f3df915f42685cbbbcbb1b
-                        name: Cairo Care Hospital
-                        contactNumber: "1044444444"
-                  pagination:
-                    page: 1
-                    limit: 20
-                    total: 0
-        "401":
-          description: Missing or invalid JWT token
-        "403":
-          description: Access denied - donor role required
-  /donor/matches:
-    get:
-      tags:
-        - Donor
-      summary: List donation requests matched to the authenticated donor
-      description: |-
-        Returns requests produced by the shared matching engine in `src/services/matching.service.js` (`findCompatibleRequests`).
-        This is the donor-facing endpoint that already uses the same blood-type, availability, eligibility, and location-aware matching logic referenced by hospital emergency flows.
-
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            example: 10
-          example: 10
-        - in: query
-          name: page
-          schema:
-            type: integer
-            example: 1
-          example: 1
-      responses:
-        "200":
-          description: Matching requests retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Matching requests retrieved successfully
-                data:
-                  matches:
-                    - score: 96.8
-                      locationScore: 73.5
-                      compatibility:
-                        bloodTypeMatch: true
-                        eligible: true
-                      request:
-                        _id: 69fe540565ff7785a031314f
-                        type: blood
-                        bloodType: O+
-                        urgency: critical
-                        status: pending
-                        isEmergency: true
-                        quantity: 3
-                        unitsNeeded: 3
-                        requiredBy: 2026-05-20T00:00:00.000Z
-                        hospitalName: Cairo Care Hospital
-                        hospitalContact: "1044444444"
-                        locationHospital:
-                          latitude: 30.0511
-                          longitude: 31.2435
-                  pagination:
-                    page: 1
-                    limit: 10
-                    total: 1
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-  /donor/respond/{requestId}:
-    post:
-      tags:
-        - Donor
-      summary: Respond to a donation request
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                quantity:
-                  type: number
-                  example: 1
-            example:
-              quantity: 1
-      responses:
-        "201":
-          description: Response submitted successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Response submitted successfully
-                data:
-                  _id: 66f100000000000000000010
-                  donorId: 66f100000000000000000002
-                  requestId: 66f100000000000000000020
-                  quantity: 1
-                  status: pending
-        "400":
-          description: Invalid request or eligibility check failed
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-        "404":
-          description: Request or donor not found
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /donor/urgent-requests:
-    get:
-      tags:
-        - Donor
-      summary: Get urgent donation requests for the authenticated donor
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Urgent requests retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Urgent requests retrieved
-                data:
-                  requests:
-                    - id: 69fe540565ff7785a031314f
-                      title: Urgent Blood Request - O-
-                      bloodType: O-
-                      unitsNeeded: 3
-                      hospitalName: Cairo Care Hospital
-                      distance: 2.4
-                      isEmergency: true
-                      patientType: blood
-                      contactNumber: "0223456789"
-                      createdAt: 2026-05-18T08:20:00.000Z
-                      location:
-                        lat: 30.0444
-                        lng: 31.2357
-                  pagination:
-                    total: 1
-                    page: 1
-                    limit: 20
-  /donor/urgent-requests/{requestId}:
-    get:
-      tags:
-        - Donor
-      summary: Get details for one urgent donation request
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
-      responses:
-        "200":
-          description: Urgent request details retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Urgent request retrieved successfully
-                data:
-                  request:
-                    id: 69fe540565ff7785a031314f
-                    title: Urgent Blood Request - O-
-                    bloodType: O-
-                    unitsNeeded: 3
-                    hospitalName: Cairo Care Hospital
-                    contactNumber: "0223456789"
-                    isEmergency: true
-                    patientType: blood
-                    createdAt: 2026-05-18T08:20:00.000Z
-                    location:
-                      lat: 30.0444
-                      lng: 31.2357
-        "404":
-          description: Request not found
-  /donor/urgent-requests/{requestId}/accept:
-    post:
-      tags:
-        - Donor
-      summary: Accept an urgent donation request
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                quantity:
-                  type: number
-                  example: 1
-            example:
-              quantity: 1
-      responses:
-        "201":
-          description: Response submitted successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Response submitted successfully
-                data:
-                  _id: 66f100000000000000000010
-                  donorId: 66f100000000000000000002
-                  requestId: 66f100000000000000000020
-                  quantity: 1
-                  status: pending
-  /donor/urgent-requests/{requestId}/decline:
-    post:
-      tags:
-        - Donor
-      summary: Decline an urgent donation request
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
-      responses:
-        "200":
-          description: Urgent request declined successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Urgent request declined successfully
-        "404":
-          description: Request not found
   /donations/book-appointment:
     post:
       tags:
@@ -2768,6 +2140,523 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /donations/types:
+    get:
+      tags:
+        - Donor
+      summary: Get supported donation types with details
+      description: |-
+        Returns all supported donation types including medical hold periods and point values.
+        - Blood: 56-day cooldown, 200 points
+        - Plasma: 14-day cooldown, 150 points
+        - Platelets
+                                            - Double Red Cells
+                                          - Double Red Cells: 7-day cooldown, 175 points
+        - Organ: 365-day cooldown, 500 points
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
+      responses:
+        "200":
+          description: Donation types retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation types retrieved
+                data:
+                  types:
+                    - type: blood
+                      name: Whole Blood
+                      cooldownDays: 56
+                      pointsAward: 200
+                      description: Standard blood donation - most common type
+                    - type: plasma
+                      name: Plasma
+                      cooldownDays: 14
+                      pointsAward: 150
+                      description: Plasma donation - more frequent possible donations
+                    - type: platelets
+                      name: Platelets
+                      cooldownDays: 7
+                      pointsAward: 175
+                      description: Platelet donation - shortest cooldown period
+                    - type: organ
+                      name: Organ
+                      cooldownDays: 365
+                      pointsAward: 500
+                      description: Organ donation - highest point value
+  /donations/validate:
+    post:
+      tags:
+        - Donor
+      summary: Validate if a donor can donate for a given hospital and date
+      description: |-
+        Checks donation eligibility based on:
+        - Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d, organ: 365d)
+        - Minimum age (17 years old)
+        - Hemoglobin level (minimum 12.5 g/dL)
+        - Travel deferrals
+        - Temporary medical deferrals
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - hospitalId
+                - date
+              properties:
+                hospitalId:
+                  type: string
+                  description: Hospital ObjectId
+                date:
+                  type: string
+                  format: date
+                  description: Intended donation date (YYYY-MM-DD)
+                donationType:
+                  type: string
+                  enum:
+                    - blood
+                    - plasma
+                    - Platelets - Double Red Cells - Double Red Cells
+                    - organ
+                  default: blood
+                  description: Type of donation - affects cooldown period
+            examples:
+              bloodDonation:
+                summary: Blood donation eligibility check
+                value:
+                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  date: 2026-05-20
+                  donationType: blood
+              plasmaDonation:
+                summary: Plasma donation eligibility check (shorter cooldown)
+                value:
+                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  date: 2026-05-20
+                  donationType: plasma
+              plateletsDonation:
+                summary: Platelets donation eligibility check (7-day cooldown)
+                value:
+                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  date: 2026-05-20
+                  donationType: platelets
+      responses:
+        "200":
+          description: Donation eligibility checked successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation eligibility checked
+                data:
+                  canDonate: true
+                  reason: null
+        "400":
+          description: Missing required fields
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+  /donations/my-appointments:
+    get:
+      tags:
+        - Donor
+      summary: Get donor appointments
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Appointments fetched successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Appointments fetched
+                data:
+                  appointments:
+                    - _id: 69fe540565ff7785a031315c
+                      donorId:
+                        _id: 69f3df915f42685cbbbcbb18
+                        fullName: Aya Hassan
+                        phoneNumber: '01011111111'
+                        bloodType: O+
+                        email: aya.hassan@lifelink.demo
+                      donorDetails:
+                        fullName: Aya Hassan
+                        phoneNumber: '01011111111'
+                        bloodType: O+
+                        email: aya.hassan@lifelink.demo
+                      hospitalId:
+                        _id: 69f3df915f42685cbbbcbb1b
+                        hospitalName: Cairo Care Hospital
+                        fullName: Cairo Care Operations
+                      appointmentDate: 2026-05-12T10:00:00.000Z
+                      status: pending
+                      notes: Donation follow-up appointment
+                      qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
+                      donationType: Whole Blood
+                  total: 1
+                  meta:
+                    page: 1
+                    limit: 10
+                    total: 1
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /donor/requests:
+    get:
+      tags:
+        - Donor
+      summary: List active donation requests available to donors
+      description: |-
+        Retrieve paginated list of blood and organ donation requests that match donor eligibility criteria. Filters by type and urgency
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum:
+              - blood
+              - organ
+          description: Request type filter
+          example: blood
+        - in: query
+          name: urgency
+          schema:
+            type: string
+            enum:
+              - low
+              - medium
+              - high
+              - critical
+          description: Urgency level filter
+          example: critical
+        - in: query
+          name: page
+          schema:
+            type: integer
+            example: 1
+          description: Page number for pagination
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            example: 20
+          description: Items per page
+          example: 10
+      responses:
+        "200":
+          description: Requests retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Requests retrieved successfully
+                data:
+                  requests:
+                    - id: 69fe540565ff7785a031314f
+                      requestId: 69fe540565ff7785a031314f
+                      bloodType: O+
+                      hospitalName: Cairo Care Hospital
+                      patientType: Emergency surgery support
+                      contactNumber: "1044444444"
+                      unitsNeeded: 3
+                      isEmergency: true
+                      createdAt: 2026-05-07T09:00:00.000Z
+                      status: pending
+                      requestStatus: pending
+                      urgency: critical
+                      type: blood
+                      requiredBy: 2026-05-11T10:00:00.000Z
+                      locationHospital:
+                        latitude: 30.0511
+                        longitude: 31.2435
+                      location:
+                        lat: 30.0511
+                        lng: 31.2435
+                      qrToken: demo-request-qr-token
+                      qrCreatedAt: 2026-05-07T10:00:00.000Z
+                      qrExpiresAt: 2026-05-07T12:00:00.000Z
+                      hospital:
+                        id: 69f3df915f42685cbbbcbb1b
+                        name: Cairo Care Hospital
+                        contactNumber: "1044444444"
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 0
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - donor role required
+  /donor/matches:
+    get:
+      tags:
+        - Donor
+      summary: List donation requests matched to the authenticated donor
+      description: |-
+        Returns requests produced by the shared matching engine in `src/services/matching.service.js` (`findCompatibleRequests`).
+        This is the donor-facing endpoint that already uses the same blood-type, availability, eligibility, and location-aware matching logic referenced by hospital emergency flows.
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            example: 10
+          example: 10
+        - in: query
+          name: page
+          schema:
+            type: integer
+            example: 1
+          example: 1
+      responses:
+        "200":
+          description: Matching requests retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Matching requests retrieved successfully
+                data:
+                  matches:
+                    - score: 96.8
+                      locationScore: 73.5
+                      compatibility:
+                        bloodTypeMatch: true
+                        eligible: true
+                      request:
+                        _id: 69fe540565ff7785a031314f
+                        type: blood
+                        bloodType: O+
+                        urgency: critical
+                        status: pending
+                        isEmergency: true
+                        quantity: 3
+                        unitsNeeded: 3
+                        requiredBy: 2026-05-20T00:00:00.000Z
+                        hospitalName: Cairo Care Hospital
+                        hospitalContact: "1044444444"
+                        locationHospital:
+                          latitude: 30.0511
+                          longitude: 31.2435
+                  pagination:
+                    page: 1
+                    limit: 10
+                    total: 1
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+  /donor/respond/{requestId}:
+    post:
+      tags:
+        - Donor
+      summary: Respond to a donation request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: number
+                  example: 1
+            example:
+              quantity: 1
+      responses:
+        "201":
+          description: Response submitted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Response submitted successfully
+                data:
+                  _id: 66f100000000000000000010
+                  donorId: 66f100000000000000000002
+                  requestId: 66f100000000000000000020
+                  quantity: 1
+                  status: pending
+        "400":
+          description: Invalid request or eligibility check failed
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+        "404":
+          description: Request or donor not found
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com This operation includes a
+        seeded demo request example."
+  /donor/urgent-requests:
+    get:
+      tags:
+        - Donor
+      summary: Get urgent donation requests for the authenticated donor
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Urgent requests retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Urgent requests retrieved
+                data:
+                  requests:
+                    - id: 69fe540565ff7785a031314f
+                      title: Urgent Blood Request - O-
+                      bloodType: O-
+                      unitsNeeded: 3
+                      hospitalName: Cairo Care Hospital
+                      distance: 2.4
+                      isEmergency: true
+                      patientType: blood
+                      contactNumber: "0223456789"
+                      createdAt: 2026-05-18T08:20:00.000Z
+                      location:
+                        lat: 30.0444
+                        lng: 31.2357
+                  pagination:
+                    total: 1
+                    page: 1
+                    limit: 20
+  /donor/urgent-requests/{requestId}:
+    get:
+      tags:
+        - Donor
+      summary: Get details for one urgent donation request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Urgent request details retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Urgent request retrieved successfully
+                data:
+                  request:
+                    id: 69fe540565ff7785a031314f
+                    title: Urgent Blood Request - O-
+                    bloodType: O-
+                    unitsNeeded: 3
+                    hospitalName: Cairo Care Hospital
+                    contactNumber: "0223456789"
+                    isEmergency: true
+                    patientType: blood
+                    createdAt: 2026-05-18T08:20:00.000Z
+                    location:
+                      lat: 30.0444
+                      lng: 31.2357
+        "404":
+          description: Request not found
+  /donor/urgent-requests/{requestId}/accept:
+    post:
+      tags:
+        - Donor
+      summary: Accept an urgent donation request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                quantity:
+                  type: number
+                  example: 1
+            example:
+              quantity: 1
+      responses:
+        "201":
+          description: Response submitted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Response submitted successfully
+                data:
+                  _id: 66f100000000000000000010
+                  donorId: 66f100000000000000000002
+                  requestId: 66f100000000000000000020
+                  quantity: 1
+                  status: pending
+  /donor/urgent-requests/{requestId}/decline:
+    post:
+      tags:
+        - Donor
+      summary: Decline an urgent donation request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Urgent request declined successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Urgent request declined successfully
+        "404":
+          description: Request not found
   /requests/nearby:
     get:
       tags:
@@ -3403,186 +3292,44 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /donations/types:
+  /donor/rewards:
     get:
       tags:
         - Donor
-      summary: Get supported donation types with details
+      summary: Get donor rewards and badge progress
       description: |-
-        Returns all supported donation types including medical hold periods and point values.
-        - Blood: 56-day cooldown, 200 points
-        - Plasma: 14-day cooldown, 150 points
-        - Platelets
-                                            - Double Red Cells
-                                          - Double Red Cells: 7-day cooldown, 175 points
-        - Organ: 365-day cooldown, 500 points
-
+        Returns current points, earned badges, locked badges with progress, and next milestone.
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
-      responses:
-        "200":
-          description: Donation types retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donation types retrieved
-                data:
-                  types:
-                    - type: blood
-                      name: Whole Blood
-                      cooldownDays: 56
-                      pointsAward: 200
-                      description: Standard blood donation - most common type
-                    - type: plasma
-                      name: Plasma
-                      cooldownDays: 14
-                      pointsAward: 150
-                      description: Plasma donation - more frequent possible donations
-                    - type: platelets
-                      name: Platelets
-                      cooldownDays: 7
-                      pointsAward: 175
-                      description: Platelet donation - shortest cooldown period
-                    - type: organ
-                      name: Organ
-                      cooldownDays: 365
-                      pointsAward: 500
-                      description: Organ donation - highest point value
-  /donations/validate:
-    post:
-      tags:
-        - Donor
-      summary: Validate if a donor can donate for a given hospital and date
-      description: |-
-        Checks donation eligibility based on:
-        - Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d, organ: 365d)
-        - Minimum age (17 years old)
-        - Hemoglobin level (minimum 12.5 g/dL)
-        - Travel deferrals
-        - Temporary medical deferrals
-
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - hospitalId
-                - date
-              properties:
-                hospitalId:
-                  type: string
-                  description: Hospital ObjectId
-                date:
-                  type: string
-                  format: date
-                  description: Intended donation date (YYYY-MM-DD)
-                donationType:
-                  type: string
-                  enum:
-                    - blood
-                    - plasma
-                    - Platelets - Double Red Cells - Double Red Cells
-                    - organ
-                  default: blood
-                  description: Type of donation - affects cooldown period
-            examples:
-              bloodDonation:
-                summary: Blood donation eligibility check
-                value:
-                  hospitalId: 69f3df915f42685cbbbcbb1b
-                  date: 2026-05-20
-                  donationType: blood
-              plasmaDonation:
-                summary: Plasma donation eligibility check (shorter cooldown)
-                value:
-                  hospitalId: 69f3df915f42685cbbbcbb1b
-                  date: 2026-05-20
-                  donationType: plasma
-              plateletsDonation:
-                summary: Platelets donation eligibility check (7-day cooldown)
-                value:
-                  hospitalId: 69f3df915f42685cbbbcbb1b
-                  date: 2026-05-20
-                  donationType: platelets
-      responses:
-        "200":
-          description: Donation eligibility checked successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donation eligibility checked
-                data:
-                  canDonate: true
-                  reason: null
-        "400":
-          description: Missing required fields
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-  /donations/my-appointments:
-    get:
-      tags:
-        - Donor
-      summary: Get donor appointments
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Appointments fetched successfully
+          description: Donor rewards retrieved
           content:
             application/json:
               example:
                 success: true
-                message: Appointments fetched
+                message: Donor rewards retrieved
                 data:
-                  appointments:
-                    - _id: 69fe540565ff7785a031315c
-                      donorId:
-                        _id: 69f3df915f42685cbbbcbb18
-                        fullName: Aya Hassan
-                        phoneNumber: '01011111111'
-                        bloodType: O+
-                        email: aya.hassan@lifelink.demo
-                      donorDetails:
-                        fullName: Aya Hassan
-                        phoneNumber: '01011111111'
-                        bloodType: O+
-                        email: aya.hassan@lifelink.demo
-                      hospitalId:
-                        _id: 69f3df915f42685cbbbcbb1b
-                        hospitalName: Cairo Care Hospital
-                        fullName: Cairo Care Operations
-                      appointmentDate: 2026-05-12T10:00:00.000Z
-                      status: pending
-                      notes: Donation follow-up appointment
-                      qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
-                      donationType: Whole Blood
-                  total: 1
-                  meta:
-                    page: 1
-                    limit: 10
-                    total: 1
+                  currentPoints: 2340
+                  earnedBadges:
+                    - id: 664a0f1a2b3c4d5e6f7a8b9c
+                      title: First Timer
+                      description: Completed your first blood donation
+                  lockedBadges:
+                    - id: 664a0f1a2b3c4d5e6f7a8b9d
+                      title: Regular Donor
+                      progress: 2
+                      target: 5
+                  nextMilestone: 3000
         "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /rewards/points:
+          description: Unauthorized
+  /donor/points:
     get:
-      summary: Get donor's points summary and tier
       tags:
         - Donor
+      summary: Get donor points summary and tier
       security:
         - bearerAuth: []
       responses:
@@ -3600,6 +3347,272 @@ paths:
                   pointsToNextTier: 660
                   bonusMultiplier: 1
                   rewardsAvailable: 5
+  /donor/badges:
+    get:
+      tags:
+        - Donor
+      summary: Get all badges and donor progress
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Badge list with unlock status and progress
+          content:
+            application/json:
+              example:
+                success: true
+                message: Badges retrieved successfully
+                data:
+                  unlockedCount: 3
+                  totalCount: 7
+                  completionPercentage: 43
+                  badges:
+                    - badgeId: 66fd00000000000000000003
+                      badgeName: Life Saver
+                      badgeDescription: Completed 10 blood donations
+                      badgeIcon: star
+                      category: DONATION
+                      rarity: RARE
+                      unlockStatus: LOCKED
+                      unlockedAt: null
+                      progressCurrent: 8
+                      progressTarget: 10
+                      progressPercentage: 80
+                  stats:
+                    totalDonations: 8
+                    totalEmergencyResponses: 2
+                    daysAsDonor: 123
+  /donor/stats:
+    get:
+      tags:
+        - Donor
+      summary: Get lightweight donor statistics
+      description: |-
+        Returns totalDonations, points balance, and livesSaved. Used in home header and profile stats row.
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Donor stats retrieved
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donor stats retrieved
+                data:
+                  totalDonations: 8
+                  points: 2340
+                  livesSaved: 24
+        "401":
+          description: Unauthorized
+  /donor/history:
+    get:
+      tags:
+        - Donor
+      summary: List donation history for the authenticated donor
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - pending
+              - scheduled
+              - completed
+              - cancelled
+              - rejected
+          example: pending
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            example: 10
+          example: 10
+        - in: query
+          name: page
+          schema:
+            type: integer
+            example: 1
+          example: 1
+      responses:
+        "200":
+          description: Donation history retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation history retrieved successfully
+                data:
+                  donations: []
+                  pagination:
+                    page: 1
+                    limit: 10
+                    total: 0
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /donor/donations:
+    get:
+      tags:
+        - Donor
+      summary: Get donor donation history with pointsEarned
+      description: |-
+        Paginated donation history for the authenticated donor.
+        Each record includes `pointsEarned` calculated from the points transaction log.
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          example: 10
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - pending
+              - scheduled
+              - completed
+              - cancelled
+              - rejected
+          example: pending
+      responses:
+        "200":
+          description: Donation history retrieved
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation history retrieved successfully
+                data:
+                  donations:
+                    - _id: 664a0f1a2b3c4d5e6f7a8b9c
+                      status: completed
+                      quantity: 1
+                      pointsEarned: 100
+                      createdAt: 2026-05-01T10:00:00Z
+                  pagination:
+                    total: 1
+                    page: 1
+                    limit: 10
+                    pages: 1
+        "401":
+          description: Unauthorized
+  /donor/redemptions:
+    get:
+      tags:
+        - Donor
+      summary: Get donor redemption history
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+          description: Optional redemption status filter.
+          example: CONFIRMED
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          example: 20
+      responses:
+        "200":
+          description: Redemptions retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Redemptions retrieved successfully
+                data:
+                  redemptions:
+                    - _id: 66f400000000000000000001
+                      donorId: 66f100000000000000000002
+                      rewardId:
+                        _id: 66f400000000000000000101
+                        name: Gift Card
+                        category: voucher
+                        iconType: gift
+                      pointsSpent: 500
+                      confirmationCode: RWD-2026-ABC123
+                      status: CONFIRMED
+                      deliveryMethod: IN_APP
+                      deliveryContact: null
+                      expiresAt: 2026-06-17T10:00:00.000Z
+                  pagination:
+                    total: 1
+                    page: 1
+                    limit: 20
+                    pages: 1
+  /rewards/points:
+    get:
+      summary: Get donor's points summary and tier
+      tags:
+        - Donor
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Points summary with tier info
+          content:
+            application/json:
+              example:
+                success: true
+                message: Points retrieved successfully
+                data:
+                  pointsBalance: 2340
+                  lifetimePointsEarned: 3340
+                  currentTier: silver
+                  nextTier: gold
+                  pointsToNextTier: 160
+                  progressPercentage: 56
+                  tierBenefits:
+                    bronze:
+                      - Access to basic rewards
+                    silver:
+                      - 10% more points per donation
+                      - Early access to limited rewards
+                    gold:
+                      - 15% more points per donation
+                      - Exclusive gold rewards
+                    platinum:
+                      - 20% more points per donation
+                      - VIP support
+                      - All exclusive rewards
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -3612,33 +3625,45 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: Dynamic earning rules for the rewards UI
+          description: Dynamic earning rules for the rewards UI (all donation types + bonus activities)
           content:
             application/json:
               example:
                 success: true
-                message: Earning rules retrieved
+                message: Reward earning rules retrieved successfully
                 data:
-                  rules:
-                    - donationType: blood
-                      basePoints: 200
-                      cooldownDays: 56
-                      description: Whole blood donation
-                    - donationType: plasma
-                      basePoints: 150
-                      cooldownDays: 14
-                      description: Plasma donation
-                    - donationType: platelets
-                      basePoints: 175
-                      cooldownDays: 7
-                      description: Platelet donation
-                    - donationType: organ
-                      basePoints: 500
-                      cooldownDays: 365
-                      description: Organ donation
-                  bonuses:
-                    firstDonation: 50
-                    referral: 100
+                  - type: blood_donation
+                    title: Blood Donation
+                    points: 200
+                    category: donation
+                  - type: plasma_donation
+                    title: Plasma Donation
+                    points: 150
+                    category: donation
+                  - type: platelets_donation
+                    title: Platelet Donation
+                    points: 175
+                    category: donation
+                  - type: organ_donation
+                    title: Organ Donation
+                    points: 500
+                    category: donation
+                  - type: first_donation
+                    title: First Donation Bonus
+                    points: 100
+                    category: bonus
+                  - type: emergency_response
+                    title: Emergency Response
+                    points: 100
+                    category: bonus
+                  - type: profile_completion
+                    title: Profile Completion
+                    points: 50
+                    category: bonus
+                  - type: referral
+                    title: Referral
+                    points: 150
+                    category: bonus
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -3871,6 +3896,16 @@ paths:
               - COST_DESC
               - POPULARITY
           example: COST_ASC
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - ACTIVE
+              - INACTIVE
+              - ALL
+            default: ACTIVE
+          example: ACTIVE
       responses:
         "200":
           description: Rewards catalog
@@ -3878,30 +3913,39 @@ paths:
             application/json:
               example:
                 success: true
-                message: Rewards catalog retrieved
+                message: Rewards retrieved successfully
                 data:
                   rewards:
                     - _id: 664a123456789abcdef12345
-                      title: Coffee Voucher
-                      description: Free coffee at partner cafe
+                      name: Coffee Voucher
+                      description: Free coffee at partner cafes
                       category: FOOD
-                      pointsRequired: 300
-                      image: https://graduation-project-cy61.onrender.com/assets/rewards/coffee-voucher.jpg
-                      stock: 50
-                      redeemed: 12
-                      isAvailable: true
-                      daysToExpiry: 30
+                      pointsCost: 500
+                      iconType: coffee
+                      colorCode: "#8B4513"
+                      status: ACTIVE
+                      dailyLimit: null
+                      monthlyLimit: null
+                      redemptionCount: 12
+                      available: true
                     - _id: 664a123456789abcdef12346
-                      title: Movie Ticket
-                      description: Two movie tickets at partner cinema
+                      name: Movie Tickets
+                      description: 2 movie tickets at major cinemas
                       category: ENTERTAINMENT
-                      pointsRequired: 800
-                      image: https://graduation-project-cy61.onrender.com/assets/rewards/movie-ticket.jpg
-                      stock: 25
-                      redeemed: 5
-                      isAvailable: true
-                      daysToExpiry: 60
-                  total: 45
+                      pointsCost: 1000
+                      iconType: movie
+                      colorCode: "#6A0DAD"
+                      status: ACTIVE
+                      dailyLimit: 5
+                      monthlyLimit: 50
+                      redemptionCount: 5
+                      available: true
+                  filterOptions:
+                    categories:
+                      - FOOD
+                      - ENTERTAINMENT
+                      - HEALTH
+                      - STATUS
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -4596,6 +4640,68 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /hospital/dashboard:
+    get:
+      tags:
+        - Hospital
+      summary: Get hospital dashboard summary
+      description: Same controller behavior as `/hospital/reports/monthly`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: month
+          schema:
+            type: string
+            example: 2026-05
+          example: 2026-05
+      responses:
+        "200":
+          description: Monthly report retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Monthly report retrieved successfully
+                data:
+                  month: 2026-05
+                  totalRequests: 9
+                  totalCompleted: 6
+                  totalCancelled: 2
+                  emergencyRequests: 3
+                  totalDonations: 7
+  /hospital/reports/monthly:
+    get:
+      tags:
+        - Hospital
+      summary: Get monthly hospital report
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: month
+          schema:
+            type: string
+            example: 2026-05
+          example: 2026-05
+      responses:
+        "200":
+          description: Monthly report retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Monthly report retrieved successfully
+                data:
+                  month: 2026-05
+                  totalRequests: 11
+                  totalCompleted: 7
+                  totalCancelled: 1
+                  emergencyRequests: 4
+                  totalDonations: 9
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
   /hospital/profile:
     get:
       tags:
@@ -4742,36 +4848,6 @@ paths:
           description: Access denied - hospital role required
         "404":
           description: Hospital profile not found
-  /hospital/dashboard:
-    get:
-      tags:
-        - Hospital
-      summary: Get hospital dashboard summary
-      description: Same controller behavior as `/hospital/reports/monthly`.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: month
-          schema:
-            type: string
-            example: 2026-05
-          example: 2026-05
-      responses:
-        "200":
-          description: Monthly report retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Monthly report retrieved successfully
-                data:
-                  month: 2026-05
-                  totalRequests: 9
-                  totalCompleted: 6
-                  totalCancelled: 2
-                  emergencyRequests: 3
-                  totalDonations: 7
   /hospital/appointment-settings:
     get:
       tags:
@@ -5265,6 +5341,61 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
+  /hospital/notification-preferences:
+    get:
+      tags:
+        - Hospital
+      summary: Get hospital notification preferences
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Notification preferences retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Notification preferences retrieved successfully
+                data:
+                  notificationPreferences:
+                    email: true
+                    push: true
+                    sms: false
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+    put:
+      tags:
+        - Hospital
+      summary: Update hospital notification preferences
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+            example:
+              email: true
+              push: true
+              sms: false
+      responses:
+        "200":
+          description: Notification preferences updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Notification preferences updated successfully
+                data:
+                  notificationPreferences:
+                    email: true
+                    push: false
+                    sms: true
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com This operation includes a
+        seeded demo request example."
   /hospital/blood-inventory:
     get:
       tags:
@@ -5328,93 +5459,6 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /hospital/notification-preferences:
-    get:
-      tags:
-        - Hospital
-      summary: Get hospital notification preferences
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Notification preferences retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Notification preferences retrieved successfully
-                data:
-                  notificationPreferences:
-                    email: true
-                    push: true
-                    sms: false
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    put:
-      tags:
-        - Hospital
-      summary: Update hospital notification preferences
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-            example:
-              email: true
-              push: true
-              sms: false
-      responses:
-        "200":
-          description: Notification preferences updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Notification preferences updated successfully
-                data:
-                  notificationPreferences:
-                    email: true
-                    push: false
-                    sms: true
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /hospital/reports/monthly:
-    get:
-      tags:
-        - Hospital
-      summary: Get monthly hospital report
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: month
-          schema:
-            type: string
-            example: 2026-05
-          example: 2026-05
-      responses:
-        "200":
-          description: Monthly report retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Monthly report retrieved successfully
-                data:
-                  month: 2026-05
-                  totalRequests: 11
-                  totalCompleted: 7
-                  totalCancelled: 1
-                  emergencyRequests: 4
-                  totalDonations: 9
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -6056,6 +6100,80 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /donations/complete:
+    post:
+      tags:
+        - Hospital
+      summary: Confirm a verified donation and award points
+      description: |-
+        Confirms a verified appointment after medical validation and triggers point award based on donation type.
+        Legacy `donationId` completion is still supported for older callers.
+
+
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+              properties:
+                appointmentId:
+                  type: string
+                  description: Appointment ObjectId to confirm after QR verification and checklist
+                    completion
+                donationId:
+                  type: string
+                  description: Legacy Donation ObjectId to complete
+                hemoglobinLevel:
+                  type: number
+                  description: Measured hemoglobin value in g/dL
+                weight:
+                  type: number
+                  description: Donor weight in kg at the donation site
+                unitsCollected:
+                  type: integer
+                  enum: [ 1, 2 ]
+                  description: Number of units collected during the donation
+                notes:
+                  type: string
+            example:
+              appointmentId: 69fe540565ff7785a031315c
+              hemoglobinLevel: 14.8
+              weight: 72
+              unitsCollected: 1
+              notes: Donation completed successfully.
+      responses:
+        "200":
+          description: Donation completed and points awarded
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation completed successfully
+                data:
+                  donation:
+                    _id: 69fe540565ff7785a0313157
+                    donorId: 69f3df915f42685cbbbcbb18
+                    appointmentId: 69fe540565ff7785a031315c
+                    requestId: 69fe540565ff7785a0313151
+                    quantity: 1
+                    unitsCollected: 1
+                    hemoglobinLevel: 14.8
+                    weight: 72
+                    status: completed
+                    completedDate: 2026-05-11T10:00:00.000Z
+                  appointment:
+                    id: 69fe540565ff7785a031315c
+                    status: completed
+                    verificationStatus: completed
+                    donationType: Whole Blood
+                  pointsEarned: 100
+        "404":
+          description: Donation not found
   /appointments/verify-qr:
     post:
       tags:
@@ -6320,111 +6438,6 @@ paths:
                   qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
                   qrCreatedAt: 2026-05-18T09:45:00.000Z
                   qrExpiresAt: 2026-05-18T11:45:00.000Z
-  /donations/complete:
-    post:
-      tags:
-        - Hospital
-      summary: Confirm a verified donation and award points
-      description: |-
-        Confirms a verified appointment after medical validation and triggers point award based on donation type.
-        Legacy `donationId` completion is still supported for older callers.
-
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-              properties:
-                appointmentId:
-                  type: string
-                  description: Appointment ObjectId to confirm after QR verification and checklist
-                    completion
-                donationId:
-                  type: string
-                  description: Legacy Donation ObjectId to complete
-                hemoglobinLevel:
-                  type: number
-                  description: Measured hemoglobin value in g/dL
-                weight:
-                  type: number
-                  description: Donor weight in kg at the donation site
-                unitsCollected:
-                  type: integer
-                  enum: [ 1, 2 ]
-                  description: Number of units collected during the donation
-                notes:
-                  type: string
-            example:
-              appointmentId: 69fe540565ff7785a031315c
-              hemoglobinLevel: 14.8
-              weight: 72
-              unitsCollected: 1
-              notes: Donation completed successfully.
-      responses:
-        "200":
-          description: Donation completed and points awarded
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donation completed successfully
-                data:
-                  donation:
-                    _id: 69fe540565ff7785a0313157
-                    donorId: 69f3df915f42685cbbbcbb18
-                    appointmentId: 69fe540565ff7785a031315c
-                    requestId: 69fe540565ff7785a0313151
-                    quantity: 1
-                    unitsCollected: 1
-                    hemoglobinLevel: 14.8
-                    weight: 72
-                    status: completed
-                    completedDate: 2026-05-11T10:00:00.000Z
-                  appointment:
-                    id: 69fe540565ff7785a031315c
-                    status: completed
-                    verificationStatus: completed
-                    donationType: Whole Blood
-                  pointsEarned: 100
-        "404":
-          description: Donation not found
-  /admin/profile:
-    get:
-      tags:
-        - Admin
-      summary: Get the authenticated admin profile
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Admin profile retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Admin profile
-                data:
-                  admin:
-                    _id: 66f200000000000000000001
-                    fullName: Noura Hassan
-                    email: admin@lifelink.demo
-                    role: admin
-                    phone: "01122223333"
-                    address:
-                      city: Cairo
-                      governorate: Cairo
-                    isVerified: true
-                    isSuspended: false
-                    createdAt: 2026-01-10T08:30:00.000Z
-                    updatedAt: 2026-05-18T08:30:00.000Z
-        "401":
-          description: Missing or invalid JWT token
   /admin/system/health:
     get:
       summary: System health check
@@ -6508,6 +6521,166 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /admin/audit-logs:
+    get:
+      summary: List audit logs
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: action
+          schema:
+            type: string
+          example: suspend
+        - in: query
+          name: targetType
+          schema:
+            type: string
+            enum:
+              - User
+              - Request
+              - Donation
+              - System
+          example: User
+        - in: query
+          name: page
+          schema:
+            type: integer
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+          example: 10
+      responses:
+        "200":
+          description: Audit logs list
+          content:
+            application/json:
+              example:
+                success: true
+                message: Audit logs
+                data:
+                  logs:
+                    - _id: 66f800000000000000000001
+                      adminId:
+                        _id: 66f200000000000000000001
+                        fullName: Noura Hassan
+                        email: admin@lifelink.demo
+                        role: admin
+                      action: user.suspend
+                      targetType: User
+                      targetId: 69f3df915f42685cbbbcbb18
+                      createdAt: 2026-05-18T08:50:00.000Z
+                  total: 1
+                  page: 1
+                  limit: 10
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /api/webhooks/resend:
+    post:
+      tags:
+        - Admin
+      summary: Receive Resend email delivery webhooks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - email.delivered
+                    - email.bounced
+                    - email.complained
+                    - email.received
+                data:
+                  type: object
+                  additionalProperties: true
+            example:
+              type: email.received
+              data:
+                from: donor.followup@lifelink.demo
+                to:
+                  - support@lifelink.demo
+                subject: Donation follow-up
+      responses:
+        "200":
+          description: Webhook accepted
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  received: true
+  /health:
+    get:
+      summary: Health check
+      responses:
+        "200":
+          description: Process health details
+          content:
+            application/json:
+              example:
+                app: LifeLink
+                status: ok
+                pid: 12345
+                startedAt: 2026-05-17T10:00:00.000Z
+                port: 5000
+                env: development
+      tags:
+        - Admin
+  /:
+    get:
+      summary: Root service status
+      responses:
+        "200":
+          description: Service is reachable
+          content:
+            application/json:
+              example:
+                app: LifeLink
+                status: ok
+      tags:
+        - Admin
+  /admin/dashboard:
+    get:
+      summary: Dashboard summary with key metrics
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              example:
+                success: true
+                message: Dashboard summary
+                data:
+                  users:
+                    total: 284
+                    donors: 231
+                    hospitals: 41
+                  requests:
+                    active: 19
+                    critical: 4
+                  donations:
+                    pending: 13
+                    completed: 428
+                  alerts:
+                    unverifiedUsers: 7
+                    suspendedUsers: 3
+                    criticalRequests: 4
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
   /admin/statistics:
     get:
       summary: Get admin statistics summary
@@ -6541,36 +6714,67 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/dashboard:
+  /admin/blood-inventory-summary:
     get:
-      summary: Dashboard summary with key metrics
       tags:
         - Admin
+      summary: Get the system blood inventory summary
       security:
         - bearerAuth: []
       responses:
         "200":
-          description: Dashboard summary
+          description: Blood inventory summary
           content:
             application/json:
               example:
                 success: true
-                message: Dashboard summary
+                message: Blood inventory summary
                 data:
-                  users:
-                    total: 284
-                    donors: 231
-                    hospitals: 41
-                  requests:
-                    active: 19
-                    critical: 4
-                  donations:
-                    pending: 13
-                    completed: 428
-                  alerts:
-                    unverifiedUsers: 7
-                    suspendedUsers: 3
-                    criticalRequests: 4
+                  scope: system
+                  hospitalId: null
+                  bloodTypeTotals:
+                    A+:
+                      bloodType: A+
+                      donatedUnits: 54
+                      requestedUnits: 38
+                      netUnits: 16
+                      shortageUnits: 0
+                      shortage: false
+                      lowStock: false
+                    O-:
+                      bloodType: O-
+                      donatedUnits: 7
+                      requestedUnits: 12
+                      netUnits: -5
+                      shortageUnits: 5
+                      shortage: true
+                      lowStock: true
+                  lowStockAlerts:
+                    - bloodType: O-
+                      message: "Shortage detected for O-: 5 unit(s) needed"
+                      severity: high
+                  shortageAlerts:
+                    - bloodType: O-
+                      activeRequests: 6
+                      availableDonors: 2
+                      ratio: "3.00"
+                      status: shortage
+                  requestStats:
+                    total: 68
+                    byStatus:
+                      pending: 14
+                      in-progress: 5
+                      completed: 41
+                      cancelled: 8
+                    byUrgency:
+                      low: 2
+                      medium: 6
+                      high: 7
+                      critical: 4
+                    byBloodType:
+                      A+: 4
+                      B+: 3
+                      O-: 6
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -6608,6 +6812,223 @@ paths:
                         availableDonors: 2
                         ratio: "3.00"
                         status: shortage
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /admin/analytics/dashboard:
+    get:
+      summary: Dashboard summary with key metrics
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary
+          content:
+            application/json:
+              example:
+                success: true
+                message: Dashboard summary
+                data:
+                  users:
+                    total: 290
+                    donors: 236
+                    hospitals: 42
+                  requests:
+                    active: 21
+                    critical: 5
+                  donations:
+                    pending: 15
+                    completed: 439
+                  alerts:
+                    unverifiedUsers: 6
+                    suspendedUsers: 4
+                    criticalRequests: 5
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /admin/analytics/donations:
+    get:
+      summary: Monthly donation trends
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: months
+          schema:
+            type: integer
+            default: 6
+          example: 6
+      responses:
+        "200":
+          description: Donation trends
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation trends
+                data:
+                  trends:
+                    - year: 2026
+                      month: 3
+                      total: 41
+                      completed: 35
+                      cancelled: 6
+                      totalUnits: 39
+                      successRate: 85.4%
+                    - year: 2026
+                      month: 4
+                      total: 52
+                      completed: 46
+                      cancelled: 6
+                      totalUnits: 51
+                      successRate: 88.5%
+                    - year: 2026
+                      month: 5
+                      total: 38
+                      completed: 32
+                      cancelled: 6
+                      totalUnits: 35
+                      successRate: 84.2%
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /admin/analytics/blood-types:
+    get:
+      summary: Blood type distribution
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Blood type distribution
+          content:
+            application/json:
+              example:
+                success: true
+                message: Blood type distribution
+                data:
+                  distribution:
+                    - bloodType: A+
+                      donors: 54
+                      activeRequests: 4
+                    - bloodType: O-
+                      donors: 12
+                      activeRequests: 6
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /admin/analytics/top-donors:
+    get:
+      summary: Top donors leaderboard
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          example: 10
+      responses:
+        "200":
+          description: Top donors
+          content:
+            application/json:
+              example:
+                success: true
+                message: Top donors
+                data:
+                  topDonors:
+                    - _id: 69f3df915f42685cbbbcbb18
+                      completedDonations: 12
+                      totalUnits: 12
+                      lastDonation: 2026-05-10T12:30:00.000Z
+                      donor:
+                        fullName: Aya Hassan
+                        email: aya.hassan@lifelink.demo
+                        bloodType: O+
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /admin/analytics/growth:
+    get:
+      summary: Growth metrics over time
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: months
+          schema:
+            type: integer
+            default: 6
+          example: 6
+      responses:
+        "200":
+          description: Growth metrics
+          content:
+            application/json:
+              example:
+                success: true
+                message: Growth metrics
+                data:
+                  userGrowth:
+                    - _id:
+                        year: 2026
+                        month: 3
+                      count: 18
+                      donors: 14
+                      hospitals: 3
+                  requestGrowth:
+                    - _id:
+                        year: 2026
+                        month: 3
+                      count: 11
+                  donationGrowth:
+                    - _id:
+                        year: 2026
+                        month: 3
+                      count: 35
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /analytics/dashboard:
+    get:
+      summary: Get dashboard summary with key metrics (Admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Dashboard summary with system metrics
+          content:
+            application/json:
+              example:
+                success: true
+                data:
+                  users:
+                    total: 284
+                    donors: 231
+                    hospitals: 41
+                  requests:
+                    active: 19
+                    critical: 4
+                  donations:
+                    pending: 13
+                    completed: 428
+                  alerts:
+                    unverifiedUsers: 7
+                    suspendedUsers: 3
+                    criticalRequests: 4
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -6696,126 +7117,134 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/blood-inventory-summary:
-    get:
-      tags:
-        - Admin
-      summary: Get the system blood inventory summary
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Blood inventory summary
-          content:
-            application/json:
-              example:
-                success: true
-                message: Blood inventory summary
-                data:
-                  scope: system
-                  hospitalId: null
-                  bloodTypeTotals:
-                    A+:
-                      bloodType: A+
-                      donatedUnits: 54
-                      requestedUnits: 38
-                      netUnits: 16
-                      shortageUnits: 0
-                      shortage: false
-                      lowStock: false
-                    O-:
-                      bloodType: O-
-                      donatedUnits: 7
-                      requestedUnits: 12
-                      netUnits: -5
-                      shortageUnits: 5
-                      shortage: true
-                      lowStock: true
-                  lowStockAlerts:
-                    - bloodType: O-
-                      message: "Shortage detected for O-: 5 unit(s) needed"
-                      severity: high
-                  shortageAlerts:
-                    - bloodType: O-
-                      activeRequests: 6
-                      availableDonors: 2
-                      ratio: "3.00"
-                      status: shortage
-                  requestStats:
-                    total: 68
-                    byStatus:
-                      pending: 14
-                      in-progress: 5
-                      completed: 41
-                      cancelled: 8
-                    byUrgency:
-                      low: 2
-                      medium: 6
-                      high: 7
-                      critical: 4
-                    byBloodType:
-                      A+: 4
-                      B+: 3
-                      O-: 6
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/audit-logs:
-    get:
-      summary: List audit logs
+  /rewards/admin/users/{userId}/points/adjust:
+    post:
+      summary: Manually adjust a donor's points (admin only)
       tags:
         - Admin
       security:
         - bearerAuth: []
       parameters:
-        - in: query
-          name: action
+        - in: path
+          name: userId
+          required: true
           schema:
             type: string
-          example: suspend
-        - in: query
-          name: targetType
-          schema:
-            type: string
-            enum:
-              - User
-              - Request
-              - Donation
-              - System
-          example: User
-        - in: query
-          name: page
-          schema:
-            type: integer
-          example: 1
-        - in: query
-          name: limit
-          schema:
-            type: integer
-          example: 10
+          example: 69f3df915f42685cbbbcbb18
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+                - reason
+              properties:
+                amount:
+                  type: integer
+                  description: Positive to add, negative to deduct
+                reason:
+                  type: string
+            example:
+              amount: 100
+              reason: Demo bonus points
       responses:
         "200":
-          description: Audit logs list
+          description: Points adjusted and transaction logged
           content:
             application/json:
               example:
                 success: true
-                message: Audit logs
+                message: Points adjusted successfully
                 data:
-                  logs:
-                    - _id: 66f800000000000000000001
-                      adminId:
-                        _id: 66f200000000000000000001
-                        fullName: Noura Hassan
-                        email: admin@lifelink.demo
-                        role: admin
-                      action: user.suspend
-                      targetType: User
-                      targetId: 69f3df915f42685cbbbcbb18
-                      createdAt: 2026-05-18T08:50:00.000Z
-                  total: 1
-                  page: 1
-                  limit: 10
+                  donorId: 69f3df915f42685cbbbcbb18
+                  pointsBalance: 2440
+                  lifetimePointsEarned: 2940
+                  tier: gold
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com This operation includes a
+        seeded demo request example."
+  /rewards/admin/catalog/{rewardId}/status:
+    patch:
+      summary: Update a reward's status (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: rewardId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a0313165
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum:
+                    - ACTIVE
+                    - INACTIVE
+                    - LIMITED
+            example:
+              status: ACTIVE
+      responses:
+        "200":
+          description: Reward status updated
+          content:
+            application/json:
+              example:
+                success: true
+                message: Reward status updated
+                data:
+                  _id: 69fe540565ff7785a0313165
+                  name: Coffee Voucher
+                  category: FOOD
+                  status: ACTIVE
+                  pointsCost: 500
+                  redemptionCount: 34
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com This operation includes a
+        seeded demo request example."
+  /rewards/admin/analytics:
+    get:
+      summary: Get rewards system analytics (admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Top rewards, tier distribution, total points issued
+          content:
+            application/json:
+              example:
+                success: true
+                message: Rewards analytics retrieved
+                data:
+                  topRewards:
+                    - rewardName: Coffee Voucher
+                      count: 34
+                      totalPointsSpent: 17000
+                    - rewardName: Movie Tickets
+                      count: 18
+                      totalPointsSpent: 18000
+                  tierDistribution:
+                    - _id: bronze
+                      count: 96
+                    - _id: silver
+                      count: 74
+                    - _id: gold
+                      count: 28
+                  totalPointsIssued: 148520
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -6991,6 +7420,37 @@ paths:
                     _id: 66f700000000000000000001
                     isArchived: true
                     archivedAt: 2026-05-18T09:05:00.000Z
+  /admin/profile:
+    get:
+      tags:
+        - Admin
+      summary: Get the authenticated admin profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Admin profile retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Admin profile
+                data:
+                  admin:
+                    _id: 66f200000000000000000001
+                    fullName: Noura Hassan
+                    email: admin@lifelink.demo
+                    role: admin
+                    phone: "01122223333"
+                    address:
+                      city: Cairo
+                      governorate: Cairo
+                    isVerified: true
+                    isSuspended: false
+                    createdAt: 2026-01-10T08:30:00.000Z
+                    updatedAt: 2026-05-18T08:30:00.000Z
+        "401":
+          description: Missing or invalid JWT token
   /admin/users:
     get:
       summary: List all users with filters and pagination
@@ -8604,191 +9064,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/analytics/dashboard:
-    get:
-      summary: Dashboard summary with key metrics
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Dashboard summary
-          content:
-            application/json:
-              example:
-                success: true
-                message: Dashboard summary
-                data:
-                  users:
-                    total: 290
-                    donors: 236
-                    hospitals: 42
-                  requests:
-                    active: 21
-                    critical: 5
-                  donations:
-                    pending: 15
-                    completed: 439
-                  alerts:
-                    unverifiedUsers: 6
-                    suspendedUsers: 4
-                    criticalRequests: 5
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/analytics/donations:
-    get:
-      summary: Monthly donation trends
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: months
-          schema:
-            type: integer
-            default: 6
-          example: 6
-      responses:
-        "200":
-          description: Donation trends
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donation trends
-                data:
-                  trends:
-                    - year: 2026
-                      month: 3
-                      total: 41
-                      completed: 35
-                      cancelled: 6
-                      totalUnits: 39
-                      successRate: 85.4%
-                    - year: 2026
-                      month: 4
-                      total: 52
-                      completed: 46
-                      cancelled: 6
-                      totalUnits: 51
-                      successRate: 88.5%
-                    - year: 2026
-                      month: 5
-                      total: 38
-                      completed: 32
-                      cancelled: 6
-                      totalUnits: 35
-                      successRate: 84.2%
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/analytics/blood-types:
-    get:
-      summary: Blood type distribution
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Blood type distribution
-          content:
-            application/json:
-              example:
-                success: true
-                message: Blood type distribution
-                data:
-                  distribution:
-                    - bloodType: A+
-                      donors: 54
-                      activeRequests: 4
-                    - bloodType: O-
-                      donors: 12
-                      activeRequests: 6
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/analytics/top-donors:
-    get:
-      summary: Top donors leaderboard
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 10
-          example: 10
-      responses:
-        "200":
-          description: Top donors
-          content:
-            application/json:
-              example:
-                success: true
-                message: Top donors
-                data:
-                  topDonors:
-                    - _id: 69f3df915f42685cbbbcbb18
-                      completedDonations: 12
-                      totalUnits: 12
-                      lastDonation: 2026-05-10T12:30:00.000Z
-                      donor:
-                        fullName: Aya Hassan
-                        email: aya.hassan@lifelink.demo
-                        bloodType: O+
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/analytics/growth:
-    get:
-      summary: Growth metrics over time
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: months
-          schema:
-            type: integer
-            default: 6
-          example: 6
-      responses:
-        "200":
-          description: Growth metrics
-          content:
-            application/json:
-              example:
-                success: true
-                message: Growth metrics
-                data:
-                  userGrowth:
-                    - _id:
-                        year: 2026
-                        month: 3
-                      count: 18
-                      donors: 14
-                      hospitals: 3
-                  requestGrowth:
-                    - _id:
-                        year: 2026
-                        month: 3
-                      count: 11
-                  donationGrowth:
-                    - _id:
-                        year: 2026
-                        month: 3
-                      count: 35
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
   /admin/emergency/broadcast:
     post:
       summary: Send emergency broadcast to donors
@@ -8918,234 +9193,3 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /rewards/admin/users/{userId}/points/adjust:
-    post:
-      summary: Manually adjust a donor's points (admin only)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: userId
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - amount
-                - reason
-              properties:
-                amount:
-                  type: integer
-                  description: Positive to add, negative to deduct
-                reason:
-                  type: string
-            example:
-              amount: 100
-              reason: Demo bonus points
-      responses:
-        "200":
-          description: Points adjusted and transaction logged
-          content:
-            application/json:
-              example:
-                success: true
-                message: Points adjusted successfully
-                data:
-                  donorId: 69f3df915f42685cbbbcbb18
-                  pointsBalance: 2440
-                  lifetimePointsEarned: 2940
-                  tier: gold
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /rewards/admin/catalog/{rewardId}/status:
-    patch:
-      summary: Update a reward's status (admin only)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: rewardId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a0313165
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - status
-              properties:
-                status:
-                  type: string
-                  enum:
-                    - ACTIVE
-                    - INACTIVE
-                    - LIMITED
-            example:
-              status: ACTIVE
-      responses:
-        "200":
-          description: Reward status updated
-          content:
-            application/json:
-              example:
-                success: true
-                message: Reward status updated
-                data:
-                  _id: 69fe540565ff7785a0313165
-                  name: Coffee Voucher
-                  category: FOOD
-                  status: ACTIVE
-                  pointsCost: 500
-                  redemptionCount: 34
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /rewards/admin/analytics:
-    get:
-      summary: Get rewards system analytics (admin only)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Top rewards, tier distribution, total points issued
-          content:
-            application/json:
-              example:
-                success: true
-                message: Rewards analytics retrieved
-                data:
-                  topRewards:
-                    - rewardName: Coffee Voucher
-                      count: 34
-                      totalPointsSpent: 17000
-                    - rewardName: Movie Tickets
-                      count: 18
-                      totalPointsSpent: 18000
-                  tierDistribution:
-                    - _id: bronze
-                      count: 96
-                    - _id: silver
-                      count: 74
-                    - _id: gold
-                      count: 28
-                  totalPointsIssued: 148520
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /api/webhooks/resend:
-    post:
-      tags:
-        - Admin
-      summary: Receive Resend email delivery webhooks
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                type:
-                  type: string
-                  enum:
-                    - email.delivered
-                    - email.bounced
-                    - email.complained
-                    - email.received
-                data:
-                  type: object
-                  additionalProperties: true
-            example:
-              type: email.received
-              data:
-                from: donor.followup@lifelink.demo
-                to:
-                  - support@lifelink.demo
-                subject: Donation follow-up
-      responses:
-        "200":
-          description: Webhook accepted
-          content:
-            application/json:
-              example:
-                success: true
-                data:
-                  received: true
-  /analytics/dashboard:
-    get:
-      summary: Get dashboard summary with key metrics (Admin only)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Dashboard summary with system metrics
-          content:
-            application/json:
-              example:
-                success: true
-                data:
-                  users:
-                    total: 284
-                    donors: 231
-                    hospitals: 41
-                  requests:
-                    active: 19
-                    critical: 4
-                  donations:
-                    pending: 13
-                    completed: 428
-                  alerts:
-                    unverifiedUsers: 7
-                    suspendedUsers: 3
-                    criticalRequests: 4
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /:
-    get:
-      summary: Root service status
-      responses:
-        "200":
-          description: Service is reachable
-          content:
-            application/json:
-              example:
-                app: LifeLink
-                status: ok
-      tags:
-        - Admin
-  /health:
-    get:
-      summary: Health check
-      responses:
-        "200":
-          description: Process health details
-          content:
-            application/json:
-              example:
-                app: LifeLink
-                status: ok
-                pid: 12345
-                startedAt: 2026-05-17T10:00:00.000Z
-                port: 5000
-                env: development
-      tags:
-        - Admin

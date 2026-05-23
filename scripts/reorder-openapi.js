@@ -32,21 +32,30 @@ const routeCategories = {
     '/auth/fcm-token',
   ],
   Donor: [
-    '/donor/profile',
-    '/donor/stats',
-    '/donor/rewards',
+    // Dashboard & Activity
     '/donor/dashboard',
     '/donor/activity',
-    '/donor/points',
-    '/donor/badges',
+    '/donor/recent-activity',
+    '/dashboard',
+    '/activity',
+
+    // Profile & Health Profile
+    '/donor/profile',
     '/donor/settings',
     '/donor/availability',
     '/donor/donation-eligibility',
     '/donor/health-history',
-    '/donor/recent-activity',
-    '/donor/history',
-    '/donor/donations',
-    '/donor/redemptions',
+
+    // Appointments & Bookings
+    '/donations/book-appointment',
+    '/donations/book-appointment/available-slots',
+    '/donations/book-appointment/my-appointments',
+    '/donations/book-appointment/{appointmentId}',
+    '/donations/types',
+    '/donations/validate',
+    '/donations/my-appointments',
+
+    // Urgent Requests & Responses
     '/donor/requests',
     '/donor/matches',
     '/donor/respond/{requestId}',
@@ -54,27 +63,33 @@ const routeCategories = {
     '/donor/urgent-requests/{requestId}',
     '/donor/urgent-requests/{requestId}/accept',
     '/donor/urgent-requests/{requestId}/decline',
-    '/donations/book-appointment',
-    '/donations/book-appointment/available-slots',
-    '/donations/book-appointment/my-appointments',
-    '/donations/book-appointment/{appointmentId}',
+    '/urgent-requests',
+    '/urgent-requests/{requestId}',
+    '/urgent-requests/{requestId}/accept',
+    '/urgent-requests/{requestId}/decline',
+
+    // Request Discovery & Exploration
     '/requests/nearby',
     '/requests/{id}',
     '/requests/{id}/google-maps',
     '/requests/{id}/accept',
     '/requests/{id}/cancel',
-    '/urgent-requests',
-    '/urgent-requests/{requestId}',
-    '/urgent-requests/{requestId}/accept',
-    '/urgent-requests/{requestId}/decline',
+
+    // Hospitals & Locations
     '/hospitals',
     '/hospitals/nearby',
     '/hospitals/search',
     '/hospitals/map',
     '/hospitals/{id}',
-    '/donations/types',
-    '/donations/validate',
-    '/donations/my-appointments',
+
+    // Rewards, Badges & Leaderboard
+    '/donor/rewards',
+    '/donor/points',
+    '/donor/badges',
+    '/donor/stats',
+    '/donor/history',
+    '/donor/donations',
+    '/donor/redemptions',
     '/rewards/points',
     '/rewards/earning-rules',
     '/rewards/dashboard',
@@ -86,28 +101,39 @@ const routeCategories = {
     '/rewards/catalog/{rewardId}/redeem',
     '/rewards/redemptions',
     '/rewards/leaderboard',
+    '/badges',
+
+    // Help & Support
     '/help/faq',
     '/help/documents/{type}',
     '/support/contact',
+
+    // Notifications
     '/notifications',
     '/notifications/read-all',
     '/notifications/{id}/read',
     '/notifications/{id}',
+
+    // Analytics & Performance
     '/analytics/my-stats',
     '/analytics/leaderboard',
     '/analytics/donation-types',
-    '/badges',
-    '/activity',
-    '/dashboard',
   ],
   Hospital: [
-    '/hospital/profile',
+    // Dashboard & Analytics
     '/hospital/dashboard',
+    '/hospital/reports/monthly',
+
+    // Profile & Configuration
+    '/hospital/profile',
     '/hospital/appointment-settings',
     '/hospital/blood-bank-settings',
-    '/hospital/blood-inventory',
     '/hospital/notification-preferences',
-    '/hospital/reports/monthly',
+
+    // Inventory Management
+    '/hospital/blood-inventory',
+
+    // Blood Requests & Donations
     '/hospital/request',
     '/hospital/requests',
     '/hospital/requests/{requestId}',
@@ -115,28 +141,51 @@ const routeCategories = {
     '/hospital/find-donors',
     '/hospital/donors/{donorId}/appointments',
     '/hospital/donations',
+    '/donations/complete',
+
+    // QR Code & Arrival Verification
     '/appointments/verify-qr',
     '/appointments/{appointmentId}/arrival',
     '/appointments/{appointmentId}/reject',
     '/appointments/{appointmentId}/rescan',
     '/requests/{id}/generate-qr',
     '/requests/verify-qr',
-    '/donations/complete',
   ],
   Admin: [
-    '/admin/profile',
+    // System & Health
     '/admin/system/health',
     '/admin/system/maintenance',
-    '/admin/statistics',
-    '/admin/dashboard',
-    '/admin/alerts',
-    '/admin/rewards/config',
-    '/admin/blood-inventory-summary',
     '/admin/audit-logs',
+    '/api/webhooks/resend',
+    '/health',
+    '/',
+
+    // Dashboard & Statistics
+    '/admin/dashboard',
+    '/admin/statistics',
+    '/admin/blood-inventory-summary',
+    '/admin/alerts',
+    '/admin/analytics/dashboard',
+    '/admin/analytics/donations',
+    '/admin/analytics/blood-types',
+    '/admin/analytics/top-donors',
+    '/admin/analytics/growth',
+    '/analytics/dashboard',
+
+    // Rewards
+    '/admin/rewards/config',
+    '/rewards/admin/users/{userId}/points/adjust',
+    '/rewards/admin/catalog/{rewardId}/status',
+    '/rewards/admin/analytics',
+
+    // Inbound Emails
     '/admin/inbound-emails',
     '/admin/inbound-emails/{id}',
     '/admin/inbound-emails/{id}/read',
     '/admin/inbound-emails/{id}/archive',
+
+    // User Management
+    '/admin/profile',
     '/admin/users',
     '/admin/users/stats',
     '/admin/users/hospital',
@@ -156,6 +205,8 @@ const routeCategories = {
     '/admin/admins/{id}',
     '/admin/permissions/roles',
     '/admin/permissions/roles/{role}',
+
+    // Requests & Moderation
     '/admin/requests',
     '/admin/requests/stats',
     '/admin/requests/{id}',
@@ -163,21 +214,9 @@ const routeCategories = {
     '/admin/requests/{id}/fulfill',
     '/admin/requests/{id}/cancel',
     '/admin/requests/{id}/broadcast',
-    '/admin/analytics/dashboard',
-    '/admin/analytics/donations',
-    '/admin/analytics/blood-types',
-    '/admin/analytics/top-donors',
-    '/admin/analytics/growth',
     '/admin/emergency/broadcast',
     '/admin/emergency/critical',
     '/admin/emergency/shortage-alerts',
-    '/rewards/admin/users/{userId}/points/adjust',
-    '/rewards/admin/catalog/{rewardId}/status',
-    '/rewards/admin/analytics',
-    '/api/webhooks/resend',
-    '/analytics/dashboard',
-    '/',
-    '/health',
   ],
 };
 

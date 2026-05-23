@@ -356,60 +356,59 @@ export const checkAndUpdateBadges = async (donorId) => {
     const current = metricMap[badge.unlockCondition] ?? 0;
     const isUnlocked = current >= badge.unlockThreshold;
 
-    const updated = await UserBadge.findOneAndUpdate(
+    // Fetch the existing UserBadge BEFORE updating so we can detect a status transition.
+    // We use the pre-update snapshot to decide if this is a *new* unlock event.
+    const existingUserBadge = await UserBadge.findOne({ donorId, badgeId: badge._id }).lean();
+    const wasAlreadyUnlocked = existingUserBadge?.unlockStatus === 'UNLOCKED';
+
+    await UserBadge.findOneAndUpdate(
       { donorId, badgeId: badge._id },
       {
         $set: {
           progressCurrent: Math.min(current, badge.unlockThreshold),
           progressTarget: badge.unlockThreshold,
-          ...(isUnlocked ? { unlockStatus: 'UNLOCKED', unlockedAt: new Date() } : {}),
+          ...(isUnlocked ? { unlockStatus: 'UNLOCKED' } : {}),
         },
-        $setOnInsert: { donorId, badgeId: badge._id },
+        // unlockedAt is set once on first unlock and never overwritten
+        ...(isUnlocked && !wasAlreadyUnlocked ? { $setOnInsert: { donorId, badgeId: badge._id, unlockedAt: new Date() } } : { $setOnInsert: { donorId, badgeId: badge._id } }),
       },
       { upsert: true, returnDocument: 'after' }
     );
 
-    // If just unlocked (wasn't before), award badge points, log activity, and notify
-    if (isUnlocked && updated.unlockStatus === 'UNLOCKED' && updated.unlockedAt) {
-      const wasAlreadyUnlocked = await PointsTransaction.exists({
-        donorId,
-        referenceId: `badge_${badge._id}`,
-      });
-
-      if (!wasAlreadyUnlocked && badge.pointsReward > 0) {
+    // Only fire side-effects on the *first* unlock transition
+    if (isUnlocked && !wasAlreadyUnlocked) {
+      if (badge.pointsReward > 0) {
         await awardPoints(donorId, badge.pointsReward, 'BADGE_UNLOCK', `Badge Unlocked: ${badge.badgeName}`, `badge_${badge._id}`);
       }
 
-      if (!wasAlreadyUnlocked) {
-        newlyUnlocked.push(badge.badgeName);
+      newlyUnlocked.push(badge.badgeName);
 
-        // Log badge unlock activity (fire-and-forget)
-        activityService
-          .logActivity(donorId, {
-            type: 'reward',
-            action: 'badge_unlocked',
-            title: ACTIVITY_TITLE_MAP.badge_unlocked,
-            description: `You've unlocked the ${badge.badgeName} badge: ${badge.badgeDescription}`,
-            referenceId: badge._id.toString(),
-            referenceType: 'Badge',
-            metadata: {
-              badgeName: badge.badgeName,
-              badgeCategory: badge.category,
-              badgeRarity: badge.rarity,
-              pointsReward: badge.pointsReward,
-              unlockedAt: updated.unlockedAt,
-            },
-          })
-          .catch((error) => logger.error('Activity log error', { message: error.message }));
+      // Log badge unlock activity (fire-and-forget)
+      activityService
+        .logActivity(donorId, {
+          type: 'reward',
+          action: 'badge_unlocked',
+          title: ACTIVITY_TITLE_MAP.badge_unlocked,
+          description: `You've unlocked the ${badge.badgeName} badge: ${badge.badgeDescription}`,
+          referenceId: badge._id.toString(),
+          referenceType: 'Badge',
+          metadata: {
+            badgeName: badge.badgeName,
+            badgeCategory: badge.category,
+            badgeRarity: badge.rarity,
+            pointsReward: badge.pointsReward,
+            unlockedAt: new Date(),
+          },
+        })
+        .catch((error) => logger.error('Activity log error', { message: error.message }));
 
-        Notification.create({
-          userId: donorId,
-          type: 'system',
-          title: `🏆 Badge Unlocked: ${badge.badgeName}`,
-          message: badge.badgeDescription,
-          data: { badgeId: badge._id, rarity: badge.rarity },
-        }).catch(() => {});
-      }
+      Notification.create({
+        userId: donorId,
+        type: 'system',
+        title: `🏆 Badge Unlocked: ${badge.badgeName}`,
+        message: badge.badgeDescription,
+        data: { badgeId: badge._id, rarity: badge.rarity },
+      }).catch(() => {});
     }
   }
 
@@ -808,10 +807,16 @@ export const getLeaderboard = async (limit = 20) => {
 export const getEarningRules = async () => {
   const rewardsConfig = await getRewardsConfig();
 
+  // Return all donation types with their specific point values from POINTS_BY_TYPE,
+  // plus bonus activities from the config so the Flutter UI can show accurate rules.
   return [
-    { type: 'blood_donation', title: 'Blood Donation', points: rewardsConfig.points.bloodDonation },
-    { type: 'emergency_response', title: 'Emergency Response', points: rewardsConfig.points.emergencyResponse },
-    { type: 'profile_completion', title: 'Profile Completion', points: rewardsConfig.points.profileCompletion },
-    { type: 'referral', title: 'Referral', points: rewardsConfig.points.referral },
+    { type: 'blood_donation',      title: 'Blood Donation',      points: POINTS_BY_TYPE.blood,        category: 'donation' },
+    { type: 'plasma_donation',     title: 'Plasma Donation',     points: POINTS_BY_TYPE.plasma,       category: 'donation' },
+    { type: 'platelets_donation',  title: 'Platelet Donation',   points: POINTS_BY_TYPE.platelets,    category: 'donation' },
+    { type: 'organ_donation',      title: 'Organ Donation',      points: POINTS_BY_TYPE.organ,        category: 'donation' },
+    { type: 'first_donation',      title: 'First Donation Bonus', points: rewardsConfig.points.firstDonation,      category: 'bonus' },
+    { type: 'emergency_response',  title: 'Emergency Response',  points: rewardsConfig.points.emergencyResponse,  category: 'bonus' },
+    { type: 'profile_completion',  title: 'Profile Completion',  points: rewardsConfig.points.profileCompletion,  category: 'bonus' },
+    { type: 'referral',            title: 'Referral',            points: rewardsConfig.points.referral,           category: 'bonus' },
   ];
 };

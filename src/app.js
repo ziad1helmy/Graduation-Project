@@ -133,6 +133,9 @@ app.use('/admin', limiter, adminRoutes);
 // Maintenance check — blocks non-admin routes when enabled
 app.use(maintenanceMiddleware);
 
+// Serve static files from public directory
+app.use(express.static('public'));
+
 // ─── API Documentation (Swagger) ─────────────────────────────────────────────
 // Placed AFTER maintenance middleware so it's never blocked and always accessible
 // Runs in all environments except test.
@@ -143,6 +146,8 @@ if (env.NODE_ENV !== 'test') {
     app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
       explorer: true,
       customSiteTitle: 'LifeLink API Docs',
+      customCssUrl: '/swagger-custom.css',
+      customJs: '/swagger-custom.js',
       swaggerOptions: {
         persistAuthorization: true,
       },

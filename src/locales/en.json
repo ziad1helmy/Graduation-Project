@@ -1,15 +1,225 @@
 {
-  "activity": {
-    "earned_points": "{{points}} Points Earned — {{reason}}",
-    "tier_promoted": "Tier Promoted",
-    "badge_unlocked": "Badge Unlocked",
-    "redeemed_reward": "Reward Redeemed",
-    "redeemed_reward_notification": "🎁 Reward Redeemed!",
-    "donation_created": "Donation Created",
-    "donation_verified": "Donation Verified",
-    "donation_confirmed": "Donation Confirmed",
-    "donation_completed": "Donation Completed",
-    "donation_cancelled": "Donation Cancelled"
+  "auth": {
+    "register_success": "User registered successfully",
+    "login_success": "Login successful",
+    "admin_login_success": "Admin login successful",
+    "logout_success": "Logged out successfully",
+    "token_refreshed": "Token refreshed",
+    "token_valid": "Token is valid",
+    "user_retrieved": "User retrieved",
+    "email_verified": "Email verified successfully",
+    "verification_code_sent": "Verification code sent",
+    "password_reset_email_sent": "Password reset email sent",
+    "password_reset_otp_verified": "Password reset OTP verified successfully",
+    "password_reset_success": "Password reset successful",
+    "password_changed": "Password changed successfully",
+    "two_fa_setup_initialized": "2FA setup initialized",
+    "two_fa_setup_verified": "2FA setup verified successfully",
+    "two_fa_verified": "2FA verified successfully",
+    "two_fa_verification_required": "2FA verification required",
+    "two_fa_disabled": "2FA disabled successfully",
+    "fcm_token_registered": "FCM token registered successfully",
+    "fcm_token_updated": "FCM token updated successfully",
+    "fcm_token_removed": "FCM token removed successfully",
+
+    "error_email_required": "Email is required",
+    "error_password_required": "password is required",
+    "error_admin_key_required": "adminKey is required",
+    "error_verification_code_required": "Verification code is required",
+    "error_invalid_token": "Invalid or expired token",
+    "error_validation_failed": "Validation failed",
+    "error_donors_only": "Public signup is available for donors only",
+    "error_use_admin_login": "Use /auth/admin/login for admin accounts",
+    "error_invalid_role": "Invalid role"
+  },
+
+  "donor": {
+    "profile_retrieved": "Donor profile retrieved successfully",
+    "profile_updated": "Donor profile updated successfully",
+    "dashboard_retrieved": "Donor dashboard retrieved successfully",
+    "stats_retrieved": "Donor stats retrieved",
+    "rewards_retrieved": "Donor rewards retrieved",
+    "settings_retrieved": "Donor settings retrieved successfully",
+    "settings_updated": "Donor settings updated successfully",
+    "availability_updated": "Availability status updated successfully",
+    "requests_retrieved": "Requests retrieved successfully",
+    "matches_retrieved": "Matching requests retrieved successfully",
+    "donation_history_retrieved": "Donation history retrieved successfully",
+    "response_submitted": "Response submitted successfully",
+    "eligibility_result": "Eligibility result",
+    "health_history_retrieved": "Health history retrieved successfully",
+    "health_history_updated": "Health history updated successfully",
+    "recent_activity_retrieved": "Recent activity retrieved successfully",
+    "urgent_requests_retrieved": "Urgent requests retrieved",
+    "urgent_request_retrieved": "Urgent request retrieved successfully",
+    "urgent_request_already_declined": "Urgent request already declined",
+    "urgent_request_declined": "Urgent request declined successfully",
+    "profile_completed": "Profile Completed",
+
+    "error_profile_not_found": "Donor profile not found",
+    "error_not_found": "Donor not found",
+    "error_request_not_found": "Request not found",
+    "error_urgent_request_not_found": "Urgent request not found",
+    "error_already_responded": "You have already responded to this request",
+    "error_not_eligible": "Donor is not eligible",
+    "error_invalid_phone": "Phone number must be 11 digits long",
+    "error_email_in_use": "Email is already in use by another account",
+    "error_invalid_availability": "isAvailable must be a boolean value",
+    "error_request_id_required": "requestId is required",
+    "error_invalid_language": "Language must be \"en\" or \"ar\""
+  },
+
+  "appointment": {
+    "booked": "Appointment booked",
+    "retrieved": "Appointment retrieved",
+    "list_fetched": "Appointments fetched",
+    "slots_retrieved": "Available slots retrieved successfully",
+    "rescheduled": "Appointment rescheduled",
+    "cancelled": "Appointment cancelled",
+
+    "error_hospital_date_required": "hospitalId and date are required",
+    "error_appointment_id_required": "appointmentId is required",
+    "error_date_required": "date is required",
+    "error_invalid_appointment_id": "Invalid appointment id",
+    "error_invalid_date": "Invalid date",
+    "error_invalid_donation_type": "Invalid donation type",
+    "error_not_found": "Appointment not found",
+    "error_cannot_cancel": "This appointment cannot be cancelled",
+    "error_already_exists": "An active appointment already exists",
+    "error_already_completed": "Appointment has already been completed",
+    "error_already_confirmed": "Donation has already been confirmed for this appointment",
+    "error_completed_cannot_reset": "Completed appointments cannot be reset",
+    "error_rejected_cannot_continue": "Rejected appointments cannot continue",
+    "error_verification_already_updated": "Verification has already been updated",
+    "error_checklist_required": "Pre-donation checklist must be completed",
+    "error_all_checklist_required": "All checklist items must be completed",
+    "error_must_verify_before_arrival": "Appointment must be verified before confirming arrival",
+    "error_must_verify_before_donation": "Appointment must be verified before confirming donation"
+  },
+
+  "donation": {
+    "completed": "Donation completed successfully",
+    "verified": "Donation verification started successfully",
+    "arrival_confirmed": "Arrival confirmed successfully",
+    "verification_rejected": "Verification rejected successfully",
+    "verification_reset": "Verification reset successfully",
+    "eligibility_checked": "Donation eligibility checked",
+    "types_retrieved": "Donation types retrieved successfully",
+    "qr_invalid": "Invalid QR code",
+    "qr_already_used": "QR code already used",
+
+    "error_qr_token_required": "qrToken is required",
+    "error_appointment_or_donation_required": "appointmentId or donationId is required",
+    "error_donor_not_eligible": "Donor not eligible",
+    "error_donor_not_found": "Donor not found",
+    "error_appointment_not_found": "Appointment not found"
+  },
+
+  "hospital": {
+    "profile_retrieved": "Hospital profile retrieved successfully",
+    "profile_updated": "Hospital profile updated successfully",
+    "created": "Hospital created successfully",
+    "request_created": "Donation request created successfully",
+    "requests_retrieved": "Requests retrieved successfully",
+    "request_details_retrieved": "Request details retrieved successfully",
+    "request_status_updated": "Request status updated successfully",
+    "request_closed": "Request closed successfully",
+    "request_cancelled": "Request cancelled successfully",
+    "donations_retrieved": "Donations retrieved successfully",
+    "blood_bank_retrieved": "Blood bank settings retrieved successfully",
+    "blood_bank_updated": "Blood bank settings updated successfully",
+    "notification_prefs_retrieved": "Notification preferences retrieved successfully",
+    "notification_prefs_updated": "Notification preferences updated successfully",
+    "blood_inventory_retrieved": "Blood inventory retrieved successfully",
+    "monthly_report_retrieved": "Monthly report retrieved successfully",
+    "appointment_settings_retrieved": "Appointment settings retrieved successfully",
+    "appointment_settings_updated": "Appointment settings updated successfully",
+
+    "error_not_found": "Hospital profile not found",
+    "error_invalid_blood_type": "Invalid bloodType"
+  },
+
+  "request": {
+    "details_retrieved": "Request details retrieved successfully",
+    "nearby_retrieved": "Nearby requests retrieved successfully",
+    "location_retrieved": "Request location retrieved successfully",
+    "accepted": "Request accepted successfully",
+    "cancelled": "Request cancelled successfully",
+    "qr_generated": "QR generated successfully",
+    "qr_verified": "QR verified successfully",
+    "qr_verification_completed": "QR verification completed",
+
+    "error_not_found": "Request not found",
+    "error_invalid_id": "Invalid request id",
+    "error_unauthorized": "Unauthorized",
+    "error_unauthorized_access": "Unauthorized access to this request",
+    "error_closed_qr": "QR cannot be generated for a closed request",
+    "error_expired_qr": "QR cannot be generated for an expired request",
+    "error_location_unavailable": "Request location is not available",
+    "error_expired": "Request has expired",
+    "error_no_longer_available": "Request is no longer available",
+    "error_already_accepted": "Request has already been accepted",
+    "error_already_responded": "You have already responded to this request",
+    "error_donor_role_required": "Access denied - donor role required",
+    "error_cancel_own_only": "You can only cancel your own accepted request",
+    "error_donor_not_eligible": "Donor is not eligible",
+
+    "status": {
+      "pending": "Pending",
+      "in_progress": "In Progress",
+      "accepted": "Accepted",
+      "completed": "Completed",
+      "cancelled": "Cancelled",
+      "declined": "Declined"
+    },
+
+    "notifications": {
+      "new_request_title": "🚨 New Blood Request",
+      "new_request_body": "{{bloodType}} needed near {{hospitalName}}. Units: {{units}}"
+    }
+  },
+
+  "reward": {
+    "points_retrieved": "Points retrieved successfully",
+    "dashboard_retrieved": "Rewards dashboard retrieved",
+    "stats_retrieved": "Rewards stats retrieved",
+    "history_retrieved": "Points history retrieved successfully",
+    "catalog_retrieved": "Rewards retrieved successfully",
+    "earning_rules_retrieved": "Reward earning rules retrieved successfully",
+    "redeemed_success": "Reward redeemed successfully",
+    "redemptions_retrieved": "Redemptions retrieved successfully",
+    "reward_history_retrieved": "Reward history retrieved successfully",
+    "badges_retrieved": "Badges retrieved successfully",
+    "leaderboard_retrieved": "Leaderboard retrieved successfully",
+    "points_adjusted": "Points adjusted successfully",
+    "status_updated": "Reward status updated",
+    "analytics_retrieved": "Rewards analytics retrieved",
+    "config_retrieved": "Rewards config retrieved successfully",
+    "config_updated": "Rewards config updated successfully",
+
+    "error_amount_reason_required": "Amount and reason are required",
+    "error_invalid_status": "Status must be ACTIVE, INACTIVE, or LIMITED",
+    "error_insufficient_points": "Insufficient points",
+
+    "catalog": {
+      "Coffee Voucher": "Coffee Voucher",
+      "Movie Tickets": "Movie Tickets",
+      "Restaurant Gift Card": "Restaurant Gift Card",
+      "Health Check-up": "Health Check-up",
+      "Premium Badge": "Premium Badge",
+      "Gym Membership": "Gym Membership"
+    },
+
+    "earning_rule": {
+      "blood_donation": "Blood Donation",
+      "plasma_donation": "Plasma Donation",
+      "platelets_donation": "Platelet Donation",
+      "organ_donation": "Organ Donation",
+      "first_donation": "First Donation Bonus",
+      "emergency_response": "Emergency Response",
+      "profile_completion": "Profile Completion",
+      "referral": "Referral"
+    }
   },
 
   "badge": {
@@ -43,18 +253,29 @@
     }
   },
 
-  "reward": {
-    "Coffee Voucher": "Coffee Voucher",
-    "Movie Tickets": "Movie Tickets",
-    "Restaurant Gift Card": "Restaurant Gift Card",
-    "Health Check-up": "Health Check-up",
-    "Premium Badge": "Premium Badge",
-    "Gym Membership": "Gym Membership",
-    "redeemed_success": "Reward redeemed successfully",
-    "insufficient_points": "Insufficient points"
+  "tier": {
+    "bronze": "Bronze",
+    "silver": "Silver",
+    "gold": "Gold",
+    "platinum": "Platinum",
+    "promoted_title": "🎉 Tier Upgraded to {{tier}}!",
+    "promoted_message": "Congratulations! You've reached {{tier}} tier. Keep donating to unlock more rewards!",
+    "benefits": {
+      "bronze": ["Access to basic rewards"],
+      "silver": ["10% more points per donation", "Early access to limited rewards"],
+      "gold": ["15% more points per donation", "Exclusive gold rewards"],
+      "platinum": ["20% more points per donation", "VIP support", "All exclusive rewards"]
+    }
   },
 
   "notification": {
+    "retrieved": "Notifications retrieved successfully",
+    "marked_read": "Notification marked as read",
+    "all_marked_read": "All notifications marked as read",
+    "deleted": "Notification deleted successfully",
+    "all_deleted": "All notifications deleted successfully",
+    "retrieved_single": "Notification retrieved successfully",
+
     "badge_unlocked_title": "🏆 Badge Unlocked: {{badgeName}}",
     "badge_unlocked_message": "{{badgeDescription}}",
     "tier_up_title": "🎉 Tier Upgraded to {{tier}}!",
@@ -66,7 +287,122 @@
     "urgent_request_accepted_title": "Urgent Request Accepted",
     "urgent_request_accepted_message": "You accepted an urgent {{requestType}} request with {{urgency}} urgency.",
     "urgent_request_declined_title": "Urgent Request Declined",
-    "urgent_request_declined_message": "You declined an urgent {{requestType}} request with {{urgency}} urgency."
+    "urgent_request_declined_message": "You declined an urgent {{requestType}} request with {{urgency}} urgency.",
+
+    "error_invalid_id": "Invalid notification id",
+    "error_not_found": "Notification not found"
+  },
+
+  "admin": {
+    "dashboard_retrieved": "Dashboard summary",
+    "users_list": "Users list",
+    "user_details": "User details",
+    "user_verified": "User verified successfully",
+    "user_unverified": "User unverified successfully",
+    "user_suspended": "User suspended successfully",
+    "user_unsuspended": "User unsuspended successfully",
+    "user_deleted": "User deleted successfully",
+    "user_statistics": "User statistics",
+    "donor_banned": "Donor banned successfully",
+    "donor_unbanned": "Donor unbanned successfully",
+    "donor_updated": "Donor updated successfully",
+    "hospital_action_success": "Hospital {{action}}ed successfully",
+    "hospital_created": "Hospital created successfully",
+    "admin_list": "Admins list",
+    "admin_details": "Admin details",
+    "admin_profile": "Admin profile",
+    "admin_created": "Admin created successfully",
+    "admin_updated": "Admin updated successfully",
+    "admin_deleted": "Admin deleted successfully",
+    "requests_list": "Requests list",
+    "request_details": "Request details",
+    "request_donations": "Request donations",
+    "request_statistics": "Request statistics",
+    "request_cancelled": "Request cancelled",
+    "request_fulfilled": "Request marked as fulfilled",
+    "blood_inventory": "Blood inventory summary",
+    "blood_distribution": "Blood type distribution",
+    "shortage_alerts": "Shortage alerts",
+    "alerts_retrieved": "Alerts retrieved successfully",
+    "donation_trends": "Donation trends",
+    "growth_metrics": "Growth metrics",
+    "statistics_summary": "Statistics summary",
+    "top_donors": "Top donors",
+    "critical_requests": "Critical requests",
+    "system_health": "System health",
+    "maintenance_status": "Maintenance status",
+    "maintenance_updated": "Maintenance mode updated",
+    "broadcast_sent": "Broadcast sent",
+    "emergency_broadcast_sent": "Emergency broadcast sent",
+    "audit_logs": "Audit logs",
+    "roles_retrieved": "Roles retrieved successfully",
+    "role_retrieved": "Role retrieved successfully",
+    "role_created": "Role created successfully",
+    "role_updated": "Role permissions updated successfully",
+    "role_deleted": "Role deleted successfully",
+    "inbound_emails_retrieved": "Inbound emails retrieved successfully",
+    "inbound_email_retrieved": "Inbound email retrieved successfully",
+    "inbound_email_read": "Inbound email marked as read",
+    "inbound_email_archived": "Inbound email archived",
+    "inbound_email_deleted": "Inbound email deleted successfully",
+
+    "error_not_found": "Admin not found",
+    "error_profile_not_found": "Admin profile not found",
+    "error_donor_not_found": "Donor not found",
+    "error_hospital_not_found": "Hospital not found",
+    "error_user_not_found": "User not found",
+    "error_request_not_found": "Request not found",
+    "error_role_not_found": "Role not found",
+    "error_role_already_exists": "Role already exists",
+    "error_role_is_system": "System roles cannot be modified",
+    "error_cannot_delete_self": "Admins cannot delete their own account",
+    "error_donor_already_banned": "Donor is already banned",
+    "error_donor_not_banned": "Donor is not currently banned",
+    "error_invalid_action": "action must be suspend or unsuspend",
+    "error_role_display_required": "role and displayName are required",
+    "error_invalid_inbound_id": "Invalid inbound email id",
+    "error_inbound_not_found": "Inbound email not found"
+  },
+
+  "discovery": {
+    "hospitals_retrieved": "Hospitals retrieved successfully",
+    "hospitals_map_retrieved": "Hospitals retrieved successfully for map",
+    "nearby_hospitals_retrieved": "Nearby hospitals retrieved successfully",
+    "hospital_searched": "Hospitals searched successfully",
+    "hospital_retrieved": "Hospital retrieved successfully",
+
+    "error_hospital_not_found": "Hospital not found"
+  },
+
+  "activity": {
+    "timeline_retrieved": "Activity timeline retrieved successfully",
+    "earned_points": "{{points}} Points Earned — {{reason}}",
+    "tier_promoted": "Tier Promoted",
+    "badge_unlocked": "Badge Unlocked",
+    "redeemed_reward": "Reward Redeemed",
+    "redeemed_reward_notification": "🎁 Reward Redeemed!",
+    "donation_created": "Donation Created",
+    "donation_verified": "Donation Verified",
+    "donation_confirmed": "Donation Confirmed",
+    "donation_completed": "Donation Completed",
+    "donation_cancelled": "Donation Cancelled",
+
+    "error_invalid_type": "Invalid type filter: {{type}}",
+    "error_invalid_page": "Page must be a positive integer",
+    "error_invalid_limit": "Limit must be a positive integer"
+  },
+
+  "analytics": {
+    "stats_retrieved": "Analytics retrieved successfully"
+  },
+
+  "help": {
+    "faq_retrieved": "FAQ retrieved successfully",
+    "document_retrieved": "Document retrieved successfully",
+    "support_submitted": "Support request submitted successfully",
+
+    "error_document_not_found": "Document not found",
+    "error_subject_message_required": "subject and message are required"
   },
 
   "email": {
@@ -77,96 +413,28 @@
     "reset_body": "Use the following code to reset your password: {{code}}"
   },
 
-  "tier": {
-    "bronze": "Bronze",
-    "silver": "Silver",
-    "gold": "Gold",
-    "platinum": "Platinum",
-    "benefits": {
-      "bronze": ["Access to basic rewards"],
-      "silver": ["10% more points per donation", "Early access to limited rewards"],
-      "gold": ["15% more points per donation", "Exclusive gold rewards"],
-      "platinum": ["20% more points per donation", "VIP support", "All exclusive rewards"]
-    }
-  },
-
-  "requests": {
-    "new_request": "New Request",
-    "create_request": "Create Request",
-    "request_created_success": "Request created successfully",
-    "request_creation_failed": "Failed to create request",
-    "update_request": "Update Request",
-    "request_updated_success": "Request updated successfully",
-    "request_status": {
-      "pending": "Pending",
-      "accepted": "Accepted",
-      "declined": "Declined",
-      "completed": "Completed",
-      "cancelled": "Cancelled"
-    },
-    "form": {
-      "title": "Request Title",
-      "description": "Description",
-      "blood_type": "Blood Type",
-      "units_needed": "Units Needed",
-      "hospital": "Hospital",
-      "city": "City",
-      "urgent": "Urgent",
-      "contact_name": "Contact Name",
-      "contact_phone": "Contact Phone",
-      "notes": "Additional Notes"
-    },
-    "placeholders": {
-      "title": "Enter title",
-      "description": "Enter details",
-      "units_needed": "e.g., 2",
-      "contact_phone": "e.g., +123456789"
-    },
-    "validation": {
-      "title_required": "Title is required",
-      "blood_type_required": "Blood type is required",
-      "units_required": "Number of units is required and must be a positive number",
-      "hospital_required": "Hospital is required",
-      "contact_phone_invalid": "Invalid phone number"
-    },
-    "actions": {
-      "accept": "Accept Request",
-      "decline": "Decline Request",
-      "cancel": "Cancel Request",
-      "share": "Share Request",
-      "navigate": "Navigate"
-    },
-    "list": {
-      "no_requests": "No requests found",
-      "loading": "Loading requests...",
-      "filter_nearby": "Nearby",
-      "filter_urgent": "Urgent",
-      "filter_all": "All requests"
-    },
-    "details": {
-      "requested_by": "Requested by {{name}}",
-      "requested_at": "Requested at {{time}}",
-      "units": "{{count}} unit(s)",
-      "location": "Location",
-      "distance": "{{distance}} km away"
-    },
-    "notifications": {
-      "new_request_title": "🚨 New Blood Request",
-      "new_request_body": "{{bloodType}} needed near {{hospitalName}}. Units: {{units}}"
-    }
+  "error": {
+    "unauthorized": "Unauthorized",
+    "forbidden": "Forbidden",
+    "not_found": "Not found",
+    "internal_server": "Internal server error",
+    "validation_failed": "Validation failed",
+    "invalid_id": "Invalid ID"
   },
 
   "ui": {
     "accept": "Accept",
     "decline": "Decline",
     "view_details": "View Details",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "save": "Save",
+    "submit": "Submit",
+    "retry": "Retry",
+    "loading": "Loading...",
+    "no_results": "No results found",
     "emergency_requests": "Emergency Requests",
     "urgent_requests": "Urgent Requests",
-    "urgent_request_not_found": "Urgent request not found",
-    "urgent_request_retrieved": "Urgent request retrieved successfully",
-    "urgent_requests_retrieved": "Urgent requests retrieved",
-    "urgent_request_already_declined": "Urgent request already declined",
-    "urgent_request_declined_success": "Urgent request declined successfully",
     "donation_completed_success": "Donation completed successfully",
     "donation_verified_success": "Donation verified successfully",
     "donation_confirmed_success": "Donation confirmed successfully",
