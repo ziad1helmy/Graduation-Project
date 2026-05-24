@@ -141,6 +141,9 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
 
     // If completed or cancelled, log activity (fire-and-forget)
     if (status === 'completed') {
+      // Update lastDonationDate so the eligibility service can compute the
+      // cooldown period dynamically. isOptedIn (participation preference) is
+      // intentionally NOT touched — the donor's opt-in/out choice persists.
       await Donor.findByIdAndUpdate(donation.donorId, {
         lastDonationDate: new Date(),
       });

@@ -107,7 +107,7 @@ const validateMedicalInputs = (body = {}, donationType = DONATION_TYPE_LABELS.WH
 
 const populateAppointmentForVerification = (query) => {
   return query
-    .populate('donorId', 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isAvailable isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason')
+    .populate('donorId', 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason')
     .populate('hospitalId', 'fullName hospitalName contactNumber location')
     .populate('requestId', 'type bloodType urgency quantity unitsNeeded isEmergency hospitalContact hospitalName contactNumber requiredBy status');
 };
@@ -150,7 +150,7 @@ const buildVerificationPayload = (appointment, eligibility, sessionId = null) =>
       lastDonationDate: donor?.lastDonationDate || null,
       hemoglobinLevel: donor?.hemoglobinLevel ?? null,
       weight: donor?.weight ?? null,
-      availability: donor?.isAvailable !== false,
+      participation: donor?.isOptedIn !== false,
     },
     eligibility: {
       eligible: Boolean(eligibility?.eligible),

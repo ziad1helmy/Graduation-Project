@@ -73,9 +73,23 @@ describe('Discovery, Help, and Support Routes', () => {
       const res = await request(app)
         .post('/support/contact')
         .set('Authorization', `Bearer ${token}`)
-        .send({ subject: 'Need help', message: 'I cannot book an appointment.' });
+        .send({ subject: 'Need help', category: 'TECHNICAL', message: 'I cannot book an appointment.' });
       
-      expect([200, 201]).toContain(res.status);
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.ticketId).toBeDefined();
+
+      // Verify the ticket was stored in the database with correct authenticated details and category
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      const ticket = await SupportMessage.findById(res.body.data.ticketId);
+      expect(ticket).toBeDefined();
+      expect(ticket.userId.toString()).toBe(donor._id.toString());
+      expect(ticket.fullName).toBe(donor.fullName);
+      expect(ticket.email).toBe(donor.email);
+      expect(ticket.role).toBe('donor');
+      expect(ticket.category).toBe('TECHNICAL');
+      expect(ticket.subject).toBe('Need help');
+      expect(ticket.message).toBe('I cannot book an appointment.');
     });
 
     it('returns 400 when submitting a support request with missing required fields', async () => {
@@ -86,7 +100,43 @@ describe('Discovery, Help, and Support Routes', () => {
         .set('Authorization', `Bearer ${token}`)
         .send({ subject: 'Only subject provided' });
       
-      expect(res.status).toBeGreaterThanOrEqual(400);
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when submitting a support request with an invalid category', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      const res = await request(app)
+        .post('/support/contact')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ subject: 'Need help', category: 'INVALID_CATEGORY', message: 'I cannot book an appointment.' });
+      
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when attempting to spoof sender identity in request body', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      const res = await request(app)
+        .post('/support/contact')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          subject: 'Need help',
+          category: 'TECHNICAL',
+          message: 'I cannot book an appointment.',
+          email: 'spoofed@example.com',
+        });
+      
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('Identity fields cannot be provided in the request body');
+    });
+
+    it('returns 401 when request is unauthenticated', async () => {
+      const res = await request(app)
+        .post('/support/contact')
+        .send({ subject: 'Need help', category: 'TECHNICAL', message: 'I cannot book an appointment.' });
+      
+      expect(res.status).toBe(401);
     });
   });
 });

@@ -223,13 +223,13 @@ describe('GET /hospital/find-donors', () => {
     });
   });
 
-  it('can filter by availability=false', async () => {
+  it('can filter by participation=false (opted-out donors)', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
 
     await createDonor({
       fullName: 'Unavailable Donor',
-      isAvailable: false,
+      isOptedIn: false,   // new canonical field
       location: {
         city: 'Cairo',
         governorate: 'Cairo',
@@ -239,11 +239,38 @@ describe('GET /hospital/find-donors', () => {
     });
     await createDonor({
       fullName: 'Available Donor',
-      isAvailable: true,
+      isOptedIn: true,
       location: {
         city: 'Cairo',
         governorate: 'Cairo',
         coordinates: { lat: 30.0515, lng: 31.2439 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .get('/hospital/find-donors?radiusKm=5&participation=false')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.donors).toHaveLength(1);
+    expect(res.body.data.donors[0]).toMatchObject({
+      fullName: 'Unavailable Donor',
+      isOptedIn: false,   // response now uses isOptedIn
+    });
+  });
+
+  it('can filter by legacy availability=false query param', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    await createDonor({
+      fullName: 'Unavailable Donor',
+      isOptedIn: false,
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0512, lng: 31.2437 },
         lastUpdated: new Date(),
       },
     });
@@ -254,10 +281,7 @@ describe('GET /hospital/find-donors', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.data.donors).toHaveLength(1);
-    expect(res.body.data.donors[0]).toMatchObject({
-      fullName: 'Unavailable Donor',
-      isAvailable: false,
-    });
+    expect(res.body.data.donors[0].isOptedIn).toBe(false);
   });
 
   it('handles missing hospital coordinates gracefully', async () => {

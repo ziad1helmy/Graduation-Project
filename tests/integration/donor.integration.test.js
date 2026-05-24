@@ -222,7 +222,56 @@ describe('Donor Routes Integration', () => {
     expect(response.body.data).toHaveProperty('redemptions');
   });
 
-  it('PUT /donor/availability updates donor availability status', async () => {
+  it('PUT /donor/participation updates donor participation preference (new field: isOptedIn)', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .put('/donor/participation')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ isOptedIn: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.isOptedIn).toBe(false);
+  });
+
+  it('PUT /donor/participation accepts participation payload', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .put('/donor/participation')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ participation: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.isOptedIn).toBe(false);
+  });
+
+  it('PUT /donor/participation accepts legacy isAvailable payload (backward compat)', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .put('/donor/participation')
+      .set('Authorization', `Bearer ${token}`)
+      // Legacy payload: { isAvailable: false } must still work
+      .send({ isAvailable: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.isOptedIn).toBe(false);
+  });
+
+  it('PUT /donor/availability acts as a deprecated alias route and returns warning header', async () => {
     await clearDatabase();
     const donor = await createDonor();
 
@@ -231,11 +280,11 @@ describe('Donor Routes Integration', () => {
     const response = await request(app)
       .put('/donor/availability')
       .set('Authorization', `Bearer ${token}`)
-      .send({ isAvailable: false });
+      .send({ isOptedIn: false });
 
     expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data.isAvailable).toBe(false);
+    expect(response.headers['warning']).toContain('Deprecated Endpoint');
+    expect(response.body.data.isOptedIn).toBe(false);
   });
 
   it('GET /donor/donation-eligibility returns eligibility status', async () => {

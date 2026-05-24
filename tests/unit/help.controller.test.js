@@ -77,10 +77,10 @@ describe('Help Controller', () => {
   });
 
   describe('contactSupport', () => {
-    it('should return 201 and create a ticket when subject and message are provided', async () => {
+    it('should return 201 and create a ticket when subject, category, and message are provided', async () => {
       const req = makeMockReq({
-        body: { subject: 'Test Subject', message: 'Test message body' },
-        user: { userId: '123', email: 'test@user.com', role: 'donor' },
+        body: { subject: 'Test Subject', category: 'TECHNICAL', message: 'Test message body' },
+        user: { _id: '123', userId: '123', fullName: 'Test User', email: 'test@user.com', role: 'donor' },
       });
       const res = makeMockRes();
       const next = vi.fn();
@@ -90,15 +90,24 @@ describe('Help Controller', () => {
 
       await helpController.contactSupport(req, res, next);
 
+      expect(SupportMessage.create).toHaveBeenCalledWith({
+        userId: '123',
+        fullName: 'Test User',
+        email: 'test@user.com',
+        role: 'donor',
+        subject: 'Test Subject',
+        category: 'TECHNICAL',
+        message: 'Test message body',
+      });
       expect(res.status).toHaveBeenCalledWith(201);
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
       expect(callArgs.data.ticketId).toBe(mockTicket._id);
     });
 
-    it('should return 400 when subject or message is missing', async () => {
+    it('should return 400 when subject, category, or message is missing', async () => {
       const req = makeMockReq({
-        body: { subject: 'Test Subject' }, // message is missing
+        body: { subject: 'Test Subject', category: 'TECHNICAL' }, // message is missing
       });
       const res = makeMockRes();
       const next = vi.fn();
@@ -108,7 +117,39 @@ describe('Help Controller', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
-      expect(callArgs.message).toBe('subject and message are required');
+      expect(callArgs.message).toBe('subject, category, and message are required');
+    });
+
+    it('should return 400 when category is invalid', async () => {
+      const req = makeMockReq({
+        body: { subject: 'Test Subject', category: 'INVALID_CAT', message: 'Test message body' },
+        user: { _id: '123', userId: '123', fullName: 'Test User', email: 'test@user.com', role: 'donor' },
+      });
+      const res = makeMockRes();
+      const next = vi.fn();
+
+      await helpController.contactSupport(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      const callArgs = res.json.mock.calls[0][0];
+      expect(callArgs.success).toBe(false);
+      expect(callArgs.message).toContain('category must be one of');
+    });
+
+    it('should return 400 and reject when identity payload fields are sent in the body', async () => {
+      const req = makeMockReq({
+        body: { subject: 'Test Subject', category: 'TECHNICAL', message: 'Test message body', email: 'spoofed@attacker.com' },
+        user: { _id: '123', userId: '123', fullName: 'Test User', email: 'test@user.com', role: 'donor' },
+      });
+      const res = makeMockRes();
+      const next = vi.fn();
+
+      await helpController.contactSupport(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      const callArgs = res.json.mock.calls[0][0];
+      expect(callArgs.success).toBe(false);
+      expect(callArgs.message).toBe('Identity fields cannot be provided in the request body');
     });
   });
 });

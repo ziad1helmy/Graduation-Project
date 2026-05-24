@@ -313,8 +313,9 @@
             "format": "date",
             "example": "1995-05-15"
           },
-          "isAvailable": {
+          "isOptedIn": {
             "type": "boolean",
+            "description": "Donor participation preference — `true` means the donor wants to\nreceive donation requests and appear in matching results.\nThis is distinct from medical eligibility, which is computed\ndynamically from donation history, deferral state, and health fields.\n",
             "readOnly": true,
             "example": true
           },
@@ -1720,7 +1721,7 @@
                           "completedFields": [
                             "phoneNumber",
                             "location",
-                            "availability",
+                            "participation",
                             "healthHistory"
                           ]
                         },
@@ -1860,7 +1861,7 @@
           "Donor"
         ],
         "summary": "Get the authenticated donor profile",
-        "description": "Retrieve the authenticated donor's profile information including blood type, availability status, location, stats, and badge progress\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Retrieve the authenticated donor's profile information including blood type, participation preference, location, stats, and badge progress\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -1895,7 +1896,7 @@
                       }
                     },
                     "dateOfBirth": "1995-05-15",
-                    "isAvailable": true,
+                    "isOptedIn": true,
                     "verificationStatus": "verified",
                     "age": 31,
                     "stats": {
@@ -1994,7 +1995,7 @@
                       }
                     },
                     "dateOfBirth": "1995-05-15",
-                    "isAvailable": true
+                    "isOptedIn": true
                   }
                 }
               }
@@ -2135,12 +2136,13 @@
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
-    "/donor/availability": {
+    "/donor/participation": {
       "put": {
         "tags": [
           "Donor"
         ],
-        "summary": "Update donor availability",
+        "summary": "Update donor participation preference",
+        "description": "Allows a donor to opt in or out of donor matching.\nThis updates **participation preference only** — it does NOT affect\nmedical eligibility, which is computed dynamically from donation history,\ndeferral state, and health fields.\n\nBoth `isOptedIn` (new) and `isAvailable` (legacy) are accepted\nfor backward compatibility. Internally always stored as `isOptedIn`.\n\nDemo seed available via `npm run seed-demo`.\n",
         "security": [
           {
             "bearerAuth": []
@@ -2152,41 +2154,55 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": [
-                  "isAvailable"
-                ],
                 "properties": {
+                  "isOptedIn": {
+                    "type": "boolean",
+                    "description": "`true` = donor wants to receive requests and appear in matching. `false` = donor opts out of all matching.",
+                    "example": false
+                  },
                   "isAvailable": {
                     "type": "boolean",
+                    "description": "Legacy alias for isOptedIn. Prefer isOptedIn for new integrations.",
                     "example": false
                   }
                 }
               },
-              "example": {
-                "isAvailable": false
+              "examples": {
+                "new_field": {
+                  "summary": "New API (preferred)",
+                  "value": {
+                    "isOptedIn": false
+                  }
+                },
+                "legacy_field": {
+                  "summary": "Legacy API (backward compat)",
+                  "value": {
+                    "isAvailable": false
+                  }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Availability status updated successfully",
+            "description": "Participation preference updated successfully",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Availability status updated successfully",
+                  "message": "Participation preference updated successfully",
                   "data": {
                     "_id": "66f100000000000000000002",
                     "fullName": "Aya Hassan",
-                    "isAvailable": false
+                    "isOptedIn": false
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Invalid availability payload"
+            "description": "Invalid payload"
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -2194,8 +2210,7 @@
           "403": {
             "description": "Role not allowed"
           }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
+        }
       }
     },
     "/donor/donation-eligibility": {
@@ -7968,7 +7983,7 @@
                         "distance": "2.30 km",
                         "distanceKm": 2.3,
                         "distanceMeters": 2300,
-                        "isAvailable": true,
+                        "isOptedIn": true,
                         "phoneNumber": "01012345678",
                         "location": {
                           "lat": 30.0444,
@@ -7983,7 +7998,7 @@
                         "distance": "4.10 km",
                         "distanceKm": 4.1,
                         "distanceMeters": 4100,
-                        "isAvailable": true,
+                        "isOptedIn": true,
                         "phoneNumber": "01098765432",
                         "location": {
                           "lat": 30.061,
@@ -10967,7 +10982,7 @@
                     "type": "string",
                     "format": "date"
                   },
-                  "isAvailable": {
+                  "isOptedIn": {
                     "type": "boolean"
                   }
                 }
@@ -10976,7 +10991,7 @@
                 "fullName": "Aya Hassan",
                 "phoneNumber": "01011111111",
                 "bloodType": "O+",
-                "isAvailable": true
+                "isOptedIn": true
               }
             }
           }
@@ -10997,7 +11012,7 @@
                       "bloodType": "O+",
                       "phoneNumber": "01011111111",
                       "gender": "female",
-                      "isAvailable": true,
+                      "isOptedIn": true,
                       "updatedAt": "2026-05-18T09:05:00.000Z"
                     }
                   }

@@ -62,7 +62,7 @@ const donorsData = [
     dateOfBirth: new Date('1996-03-12'),
     gender: 'female',
     bloodType: 'O+',
-    isAvailable: true,
+    isOptedIn: true,
     weight: 60,
     hemoglobinLevel: 13.5,
     healthHistory: {
@@ -97,7 +97,7 @@ const donorsData = [
     dateOfBirth: new Date('1992-08-24'),
     gender: 'male',
     bloodType: 'A-',
-    isAvailable: true,
+    isOptedIn: true,
     weight: 78,
     hemoglobinLevel: 14.4,
     healthHistory: {
@@ -132,7 +132,7 @@ const donorsData = [
     dateOfBirth: new Date('1998-11-03'),
     gender: 'female',
     bloodType: 'B+',
-    isAvailable: true,
+    isOptedIn: true,
     weight: 64,
     hemoglobinLevel: 13.9,
     lastDonationDate: pastDate(90),
@@ -168,7 +168,7 @@ const donorsData = [
     dateOfBirth: new Date('1994-06-18'),
     gender: 'female',
     bloodType: 'AB+',
-    isAvailable: false,
+    isOptedIn: false,
     weight: 57,
     hemoglobinLevel: 12.8,
     healthHistory: {
@@ -203,7 +203,7 @@ const donorsData = [
     dateOfBirth: new Date('1997-01-27'),
     gender: 'female',
     bloodType: 'O-',
-    isAvailable: true,
+    isOptedIn: true,
     weight: 62,
     hemoglobinLevel: 14.0,
     healthHistory: {
@@ -238,7 +238,7 @@ const donorsData = [
     dateOfBirth: new Date('1995-07-19'),
     gender: 'female',
     bloodType: 'O+',
-    isAvailable: true,
+    isOptedIn: true,
     weight: 65,
     hemoglobinLevel: 14.2,
     healthHistory: {
@@ -273,7 +273,7 @@ const donorsData = [
     dateOfBirth: new Date('1993-02-10'),
     gender: 'male',
     bloodType: 'A-',
-    isAvailable: true,
+    isOptedIn: true,
     weight: 80,
     hemoglobinLevel: 14.6,
     healthHistory: {
@@ -1223,7 +1223,7 @@ async function main() {
     referenceType: 'User',
     icon: 'user-check',
     metadata: {
-      completedFields: ['phoneNumber', 'location', 'availability', 'healthHistory'],
+      completedFields: ['phoneNumber', 'location', 'participation', 'healthHistory'],
     },
   });
 
@@ -1562,7 +1562,7 @@ async function main() {
   printCredentials();
 
   printReferenceBlock('Seeded demo coverage:', [
-    '7 donors with varied blood types, availability, settings, health history, points, and activity',
+    '7 donors with varied blood types, participation preference, settings, health history, points, and activity',
     '2 hospitals with discovery-ready coordinates, slot configuration, blood bank settings, and staff',
     '9 requests covering blood + organ and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
     '9 donations covering pending/scheduled/completed/cancelled/rejected states, including emergency responder matches',

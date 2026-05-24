@@ -21,7 +21,7 @@ setupTestDB();
 
 describe('Donation Service', () => {
   it('validateEligibility returns matching service result', async () => {
-    const donor = { isAvailable: true, bloodType: 'O+' };
+    const donor = { isOptedIn: true, bloodType: 'O+' };
     const request = { type: 'blood', bloodType: 'O+' };
 
     const res = await donationService.validateEligibility(donor, request);

@@ -375,7 +375,7 @@ export const updateDonor = async (donorId, data, adminId) => {
     'travelHistory',
     'temporaryDeferralUntil',
     'lastDeferralReason',
-    'isAvailable',
+    'isOptedIn',
   ];
   for (const field of allowedFields) {
     if (data[field] !== undefined) updateData[field] = data[field];
@@ -959,7 +959,7 @@ export const broadcastRequest = async (id, adminId) => {
   // Build donor query: available, verified, not suspended, matching blood type
   const donorQuery = {
     role: 'donor',
-    isAvailable: true,
+    isOptedIn: true,
     isEmailVerified: true,
     isSuspended: false,
     deletedAt: null,
@@ -1041,7 +1041,7 @@ export const sendEmergencyBroadcast = async (data, adminId) => {
 
   const donorQuery = {
     role: 'donor',
-    isAvailable: true,
+    isOptedIn: true,
     isEmailVerified: true,
     isSuspended: false,
     deletedAt: null,
@@ -1126,7 +1126,7 @@ export const getShortageAlerts = async (hospitalId = null) => {
         Request.countDocuments({ ...requestFilter, bloodType: bt }),
         Donor.countDocuments({
           bloodType: bt,
-          isAvailable: true,
+          isOptedIn: true,
           isSuspended: false,
           deletedAt: null,
         }),

@@ -112,7 +112,10 @@ const donorSchema = new mongoose.Schema({
         },
     },
 
-    isAvailable: {
+    // Participation preference: donor opts in/out of receiving donation requests.
+    // Medical eligibility is NOT stored here — it is computed dynamically by
+    // the eligibility service from dates, health fields, and deferral state.
+    isOptedIn: {
         type: Boolean,
         default: true,
     },
@@ -149,9 +152,7 @@ donorSchema.virtual('isBanned').get(function () {
     return Boolean(this.isSuspended);
 });
 
-donorSchema.virtual('availableToDonate').get(function () {
-    return Boolean(this.isAvailable) && !this.isSuspended;
-});
+// derived virtual fields if any
 
 // Indexes for efficient queries
 donorSchema.index({ phoneNumber: 1 });

@@ -349,22 +349,31 @@ export const getDonationHistory = async (req, res, next) => {
   }
 };
 
-// Update availability status
-export const updateAvailability = async (req, res, next) => {
+// Update participation preference (donor opts in/out of matching)
+export const updateParticipation = async (req, res, next) => {
   try {
-    const { isAvailable } = req.body;
+    // Accept new field names ('isOptedIn', 'participation') OR legacy 'isAvailable' for backward compat
+    let rawValue = req.body.isOptedIn;
+    if (rawValue === undefined) {
+      rawValue = req.body.participation;
+    }
+    if (rawValue === undefined) {
+      rawValue = req.body.isAvailable;
+    }
 
-    if (typeof isAvailable !== 'boolean') {
-      return response.error(res, 400, 'isAvailable must be a boolean value');
+    if (typeof rawValue !== 'boolean') {
+      const errorMsg = req.t ? req.t('error_invalid_participation') : 'isOptedIn must be a boolean value';
+      return response.error(res, 400, errorMsg);
     }
 
     const donor = await Donor.findByIdAndUpdate(
       req.user.userId,
-      { isAvailable },
+      { isOptedIn: rawValue },
       { returnDocument: 'after', runValidators: true }
     ).select('-password');
 
-    response.success(res, 200, 'Availability status updated successfully', donor);
+    const successMsg = req.t ? req.t('participation_updated') : 'Participation preference updated successfully';
+    response.success(res, 200, successMsg, donor);
   } catch (error) {
     next(error);
   }

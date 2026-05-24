@@ -40,7 +40,7 @@ export async function createDonor(overrides = {}) {
     dateOfBirth: new Date('1995-01-15'),
     gender: 'male',
     bloodType: 'O+',
-    isAvailable: true,
+    isOptedIn: true,
     isEmailVerified: true,
     location: {
       city: 'Cairo',

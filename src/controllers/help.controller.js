@@ -36,18 +36,40 @@ export const getDocument = async (req, res, next) => {
 
 export const contactSupport = async (req, res, next) => {
   try {
-    const { subject, message, attachment_urls } = req.body;
-    if (!subject || !message) {
-      return response.error(res, 400, 'subject and message are required');
+    // Reject extra identity payload fields if sent
+    if (
+      req.body.email !== undefined ||
+      req.body.fullName !== undefined ||
+      req.body.role !== undefined ||
+      req.body.userId !== undefined ||
+      req.body.id !== undefined
+    ) {
+      return response.error(res, 400, 'Identity fields cannot be provided in the request body');
+    }
+
+    const { subject, category, message } = req.body;
+    if (!subject || !category || !message) {
+      return response.error(res, 400, 'subject, category, and message are required');
+    }
+
+    const allowedCategories = ['TECHNICAL', 'ACCOUNT', 'DONATION', 'REWARDS', 'OTHER'];
+    if (!allowedCategories.includes(category)) {
+      return response.error(res, 400, `category must be one of: ${allowedCategories.join(', ')}`);
+    }
+
+    const user = req.user;
+    if (!user) {
+      return response.error(res, 401, 'Unauthorized');
     }
 
     const ticket = await SupportMessage.create({
-      userId: req.user?.userId || null,
-      email: req.user?.email || req.body.email || null,
-      role: req.user?.role || null,
+      userId: user._id,
+      fullName: user.fullName,
+      email: user.email,
+      role: user.role,
       subject,
+      category,
       message,
-      attachmentUrls: Array.isArray(attachment_urls) ? attachment_urls : [],
     });
 
     return response.success(res, 201, 'Support request submitted successfully', { ticketId: ticket._id });

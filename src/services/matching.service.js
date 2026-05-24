@@ -117,8 +117,9 @@ export const findCompatibleDonors = async (requestId) => {
     throw new Error('Request not found');
   }
 
-  // Pre-filter by blood type at DB level (reduces result set by ~87.5%)
-  const donorQuery = { isAvailable: true, isSuspended: { $ne: true } };
+  // Pre-filter by participation preference + blood type at DB level.
+  // Medical eligibility (cooldown, deferral, etc.) is evaluated dynamically below.
+  const donorQuery = { isOptedIn: true, isSuspended: { $ne: true } };
   if (request.type === 'blood' && request.bloodType) {
     donorQuery.bloodType = { $in: getCompatibleDonorTypes(request.bloodType) };
   }
@@ -174,12 +175,13 @@ export const searchCompatibleDonors = async ({
   bloodType = null,
   location = null,
   radiusKm = 5,
-  availability = true,
+  participation = true,
 } = {}) => {
   const donorQuery = { isSuspended: { $ne: true } };
 
-  if (typeof availability === 'boolean') {
-    donorQuery.isAvailable = availability;
+  if (typeof participation === 'boolean') {
+    // Map the public 'participation' param to the canonical isOptedIn field.
+    donorQuery.isOptedIn = participation;
   }
 
   if (bloodType) {
@@ -333,7 +335,7 @@ export const getMatchingAnalysis = async (donorId, requestId) => {
         id: donor._id,
         name: donor.name,
         bloodType: donor.bloodType,
-        isAvailable: donor.isAvailable,
+        isOptedIn: donor.isOptedIn ?? true,
         lastDonationDate: donor.lastDonationDate,
       },
       request: {

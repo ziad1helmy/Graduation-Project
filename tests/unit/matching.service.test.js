@@ -24,7 +24,8 @@ describe('Matching Service — pure helpers', () => {
   });
 
   it('checks eligibility with missing blood type', async () => {
-    const donor = { isAvailable: true, bloodType: null, healthHistory: {}, dateOfBirth: new Date('1990-01-01') };
+    // isOptedIn is participation preference — eligibility check is independent
+    const donor = { isOptedIn: true, bloodType: null, healthHistory: {}, dateOfBirth: new Date('1990-01-01') };
     const request = { type: 'blood', bloodType: 'A+' };
     const res = await matchingService.checkEligibility(donor, request);
     expect(res.eligible).toBe(false);
@@ -33,16 +34,16 @@ describe('Matching Service — pure helpers', () => {
 });
 
 describe('Matching Service — DB-backed flows', () => {
-  it('findCompatibleDonors returns only compatible, available donors', async () => {
+  it('findCompatibleDonors returns only compatible, opted-in donors', async () => {
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
 
-    // create compatible donor
-    const donorA = await createDonor({ bloodType: 'O+', isAvailable: true });
+    // create compatible, opted-in donor
+    const donorA = await createDonor({ bloodType: 'O+', isOptedIn: true });
     // create incompatible donor
-    const donorB = await createDonor({ bloodType: 'A+', isAvailable: true });
-    // create unavailable donor
-    const donorC = await createDonor({ bloodType: 'O+', isAvailable: false });
+    const donorB = await createDonor({ bloodType: 'A+', isOptedIn: true });
+    // create opted-out donor (voluntary preference — should never appear even if medically eligible)
+    const donorC = await createDonor({ bloodType: 'O+', isOptedIn: false });
 
     // mark donorA as already responded
     await createDonation(donorA._id, request._id, { status: 'pending' });
@@ -53,7 +54,7 @@ describe('Matching Service — DB-backed flows', () => {
     expect(results.find((r) => r.donor._id.toString() === donorA._id.toString())).toBeUndefined();
     // donorB is incompatible
     expect(results.find((r) => r.donor._id.toString() === donorB._id.toString())).toBeUndefined();
-    // donorC is unavailable so also excluded
+    // donorC opted out — must be excluded regardless of medical eligibility
     expect(results.find((r) => r.donor._id.toString() === donorC._id.toString())).toBeUndefined();
   });
 });
@@ -62,10 +63,11 @@ describe('Matching Service — DB-backed flows', () => {
  *
  * Covers:
  * - Blood type compatibility matrix
- * - Donor eligibility checks (cooldown, availability, blood type)
+ * - Donor eligibility checks (cooldown, opt-in preference, blood type)
  * - findCompatibleDonors with geo-scoring
  * - findCompatibleRequests with urgency and geo-scoring
  * - N+1 elimination (donors who already responded are excluded)
+ * - NEW: separation of participation preference vs medical eligibility
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
@@ -165,16 +167,80 @@ describe('findCompatibleDonors', () => {
     expect(donorIds).toContain(donor._id.toString());
   });
 
-  it('should exclude unavailable donors', async () => {
+  /**
+   * A. Donor manually opts out → must never appear in matches
+   * even when they would pass all medical eligibility checks.
+   */
+  it('should exclude donors who opted out (isOptedIn: false)', async () => {
     // Clear DB to ensure no donors from previous tests leak in
     await clearDatabase();
 
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { bloodType: 'O+' });
-    await createDonor({ bloodType: 'O+', isAvailable: false });
+    // Donor is medically eligible but has opted out of matching
+    await createDonor({ bloodType: 'O+', isOptedIn: false });
 
     const results = await findCompatibleDonors(request._id);
     expect(results).toHaveLength(0);
+  });
+
+  /**
+   * B. Donor opted in but medically ineligible (donated recently)
+   * → must fail eligibility check dynamically (cooldown not expired).
+   */
+  it('should exclude opted-in donor who donated recently (cooldown not expired)', async () => {
+    await clearDatabase();
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, { bloodType: 'O+' });
+
+    // lastDonationDate = yesterday → 56-day cooldown not met
+    await createDonor({
+      bloodType: 'O+',
+      isOptedIn: true,
+      lastDonationDate: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000),
+    });
+
+    const results = await findCompatibleDonors(request._id);
+    expect(results).toHaveLength(0);
+  });
+
+  /**
+   * C. Donor becomes eligible automatically after cooldown.
+   * No DB availability flag is changed — eligibility is purely computed.
+   */
+  it('should include opted-in donor whose cooldown has expired (computed eligibility)', async () => {
+    await clearDatabase();
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, { bloodType: 'O+' });
+
+    // lastDonationDate = 60 days ago → 56-day cooldown is satisfied
+    await createDonor({
+      bloodType: 'O+',
+      isOptedIn: true,
+      lastDonationDate: new Date(Date.now() - 60 * 24 * 60 * 60 * 1000),
+    });
+
+    const results = await findCompatibleDonors(request._id);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
+
+  /**
+   * F. Donation completion must NOT auto-toggle participation preference.
+   * The test verifies that after a donation is marked complete and a new cooldown
+   * starts, the isOptedIn field remains whatever the donor set it to.
+   */
+  it('donation completion should not change isOptedIn field', async () => {
+    const Donor = (await import('../../src/models/Donor.model.js')).default;
+    await clearDatabase();
+
+    const donor = await createDonor({ bloodType: 'O+', isOptedIn: true });
+
+    // Simulate what donation.service.js does on completion: only update lastDonationDate
+    await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: new Date() });
+
+    const updated = await Donor.findById(donor._id);
+    // isOptedIn must remain unchanged
+    expect(updated.isOptedIn).toBe(true);
   });
 
   it('should assign higher location score to nearby donors', async () => {

@@ -36,7 +36,7 @@
     "rewards_retrieved": "Donor rewards retrieved",
     "settings_retrieved": "Donor settings retrieved successfully",
     "settings_updated": "Donor settings updated successfully",
-    "availability_updated": "Availability status updated successfully",
+    "participation_updated": "Participation preference updated successfully",
     "requests_retrieved": "Requests retrieved successfully",
     "matches_retrieved": "Matching requests retrieved successfully",
     "donation_history_retrieved": "Donation history retrieved successfully",
@@ -59,7 +59,7 @@
     "error_not_eligible": "Donor is not eligible",
     "error_invalid_phone": "Phone number must be 11 digits long",
     "error_email_in_use": "Email is already in use by another account",
-    "error_invalid_availability": "isAvailable must be a boolean value",
+    "error_invalid_participation": "isOptedIn must be a boolean value",
     "error_request_id_required": "requestId is required",
     "error_invalid_language": "Language must be \"en\" or \"ar\""
   },

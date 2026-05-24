@@ -49,6 +49,7 @@ export default async function authMiddleware(req, res, next) {
       ...decoded,
       userId: user._id.toString(),
       _id: user._id,
+      fullName: user.fullName,
       email: user.email,
       role: user.role,
     };

@@ -113,7 +113,7 @@ describe('Hospital Controller', () => {
 
       const mockDonors = [
         {
-          donor: { _id: 'donor123', fullName: 'Jane Doe', bloodType: 'O+', isAvailable: true },
+          donor: { _id: 'donor123', fullName: 'Jane Doe', bloodType: 'O+', isOptedIn: true },
           distanceKm: 2.5,
         },
       ];

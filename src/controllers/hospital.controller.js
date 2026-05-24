@@ -435,7 +435,9 @@ export const findDonors = async (req, res, next) => {
     const radiusKm = toNumber(req.query.radiusKm) ?? 5;
     const lat = toNumber(req.query.lat);
     const lng = toNumber(req.query.lng);
-    const availability = parseBooleanQuery(req.query.availability, true);
+    const participation = req.query.participation !== undefined
+      ? parseBooleanQuery(req.query.participation, true)
+      : parseBooleanQuery(req.query.availability, true);
     const { page, limit, offset } = parsePagination(req.query, 20);
 
     if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
@@ -458,8 +460,8 @@ export const findDonors = async (req, res, next) => {
       return response.error(res, 400, 'lat and lng must be provided together');
     }
 
-    if (availability === null) {
-      return response.error(res, 400, 'availability must be a boolean value');
+    if (participation === null) {
+      return response.error(res, 400, 'participation must be a boolean value');
     }
 
     let searchCoordinates = lat !== null && lng !== null ? { latitude: lat, longitude: lng } : null;
@@ -489,7 +491,7 @@ export const findDonors = async (req, res, next) => {
 
     const matches = await matchingService.searchCompatibleDonors({
       bloodType,
-      availability,
+      participation,
       radiusKm,
       location: searchLocation,
     });
@@ -502,7 +504,7 @@ export const findDonors = async (req, res, next) => {
       distance: formatDistance(distanceKm),
       distanceKm,
       distanceMeters: distanceKm === null ? null : Math.round(distanceKm * 1000),
-      isAvailable: Boolean(donor.isAvailable),
+      isOptedIn: Boolean(donor.isOptedIn ?? true),
       phoneNumber: donor.phoneNumber || null,
       location: toLocation(donor.location?.coordinates),
     }));

@@ -5,13 +5,32 @@ const supportMessageSchema = new mongoose.Schema(
     userId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',
-      default: null,
+      required: true,
+    },
+    fullName: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    email: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    role: {
+      type: String,
+      required: true,
+      trim: true,
+    },
+    category: {
+      type: String,
+      required: true,
+      enum: ['TECHNICAL', 'ACCOUNT', 'DONATION', 'REWARDS', 'OTHER'],
+      trim: true,
     },
     subject: { type: String, required: true, trim: true, maxlength: 200 },
     message: { type: String, required: true, trim: true, maxlength: 2000 },
     attachmentUrls: [{ type: String }],
-    email: { type: String, default: null },
-    role: { type: String, default: null },
     status: {
       type: String,
       enum: ['OPEN', 'REVIEWED'],

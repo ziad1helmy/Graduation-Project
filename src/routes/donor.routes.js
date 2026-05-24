@@ -4,6 +4,7 @@ import requireRole from '../middlewares/role.middleware.js';
 import * as donorController from '../controllers/donor.controller.js';
 import * as rewardController from '../controllers/reward.controller.js';
 import * as notificationController from '../controllers/notification.controller.js';
+import { logger } from '../utils/logger.js';
 
 // ─── API CONTRACT ────────────────────────────────────────────────────────────
 // Swagger/OpenAPI documentation for this router lives in /openapi.yaml
@@ -56,7 +57,17 @@ router.get('/badges', rewardController.getBadges);
 router.get('/redemptions', rewardController.getRedemptions);
 router.get('/notifications', notificationController.getNotifications);
 
-// Availability management
-router.put('/availability', donorController.updateAvailability);
+// Participation preference management
+router.put('/participation', donorController.updateParticipation);
+
+// Deprecated alias for participation preference management
+router.put('/availability', (req, res, next) => {
+  logger.warn('Usage of deprecated route PUT /donor/availability', {
+    ip: req.ip,
+    userId: req.user?.userId,
+  });
+  res.setHeader('Warning', '299 - "Deprecated Endpoint: Use PUT /donor/participation instead"');
+  next();
+}, donorController.updateParticipation);
 
 export default router;
