@@ -329,6 +329,9 @@ describe('Eligibility Service — Exact Cooldown Boundaries', () => {
   });
 
   it('should return correct nextEligibleDate for plasma (14d)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 4, 15, 12, 0, 0));
+
     const lastDate = new Date(2026, 4, 10, 12, 0, 0); // May 10, 2026, 12:00 PM
     
     const donor = await createDonor({ lastDonationDate: lastDate });
@@ -344,5 +347,7 @@ describe('Eligibility Service — Exact Cooldown Boundaries', () => {
     // Allow 1-minute tolerance for time zone rounding
     const diff = Math.abs(expectedDate.getTime() - resultDate.getTime());
     expect(diff).toBeLessThan(60 * 1000);
+
+    vi.useRealTimers();
   });
 });

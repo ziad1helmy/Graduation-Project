@@ -19,7 +19,7 @@ import RewardRedemption from '../src/models/RewardRedemption.model.js';
 import Badge from '../src/models/Badge.model.js';
 import UserBadge from '../src/models/UserBadge.model.js';
 import HospitalSettings from '../src/models/HospitalSettings.model.js';
-import TwoFactor from '../src/models/TwoFactor.model.js';
+
 import { seedDefaultSettings, seedDefaultRolePermissions } from '../src/services/admin.service.js';
 import { seedRewardData } from '../src/services/reward.service.js';
 import { DEFAULT_SUPPORTED_DONATION_TYPES } from '../src/constants/donation.constants.js';
@@ -496,13 +496,7 @@ async function ensureHospitalSettings(hospitalId, payload) {
   );
 }
 
-async function ensureTwoFactor(payload) {
-  return TwoFactor.findOneAndUpdate(
-    { userId: payload.userId },
-    { $set: payload },
-    { upsert: true, returnDocument: 'after', runValidators: true }
-  );
-}
+
 
 async function ensureAppointment(filter, data) {
   return Appointment.findOneAndUpdate(filter, { $set: data }, { upsert: true, returnDocument: 'after', runValidators: true });
@@ -1467,16 +1461,7 @@ async function main() {
     targetId: null,
   });
 
-  await ensureTwoFactor({
-    userId: admin._id,
-    enabled: true,
-    secret: 'JBSWY3DPEHPK3PXP',
-    backupCodes: ['LL-DEMO-1', 'LL-DEMO-2', 'LL-DEMO-3', 'LL-DEMO-4'],
-    verifiedAt: pastDate(1),
-    disabledAt: null,
-    pendingSecret: null,
-    pendingBackupCodes: [],
-  });
+
 
   await ensureHospitalSettings(hospitals.cairoCare._id, {
     appointmentSettings: {
@@ -1582,7 +1567,7 @@ async function main() {
     '9 requests covering blood + organ and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
     '9 donations covering pending/scheduled/completed/cancelled/rejected states, including emergency responder matches',
     '5 appointments covering pending/confirmed/cancelled and QR verification flows',
-    'Notifications, rewards, badges, support messages, audit logs, and 2FA seed data',
+    'Notifications, rewards, badges, support messages, and audit logs',
   ]);
 
   printReferenceBlock('Key request IDs for manual API testing:', [

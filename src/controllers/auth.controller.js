@@ -169,9 +169,6 @@ export const loginUser = async (req, res, next) => {
     }
 
     const result = await authService.loginUser(payload);
-    if (result.requires2FA) {
-      return response.success(res, 200, '2FA verification required', result);
-    }
 
     const user = result.user || {};
     return response.success(res, 200, 'Login successful', {
@@ -220,9 +217,6 @@ export const loginAdmin = async (req, res, next) => {
     }
 
     const result = await authService.loginAdmin(payload);
-    if (result.requires2FA) {
-      return response.success(res, 200, '2FA verification required', result);
-    }
 
     return response.success(res, 200, 'Admin login successful', result);
   } catch (error) {
@@ -260,9 +254,6 @@ export const loginHospital = async (req, res, next) => {
     }
 
     const result = await authService.loginHospital(payload);
-    if (result.requires2FA) {
-      return response.success(res, 200, '2FA verification required', result);
-    }
 
     const user = result.user || {};
     return response.success(res, 200, 'Login successful', {
@@ -456,69 +447,7 @@ export const verifyOtp = async (req, res, next) => {
   }
 };
 
-export const setup2FA = async (req, res, next) => {
-  try {
-    const result = await authService.setup2FA(req.user.userId);
-    response.success(res, 200, '2FA setup initialized', result);
-  } catch (error) {
-    next(error);
-  }
-};
 
-export const confirm2FASetup = async (req, res, next) => {
-  try {
-    const result = await authService.verify2FA(req.user.userId, req.body.code || req.body.otp || req.body.otp_code);
-    response.success(res, 200, '2FA setup verified successfully', result);
-  } catch (error) {
-    if (error.message === ERR.TWO_FA_SETUP_NOT_FOUND || error.message === ERR.TWO_FA_CODE_INVALID) {
-      return response.error(res, 400, error.message);
-    }
-    next(error);
-  }
-};
-
-export const verify2FA = async (req, res, next) => {
-  try {
-    const result = await authService.verify2FALogin(
-      req.body.tempToken || req.body.temp_token,
-      req.body.code || req.body.otp || req.body.otp_code
-    );
-    const user = result.user || {};
-    response.success(res, 200, '2FA verified successfully', {
-      ...result,
-      access_token: result.accessToken,
-      refresh_token: result.refreshToken,
-      user_id: user._id,
-      user_role: user.role,
-      user_name: user.fullName,
-    });
-  } catch (error) {
-    if (
-      error.message === ERR.TWO_FA_CODE_INVALID ||
-      error.message === ERR.TWO_FA_NOT_ENABLED ||
-      error.message === ERR.TWO_FA_TEMP_TOKEN_REQUIRED ||
-      error.message === ERR.TWO_FA_CODE_REQUIRED ||
-      error.message === ERR.TWO_FA_TOKEN_INVALID ||
-      error.name === 'TokenExpiredError' ||
-      error.name === 'JsonWebTokenError'
-    ) {
-      return response.error(res, 400, error.message || 'Invalid or expired token');
-    }
-    next(error);
-  }
-};
-
-export const disable2FA = async (req, res, next) => {
-  try {
-    const result = await authService.disable2FA(req.user.userId, req.body.password);
-    response.success(res, 200, '2FA disabled successfully', result);
-  } catch (error) {
-    if (error.message === ERR.AUTH_INVALID_PASSWORD) {
-      return response.error(res, 401, error.message);
-    }
-    next(error);
-  }
-};
 
 // Verify email — send verification link
 export const verifyEmail = async (req, res, next) => {
@@ -572,10 +501,7 @@ export default {
   getMe,
   validateToken,
   verifyOtp,
-  setup2FA,
-  confirm2FASetup,
-  verify2FA,
-  disable2FA,
+
   verifyEmail,
   verifyEmailOtp,
   registerFcmToken,

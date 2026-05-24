@@ -8,7 +8,6 @@ import SystemSettings from '../models/SystemSettings.model.js';
 import User from '../models/User.model.js';
 import Donor from '../models/Donor.model.js';
 import Hospital from '../models/Hospital.model.js';
-import TwoFactor from '../models/TwoFactor.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
@@ -500,7 +499,6 @@ export const loginAdmin = async (email, password, adminKey) => {
     throw new Error(ERR.AUTH_INVALID_ADMIN_KEY);
   }
 
-  const tf = await TwoFactor.findOne({ userId: user._id }).select('enabled secret').lean();
   const admin = {
     _id: user._id,
     fullName: user.fullName,
@@ -514,16 +512,6 @@ export const loginAdmin = async (email, password, adminKey) => {
     accessToken: jwt.signToken({ userId: user._id.toString(), role: user.role }),
     refreshToken: jwt.signRefreshToken({ userId: user._id.toString(), role: user.role }),
   };
-
-  if (tf?.enabled && tf.secret) {
-    const tempToken = jwt.signToken({ userId: user._id.toString(), role: user.role, twoFactor: true }, { expiresIn: '10m' });
-    return {
-      requires2FA: true,
-      tempToken,
-      message: '2FA verification required',
-      admin,
-    };
-  }
 
   return {
     ...tokens,

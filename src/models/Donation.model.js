@@ -27,8 +27,7 @@ const donationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Appointment',
       default: null,
-      index: true,
-      sparse: true,
+      // Note: index defined below via donationSchema.index() with partialFilterExpression
     },
     
     requestId: {

@@ -8,7 +8,7 @@
 
 import { MongoMemoryReplSet } from 'mongodb-memory-server';
 import { afterAll } from 'vitest';
-import { clearTestDB } from './helpers/db.js';
+import { clearDatabase } from './helpers/db.js';
 
 let replSet;
 
@@ -31,7 +31,7 @@ export async function setup() {
 
 afterAll(async () => {
   if (process.env.MONGO_URI && process.env.MONGODB_URI) {
-    await clearTestDB();
+    await clearDatabase();
   }
 });
 

@@ -31,28 +31,14 @@ import Hospital from '../models/Hospital.model.js';
 import RefreshTokenBlacklist from '../models/RefreshTokenBlacklist.model.js';
 import { validateRegister } from '../validation/auth.validation.js';
 import OneTimeOtp from '../models/OneTimeOtp.model.js';
-import TwoFactor from '../models/TwoFactor.model.js';
 import { ERR } from '../utils/errorCodes.js';
 import * as adminService from './admin.service.js';
 
 const hashToken = (token) => crypto.createHash('sha256').update(token).digest('hex');
 const hashOtp = (otp) => crypto.createHash('sha256').update(String(otp)).digest('hex');
 const generateOtp = () => String(Math.floor(100000 + Math.random() * 900000));
-const generateSecret = () => crypto.randomBytes(20).toString('hex');
-const generateBackupCodes = () => Array.from({ length: 6 }, () => crypto.randomBytes(4).toString('hex').toUpperCase());
-const totpCounter = (timestamp = Date.now()) => Math.floor(timestamp / 30000);
-const generateTotp = (secret, counter = totpCounter()) => {
-  const hmac = crypto.createHmac('sha1', secret).update(String(counter)).digest();
-  const offset = hmac[hmac.length - 1] & 0x0f;
-  const code = ((hmac[offset] & 0x7f) << 24)
-    | ((hmac[offset + 1] & 0xff) << 16)
-    | ((hmac[offset + 2] & 0xff) << 8)
-    | (hmac[offset + 3] & 0xff);
-  return String(code % 1000000).padStart(6, '0');
-};
 const PASSWORD_RESET_OTP_PURPOSE = 'password_reset';
 const RESET_TOKEN_TTL_MS = 10 * 60 * 1000;
-const TWO_FACTOR_TEMP_TOKEN_TTL = '10m';
 
 const createServiceError = (message, statusCode = 400) => {
   const error = new Error(message);
@@ -138,29 +124,10 @@ const loadLoginUser = async ({ email, password, role, hospitalId }) => {
     }
   }
 
-  const tf = await TwoFactor.findOne({ userId: user._id }).select('enabled secret').lean();
-  return { user, twoFactorEnabled: Boolean(tf?.enabled && tf.secret) };
+  return { user };
 };
 
-const toLoginUserResponse = (user, { requires2FA = false, tempToken = null, hospitalId = null } = {}) => {
-  if (requires2FA) {
-    const response = {
-      requires2FA: true,
-      tempToken,
-      message: '2FA verification required',
-      user: {
-        _id: user._id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
-      },
-    };
-    if (hospitalId) {
-      response.hospitalId = hospitalId;
-    }
-    return response;
-  }
-
+const toLoginUserResponse = (user, { hospitalId = null } = {}) => {
   const authPayload = buildAuthPayload(user);
   if (hospitalId) {
     authPayload.hospitalId = hospitalId;
@@ -271,88 +238,7 @@ export const verifyOtp = async ({ email, otp }) => {
   };
 };
 
-export const setup2FA = async (userId) => {
-  const user = await User.findById(userId).select('email').lean();
-  if (!user) throw createServiceError(ERR.AUTH_USER_NOT_FOUND, 404);
 
-  const secret = generateSecret();
-  const backupCodes = generateBackupCodes();
-
-  // Upsert pending secret/backup codes in a single operation to avoid extra roundtrips
-  await TwoFactor.findOneAndUpdate(
-    { userId },
-    {
-      $set: { pendingSecret: secret, pendingBackupCodes: backupCodes },
-    },
-    { upsert: true, returnDocument: 'after' }
-  );
-
-  return {
-    secret,
-    backup_codes: backupCodes,
-    qr_code: `otpauth://totp/LifeLink:${encodeURIComponent(user.email)}?secret=${secret}&issuer=LifeLink`,
-  };
-};
-
-export const verify2FA = async (userId, otp) => {
-  if (!otp) throw createServiceError(ERR.TWO_FA_CODE_REQUIRED, 400);
-
-  // Read pending secret and backup codes as a plain object for fast verification
-  const tf = await TwoFactor.findOne({ userId }).select('pendingSecret pendingBackupCodes').lean();
-  if (!tf || !tf.pendingSecret) throw createServiceError(ERR.TWO_FA_SETUP_NOT_FOUND, 400);
-
-  const expected = generateTotp(tf.pendingSecret);
-  const backupIndex = (tf.pendingBackupCodes || []).indexOf(String(otp).trim().toUpperCase());
-
-  if (otp !== expected && backupIndex === -1) {
-    throw createServiceError(ERR.TWO_FA_CODE_INVALID, 400);
-  }
-
-  // Atomically enable 2FA and persist secret/backup codes, clearing pending fields
-  await TwoFactor.findOneAndUpdate(
-    { userId },
-    {
-      $set: {
-        enabled: true,
-        secret: tf.pendingSecret,
-        backupCodes: tf.pendingBackupCodes || [],
-        verifiedAt: new Date(),
-      },
-      $unset: { pendingSecret: '', pendingBackupCodes: '' },
-    },
-    { returnDocument: 'after' }
-  );
-
-  return { success: true };
-};
-
-export const disable2FA = async (userId, password) => {
-  if (!password) throw createServiceError('Password is required', 400);
-
-  const user = await User.findById(userId).select('+password').lean();
-  if (!user) throw createServiceError(ERR.AUTH_USER_NOT_FOUND, 404);
-
-  const match = await bcrypt.compare(password, user.password);
-  if (!match) throw createServiceError(ERR.AUTH_INVALID_PASSWORD, 401);
-
-  // Atomically disable 2FA and clear secrets
-  await TwoFactor.findOneAndUpdate(
-    { userId },
-    {
-      $set: {
-        enabled: false,
-        secret: null,
-        backupCodes: [],
-        pendingSecret: null,
-        pendingBackupCodes: [],
-        disabledAt: new Date(),
-      },
-    },
-    { returnDocument: 'after' }
-  );
-
-  return { success: true };
-};
 
 /**
  * Register a new user with role-specific discriminator
@@ -554,18 +440,7 @@ export const register = async (data, trace = {}) => {
 };
 
 export const loginUser = async (data) => {
-  const { user, twoFactorEnabled } = await loadLoginUser({ ...data });
-
-  if (twoFactorEnabled) {
-    const tempToken = createScopedToken(
-      { userId: user._id.toString(), role: user.role, twoFactor: true },
-      'two_factor_auth',
-      TWO_FACTOR_TEMP_TOKEN_TTL
-    );
-
-    return toLoginUserResponse(user, { requires2FA: true, tempToken });
-  }
-
+  const { user } = await loadLoginUser({ ...data });
   return toLoginUserResponse(user);
 };
 
@@ -593,17 +468,6 @@ export const loginHospital = async (data) => {
 
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid credentials');
-
-  // Check two-factor
-  const tf = await TwoFactor.findOne({ userId: user._id }).select('enabled secret').lean();
-  if (tf?.enabled && tf.secret) {
-    const tempToken = createScopedToken(
-      { userId: user._id.toString(), role: user.role, twoFactor: true },
-      'two_factor_auth',
-      TWO_FACTOR_TEMP_TOKEN_TTL
-    );
-    return toLoginUserResponse(user, { requires2FA: true, tempToken, hospitalId: user.hospitalId });
-  }
 
   return toLoginUserResponse(user, { hospitalId: user.hospitalId });
 };
@@ -869,52 +733,7 @@ export const changePassword = async (userId, { currentPassword, newPassword }) =
   return { success: true };
 };
 
-export const verify2FALogin = async (tempToken, code) => {
-  if (!tempToken) throw createServiceError(ERR.TWO_FA_TEMP_TOKEN_REQUIRED, 400);
-  if (!code) throw createServiceError(ERR.TWO_FA_CODE_REQUIRED, 400);
 
-  const decoded = verifyScopedToken(tempToken, 'two_factor_auth');
-
-  // Read TF doc with lean for fast verification
-  const tf = await TwoFactor.findOne({ userId: decoded.userId }).select('enabled secret backupCodes failedAttempts lockedUntil').lean();
-  if (!tf?.enabled || !tf.secret) {
-    throw createServiceError(ERR.TWO_FA_NOT_ENABLED, 400);
-  }
-
-  if (tf.lockedUntil && new Date(tf.lockedUntil) > new Date()) {
-    throw createServiceError('Account temporarily locked due to too many failed 2FA attempts', 429);
-  }
-
-  const normalizedCode = String(code).trim();
-  const expectedCodes = [
-    generateTotp(tf.secret, totpCounter(Date.now() - 30000)),
-    generateTotp(tf.secret, totpCounter()),
-    generateTotp(tf.secret, totpCounter(Date.now() + 30000)),
-  ];
-  const backupExists = (tf.backupCodes || []).includes(normalizedCode.toUpperCase());
-
-  if (!expectedCodes.includes(normalizedCode) && !backupExists) {
-    const failedAttempts = (tf.failedAttempts || 0) + 1;
-    const lockedUntil = failedAttempts >= 5 ? new Date(Date.now() + 15 * 60000) : null;
-    await TwoFactor.updateOne({ userId: decoded.userId }, { $set: { failedAttempts, lockedUntil } });
-    throw createServiceError(ERR.TWO_FA_CODE_INVALID, 400);
-  }
-
-  // If code is correct, reset failures and remove backup code if used
-  const updatePayload = { $set: { failedAttempts: 0, lockedUntil: null } };
-  if (backupExists) {
-    updatePayload.$pull = { backupCodes: normalizedCode.toUpperCase() };
-  }
-  await TwoFactor.updateOne({ userId: decoded.userId }, updatePayload);
-
-  const user = await User.findById(decoded.userId).select('-password').lean();
-  if (!user) throw createServiceError(ERR.AUTH_USER_NOT_FOUND, 404);
-  if (user.deletedAt) throw createServiceError(ERR.AUTH_INVALID_CREDENTIALS, 401);
-  if (user.isSuspended) throw createServiceError(ERR.AUTH_ACCOUNT_SUSPENDED, 403);
-  if (!user.isEmailVerified) throw createServiceError(ERR.AUTH_EMAIL_NOT_VERIFIED, 403);
-
-  return buildAuthPayload(user);
-};
 
 // Verify email
 export const verifyEmail = async (email) => {

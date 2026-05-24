@@ -85,8 +85,7 @@
 | GET | `/donor/urgent-requests` | Urgent (high/critical) requests |
 | GET | `/donor/urgent-requests/:requestId` | Single urgent request details |
 | POST | `/donor/urgent-requests/:requestId/decline` | Decline an urgent request |
-| GET | `/donor/health-history` | Get health history |
-| PUT | `/donor/health-history` | Update health history |
+| (removed) | `/donor/health-history` | Removed |
 | GET | `/donor/settings` | Get notification settings |
 | PUT | `/donor/settings` | Update notification settings |
 | GET | `/donor/stats` | Donor statistics |

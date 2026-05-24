@@ -52,7 +52,7 @@ const notificationSchema = new mongoose.Schema(
     
     relatedId: {
       type: mongoose.Schema.Types.ObjectId,
-      optional: true,
+      default: null,
     },
     
     relatedType: {
@@ -61,7 +61,7 @@ const notificationSchema = new mongoose.Schema(
         values: ['Request', 'Donation', 'User', 'Achievement', 'Appointment'],
         message: 'Related type must be Request, Donation, User, Achievement, or Appointment',
       },
-      optional: true,
+      default: null,
     },
     
     data: {

@@ -37,9 +37,7 @@ router.post('/respond/:requestId', donorController.respondToRequest);
 // Donation eligibility (alias to internal eligibility logic)
 router.get('/donation-eligibility', donorController.getDonationEligibility);
 
-// Lightweight donor health history
-router.get('/health-history', donorController.getHealthHistory);
-router.patch('/health-history', donorController.updateHealthHistory);
+// Lightweight donor health history (removed)
 
 // Donor dashboard and activity (Medium)
 router.get('/dashboard', donorController.getDashboard);

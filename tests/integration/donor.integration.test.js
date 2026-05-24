@@ -386,19 +386,7 @@ describe('Donor Routes Integration', () => {
     expect(response.body.data).toBeDefined();
   });
 
-  it('GET /donor/health-history returns health history', async () => {
-    await clearDatabase();
-    const donor = await createDonor();
-
-    const token = signToken({ userId: donor._id.toString(), role: donor.role });
-
-    const response = await request(app)
-      .get('/donor/health-history')
-      .set('Authorization', `Bearer ${token}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-  });
+  // `/donor/health-history` removed
 
   it('Donor routes require donor role', async () => {
     await clearDatabase();

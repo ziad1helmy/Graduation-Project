@@ -13,7 +13,7 @@ servers:
     description: Development server
 tags:
   - name: Auth
-    description: Registration, login, email verification, password reset, 2FA, and
+    description: Registration, login, email verification, password reset, and
       token management for all roles
   - name: Donor
     description: "All donor-facing endpoints: profile, dashboard, urgent requests,
@@ -709,7 +709,7 @@ paths:
         - Auth
       summary: Donor login with email and password
       description: |-
-        Authenticate as a donor user. Returns JWT token. Supports optional 2FA
+        Authenticate as a donor user. Returns JWT token.
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       requestBody:
@@ -723,7 +723,7 @@ paths:
               password: DonorPass@123
       responses:
         "200":
-          description: Login successful or 2FA verification required
+          description: Login successful
           content:
             application/json:
               example:
@@ -813,7 +813,7 @@ paths:
               adminKey: ADMIN-DEMO-KEY-2026
       responses:
         "200":
-          description: Admin login successful or 2FA verification required
+          description: Admin login successful
           content:
             application/json:
               example:
@@ -1026,129 +1026,6 @@ paths:
           description: Validation error
         "401":
           description: Current password is incorrect
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /auth/2fa/setup:
-    post:
-      tags:
-        - Auth
-      summary: Initialize 2FA setup
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: 2FA setup initialized
-          content:
-            application/json:
-              example:
-                success: true
-                message: 2FA setup initialized
-                data:
-                  secret: JBSWY3DPEHPK3PXP
-                  otpauthUrl: otpauth://totp/LifeLink:aya.hassan@lifelink.demo?secret=JBSWY3DPEHPK3PXP&issuer=LifeLink
-                  qrCodeDataUrl: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /auth/2fa/confirm-setup:
-    post:
-      tags:
-        - Auth
-      summary: Confirm 2FA setup for the authenticated user
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - code
-            example: {}
-      responses:
-        "200":
-          description: 2FA setup verified successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: 2FA setup verified successfully
-                data:
-                  verified: true
-                  enabled: true
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /auth/2fa/verify:
-    post:
-      tags:
-        - Auth
-      summary: Complete login by verifying a 2FA code
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - tempToken
-                - code
-            example:
-              tempToken: <TEMP_2FA_TOKEN>
-              code: "123456"
-      responses:
-        "200":
-          description: 2FA verified successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: 2FA verified successfully
-                data:
-                  accessToken: eyJ...2fa-access
-                  refreshToken: eyJ...2fa-refresh
-                  access_token: eyJ...2fa-access
-                  refresh_token: eyJ...2fa-refresh
-                  user:
-                    _id: 69f3df915f42685cbbbcbb18
-                    fullName: Aya Hassan
-                    email: aya.hassan@lifelink.demo
-                    role: donor
-                  user_id: 69f3df915f42685cbbbcbb18
-                  user_role: donor
-                  user_name: Aya Hassan
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /auth/2fa/disable:
-    post:
-      tags:
-        - Auth
-      summary: Disable 2FA
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - password
-            example:
-              password: AdminPass@123
-      responses:
-        "200":
-          description: 2FA disabled successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: 2FA disabled successfully
-                data:
-                  disabled: true
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
@@ -1709,87 +1586,7 @@ paths:
           description: requestId is required
         "404":
           description: Request or donor not found
-  /donor/health-history:
-    get:
-      tags:
-        - Donor
-      summary: Get the authenticated donor health history
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Health history retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Health history retrieved successfully
-                data:
-                  healthHistory:
-                    chronicConditions:
-                      - Mild anemia in 2024
-                    medications:
-                      - Iron supplement
-                    allergies:
-                      - Penicillin
-                    recentIllness: ""
-                    notes: Cleared by physician for donation.
-                    lastCheckupDate: 2026-04-20T00:00:00.000Z
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    patch:
-      tags:
-        - Donor
-      summary: Update the authenticated donor health history
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-            example:
-              chronicConditions: []
-              medications:
-                - Iron supplement
-              allergies:
-                - Penicillin
-              notes: Healthy and ready for donation.
-              lastCheckupDate: 2026-04-20
-      responses:
-        "200":
-          description: Health history updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Health history updated successfully
-                data:
-                  healthHistory:
-                    chronicConditions: []
-                    medications:
-                      - Vitamin D
-                    allergies:
-                      - Penicillin
-                    recentIllness: Seasonal flu recovered in March
-                    notes: Follow-up completed and eligible to donate.
-                    lastCheckupDate: 2026-05-01T00:00:00.000Z
-                    updatedAt: 2026-05-18T09:35:00.000Z
-        "400":
-          description: Invalid health history payload
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
+  # /donor/health-history removed
   /donations/book-appointment:
     post:
       tags:
@@ -4782,9 +4579,6 @@ paths:
                     governorate:
                       type: string
                       example: Cairo
-                licenseNumber:
-                  type: string
-                  example: LIC-CAIRO-009
                 location:
                   type: object
                   properties:
@@ -4811,7 +4605,6 @@ paths:
               address:
                 city: Cairo
                 governorate: Cairo
-              licenseNumber: LIC-CAIRO-009
               location:
                 city: Cairo
                 governorate: Cairo
@@ -4833,7 +4626,7 @@ paths:
                   type: hospital
                   hospitalType: General Hospital
                   contactNumber: "1044444444"
-                  licenseNumber: LIC-CAIRO-009
+                  hospitalId: cairo-care-hospital
                   location:
                     city: Cairo
                     governorate: Cairo

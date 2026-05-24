@@ -18,7 +18,7 @@
   "tags": [
     {
       "name": "Auth",
-      "description": "Registration, login, email verification, password reset, 2FA, and token management for all roles"
+      "description": "Registration, login, email verification, password reset, and token management for all roles"
     },
     {
       "name": "Donor",
@@ -989,7 +989,7 @@
           "Auth"
         ],
         "summary": "Donor login with email and password",
-        "description": "Authenticate as a donor user. Returns JWT token. Supports optional 2FA\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "description": "Authenticate as a donor user. Returns JWT token.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "requestBody": {
           "required": true,
           "content": {
@@ -1006,7 +1006,7 @@
         },
         "responses": {
           "200": {
-            "description": "Login successful or 2FA verification required",
+            "description": "Login successful",
             "content": {
               "application/json": {
                 "example": {
@@ -1128,7 +1128,7 @@
         },
         "responses": {
           "200": {
-            "description": "Admin login successful or 2FA verification required",
+            "description": "Admin login successful",
             "content": {
               "application/json": {
                 "example": {
@@ -1443,184 +1443,6 @@
           },
           "401": {
             "description": "Current password is incorrect"
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
-      }
-    },
-    "/auth/2fa/setup": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Initialize 2FA setup",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "2FA setup initialized",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "2FA setup initialized",
-                  "data": {
-                    "secret": "JBSWY3DPEHPK3PXP",
-                    "otpauthUrl": "otpauth://totp/LifeLink:aya.hassan@lifelink.demo?secret=JBSWY3DPEHPK3PXP&issuer=LifeLink",
-                    "qrCodeDataUrl": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
-                  }
-                }
-              }
-            }
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
-      }
-    },
-    "/auth/2fa/confirm-setup": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Confirm 2FA setup for the authenticated user",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "code"
-                ]
-              },
-              "example": {}
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "2FA setup verified successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "2FA setup verified successfully",
-                  "data": {
-                    "verified": true,
-                    "enabled": true
-                  }
-                }
-              }
-            }
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
-      }
-    },
-    "/auth/2fa/verify": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Complete login by verifying a 2FA code",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "tempToken",
-                  "code"
-                ]
-              },
-              "example": {
-                "tempToken": "<TEMP_2FA_TOKEN>",
-                "code": "123456"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "2FA verified successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "2FA verified successfully",
-                  "data": {
-                    "accessToken": "eyJ...2fa-access",
-                    "refreshToken": "eyJ...2fa-refresh",
-                    "access_token": "eyJ...2fa-access",
-                    "refresh_token": "eyJ...2fa-refresh",
-                    "user": {
-                      "_id": "69f3df915f42685cbbbcbb18",
-                      "fullName": "Aya Hassan",
-                      "email": "aya.hassan@lifelink.demo",
-                      "role": "donor"
-                    },
-                    "user_id": "69f3df915f42685cbbbcbb18",
-                    "user_role": "donor",
-                    "user_name": "Aya Hassan"
-                  }
-                }
-              }
-            }
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
-      }
-    },
-    "/auth/2fa/disable": {
-      "post": {
-        "tags": [
-          "Auth"
-        ],
-        "summary": "Disable 2FA",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "required": [
-                  "password"
-                ]
-              },
-              "example": {
-                "password": "AdminPass@123"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "2FA disabled successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "2FA disabled successfully",
-                  "data": {
-                    "disabled": true
-                  }
-                }
-              }
-            }
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
@@ -2422,125 +2244,6 @@
             "description": "Request or donor not found"
           }
         }
-      }
-    },
-    "/donor/health-history": {
-      "get": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Get the authenticated donor health history",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Health history retrieved successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Health history retrieved successfully",
-                  "data": {
-                    "healthHistory": {
-                      "chronicConditions": [
-                        "Mild anemia in 2024"
-                      ],
-                      "medications": [
-                        "Iron supplement"
-                      ],
-                      "allergies": [
-                        "Penicillin"
-                      ],
-                      "recentIllness": "",
-                      "notes": "Cleared by physician for donation.",
-                      "lastCheckupDate": "2026-04-20T00:00:00.000Z"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "403": {
-            "description": "Role not allowed"
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
-      },
-      "patch": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Update the authenticated donor health history",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object"
-              },
-              "example": {
-                "chronicConditions": [],
-                "medications": [
-                  "Iron supplement"
-                ],
-                "allergies": [
-                  "Penicillin"
-                ],
-                "notes": "Healthy and ready for donation.",
-                "lastCheckupDate": "2026-04-20"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Health history updated successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Health history updated successfully",
-                  "data": {
-                    "healthHistory": {
-                      "chronicConditions": [],
-                      "medications": [
-                        "Vitamin D"
-                      ],
-                      "allergies": [
-                        "Penicillin"
-                      ],
-                      "recentIllness": "Seasonal flu recovered in March",
-                      "notes": "Follow-up completed and eligible to donate.",
-                      "lastCheckupDate": "2026-05-01T00:00:00.000Z",
-                      "updatedAt": "2026-05-18T09:35:00.000Z"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid health history payload"
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "403": {
-            "description": "Role not allowed"
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
     "/donations/book-appointment": {
@@ -5031,12 +4734,30 @@
                   "success": true,
                   "message": "Points retrieved successfully",
                   "data": {
-                    "points": 2340,
-                    "tier": "SILVER",
-                    "nextTier": "GOLD",
-                    "pointsToNextTier": 660,
-                    "bonusMultiplier": 1,
-                    "rewardsAvailable": 5
+                    "pointsBalance": 2340,
+                    "lifetimePointsEarned": 3340,
+                    "currentTier": "silver",
+                    "nextTier": "gold",
+                    "pointsToNextTier": 160,
+                    "progressPercentage": 56,
+                    "tierBenefits": {
+                      "bronze": [
+                        "Access to basic rewards"
+                      ],
+                      "silver": [
+                        "10% more points per donation",
+                        "Early access to limited rewards"
+                      ],
+                      "gold": [
+                        "15% more points per donation",
+                        "Exclusive gold rewards"
+                      ],
+                      "platinum": [
+                        "20% more points per donation",
+                        "VIP support",
+                        "All exclusive rewards"
+                      ]
+                    }
                   }
                 }
               }
@@ -5059,44 +4780,62 @@
         ],
         "responses": {
           "200": {
-            "description": "Dynamic earning rules for the rewards UI",
+            "description": "Dynamic earning rules for the rewards UI (all donation types + bonus activities)",
             "content": {
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Earning rules retrieved",
-                  "data": {
-                    "rules": [
-                      {
-                        "donationType": "blood",
-                        "basePoints": 200,
-                        "cooldownDays": 56,
-                        "description": "Whole blood donation"
-                      },
-                      {
-                        "donationType": "plasma",
-                        "basePoints": 150,
-                        "cooldownDays": 14,
-                        "description": "Plasma donation"
-                      },
-                      {
-                        "donationType": "platelets",
-                        "basePoints": 175,
-                        "cooldownDays": 7,
-                        "description": "Platelet donation"
-                      },
-                      {
-                        "donationType": "organ",
-                        "basePoints": 500,
-                        "cooldownDays": 365,
-                        "description": "Organ donation"
-                      }
-                    ],
-                    "bonuses": {
-                      "firstDonation": 50,
-                      "referral": 100
+                  "message": "Reward earning rules retrieved successfully",
+                  "data": [
+                    {
+                      "type": "blood_donation",
+                      "title": "Blood Donation",
+                      "points": 200,
+                      "category": "donation"
+                    },
+                    {
+                      "type": "plasma_donation",
+                      "title": "Plasma Donation",
+                      "points": 150,
+                      "category": "donation"
+                    },
+                    {
+                      "type": "platelets_donation",
+                      "title": "Platelet Donation",
+                      "points": 175,
+                      "category": "donation"
+                    },
+                    {
+                      "type": "organ_donation",
+                      "title": "Organ Donation",
+                      "points": 500,
+                      "category": "donation"
+                    },
+                    {
+                      "type": "first_donation",
+                      "title": "First Donation Bonus",
+                      "points": 100,
+                      "category": "bonus"
+                    },
+                    {
+                      "type": "emergency_response",
+                      "title": "Emergency Response",
+                      "points": 100,
+                      "category": "bonus"
+                    },
+                    {
+                      "type": "profile_completion",
+                      "title": "Profile Completion",
+                      "points": 50,
+                      "category": "bonus"
+                    },
+                    {
+                      "type": "referral",
+                      "title": "Referral",
+                      "points": 150,
+                      "category": "bonus"
                     }
-                  }
+                  ]
                 }
               }
             }
@@ -5423,6 +5162,20 @@
               ]
             },
             "example": "COST_ASC"
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ACTIVE",
+                "INACTIVE",
+                "ALL"
+              ],
+              "default": "ACTIVE"
+            },
+            "example": "ACTIVE"
           }
         ],
         "responses": {
@@ -5432,35 +5185,46 @@
               "application/json": {
                 "example": {
                   "success": true,
-                  "message": "Rewards catalog retrieved",
+                  "message": "Rewards retrieved successfully",
                   "data": {
                     "rewards": [
                       {
                         "_id": "664a123456789abcdef12345",
-                        "title": "Coffee Voucher",
-                        "description": "Free coffee at partner cafe",
+                        "name": "Coffee Voucher",
+                        "description": "Free coffee at partner cafes",
                         "category": "FOOD",
-                        "pointsRequired": 300,
-                        "image": "https://graduation-project-cy61.onrender.com/assets/rewards/coffee-voucher.jpg",
-                        "stock": 50,
-                        "redeemed": 12,
-                        "isAvailable": true,
-                        "daysToExpiry": 30
+                        "pointsCost": 500,
+                        "iconType": "coffee",
+                        "colorCode": "#8B4513",
+                        "status": "ACTIVE",
+                        "dailyLimit": null,
+                        "monthlyLimit": null,
+                        "redemptionCount": 12,
+                        "available": true
                       },
                       {
                         "_id": "664a123456789abcdef12346",
-                        "title": "Movie Ticket",
-                        "description": "Two movie tickets at partner cinema",
+                        "name": "Movie Tickets",
+                        "description": "2 movie tickets at major cinemas",
                         "category": "ENTERTAINMENT",
-                        "pointsRequired": 800,
-                        "image": "https://graduation-project-cy61.onrender.com/assets/rewards/movie-ticket.jpg",
-                        "stock": 25,
-                        "redeemed": 5,
-                        "isAvailable": true,
-                        "daysToExpiry": 60
+                        "pointsCost": 1000,
+                        "iconType": "movie",
+                        "colorCode": "#6A0DAD",
+                        "status": "ACTIVE",
+                        "dailyLimit": 5,
+                        "monthlyLimit": 50,
+                        "redemptionCount": 5,
+                        "available": true
                       }
                     ],
-                    "total": 45
+                    "filterOptions": {
+                      "categories": [
+                        "FOOD",
+                        "ENTERTAINMENT",
+                        "HEALTH",
+                        "STATUS"
+                      ]
+                    }
                   }
                 }
               }
@@ -6655,10 +6419,6 @@
                       }
                     }
                   },
-                  "licenseNumber": {
-                    "type": "string",
-                    "example": "LIC-CAIRO-009"
-                  },
                   "location": {
                     "type": "object",
                     "properties": {
@@ -6695,7 +6455,6 @@
                   "city": "Cairo",
                   "governorate": "Cairo"
                 },
-                "licenseNumber": "LIC-CAIRO-009",
                 "location": {
                   "city": "Cairo",
                   "governorate": "Cairo",
@@ -6723,7 +6482,7 @@
                     "type": "hospital",
                     "hospitalType": "General Hospital",
                     "contactNumber": "1044444444",
-                    "licenseNumber": "LIC-CAIRO-009",
+                    "hospitalId": "cairo-care-hospital",
                     "location": {
                       "city": "Cairo",
                       "governorate": "Cairo",

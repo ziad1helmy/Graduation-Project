@@ -24,7 +24,6 @@ LifeLink solves this by providing:
 |---|---|
 | Multi-role authentication (donor / hospital / admin / superadmin) | ✅ Complete |
 | Email OTP verification + password reset via OTP | ✅ Complete |
-| TOTP-based Two-Factor Authentication (2FA) | ✅ Complete |
 | JWT access + refresh tokens with blacklisting | ✅ Complete |
 | FCM push notification registration & delivery | ✅ Complete |
 | Blood/organ request creation & lifecycle management | ✅ Complete |
@@ -43,7 +42,7 @@ LifeLink solves this by providing:
 | Hospital discovery & search | ✅ Complete |
 | Donor health history management | ✅ Complete |
 | Arabic/English localization support | ✅ Complete (en.json only) |
-| Rate limiting (general + auth + 2FA) | ✅ Complete |
+| Rate limiting (general + auth) | ✅ Complete |
 | NoSQL injection sanitization | ✅ Complete |
 | Soft-delete user accounts | ✅ Complete |
 | Leaderboard | ✅ Complete |
@@ -56,7 +55,6 @@ LifeLink solves this by providing:
 
 ## Tech Stack
 
-<<<<<<< Updated upstream
 | Layer | Technology |
 |---|---|
 | Runtime | Node.js 20+ (ESM modules) |
@@ -70,8 +68,10 @@ LifeLink solves this by providing:
 | Testing | Vitest + SuperTest + mongodb-memory-server |
 | API Docs | Swagger UI (OpenAPI 3.x) |
 | Logging | Custom structured logger (winston-style) |
-=======
-- Authentication: login/register, OTP, email verification, refresh, logout, reset/forgot password, 2FA, FCM token lifecycle.
+
+## Project Coverage
+
+- Authentication: login/register, OTP, email verification, refresh, logout, reset/forgot password, FCM token lifecycle.
 - Donor: profile, availability, matches, responses, donation eligibility, dashboard/recent activity, urgent request flows, health history.
 - Hospital: profile, request CRUD, close request, monthly reports, staff, blood-bank settings, notification preferences, blood inventory summary.
 - Appointments: **Schedule Donation** (4-step flow: location → date/time → user details → review) and **Reschedule Donation** (update existing appointment date, time, and donation type) — both fully implemented in the Flutter frontend and integrated with backend APIs. Includes: available-slot fetching, donor booking, appointment list, appointment-by-ID, reschedule via PATCH, and donor cancellation.
@@ -80,7 +80,6 @@ LifeLink solves this by providing:
 - Analytics: personal donation stats, leaderboard, donation type statistics, system dashboard metrics (donor, admin).
 - Admin: system health, maintenance, rewards config management, analytics/alerts, donor/hospital management, admin management, role-permissions management.
 - Discovery/Help/Support/Notifications: hospital discovery endpoints, FAQ/documents, contact/support messaging, notification listing and mark-read.
->>>>>>> Stashed changes
 
 ---
 
@@ -312,7 +311,7 @@ Interactive docs: `/api-docs`
 
 | Group | Base Path | Description |
 |---|---|---|
-| Auth | `/auth` | Register, login, OTP, 2FA, FCM tokens |
+| Auth | `/auth` | Register, login, OTP, FCM tokens |
 | Donor | `/donor` | Profile, requests, matches, donations |
 | Hospital | `/hospital` | Profile, requests management |
 | Admin | `/admin` | Full system management |
@@ -335,8 +334,7 @@ Interactive docs: `/api-docs`
 3. **Login** (`POST /auth/login`) — returns `accessToken` (7d) + `refreshToken` (30d)
 4. **Hospital login** (`POST /auth/hospital/login`) — email + password only
 5. **Admin login** (`POST /auth/admin/login`) — email + password + `adminKey`
-6. **2FA** (optional) — TOTP-based, tempToken flow on 2FA-enabled accounts
-7. **FCM Token** registration on login for push notifications
+6. **FCM Token** registration on login for push notifications
 
 All protected routes require: `Authorization: Bearer <accessToken>`
 
