@@ -35,13 +35,6 @@ export const createHospitalByAdmin = async (data, adminId) => {
     throw new Error('Hospital ID already registered');
   }
 
-  const existingLicense = data.licenseNumber
-    ? await Hospital.findOne({ licenseNumber: String(data.licenseNumber).trim() })
-    : null;
-  if (existingLicense) {
-    throw new Error('License number already registered');
-  }
-
   const generatedPassword = data.password ? String(data.password) : generateTemporaryPassword();
   const hospital = await Hospital.create({
     fullName: String(data.name).trim(),
@@ -59,7 +52,6 @@ export const createHospitalByAdmin = async (data, adminId) => {
     city: data.city ? String(data.city).trim() : null,
     state: data.state ? String(data.state).trim() : null,
     zipCode: data.zipCode ? String(data.zipCode).trim() : null,
-    licenseNumber: data.licenseNumber ? String(data.licenseNumber).trim() : null,
     hospitalId: String(data.hospitalId).trim(),
     adminContactName: data.adminContactName ? String(data.adminContactName).trim() : null,
     adminContactPhone: data.adminContactPhone ? String(data.adminContactPhone).trim() : null,

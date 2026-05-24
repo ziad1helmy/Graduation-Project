@@ -16,7 +16,7 @@ function shouldBypassForE2E(req) {
  * Returns standardized error response with HTTP 429
  */
 function handleRateLimitError(req, res, options) {
-  const ip = req.ip || req.connection.remoteAddress;
+  const ip = req.ip || req.socket?.remoteAddress;
   const endpoint = req.path;
 
   // Log security event
@@ -50,10 +50,7 @@ const authLimiter = createLimiter({
   max: isDev ? 150 : 20,
 });
 
-const strict2FALimiter = createLimiter({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isDev ? 50 : 10,
-});
+
 
 // ─── 2. EXPENSIVE GET LIMITER (Matching, Geolocation, Analytics) ─────────────
 const expensiveGetLimiter = createLimiter({
@@ -184,7 +181,6 @@ function limiter(req, res, next) {
 export {
   limiter,
   authLimiter,
-  strict2FALimiter,
   expensiveGetLimiter,
   searchFilterLimiter,
   dashboardLimiter,

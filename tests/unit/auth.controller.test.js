@@ -19,10 +19,6 @@ vi.mock('../../src/services/auth.service.js', () => ({
   replaceFcmToken: vi.fn(),
   removeFcmToken: vi.fn(),
   verifyOtp: vi.fn(),
-  setup2FA: vi.fn(),
-  verify2FA: vi.fn(),
-  verify2FALogin: vi.fn(),
-  disable2FA: vi.fn(),
   verifyEmail: vi.fn(),
   verifyEmailOtp: vi.fn(),
 }));

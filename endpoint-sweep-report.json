@@ -547,7 +547,6 @@
               "city": null,
               "state": null,
               "zipCode": null,
-              "licenseNumber": "LIC-SWEEP-001",
               "adminContactName": null,
               "adminContactPhone": null,
               "emergencyContact": null,
@@ -613,7 +612,6 @@
             "city": null,
             "state": null,
             "zipCode": null,
-            "licenseNumber": "LIC-SWEEP-001",
             "adminContactName": null,
             "adminContactPhone": null,
             "emergencyContact": null,
@@ -689,7 +687,6 @@
             "city": null,
             "state": null,
             "zipCode": null,
-            "licenseNumber": "LIC-SWEEP-001",
             "adminContactName": null,
             "adminContactPhone": null,
             "emergencyContact": null,
@@ -991,7 +988,6 @@
               "city": null,
               "state": null,
               "zipCode": null,
-              "licenseNumber": "LIC-SWEEP-001",
               "adminContactName": null,
               "adminContactPhone": null,
               "emergencyContact": null,
@@ -1143,7 +1139,6 @@
             "city": null,
             "state": null,
             "zipCode": null,
-            "licenseNumber": "LIC-SWEEP-001",
             "adminContactName": null,
             "adminContactPhone": null,
             "emergencyContact": null,
@@ -2092,32 +2087,7 @@
       "error": null,
       "category": "working"
     },
-    {
-      "method": "GET",
-      "path": "/donor/health-history",
-      "status": 403,
-      "durationMs": 3.313,
-      "body": {
-        "success": false,
-        "code": "FORBIDDEN",
-        "message": "Email address is not verified"
-      },
-      "error": null,
-      "category": "working"
-    },
-    {
-      "method": "PATCH",
-      "path": "/donor/health-history",
-      "status": 403,
-      "durationMs": 2.894,
-      "body": {
-        "success": false,
-        "code": "FORBIDDEN",
-        "message": "Email address is not verified"
-      },
-      "error": null,
-      "category": "working"
-    },
+    
     {
       "method": "GET",
       "path": "/donor/settings",

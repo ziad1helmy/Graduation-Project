@@ -3,6 +3,7 @@ import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
 import { env } from './config/env.js';
+import { getDBHealth } from './config/db.js';
 import swaggerSpec from './config/swagger.js';
 import { logger, requestLogger, securityLogger } from './utils/logger.js';
 import authRoutes from './routes/auth.routes.js';
@@ -114,13 +115,16 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({
+  const db = getDBHealth();
+  const status = db.ok ? 'ok' : 'degraded';
+  res.status(db.ok ? 200 : 503).json({
     app: 'LifeLink',
-    status: 'ok',
+    status,
     pid: process.pid,
     startedAt,
     port: env.PORT,
     env: env.NODE_ENV,
+    db,
   });
 });
 

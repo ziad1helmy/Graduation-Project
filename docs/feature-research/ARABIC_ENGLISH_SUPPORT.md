@@ -360,7 +360,6 @@ hospitalSchema.pre('save', function (next) {
     minLength: 3,
     maxLength: 200
   },
-  licenseNumber: "required, 5-50 chars",
   address: {
     pattern: /^[\u0600-\u06FFa-zA-Z\s]+$/,  // Optional
     minLength: 3,

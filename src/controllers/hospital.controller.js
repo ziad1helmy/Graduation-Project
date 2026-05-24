@@ -591,7 +591,7 @@ export const bookDonorAppointment = async (req, res, next) => {
 // Update hospital profile
 export const updateProfile = async (req, res, next) => {
   try {
-    const { fullName, hospitalName, contactNumber, address, licenseNumber, location } = req.body;
+    const { fullName, hospitalName, contactNumber, address, location } = req.body;
 
     const updateData = {};
     if (fullName) updateData.fullName = fullName;
@@ -604,7 +604,6 @@ export const updateProfile = async (req, res, next) => {
       };
       delete updateData.address.governrate;
     }
-    if (licenseNumber) updateData.licenseNumber = licenseNumber;
     const normalizedLocation = normalizeLocationInput(location);
     if (normalizedLocation) updateData.location = normalizedLocation;
 
@@ -1067,9 +1066,6 @@ export const createHospital = async (req, res, next) => {
     return response.success(res, 201, 'Hospital created successfully', result);
   } catch (error) {
     if (error.message === 'Email already registered') {
-      return response.error(res, 409, error.message);
-    }
-    if (error.message === 'License number already registered') {
       return response.error(res, 409, error.message);
     }
     next(error);

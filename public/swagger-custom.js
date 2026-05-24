@@ -19,10 +19,6 @@
     '/auth/reset-password': 'Password Recovery & Changes',
     '/auth/change-password': 'Password Recovery & Changes',
 
-    '/auth/2fa/setup': 'Two-Factor Authentication (2FA)',
-    '/auth/2fa/confirm-setup': 'Two-Factor Authentication (2FA)',
-    '/auth/2fa/verify': 'Two-Factor Authentication (2FA)',
-    '/auth/2fa/disable': 'Two-Factor Authentication (2FA)',
 
     '/auth/fcm-token': 'Push Notifications',
 
@@ -37,7 +33,6 @@
     '/donor/settings': 'Profile & Health Profile',
     '/donor/availability': 'Profile & Health Profile',
     '/donor/donation-eligibility': 'Profile & Health Profile',
-    '/donor/health-history': 'Profile & Health Profile',
 
     '/donations/book-appointment': 'Appointments & Bookings',
     '/donations/book-appointment/available-slots': 'Appointments & Bookings',

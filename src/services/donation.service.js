@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Donation from '../models/Donation.model.js';
 import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
@@ -229,36 +230,28 @@ export const getDonationHistory = async (donorId, filters = {}) => {
  * @returns {Object} - Donation statistics
  */
 export const getDonorStats = async (donorId) => {
-  try {
-    const totalDonations = await Donation.countDocuments({ donorId });
-    const completedDonations = await Donation.countDocuments({
-      donorId,
-      status: 'completed',
-    });
-    const pendingDonations = await Donation.countDocuments({
-      donorId,
-      status: 'pending',
-    });
-    const scheduledDonations = await Donation.countDocuments({
-      donorId,
-      status: 'scheduled',
-    });
+  const [result] = await Donation.aggregate([
+    { $match: { donorId: new mongoose.Types.ObjectId(donorId) } },
+    {
+      $facet: {
+        total:     [{ $count: 'n' }],
+        completed: [{ $match: { status: 'completed' } }, { $count: 'n' }],
+        pending:   [{ $match: { status: 'pending' } },   { $count: 'n' }],
+        scheduled: [{ $match: { status: 'scheduled' } }, { $count: 'n' }],
+        unitsSum:  [{ $match: { status: 'completed' } }, { $group: { _id: null, sum: { $sum: '$quantity' } } }],
+      },
+    },
+  ]);
 
-    // Calculate total units donated
-    const donations = await Donation.find({ donorId, status: 'completed' });
-    const totalUnitsDonated = donations.reduce((sum, d) => sum + d.quantity, 0);
-
-    return {
-      totalDonations,
-      completedDonations,
-      pendingDonations,
-      scheduledDonations,
-      totalUnitsDonated,
-    };
-  } catch (error) {
-    throw error;
-  }
+  return {
+    totalDonations:     result?.total?.[0]?.n     ?? 0,
+    completedDonations: result?.completed?.[0]?.n ?? 0,
+    pendingDonations:   result?.pending?.[0]?.n   ?? 0,
+    scheduledDonations: result?.scheduled?.[0]?.n ?? 0,
+    totalUnitsDonated:  result?.unitsSum?.[0]?.sum ?? 0,
+  };
 };
+
 
 /**
  * Get donations for a request

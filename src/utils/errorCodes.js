@@ -20,7 +20,7 @@ export const ERR = Object.freeze({
   AUTH_ACCOUNT_SUSPENDED:          'Account is suspended. Contact support.',
   AUTH_EMAIL_NOT_VERIFIED:         'Email address is not verified',
   AUTH_INVALID_ROLE:               'Invalid role for this account',
-  AUTH_INVALID_LICENSE:            'Invalid hospital license number',
+
   AUTH_INVALID_ADMIN_CODE:         'Invalid admin code',
   AUTH_REFRESH_TOKEN_REQUIRED:     'Refresh token is required',
   AUTH_REFRESH_TOKEN_INVALID:      'Invalid refresh token',
@@ -53,13 +53,6 @@ export const ERR = Object.freeze({
   OTP_INVALID_OR_EXPIRED:          'Invalid or expired OTP',
   OTP_ATTEMPTS_EXCEEDED:           'OTP attempts exceeded',
 
-  // ── Two-Factor Auth ─────────────────────────
-  TWO_FA_SETUP_NOT_FOUND:          '2FA setup not found',
-  TWO_FA_CODE_INVALID:             'Invalid 2FA code',
-  TWO_FA_NOT_ENABLED:              '2FA is not enabled',
-  TWO_FA_TEMP_TOKEN_REQUIRED:      'tempToken is required',
-  TWO_FA_CODE_REQUIRED:            '2FA code is required',
-  TWO_FA_TOKEN_INVALID:            'Invalid or expired token',
 
   // ── Admin ───────────────────────────────────
   ADMIN_CANNOT_SUSPEND:            'Cannot suspend admin accounts',

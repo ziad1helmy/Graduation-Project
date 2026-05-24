@@ -46,7 +46,6 @@ curl -X POST $BASE_URL/auth/signup \
     "role": "hospital",
     "hospitalName": "Cairo Medical Center",
     "hospitalId": 12345,
-    "licenseNumber": "LIC-2024-001",
     "contactNumber": "+20123456789",
     "address": {
       "city": "Cairo",
