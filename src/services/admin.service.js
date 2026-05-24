@@ -363,7 +363,6 @@ export const updateDonor = async (donorId, data, adminId) => {
   const donor = await Donor.findOne({ _id: donorId, deletedAt: null });
   if (!donor) return null;
 
-  const updateData = {};
   const allowedFields = [
     'fullName',
     'email',
@@ -378,19 +377,19 @@ export const updateDonor = async (donorId, data, adminId) => {
     'isOptedIn',
   ];
   for (const field of allowedFields) {
-    if (data[field] !== undefined) updateData[field] = data[field];
+    if (data[field] !== undefined) donor[field] = data[field];
   }
 
-  if (updateData.email) {
-    const existing = await User.findOne({ email: updateData.email, _id: { $ne: donorId } });
+  if (data.email) {
+    const existing = await User.findOne({ email: data.email, _id: { $ne: donorId } });
     if (existing) {
       throw new Error('Email already registered');
     }
   }
 
-  const updated = await Donor.findByIdAndUpdate(donorId, updateData, { returnDocument: 'after', runValidators: true });
+  await donor.save();
   await logAudit(adminId, 'user.update_donor', 'User', donorId);
-  return updated;
+  return donor;
 };
 
 export const banDonor = async (donorId, reason, adminId) => {

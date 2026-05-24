@@ -140,11 +140,15 @@ hospitalSchema.pre('save', function () {
         this.type = 'hospital';
     }
 
-    if (this.isModified('name') && !this.isModified('hospitalName')) {
-        this.hospitalName = this.name;
-    }
-    if (this.isModified('hospitalName') && !this.isModified('name')) {
+    if (this.isModified('fullName')) {
+        this.name = this.fullName;
+        this.hospitalName = this.fullName;
+    } else if (this.isModified('hospitalName')) {
         this.name = this.hospitalName;
+        this.fullName = this.hospitalName;
+    } else if (this.isModified('name')) {
+        this.hospitalName = this.name;
+        this.fullName = this.name;
     }
 
     if (this.isModified('phone') && !this.isModified('contactNumber')) {

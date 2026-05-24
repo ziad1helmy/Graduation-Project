@@ -152,10 +152,18 @@ describe('Hospital Controller', () => {
       const res = makeMockRes();
       const next = vi.fn();
 
-      const updatedHospital = { _id: hospitalId, hospitalName: 'Updated Name', contactNumber: '01000000000' };
-      Hospital.findByIdAndUpdate.mockReturnValue({
-        select: vi.fn().mockResolvedValue(updatedHospital),
-      });
+      const mockHospital = {
+        _id: hospitalId,
+        hospitalName: 'Old Name',
+        contactNumber: '01000000000',
+        save: vi.fn().mockResolvedValue(true),
+        toObject: vi.fn().mockReturnValue({
+          _id: hospitalId,
+          hospitalName: 'Updated Name',
+          contactNumber: '01000000000',
+        }),
+      };
+      Hospital.findById.mockResolvedValue(mockHospital);
 
       await hospitalController.updateProfile(req, res, next);
 

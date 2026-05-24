@@ -72,30 +72,43 @@ export const updateProfile = async (req, res, next) => {
   try {
     const { fullName, phoneNumber, gender, location, weight, email, bloodType, dateOfBirth } = req.body;
 
-    const updateData = {};
-    if (fullName) updateData.fullName = fullName;
+    const donor = await Donor.findById(req.user.userId);
+    if (!donor) {
+      return response.error(res, 404, 'Donor not found');
+    }
+
+    if (fullName) donor.fullName = fullName;
     if (phoneNumber) {
       const phoneRegex = /^[0-9]{11}$/;
       if (!phoneRegex.test(phoneNumber)) {
         return response.error(res, 400, 'Phone number must be 11 digits long');
       }
-      updateData.phoneNumber = phoneNumber;
+      donor.phoneNumber = phoneNumber;
     }
     if (gender && ['male', 'female'].includes(gender)) {
-      updateData.gender = gender;
+      donor.gender = gender;
     }
     if (location) {
-      updateData.location = location;
+      donor.location = location;
     }
     if (weight !== undefined) {
-      updateData.weight = weight;
+      donor.weight = weight;
     }
     if (bloodType) {
-      updateData.bloodType = bloodType;
+      donor.bloodType = bloodType;
     }
     if (dateOfBirth) {
-      updateData.dateOfBirth = dateOfBirth;
+      donor.dateOfBirth = dateOfBirth;
     }
+
+    const updateFieldsList = [];
+    if (fullName) updateFieldsList.push('fullName');
+    if (phoneNumber) updateFieldsList.push('phoneNumber');
+    if (gender && ['male', 'female'].includes(gender)) updateFieldsList.push('gender');
+    if (location) updateFieldsList.push('location');
+    if (weight !== undefined) updateFieldsList.push('weight');
+    if (bloodType) updateFieldsList.push('bloodType');
+    if (dateOfBirth) updateFieldsList.push('dateOfBirth');
 
     if (email) {
       const normalizedEmail = String(email).trim().toLowerCase();
@@ -105,37 +118,36 @@ export const updateProfile = async (req, res, next) => {
         return response.error(res, 400, 'Email is already in use by another account');
       }
       
-      const currentUser = await User.findById(req.user.userId).select('email isEmailVerified');
-      if (currentUser.email !== normalizedEmail) {
-        updateData.email = normalizedEmail;
-        updateData.isEmailVerified = false;
+      if (donor.email !== normalizedEmail) {
+        donor.email = normalizedEmail;
+        donor.isEmailVerified = false;
+        updateFieldsList.push('email');
       }
     }
 
-    const donor = await Donor.findByIdAndUpdate(req.user.userId, updateData, {
-      returnDocument: 'after',
-      runValidators: true,
-    }).select('-password');
+    await donor.save();
 
     // Log profile update activity (fire-and-forget)
-    const updatedFields = Object.keys(updateData).join(', ');
     activityService.logActivity(req.user.userId, {
       type: 'profile_update',
       action: 'updated_profile',
       title: 'Profile Updated',
-      description: `Updated profile fields: ${updatedFields}`,
+      description: `Updated profile fields: ${updateFieldsList.join(', ')}`,
       referenceId: req.user.userId,
-      referenceType: 'Donor',
+      referenceType: 'User',
       metadata: {
-        updatedFields: Object.keys(updateData),
-        updateCount: Object.keys(updateData).length,
+        updatedFields: updateFieldsList,
+        updateCount: updateFieldsList.length,
         updatedAt: new Date()
       }
     }).catch((error) => {
       console.error('Activity log error:', error.message);
     });
 
-    response.success(res, 200, 'Donor profile updated successfully', donor);
+    const donorObj = donor.toObject();
+    delete donorObj.password;
+
+    response.success(res, 200, 'Donor profile updated successfully', donorObj);
   } catch (error) {
     if (error.name === 'ValidationError') {
       return response.error(res, 400, error.message);

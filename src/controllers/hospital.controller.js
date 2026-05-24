@@ -595,26 +595,30 @@ export const updateProfile = async (req, res, next) => {
   try {
     const { fullName, hospitalName, contactNumber, address, location } = req.body;
 
-    const updateData = {};
-    if (fullName) updateData.fullName = fullName;
-    if (hospitalName) updateData.hospitalName = hospitalName;
-    if (contactNumber) updateData.contactNumber = contactNumber;
+    const hospital = await Hospital.findById(req.user.userId);
+    if (!hospital) {
+      return response.error(res, 404, 'Hospital profile not found');
+    }
+
+    if (fullName) hospital.fullName = fullName;
+    if (hospitalName) hospital.hospitalName = hospitalName;
+    if (contactNumber) hospital.contactNumber = contactNumber;
     if (address) {
-      updateData.address = {
+      hospital.address = {
         ...address,
         ...(address.governrate && !address.governorate ? { governorate: address.governrate } : {}),
       };
-      delete updateData.address.governrate;
+      delete hospital.address.governrate;
     }
     const normalizedLocation = normalizeLocationInput(location);
-    if (normalizedLocation) updateData.location = normalizedLocation;
+    if (normalizedLocation) hospital.location = normalizedLocation;
 
-    const hospital = await Hospital.findByIdAndUpdate(req.user.userId, updateData, {
-      returnDocument: 'after',
-      runValidators: true,
-    }).select('-password');
+    await hospital.save();
 
-    response.success(res, 200, 'Hospital profile updated successfully', hospital);
+    const hospitalObj = hospital.toObject();
+    delete hospitalObj.password;
+
+    response.success(res, 200, 'Hospital profile updated successfully', hospitalObj);
   } catch (error) {
     if (error.name === 'ValidationError') {
       return response.error(res, 400, error.message);
