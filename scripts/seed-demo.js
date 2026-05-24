@@ -431,7 +431,7 @@ async function ensureSupportMessage(data) {
   return SupportMessage.findOneAndUpdate(
     { email: data.email, subject: data.subject },
     { $set: data },
-    { upsert: true, returnDocument: 'after' }
+    { upsert: true, returnDocument: 'after', runValidators: true }
   );
 }
 
@@ -1073,8 +1073,10 @@ async function main() {
 
   await ensureSupportMessage({
     userId: donors.aya._id,
+    fullName: donors.aya.fullName,
     email: donors.aya.email,
     role: 'donor',
+    category: 'REWARDS',
     subject: 'Need help with reward redemption',
     message: 'I can see my points balance but I want to confirm when the Coffee Voucher becomes available.',
     attachmentUrls: [],
@@ -1083,8 +1085,10 @@ async function main() {
 
   await ensureSupportMessage({
     userId: hospitals.cairoCare._id,
+    fullName: hospitals.cairoCare.fullName,
     email: hospitals.cairoCare.email,
     role: 'hospital',
+    category: 'TECHNICAL',
     subject: 'Nearby donors list check',
     message: 'Please confirm our updated coordinates are reflected in nearby discovery results.',
     attachmentUrls: [],
@@ -1093,8 +1097,10 @@ async function main() {
 
   await ensureSupportMessage({
     userId: donors.noor._id,
+    fullName: donors.noor.fullName,
     email: donors.noor.email,
     role: 'donor',
+    category: 'TECHNICAL',
     subject: 'QR verification question',
     message: 'Can I use the same QR code twice if my first check-in fails?',
     attachmentUrls: [],

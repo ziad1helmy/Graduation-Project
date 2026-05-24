@@ -25,6 +25,8 @@ tags:
   - name: Admin
     description: "Admin operations: user management, analytics, rewards, system
       maintenance, metrics, audit logs, and inbound email management"
+  - name: Support
+    description: "Help, FAQ, document views, and contact support ticket creation"
 components:
   securitySchemes:
     bearerAuth:
@@ -3993,7 +3995,7 @@ paths:
     get:
       summary: Get FAQ list
       tags:
-        - Donor
+        - Support
       responses:
         "200":
           description: FAQ retrieved successfully
@@ -4018,7 +4020,7 @@ paths:
     get:
       summary: Get help document by type
       tags:
-        - Donor
+        - Support
       description: |-
         Returns a stored help document, or 404 if that document has not been configured.
 
@@ -4029,7 +4031,11 @@ paths:
           required: true
           schema:
             type: string
-          example: blood
+            enum:
+              - guidelines
+              - privacy
+              - terms
+          example: guidelines
       responses:
         "200":
           description: Document retrieved successfully
@@ -4039,19 +4045,21 @@ paths:
                 success: true
                 message: Document retrieved successfully
                 data:
-                  document_url: https://cdn.lifelink.demo/docs/privacy-policy-v3.pdf
-                  title: Privacy Policy
-                  version: "3.0"
-                  updated_at: 2026-04-10T14:00:00.000Z
+                  document_url: /docs/donation-guidelines.html
+                  title: Donation Guidelines
+                  version: "1.0"
+                  updated_at: 2026-05-24T16:24:00.000Z
+        "404":
+          description: Document type not found
   /support/contact:
     post:
       summary: Submit a support request
       tags:
-        - Donor
+        - Support
       security:
         - bearerAuth: []
       description: |-
-        Authenticated submissions are linked to the current user id, email, and role for traceability.
+        Submit a support ticket. Identity information is fetched strictly from the authenticated session context (JWT). Spoofing attempts by sending email, fullName, role, or userId in the request body are blocked.
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       requestBody:
@@ -4062,10 +4070,27 @@ paths:
               type: object
               required:
                 - subject
+                - category
                 - message
+              properties:
+                subject:
+                  type: string
+                  maxLength: 200
+                category:
+                  type: string
+                  enum:
+                    - TECHNICAL
+                    - ACCOUNT
+                    - DONATION
+                    - REWARDS
+                    - OTHER
+                message:
+                  type: string
+                  maxLength: 2000
             example:
               subject: Need help with reward redemption
-              message: I want to confirm when the Coffee Voucher becomes available.
+              category: REWARDS
+              message: I can see my points balance but I want to confirm when the Coffee Voucher becomes available.
       responses:
         "201":
           description: Support request submitted successfully
@@ -4076,6 +4101,15 @@ paths:
                 message: Support request submitted successfully
                 data:
                   ticketId: "670000000000000000000001"
+        "400":
+          description: Validation error or identity spoofing block
+          content:
+            application/json:
+              example:
+                success: false
+                message: Identity fields cannot be provided in the request body
+        "401":
+          description: Unauthenticated request
   /notifications:
     get:
       summary: List notifications for authenticated user
@@ -9010,3 +9044,4 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+
