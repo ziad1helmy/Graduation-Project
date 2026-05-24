@@ -36,7 +36,6 @@ export const getDocument = async (req, res, next) => {
 
 export const contactSupport = async (req, res, next) => {
   try {
-    // Reject extra identity payload fields if sent
     if (
       req.body.email !== undefined ||
       req.body.fullName !== undefined ||
@@ -72,7 +71,18 @@ export const contactSupport = async (req, res, next) => {
       message,
     });
 
-    return response.success(res, 201, 'Support request submitted successfully', { ticketId: ticket._id });
+    return response.success(res, 201, 'Support request submitted successfully', {
+      ticket: {
+        id: ticket._id,
+        fullName: ticket.fullName,
+        email: ticket.email,
+        role: ticket.role,
+        subject: ticket.subject,
+        category: ticket.category,
+        message: ticket.message,
+        createdAt: ticket.createdAt,
+      },
+    });
   } catch (error) {
     next(error);
   }

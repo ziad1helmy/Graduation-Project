@@ -85,7 +85,16 @@ describe('Help Controller', () => {
       const res = makeMockRes();
       const next = vi.fn();
 
-      const mockTicket = { _id: 'ticket123' };
+      const mockTicket = {
+        _id: 'ticket123',
+        fullName: 'Test User',
+        email: 'test@user.com',
+        role: 'donor',
+        subject: 'Test Subject',
+        category: 'TECHNICAL',
+        message: 'Test message body',
+        createdAt: new Date('2026-05-24T16:24:00.000Z'),
+      };
       SupportMessage.create.mockResolvedValue(mockTicket);
 
       await helpController.contactSupport(req, res, next);
@@ -102,7 +111,9 @@ describe('Help Controller', () => {
       expect(res.status).toHaveBeenCalledWith(201);
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
-      expect(callArgs.data.ticketId).toBe(mockTicket._id);
+      expect(callArgs.data.ticket).toBeDefined();
+      expect(callArgs.data.ticket.id).toBe(mockTicket._id);
+      expect(callArgs.data.ticket.fullName).toBe('Test User');
     });
 
     it('should return 400 when subject, category, or message is missing', async () => {

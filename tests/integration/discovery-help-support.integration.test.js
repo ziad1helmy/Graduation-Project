@@ -77,11 +77,12 @@ describe('Discovery, Help, and Support Routes', () => {
       
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.ticketId).toBeDefined();
+      expect(res.body.data.ticket).toBeDefined();
+      expect(res.body.data.ticket.id).toBeDefined();
 
       // Verify the ticket was stored in the database with correct authenticated details and category
       const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
-      const ticket = await SupportMessage.findById(res.body.data.ticketId);
+      const ticket = await SupportMessage.findById(res.body.data.ticket.id);
       expect(ticket).toBeDefined();
       expect(ticket.userId.toString()).toBe(donor._id.toString());
       expect(ticket.fullName).toBe(donor.fullName);
