@@ -5712,7 +5712,16 @@
                   "success": true,
                   "message": "Support request submitted successfully",
                   "data": {
-                    "ticketId": "670000000000000000000001"
+                    "ticket": {
+                      "id": "670000000000000000000001",
+                      "fullName": "Aya Hassan",
+                      "email": "aya.hassan@lifelink.demo",
+                      "role": "donor",
+                      "subject": "Need help with reward redemption",
+                      "category": "REWARDS",
+                      "message": "I can see my points balance but I want to confirm when the Coffee Voucher becomes available.",
+                      "createdAt": "2026-05-24T16:24:00.000Z"
+                    }
                   }
                 }
               }
