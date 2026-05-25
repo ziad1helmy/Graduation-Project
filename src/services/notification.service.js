@@ -2,7 +2,7 @@ import mongoose from 'mongoose';
 import Donor from '../models/Donor.model.js';
 import User from '../models/User.model.js';
 import Notification from '../models/Notification.model.js';
-import { sendToMultiple } from '../utils/fcm.js';
+import { sendToMultiple, sendToMultipleWithRetry } from '../utils/fcm.js';
 import {
   buildEmergencyRequestFcmData,
   buildEmergencyRequestNotificationData,
@@ -41,22 +41,26 @@ export const notifyMatch = async (userId, donation, request) => {
       data: notificationData,
     });
 
-    // Send FCM push notification to hospital (fire-and-forget)
     const hospital = await User.findById(userId).select('fcmTokens');
     if (hospital?.fcmTokens?.length > 0) {
-      sendToMultiple(
-        hospital.fcmTokens,
-        notificationTitle,
-        notificationMessage,
-        {
-          type: 'match',
-          donationId: String(donation._id),
-          requestId: String(request._id),
-          requestType: request.type || 'blood',
-          click_action: 'FLUTTER_NOTIFICATION_CLICK',
-        },
-        { channelId: 'donation_matches' }
-      ).catch((err) => logger.error('FCM match push failed', { message: err.message }));
+      try {
+        await (sendToMultipleWithRetry || sendToMultiple)(
+          hospital.fcmTokens,
+          notificationTitle,
+          notificationMessage,
+          {
+            type: 'match',
+            donationId: String(donation._id),
+            requestId: String(request._id),
+            requestType: request.type || 'blood',
+            click_action: 'FLUTTER_NOTIFICATION_CLICK',
+          },
+          { channelId: 'donation_matches' },
+          { attempts: 3, baseDelayMs: 200 }
+        );
+      } catch (err) {
+        logger.error('Match notification push failed', { message: err.message });
+      }
     }
 
     return notification;
@@ -112,26 +116,41 @@ export const notifyRequest = async (donorIds, request) => {
       })
     );
 
-    await Promise.allSettled(
-      donors
-        .filter((donor) => Array.isArray(donor.fcmTokens) && donor.fcmTokens.length > 0)
-        .map((donor) => {
-          const content = buildEmergencyRequestNotificationContent(populatedRequest, donor);
-          const data = buildEmergencyRequestFcmData(populatedRequest, donor);
-          const options = {
-            channelId: 'emergency_requests',
-            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-            apnsCategory: 'emergency_request',
-            priority: 'high',
-            sound: 'default',
-            titleLocKey: data.title_loc_key,
-            bodyLocKey: data.body_loc_key,
-            bodyLocArgs: [data.bloodType || '', data.hospitalName || ''],
-          };
+    try {
+      // Directly send FCM notifications for each donor — await to ensure delivery attempted
+      for (let i = 0; i < donors.length; i += 1) {
+        const donor = donors[i];
+        const notification = notifications[i];
+        if (!notification) continue;
 
-          return sendToMultiple(donor.fcmTokens, content.title, content.body, data, options);
-        })
-    );
+        const content = buildEmergencyRequestNotificationContent(populatedRequest, donor);
+        const data = buildEmergencyRequestFcmData(populatedRequest, donor);
+        const options = {
+          channelId: 'emergency_requests',
+          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+          apnsCategory: 'emergency_request',
+          priority: 'high',
+          sound: 'default',
+          titleLocKey: data.title_loc_key,
+          bodyLocKey: data.body_loc_key,
+          bodyLocArgs: [data.bloodType || '', data.hospitalName || ''],
+        };
+
+        const tokens = Array.isArray(donor.fcmTokens) ? donor.fcmTokens : [];
+        if (!tokens.length) continue;
+
+        try {
+          await (sendToMultipleWithRetry || sendToMultiple)(tokens, content.title, content.body, data, options, {
+            attempts: 3,
+            baseDelayMs: 200,
+          });
+        } catch (err) {
+          logger.error('Emergency push failed', { message: err.message });
+        }
+      }
+    } catch (err) {
+      logger.error('Emergency notification push scheduling failed', { message: err.message });
+    }
 
     return notifications;
   } catch (error) {

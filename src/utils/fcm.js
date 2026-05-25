@@ -10,7 +10,6 @@ import User from '../models/User.model.js';
  * This module provides a lightweight FCM integration using the HTTP v1 API.
  * The Firebase Admin SDK can be used as an alternative for more complex setups.
  *
- * Setup:
  * 1. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY in .env
  * 2. Or use FIREBASE_SERVICE_ACCOUNT_PATH to load from a JSON file
  *
@@ -292,4 +291,97 @@ export const sendToMultiple = async (fcmTokens, title, body, data = {}, options 
   }
 };
 
-export default { sendToDevice, sendToMultiple };
+// single default export is declared at the end of the file
+
+/**
+ * Send with retries using exponential backoff. Returns the same shape as sendToMultiple.
+ * Retries only on errors (exceptions) or when all tokens failed (failureCount === tokens.length).
+ */
+// Resilient send with retries using exponential backoff.
+// Retries on exceptions or when a whole batch failed. Returns the same shape as sendToMultiple.
+export const sendToMultipleWithRetry = async (
+  fcmTokens,
+  title,
+  body,
+  data = {},
+  options = {},
+  retryOptions = { attempts: 3, baseDelayMs: 200 }
+) => {
+  if (!fcmTokens || fcmTokens.length === 0) {
+    return { successCount: 0, failureCount: 0 };
+  }
+
+  const { attempts = 3, baseDelayMs = 200 } = retryOptions || {};
+
+  // Remove duplicates and empty tokens
+  const uniqueTokens = [...new Set(fcmTokens.filter(Boolean))];
+
+  const initialized = await initFirebase();
+
+  if (!initialized || !firebaseAdmin) {
+    if (env.NODE_ENV === 'development') {
+      logger.debug('Batch push skipped (retry)', {
+        deviceCount: uniqueTokens.length,
+        reason: 'Firebase unavailable',
+      });
+    }
+    return { successCount: 0, failureCount: 0, skipped: true };
+  }
+
+  const baseMessage = {
+    notification: { title, body },
+    ...buildPlatformNotification(data, options),
+    data: Object.fromEntries(
+      Object.entries(data).map(([k, v]) => [k, String(v)])
+    ),
+  };
+
+  const sleep = (ms) => new Promise((res) => setTimeout(res, ms));
+
+  let totalSuccess = 0;
+  let totalFailure = 0;
+  const allInvalidTokens = [];
+
+  for (let i = 0; i < uniqueTokens.length; i += FCM_MULTICAST_LIMIT) {
+    const batch = uniqueTokens.slice(i, i + FCM_MULTICAST_LIMIT);
+    let lastResult = { successCount: 0, failureCount: batch.length, invalidTokens: [] };
+
+    for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      try {
+        const result = await sendMulticastBatch(batch, baseMessage);
+        lastResult = result;
+
+        // If at least one token succeeded, or not all failed, stop retrying this batch
+        if (result.successCount > 0 || result.failureCount < batch.length) {
+          break;
+        }
+      } catch (err) {
+        logger.warn('FCM batch attempt failed', { attempt, message: err.message });
+      }
+
+      // Exponential backoff before next attempt
+      if (attempt < attempts) {
+        const delay = baseDelayMs * Math.pow(2, attempt - 1);
+        // jitter: +-25%
+        const jitter = Math.floor(delay * 0.25 * (Math.random() - 0.5));
+        await sleep(Math.max(0, delay + jitter));
+      }
+    }
+
+    totalSuccess += lastResult.successCount || 0;
+    totalFailure += lastResult.failureCount || 0;
+    if (Array.isArray(lastResult.invalidTokens) && lastResult.invalidTokens.length) {
+      allInvalidTokens.push(...lastResult.invalidTokens);
+    }
+  }
+
+  // Fire-and-forget cleanup of invalid tokens
+  cleanupInvalidTokens(allInvalidTokens);
+
+  return {
+    successCount: totalSuccess,
+    failureCount: totalFailure,
+  };
+};
+
+export default { sendToDevice, sendToMultiple, sendToMultipleWithRetry };

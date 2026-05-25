@@ -25,12 +25,31 @@ const buildDonorDetails = (source) => {
 export const toAppointmentResponse = (appointment) => {
   if (!appointment) return appointment;
 
-  const response = toPlainObject(appointment);
-  const donorSource = response.donorDetails || response.donorId;
+  const src = toPlainObject(appointment);
 
-  if (donorSource) {
-    response.donorDetails = buildDonorDetails(donorSource);
-  }
+  const sanitized = {
+    _id: src._id,
+    appointmentDate: src.appointmentDate || null,
+    status: src.status || null,
+    notes: src.notes || null,
+    donorDetails: buildDonorDetails(src.donorDetails || src.donorId),
+    donorId: src.donorId ? (typeof src.donorId === 'object' ? { _id: src.donorId._id } : src.donorId) : null,
+    requestId: src.requestId
+      ? (typeof src.requestId === 'object'
+        ? {
+            _id: src.requestId._id,
+            type: src.requestId.type || null,
+            bloodType: src.requestId.bloodType || null,
+            organType: src.requestId.organType || null,
+            urgency: src.requestId.urgency || null,
+          }
+        : src.requestId)
+      : null,
+    donationType: src.donationType || null,
+    hospitalId: src.hospitalId ? (typeof src.hospitalId === 'object' ? { _id: src.hospitalId._id } : src.hospitalId) : null,
+    createdAt: src.createdAt || null,
+    updatedAt: src.updatedAt || null,
+  };
 
-  return response;
+  return sanitized;
 };

@@ -255,9 +255,10 @@ export const respondToRequest = async (req, res, next) => {
     });
 
     // Decrement quantity and auto-close if 0
+    const donatedQty = quantity || 1;
     const updatedRequest = await Request.findByIdAndUpdate(
       requestId,
-      { $inc: { quantity: -1 } },
+      { $inc: { quantity: -donatedQty, unitsNeeded: -donatedQty } },
       { returnDocument: 'after' }
     );
     if (updatedRequest && updatedRequest.quantity <= 0) {

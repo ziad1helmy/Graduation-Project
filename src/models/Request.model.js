@@ -134,7 +134,6 @@ const requestSchema = new mongoose.Schema(
     
     quantity: {
       type: Number,
-      required: [true, 'Quantity is required'],
       min: [1, 'Quantity must be at least 1'],
       default: 1,
     },
@@ -236,6 +235,145 @@ requestSchema.index({ hospitalId: 1, status: 1 });
 requestSchema.index({ urgency: 1, status: 1 });
 requestSchema.index({ acceptedBy: 1, status: 1 });
 requestSchema.index({ hospitalLocationGeo: '2dsphere' });
+
+// Ensure location fields and request quantity fields remain synchronized.
+// - `locationHospital` containing `{ latitude, longitude }` is canonical for coordinate storage.
+// - `hospitalLocationGeo` containing a GeoJSON `Point` with `[longitude, latitude]` is canonical for geospatial query operations.
+// - `hospitalLocation` containing `{ lat, lng }` is maintained for backward compatibility.
+// - `unitsNeeded` is canonical internally for quantity tracker, synced with `quantity` for backward compatibility.
+requestSchema.pre('validate', function syncRequestFields() {
+  try {
+    // 1. Synchronize unitsNeeded and quantity
+    const hasUnits = this.unitsNeeded !== undefined && this.unitsNeeded !== null;
+    const hasQuantity = this.quantity !== undefined && this.quantity !== null;
+
+    if (this.isModified('unitsNeeded') || (hasUnits && !hasQuantity)) {
+      this.quantity = this.unitsNeeded;
+    } else if (this.isModified('quantity') || (hasQuantity && !hasUnits)) {
+      this.unitsNeeded = this.quantity;
+    } else if (!hasUnits && !hasQuantity) {
+      this.unitsNeeded = 1;
+      this.quantity = 1;
+    }
+
+    // 2. Synchronize locationHospital, hospitalLocation, hospitalLocationGeo
+    let lat = null;
+    let lng = null;
+
+    if (this.locationHospital && Number.isFinite(this.locationHospital.latitude) && Number.isFinite(this.locationHospital.longitude)) {
+      lat = this.locationHospital.latitude;
+      lng = this.locationHospital.longitude;
+    } else if (this.hospitalLocation && Number.isFinite(this.hospitalLocation.lat) && Number.isFinite(this.hospitalLocation.lng)) {
+      lat = this.hospitalLocation.lat;
+      lng = this.hospitalLocation.lng;
+    } else if (this.hospitalLocationGeo && this.hospitalLocationGeo.coordinates && Array.isArray(this.hospitalLocationGeo.coordinates) && this.hospitalLocationGeo.coordinates.length === 2) {
+      lng = this.hospitalLocationGeo.coordinates[0];
+      lat = this.hospitalLocationGeo.coordinates[1];
+    }
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      this.locationHospital = { latitude: lat, longitude: lng };
+      this.hospitalLocation = { lat, lng };
+      this.hospitalLocationGeo = {
+        type: 'Point',
+        coordinates: [lng, lat],
+      };
+    }
+  } catch (e) {
+    // Ignore and let Mongoose handle validation errors
+  }
+});
+
+// Update hooks to sync location and quantity/unitsNeeded updates automatically
+function syncRequestUpdate() {
+  const update = this.getUpdate();
+  if (!update) return;
+
+  // Enforce same $inc operation on both fields
+  if (update.$inc) {
+    if (update.$inc.unitsNeeded !== undefined && update.$inc.quantity === undefined) {
+      update.$inc.quantity = update.$inc.unitsNeeded;
+    } else if (update.$inc.quantity !== undefined && update.$inc.unitsNeeded === undefined) {
+      update.$inc.unitsNeeded = update.$inc.quantity;
+    }
+  }
+
+  // Helper to extract lat/lng from any location update keys
+  const extractLocationUpdate = (obj) => {
+    let lat = null;
+    let lng = null;
+
+    if (obj.locationHospital && Number.isFinite(obj.locationHospital.latitude) && Number.isFinite(obj.locationHospital.longitude)) {
+      lat = obj.locationHospital.latitude;
+      lng = obj.locationHospital.longitude;
+    } else if (obj.hospitalLocation && Number.isFinite(obj.hospitalLocation.lat) && Number.isFinite(obj.hospitalLocation.lng)) {
+      lat = obj.hospitalLocation.lat;
+      lng = obj.hospitalLocation.lng;
+    } else if (obj.hospitalLocationGeo && obj.hospitalLocationGeo.coordinates && Array.isArray(obj.hospitalLocationGeo.coordinates) && obj.hospitalLocationGeo.coordinates.length === 2) {
+      lng = obj.hospitalLocationGeo.coordinates[0];
+      lat = obj.hospitalLocationGeo.coordinates[1];
+    } else {
+      // Check if flattened keys are used
+      if (obj['locationHospital.latitude'] !== undefined || obj['locationHospital.longitude'] !== undefined) {
+        lat = obj['locationHospital.latitude'];
+        lng = obj['locationHospital.longitude'];
+      } else if (obj['hospitalLocation.lat'] !== undefined || obj['hospitalLocation.lng'] !== undefined) {
+        lat = obj['hospitalLocation.lat'];
+        lng = obj['hospitalLocation.lng'];
+      }
+    }
+    return { lat, lng };
+  };
+
+  // Sync locations on direct update keys
+  const directLoc = extractLocationUpdate(update);
+  if (Number.isFinite(directLoc.lat) && Number.isFinite(directLoc.lng)) {
+    update.locationHospital = { latitude: directLoc.lat, longitude: directLoc.lng };
+    update.hospitalLocation = { lat: directLoc.lat, lng: directLoc.lng };
+    update.hospitalLocationGeo = {
+      type: 'Point',
+      coordinates: [directLoc.lng, directLoc.lat],
+    };
+  }
+
+  // Sync locations on $set update keys
+  if (update.$set) {
+    const setLoc = extractLocationUpdate(update.$set);
+    if (Number.isFinite(setLoc.lat) && Number.isFinite(setLoc.lng)) {
+      update.$set.locationHospital = { latitude: setLoc.lat, longitude: setLoc.lng };
+      update.$set.hospitalLocation = { lat: setLoc.lat, lng: setLoc.lng };
+      update.$set.hospitalLocationGeo = {
+        type: 'Point',
+        coordinates: [setLoc.lng, setLoc.lat],
+      };
+    }
+  }
+
+  // Sync quantity and unitsNeeded on direct update keys
+  if (update.unitsNeeded !== undefined || update.quantity !== undefined) {
+    const val = update.unitsNeeded ?? update.quantity;
+    if (val !== undefined) {
+      update.unitsNeeded = val;
+      update.quantity = val;
+    }
+  }
+
+  // Sync quantity and unitsNeeded on $set update keys
+  if (update.$set) {
+    if (update.$set.unitsNeeded !== undefined || update.$set.quantity !== undefined) {
+      const val = update.$set.unitsNeeded ?? update.$set.quantity;
+      if (val !== undefined) {
+        update.$set.unitsNeeded = val;
+        update.$set.quantity = val;
+      }
+    }
+  }
+}
+
+requestSchema.pre('update', syncRequestUpdate);
+requestSchema.pre('updateOne', syncRequestUpdate);
+requestSchema.pre('updateMany', syncRequestUpdate);
+requestSchema.pre('findOneAndUpdate', syncRequestUpdate);
 
 const Request = mongoose.model('Request', requestSchema);
 

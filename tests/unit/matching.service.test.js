@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { setupTestDB } from '../helpers/db.js';
 import { buildDonor, createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
 import * as matchingService from '../../src/services/matching.service.js';
+import { searchCompatibleDonors } from '../../src/services/matching.service.js';
 
 vi.mock('../../src/utils/geo.js', () => ({
   calculateDistance: vi.fn(({ latitude: lat1 }, { latitude: lat2 }) => {
@@ -139,6 +140,16 @@ describe('findCompatibleDonors', () => {
     expect(results.length).toBeGreaterThanOrEqual(1);
     const donorIds = results.map((r) => r.donor._id.toString());
     expect(donorIds).toContain(matchingDonor._id.toString());
+  });
+
+  it('returns donors even when the search location is missing', async () => {
+    const donor = await createDonor({ bloodType: 'O+', isOptedIn: true });
+    await createDonor({ bloodType: 'A+', isOptedIn: true });
+
+    const results = await searchCompatibleDonors({ bloodType: 'O+', radiusKm: 10 });
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    expect(results.some((entry) => entry.donor._id.toString() === donor._id.toString())).toBe(true);
   });
 
   it('should exclude donors who already responded', async () => {

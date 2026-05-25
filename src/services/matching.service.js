@@ -221,9 +221,6 @@ export const searchCompatibleDonors = async ({
       locationScore = geoUtil.getLocationScore(distanceKm, 100);
     } else if (hasCoordinates(location)) {
       continue;
-    } else if (Number.isFinite(normalizedRadiusKm)) {
-      // Without a valid search location, radius filtering cannot be applied consistently.
-      continue;
     }
 
     let score = 100;

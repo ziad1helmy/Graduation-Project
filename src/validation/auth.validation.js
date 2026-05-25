@@ -52,7 +52,7 @@ const BASE_RULES = {
   },
   role: {
     required: true,
-    enum: ['donor'],
+    enum: ['donor', 'hospital', 'admin'],
   },
 };
 

@@ -66,6 +66,11 @@ describe('Hospital Controller', () => {
 
   beforeEach(() => {
     vi.restoreAllMocks();
+    // Mock mongoose.startSession to avoid real transactions in unit tests
+    vi.spyOn(mongoose, 'startSession').mockResolvedValue({
+      withTransaction: async (cb) => { await cb(); },
+      endSession: () => {},
+    });
   });
 
   describe('getProfile', () => {
@@ -208,9 +213,9 @@ describe('Hospital Controller', () => {
         urgency: 'critical',
         unitsNeeded: 3,
         isEmergency: true,
-        populate: vi.fn().mockResolvedValue(true),
+        populate: vi.fn().mockResolvedValue({}),
       };
-      Request.create.mockResolvedValue(mockCreatedRequest);
+      Request.create.mockResolvedValue([mockCreatedRequest]);
 
       matchingService.findCompatibleDonors.mockResolvedValue([{ donor: { _id: 'donor999' } }]);
       notificationService.notifyRequest.mockResolvedValue(true);

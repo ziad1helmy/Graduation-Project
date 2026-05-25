@@ -71,8 +71,8 @@ export const createDonation = async (donorId, requestId, data = {}) => {
       notes: data.notes || '',
     });
 
-    // Log activity (fire-and-forget)
-    activityService
+    // Log activity and await to ensure tests observe the activity record
+    await activityService
       .logActivity(donorId, {
         type: 'donation',
         action: 'created_donation',
@@ -149,7 +149,7 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
       });
 
       // Log completion activity
-      activityService
+      await activityService
         .logActivity(donation.donorId, {
           type: 'donation',
           action: 'completed_donation',
@@ -175,8 +175,8 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
         });
       }
     } else if (status === 'cancelled') {
-      // Log cancellation activity
-      activityService
+      // Log cancellation activity and await to make logging deterministic for tests
+      await activityService
         .logActivity(donation.donorId, {
           type: 'donation',
           action: 'cancelled_donation',
@@ -302,8 +302,8 @@ export const cancelDonation = async (donationId) => {
       { returnDocument: 'after' }
     );
 
-    // Log cancellation activity (fire-and-forget)
-    activityService
+    // Log cancellation activity
+    await activityService
       .logActivity(donation.donorId, {
         type: 'donation',
         action: 'cancelled_donation',

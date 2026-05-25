@@ -739,11 +739,13 @@ paths:
                 data:
                   accessToken: eyJ...access
                   refreshToken: eyJ...refresh
+                  verified: true
                   user:
                     _id: 69f3df915f42685cbbbcbb18
                     fullName: Aya Hassan
                     email: aya.hassan@lifelink.demo
                     role: donor
+                    isEmailVerified: true
         "400":
           description: Validation error or invalid credentials
         "403":
@@ -762,11 +764,23 @@ paths:
         content:
           application/json:
             schema:
-              $ref: "#/components/schemas/LoginRequest"
+              type: object
+              required:
+                - email
+                - password
+                - hospitalId
+              properties:
+                email:
+                  type: string
+                  format: email
+                password:
+                  type: string
+                  format: password
+                hospitalId:
+                  type: string
             example:
               email: ops@cairocare.demo
               password: HospitalPass@123
-              role: hospital
               hospitalId: HOSP-CAIRO-001
       responses:
         "200":
@@ -774,14 +788,19 @@ paths:
           content:
             application/json:
               example:
-                accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-                user:
-                  _id: 69f3df915f42685cbbbcbb1b
-                  fullName: Cairo Care Operations
-                  email: ops@cairocare.demo
-                  role: hospital
-                hospitalId: HOSP-CAIRO-001
+                success: true
+                message: Login successful
+                data:
+                  accessToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  refreshToken: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+                  verified: true
+                  user:
+                    _id: 69f3df915f42685cbbbcbb1b
+                    fullName: Cairo Care Operations
+                    email: ops@cairocare.demo
+                    role: hospital
+                    isEmailVerified: true
+                  hospitalId: HOSP-CAIRO-001
         "400":
           description: Validation error or invalid credentials
         "403":
@@ -4529,10 +4548,12 @@ paths:
                 data:
                   month: 2026-05
                   totalRequests: 9
+                  activeRequests: 3
                   totalCompleted: 6
                   totalCancelled: 2
                   emergencyRequests: 3
                   totalDonations: 7
+                  uniqueDonorsResponded: 5
   /hospital/reports/monthly:
     get:
       tags:
@@ -4558,10 +4579,12 @@ paths:
                 data:
                   month: 2026-05
                   totalRequests: 11
+                  activeRequests: 4
                   totalCompleted: 7
                   totalCancelled: 1
                   emergencyRequests: 4
                   totalDonations: 9
+                  uniqueDonorsResponded: 6
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -5437,6 +5460,91 @@ paths:
           description: Role not allowed
         "404":
           description: Hospital profile not found
+  /hospital/requests/create-emergency:
+    post:
+      tags:
+        - Hospital
+      summary: Create an emergency hospital request
+      description: Backwards-compatible alias for `POST /hospital/request`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - requiredBy
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - blood
+                    - organ
+                bloodType:
+                  type: string
+                  enum:
+                    - A+
+                    - A-
+                    - B+
+                    - B-
+                    - AB+
+                    - AB-
+                    - O+
+                    - O-
+                organType:
+                  type: string
+                  enum:
+                    - kidney
+                    - liver
+                    - heart
+                    - lung
+                    - pancreas
+                    - cornea
+                urgency:
+                  type: string
+                  enum:
+                    - low
+                    - medium
+                    - high
+                    - critical
+                requiredBy:
+                  type: string
+                  format: date-time
+                unitsNeeded:
+                  type: number
+                  minimum: 1
+                patientType:
+                  type: string
+                contactNumber:
+                  type: string
+                isEmergency:
+                  type: boolean
+                notes:
+                  type: string
+            example:
+              type: blood
+              bloodType: O+
+              urgency: critical
+              requiredBy: 2026-05-12T10:00:00.000Z
+              unitsNeeded: 3
+              patientType: adult
+              contactNumber: "01099998888"
+              isEmergency: true
+              notes: Emergency surgery support
+      responses:
+        "201":
+          description: Donation request created successfully
+        "400":
+          description: Invalid request payload
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+        "404":
+          description: Hospital profile not found
   /hospital/requests:
     get:
       tags:
@@ -5959,6 +6067,161 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /hospital/notifications:
+    get:
+      summary: List notifications for the authenticated hospital user
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+        - in: query
+          name: read
+          schema:
+            type: boolean
+        - in: query
+          name: type
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notifications list
+    delete:
+      summary: Delete all notifications for the authenticated hospital user
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All notifications deleted successfully
+    /hospital/appointments:
+      get:
+        summary: List upcoming appointments for the authenticated hospital
+        tags:
+          - Hospital
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: query
+            name: page
+            schema:
+              type: integer
+              default: 1
+          - in: query
+            name: limit
+            schema:
+              type: integer
+              default: 20
+          - in: query
+            name: status
+            schema:
+              type: string
+              description: Filter by appointment status (pending, confirmed, completed, cancelled)
+        responses:
+          "200":
+            description: Appointments list
+            content:
+              application/json:
+                example:
+                  success: true
+                  data:
+                    appointments:
+                      - _id: 69fe540565ff7785a031315c
+                        donorDetails:
+                          fullName: Jane Doe
+                          phoneNumber: +201234567890
+                          bloodType: O+
+                          email: jane@example.com
+                        hospitalId: 69f3df915f42685cbbbcbb10
+                        requestId:
+                          _id: 69fe540565ff7785a0313151
+                          type: blood
+                          bloodType: O+
+                        appointmentDate: 2026-06-01T09:00:00.000Z
+                        status: pending
+                    pagination:
+                      page: 1
+                      limit: 20
+                      total: 1
+                      totalPages: 1
+  /hospital/notifications/read-all:
+    patch:
+      summary: Mark all hospital notifications as read
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: All notifications marked as read
+  /hospital/notifications/{id}/read:
+    patch:
+      summary: Mark one hospital notification as read
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification marked as read
+    put:
+      summary: Mark one hospital notification as read (PUT alias)
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification marked as read
+  /hospital/notifications/{id}:
+    get:
+      summary: Get one hospital notification
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification retrieved successfully
+    delete:
+      summary: Delete one hospital notification
+      tags:
+        - Hospital
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Notification deleted successfully
   /donations/complete:
     post:
       tags:

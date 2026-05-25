@@ -15,12 +15,15 @@
  *  - Reports: GET /hospital/reports/monthly
  */
 
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
 import { setupTestDB } from '../helpers/db.js';
 import { createHospital, createDonor, createRequest, createDonation, createAdmin } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
+import Notification from '../../src/models/Notification.model.js';
+import Request from '../../src/models/Request.model.js';
+import Donation from '../../src/models/Donation.model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: mint a valid access token for a hospital user
@@ -630,6 +633,30 @@ describe('DELETE /hospital/requests/:requestId', () => {
     expect(res.status).toBe(200);
   });
 
+  it('rolls back donation cancellation if request update fails inside the transaction', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const token = tokenFor(hospital);
+    const req = await createRequest(hospital._id, { status: 'pending' });
+    const donation = await createDonation(donor._id, req._id, { status: 'pending' });
+
+    const updateSpy = vi.spyOn(Request, 'findByIdAndUpdate').mockRejectedValueOnce(new Error('transaction failed'));
+
+    const res = await request(app)
+      .delete(`/hospital/requests/${req._id}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    updateSpy.mockRestore();
+
+    expect(res.status).toBeGreaterThanOrEqual(500);
+
+    const storedRequest = await Request.findById(req._id);
+    const storedDonation = await Donation.findById(donation._id);
+
+    expect(storedRequest.status).toBe('pending');
+    expect(storedDonation.status).toBe('pending');
+  });
+
   it('returns 404 for a non-existent request', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
@@ -761,6 +788,25 @@ describe('Notification preferences', () => {
       .set('Authorization', `Bearer ${tokenFor(hospital)}`)
       .send({ emailAlerts: true });
     expect(res.status).toBe(200);
+  });
+
+  it('GET /hospital/notifications returns hospital notifications', async () => {
+    const hospital = await createHospital();
+    await Notification.create({
+      userId: hospital._id,
+      type: 'emergency',
+      title: 'Incoming request',
+      message: 'A nearby hospital needs donors',
+      read: false,
+      relatedType: 'Request',
+    });
+
+    const res = await request(app)
+      .get('/hospital/notifications')
+      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
+
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.data.notifications)).toBe(true);
   });
 });
 

@@ -47,7 +47,7 @@ function createLimiter({ windowMs, max } = {}) {
 // ─── 1. STRICT AUTH LIMITERS ──────────────────────────────────────────────────
 const authLimiter = createLimiter({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: isDev ? 150 : 20,
+  max: isDev ? 150 : 60, // dev unchanged, prod increased ~3x
 });
 
 
@@ -55,33 +55,33 @@ const authLimiter = createLimiter({
 // ─── 2. EXPENSIVE GET LIMITER (Matching, Geolocation, Analytics) ─────────────
 const expensiveGetLimiter = createLimiter({
   windowMs: 5 * 60 * 1000, // 5 minutes
-  max: isDev ? 100 : 30, // 30 requests per 5 minutes (6 req/min)
+  max: isDev ? 100 : 90, // dev unchanged, prod increased ~3x
 });
 
 // ─── 3. RELAXED GET LIMITERS (Search, Filter, Dashboard Lists) ───────────────
 const searchFilterLimiter = createLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: isDev ? 200 : 100, // 100 req/min
+  max: isDev ? 200 : 300, // dev unchanged, prod increased ~3x
 });
 
 const dashboardLimiter = createLimiter({
   windowMs: 60 * 1000, // 1 minute
-  max: isDev ? 200 : 100, // 100 req/min
+  max: isDev ? 200 : 300, // dev unchanged, prod increased ~3x
 });
 
 // ─── 4. ROUTE-SPECIFIC GENERAL LIMITERS ────────────────────────────────────────
-const adminLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const donorLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const hospitalLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const rewardLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const requestLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const appointmentLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const donationLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const notificationLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const discoveryLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const analyticsLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const supportLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 100 });
-const defaultLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 200 : 60 });
+const adminLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const donorLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const hospitalLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const rewardLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const requestLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const appointmentLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const donationLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const notificationLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const discoveryLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const analyticsLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const supportLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 300 : 300 });
+const defaultLimiter = createLimiter({ windowMs: 15 * 60 * 1000, max: isDev ? 200 : 180 });
 
 // ─── DYNAMIC SELECTOR MIDDLEWARE ──────────────────────────────────────────────
 function limiter(req, res, next) {

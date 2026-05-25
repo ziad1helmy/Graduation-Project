@@ -217,6 +217,62 @@ describe('Auth Controller', () => {
     });
   });
 
+  describe('loginHospital', () => {
+    it('returns 200 on successful hospital login', async () => {
+      const req = makeMockReq({ body: { email: 'ops@cairocare.demo', password: 'HospitalPass@123', role: 'hospital', hospitalId: 'HOSP-CAIRO-001' } });
+      const res = makeMockRes();
+      const next = vi.fn();
+
+      const mockResult = {
+        user: { _id: userId, email: 'ops@cairocare.demo', role: 'hospital', fullName: 'Cairo Care' },
+        accessToken: 'access_token',
+        refreshToken: 'refresh_token',
+      };
+      authService.loginHospital.mockResolvedValue(mockResult);
+
+      await authController.loginHospital(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(200);
+      const data = res.json.mock.calls[0][0].data;
+      expect(data.access_token).toBe('access_token');
+    });
+
+    it('returns 400 when hospitalId is missing', async () => {
+      const req = makeMockReq({ body: { email: 'ops@cairocare.demo', password: 'HospitalPass@123', role: 'hospital' } });
+      const res = makeMockRes();
+      const next = vi.fn();
+
+      await authController.loginHospital(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json.mock.calls[0][0].success).toBe(false);
+    });
+
+    it('returns 401 when hospitalId is invalid', async () => {
+      const req = makeMockReq({ body: { email: 'ops@cairocare.demo', password: 'HospitalPass@123', role: 'hospital', hospitalId: 'BAD-ID' } });
+      const res = makeMockRes();
+      const next = vi.fn();
+
+      const err = new Error('Invalid hospital ID');
+      err.statusCode = 401;
+      authService.loginHospital.mockRejectedValue(err);
+
+      await authController.loginHospital(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(401);
+    });
+
+    it('returns 400 for malformed payload', async () => {
+      const req = makeMockReq({ body: { email: 'not-an-email', password: 'short', role: 'hospital', hospitalId: 'HOSP-CAIRO-001' } });
+      const res = makeMockRes();
+      const next = vi.fn();
+
+      await authController.loginHospital(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+    });
+  });
+
   describe('FCM Token Endpoints', () => {
     it('registerFcmToken returns 200 on success', async () => {
       const req = makeMockReq({

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import requireRole from '../middlewares/role.middleware.js';
 import * as hospitalController from '../controllers/hospital.controller.js';
+import * as notificationController from '../controllers/notification.controller.js';
 
 // ─── API CONTRACT ────────────────────────────────────────────────────────────
 // Swagger/OpenAPI documentation for this router lives in /openapi.yaml
@@ -23,6 +24,8 @@ router.get(
 router.use(authMiddleware, requireRole('hospital'));
 
 router.post('/donors/:donorId/appointments', hospitalController.bookDonorAppointment);
+// Hospital appointments listing
+router.get('/appointments', hospitalController.getAppointments);
 
 // Profile routes
 router.get('/profile', hospitalController.getProfile);
@@ -47,6 +50,16 @@ router.delete('/requests/:requestId', hospitalController.deleteRequest);
 
 // Donation tracking
 router.get('/donations', hospitalController.getDonations);
+
+// Hospital notifications
+router.get('/notifications', notificationController.getNotifications);
+router.delete('/notifications', notificationController.deleteAllNotifications);
+router.patch('/notifications/read-all', notificationController.markAllNotificationsRead);
+router.patch('/notifications/:id/read', notificationController.markNotificationRead);
+// Allow PUT as an alias for clients that use PUT to mark read
+router.put('/notifications/:id/read', notificationController.markNotificationRead);
+router.get('/notifications/:id', notificationController.getNotificationById);
+router.delete('/notifications/:id', notificationController.deleteNotificationById);
 
 // Extended compatibility features
 router.get('/blood-bank-settings', hospitalController.getBloodBankSettings);

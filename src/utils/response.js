@@ -58,6 +58,7 @@ const inferErrorCode = (statusCode, message) => {
 export function successResponse(res, statusCode, message, data = undefined) {
   const body = {
     success: true,
+    message: message || undefined,
     data: data !== undefined ? data : message ?? null,
   };
   return res.status(statusCode).json(body);

@@ -3,15 +3,23 @@ import mongoose from 'mongoose';
 import Hospital from '../models/Hospital.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
+import NotificationOutbox from '../models/NotificationOutbox.model.js';
 import * as notificationService from '../services/notification.service.js';
 import * as matchingService from '../services/matching.service.js';
 import * as appointmentService from '../services/appointment.service.js';
+import Appointment from '../models/Appointment.model.js';
+import { appointmentPopulateOptions, toAppointmentResponse } from '../utils/appointment.dto.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as hospitalService from '../services/hospital.service.js';
 import { validateCreateHospitalByAdminBody } from '../validation/admin.validation.js';
 import { DEFAULT_SUPPORTED_DONATION_TYPES, DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
+import {
+  validateFindDonorsQuery,
+  validateBookAppointmentBody,
+  validateCreateRequestBody,
+} from '../validation/hospital.validation.js';
 
 const normalizeLocationInput = (location) => {
   if (!location || typeof location !== 'object') return null;
@@ -440,28 +448,9 @@ export const findDonors = async (req, res, next) => {
       : parseBooleanQuery(req.query.availability, true);
     const { page, limit, offset } = parsePagination(req.query, 20);
 
-    if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
-      return response.error(res, 400, 'Invalid bloodType');
-    }
-
-    if (!Number.isFinite(radiusKm) || radiusKm <= 0) {
-      return response.error(res, 400, 'radiusKm must be a positive number');
-    }
-
-    if (lat !== null && (lat < -90 || lat > 90)) {
-      return response.error(res, 400, 'lat must be between -90 and 90');
-    }
-
-    if (lng !== null && (lng < -180 || lng > 180)) {
-      return response.error(res, 400, 'lng must be between -180 and 180');
-    }
-
-    if ((lat === null) !== (lng === null)) {
-      return response.error(res, 400, 'lat and lng must be provided together');
-    }
-
-    if (participation === null) {
-      return response.error(res, 400, 'participation must be a boolean value');
+    const validation = validateFindDonorsQuery(req.query, lat, lng, radiusKm, participation);
+    if (!validation.valid) {
+      return response.error(res, 400, validation.errors[0]);
     }
 
     let searchCoordinates = lat !== null && lng !== null ? { latitude: lat, longitude: lng } : null;
@@ -512,17 +501,13 @@ export const findDonors = async (req, res, next) => {
     const paginatedDonors = donors.slice(offset, offset + limit);
     const pagination = paginationMeta(donors.length, page, limit);
 
-    return res.status(200).json({
-      success: true,
-      message: 'Nearby donors retrieved successfully',
-      data: {
-        donors: paginatedDonors,
-        pagination: {
-          page: pagination.page,
-          limit: pagination.limit,
-          total: pagination.total,
-          totalPages: pagination.totalPages,
-        },
+    return response.success(res, 200, 'Nearby donors retrieved successfully', {
+      donors: paginatedDonors,
+      pagination: {
+        page: pagination.page,
+        limit: pagination.limit,
+        total: pagination.total,
+        totalPages: pagination.totalPages,
       },
     });
   } catch (error) {
@@ -540,14 +525,12 @@ export const bookDonorAppointment = async (req, res, next) => {
     }
 
     const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
-    if (!normalizedAppointmentDate || Number.isNaN(normalizedAppointmentDate.getTime())) {
-      return response.error(res, 400, 'appointmentDate is required');
+    const validation = validateBookAppointmentBody(req.body, normalizedAppointmentDate);
+    if (!validation.valid) {
+      return response.error(res, 400, validation.errors[0]);
     }
 
     const normalizedDonationType = donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD;
-    if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
-      return response.error(res, 400, 'Invalid donation type');
-    }
 
     const appointment = await appointmentService.bookAppointment(
       donorId,
@@ -558,13 +541,13 @@ export const bookDonorAppointment = async (req, res, next) => {
       normalizedDonationType
     );
 
-    const appointmentObj = appointment.toObject ? appointment.toObject() : appointment;
+    // Populate donor/hospital/request details for DTO conversion
+    await appointment.populate(appointmentPopulateOptions);
+    await appointment.populate({ path: 'requestId', select: 'type bloodType organType urgency hospitalId' });
 
-    return res.status(201).json({
-      success: true,
-      message: 'Appointment booked successfully',
-      data: appointmentObj,
-    });
+    const appointmentResponse = toAppointmentResponse(appointment);
+
+    return response.success(res, 201, 'Appointment booked successfully', appointmentResponse);
   } catch (error) {
     if (error.message === 'Donor not found' || error.message === 'Hospital not found' || error.message === 'Request not found') {
       return response.error(res, 404, error.message);
@@ -644,35 +627,12 @@ export const createRequest = async (req, res, next) => {
       notes,
     } = req.body;
 
-    // Validate required fields
-    if (!type || (!urgency && isEmergency !== true) || !requiredBy) {
-      return response.error(res, 400, 'Type, urgency or emergency flag, and requiredBy are required');
-    }
-
-    if (!['blood', 'organ'].includes(type)) {
-      return response.error(res, 400, 'Type must be blood or organ');
-    }
-
-    if (!['low', 'medium', 'high', 'critical'].includes(urgency)) {
-      return response.error(res, 400, 'Urgency must be low, medium, high, or critical');
-    }
-
-    if (type === 'blood' && !bloodType) {
-      return response.error(res, 400, 'Blood type is required for blood donation requests');
-    }
-
-    if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
-      return response.error(res, 400, 'Invalid blood type');
-    }
-
-    if (type === 'organ' && !organType) {
-      return response.error(res, 400, 'Organ type is required for organ donation requests');
+    const validation = validateCreateRequestBody(req.body);
+    if (!validation.valid) {
+      return response.error(res, 400, validation.errors[0]);
     }
 
     const requiredByDate = new Date(requiredBy);
-    if (requiredByDate <= new Date()) {
-      return response.error(res, 400, 'Required date must be in the future');
-    }
 
     const hospital = await Hospital.findById(req.user.userId).select('contactNumber location fullName hospitalName');
     if (!hospital) {
@@ -723,15 +683,75 @@ export const createRequest = async (req, res, next) => {
       requestData.organType = organType;
     }
 
-    const donRequest = await Request.create(requestData);
+
+    const session = await mongoose.startSession();
+    let donRequest = null;
+    let outboxEntry = null;
+
+    try {
+      await session.withTransaction(async () => {
+        const docs = await Request.create([requestData], { session });
+        donRequest = docs[0];
+
+        // Create an outbox entry atomically with the request so we never lose intent
+        if (requestData.isEmergency) {
+          // Only create an outbox entry when mongoose is connected. Unit tests
+          // mock many models and do not initialize a DB connection — creating
+          // an outbox against an unconnected mongoose instance can hang tests.
+          if (mongoose.connection && mongoose.connection.readyState === 1) {
+            const outboxDocs = await NotificationOutbox.create([
+              {
+                requestId: donRequest._id,
+                donorIds: [],
+                status: 'pending',
+              },
+            ]);
+            outboxEntry = outboxDocs[0];
+          }
+        }
+      });
+    } finally {
+      session.endSession();
+    }
+
     await donRequest.populate('hospitalId', 'fullName hospitalName address contactNumber');
 
     if (requestData.isEmergency) {
-      const compatibleDonors = await matchingService.findCompatibleDonors(donRequest._id);
-      const donorIds = compatibleDonors.map(({ donor }) => donor._id);
+      try {
+        const compatibleDonors = await matchingService.findCompatibleDonors(donRequest._id);
+        const donorIds = compatibleDonors.map(({ donor }) => donor._id);
 
-      if (donorIds.length > 0) {
-        await notificationService.notifyRequest(donorIds, donRequest);
+        // If outbox was created, update it with recipient ids and mark ready
+        if (outboxEntry) {
+          try {
+            await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { donorIds, status: 'ready' });
+          } catch (ignore) {
+            // best-effort
+          }
+        }
+
+        if (donorIds.length > 0) {
+          try {
+            await notificationService.notifyRequest(donorIds, donRequest);
+            if (outboxEntry) {
+              await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 1, lastError: null });
+            }
+          } catch (notifyErr) {
+            if (outboxEntry) {
+              await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', attempts: 1, lastError: String(notifyErr?.message || notifyErr) });
+            }
+          }
+        } else if (outboxEntry) {
+          // No recipients found, mark outbox as sent with zero attempts
+          await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 0 });
+        }
+      } catch (err) {
+        // If matching or outbox update fails, log but do not rollback creation
+        try {
+          if (outboxEntry) {
+            await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', lastError: String(err?.message || err) });
+          }
+        } catch (ignore) {}
       }
     }
 
@@ -884,13 +904,25 @@ export const deleteRequest = async (req, res, next) => {
       return response.error(res, 403, 'Unauthorized access to this request');
     }
 
-    // Cancel all pending/scheduled donations for this request
-    await Donation.updateMany(
-      { requestId, status: { $ne: 'completed' } },
-      { status: 'cancelled' }
-    );
+    // Cancel all pending/scheduled donations for this request and update request status atomically.
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        await Donation.updateMany(
+          { requestId, status: { $ne: 'completed' } },
+          { status: 'cancelled' },
+          { session }
+        );
 
-    await Request.findByIdAndUpdate(requestId, { status: 'cancelled', cancelledAt: new Date() });
+        await Request.findByIdAndUpdate(
+          requestId,
+          { status: 'cancelled', cancelledAt: new Date() },
+          { session }
+        );
+      });
+    } finally {
+      session.endSession();
+    }
 
     response.success(res, 200, 'Request cancelled successfully');
   } catch (error) {
@@ -904,28 +936,51 @@ export const getDonations = async (req, res, next) => {
     const { status } = req.query;
     const { offset, limit, page } = parsePagination(req.query);
 
-    // Get all request IDs belonging to this hospital
-    const hospitalRequests = await Request.find({ hospitalId: req.user.userId }).select('_id');
-    const requestIds = hospitalRequests.map((r) => r._id);
+    const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
+    const statusFilter = status && ['pending', 'scheduled', 'completed', 'cancelled'].includes(status)
+      ? { status }
+      : {};
 
-    const filter = { requestId: { $in: requestIds } };
+    const basePipeline = [
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'requestId',
+          foreignField: '_id',
+          as: 'request',
+        },
+      },
+      { $unwind: '$request' },
+      {
+        $match: {
+          'request.hospitalId': hospitalObjectId,
+          ...statusFilter,
+        },
+      },
+      { $sort: { createdAt: -1 } },
+    ];
 
-    if (status && ['pending', 'scheduled', 'completed', 'cancelled'].includes(status)) {
-      filter.status = status;
-    }
+    const [donations, totalResult] = await Promise.all([
+      Donation.aggregate([
+        ...basePipeline,
+        { $skip: offset },
+        { $limit: limit },
+        { $project: { request: 0 } },
+      ]),
+      Donation.aggregate([
+        ...basePipeline,
+        { $count: 'count' },
+      ]),
+    ]);
 
-    const [donations, total] = await Promise.all([
-      Donation.find(filter)
-        .populate('donorId', 'fullName email phoneNumber location bloodType')
-        .populate('requestId', 'type bloodType organType urgency')
-        .skip(offset)
-        .limit(limit)
-        .sort({ createdAt: -1 }),
-      Donation.countDocuments(filter),
+    const total = totalResult[0]?.count || 0;
+    const populatedDonations = await Donation.populate(donations, [
+      { path: 'donorId', select: 'fullName email phoneNumber location bloodType' },
+      { path: 'requestId', select: 'type bloodType organType urgency' },
     ]);
 
     response.success(res, 200, 'Donations retrieved successfully', {
-      donations,
+      donations: populatedDonations,
       pagination: paginationMeta(total, page, limit),
     });
   } catch (error) {
@@ -1019,6 +1074,43 @@ export const getBloodInventory = async (req, res, next) => {
   }
 };
 
+// GET /hospital/appointments - upcoming appointments for the hospital
+export const getAppointments = async (req, res, next) => {
+  try {
+    const { offset, limit, page } = parsePagination(req.query, 20);
+
+    const statusFilter = req.query.status && ['pending', 'confirmed', 'completed', 'cancelled'].includes(req.query.status)
+      ? { status: req.query.status }
+      : { status: { $in: ['pending', 'confirmed'] } };
+
+    const now = new Date();
+    const filter = {
+      hospitalId: req.user.userId,
+      appointmentDate: { $gte: now },
+      ...statusFilter,
+    };
+
+    const [appointments, total] = await Promise.all([
+      Appointment.find(filter)
+        .populate(appointmentPopulateOptions)
+        .populate({ path: 'requestId', select: 'type bloodType organType urgency hospitalId' })
+        .sort({ appointmentDate: 1 })
+        .skip(offset)
+        .limit(limit),
+      Appointment.countDocuments(filter),
+    ]);
+
+    const appointmentResponses = appointments.map(toAppointmentResponse);
+
+    return response.success(res, 200, 'Appointments retrieved successfully', {
+      appointments: appointmentResponses,
+      pagination: paginationMeta(total, page, limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 export const getMonthlyReports = async (req, res, next) => {
   try {
     const month = req.query.month || new Date().toISOString().slice(0, 7);
@@ -1027,32 +1119,69 @@ export const getMonthlyReports = async (req, res, next) => {
     endDate.setMonth(endDate.getMonth() + 1);
     const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
 
-    const requestMatch = {
+    // Requests created in the month
+    const requests = await Request.find({
       hospitalId: hospitalObjectId,
       createdAt: { $gte: startDate, $lt: endDate },
-    };
-
-    const [requests, donations] = await Promise.all([
-      Request.find(requestMatch).select('type status urgency quantity createdAt'),
-      Donation.aggregate([
-        { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-        { $unwind: '$request' },
-        { $match: { 'request.hospitalId': hospitalObjectId, createdAt: requestMatch.createdAt } },
-      ]),
-    ]);
+    }).select('status urgency requiredBy createdAt');
 
     const totalRequests = requests.length;
+    const openRequests = requests.filter((r) => r.status === 'pending').length;
+    const activeRequests = requests.filter((r) => ['pending', 'in-progress'].includes(r.status)).length;
     const totalCompleted = requests.filter((r) => r.status === 'completed').length;
     const totalCancelled = requests.filter((r) => r.status === 'cancelled').length;
     const emergencyRequests = requests.filter((r) => r.urgency === 'critical' || r.urgency === 'high').length;
 
+    // Donations for requests that were created in the month (join by request.createdAt)
+    const donationsAgg = await Donation.aggregate([
+      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+      { $unwind: '$request' },
+      { $match: { 'request.hospitalId': hospitalObjectId, 'request.createdAt': { $gte: startDate, $lt: endDate } } },
+    ]);
+
+    const responseCount = donationsAgg.length;
+    const totalDonations = donationsAgg.length;
+    const uniqueDonorsResponded = new Set(donationsAgg.map((d) => d.donorId?.toString())).size;
+    const confirmedDonorCount = new Set(donationsAgg.filter((d) => ['scheduled', 'completed'].includes(d.status)).map((d) => d.donorId?.toString())).size;
+
+    // Request deadline metrics
+    const now = new Date();
+    const dueSoonThreshold = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+    const overdueCount = requests.filter((r) => r.requiredBy && r.requiredBy < now && r.status !== 'completed').length;
+    const dueSoonCount = requests.filter((r) => r.requiredBy && r.requiredBy >= now && r.requiredBy <= dueSoonThreshold && r.status !== 'completed').length;
+    const avgDaysToRequiredBy = requests.length
+      ? Math.round(
+          requests.reduce((sum, r) => sum + ((r.requiredBy?.getTime() || 0) - r.createdAt.getTime()) / (1000 * 60 * 60 * 24), 0) /
+            requests.length
+        )
+      : 0;
+
+    // Recent activity (donations) in last 7 days for this hospital
+    const recentStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const recentAgg = await Donation.aggregate([
+      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+      { $unwind: '$request' },
+      { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: recentStart } } },
+      { $count: 'count' },
+    ]);
+    const recentActivityCount = recentAgg[0]?.count || 0;
+
     return response.success(res, 200, 'Monthly report retrieved successfully', {
       month,
       totalRequests,
+      openRequests,
+      activeRequests,
       totalCompleted,
       totalCancelled,
       emergencyRequests,
-      totalDonations: donations.length,
+      responseCount,
+      totalDonations,
+      uniqueDonorsResponded,
+      confirmedDonorCount,
+      overdueCount,
+      dueSoonCount,
+      avgDaysToRequiredBy,
+      recentActivityCount,
     });
   } catch (error) {
     next(error);

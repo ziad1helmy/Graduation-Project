@@ -120,7 +120,7 @@ const loadLoginUser = async ({ email, password, role, hospitalId }) => {
 
   if (role === 'hospital') {
     if (!hospitalId || user.hospitalId !== hospitalId) {
-      throw new Error('Invalid hospital ID');
+      throw createServiceError('Invalid hospital ID', 401);
     }
   }
 
@@ -132,6 +132,9 @@ const toLoginUserResponse = (user, { hospitalId = null } = {}) => {
   if (hospitalId) {
     authPayload.hospitalId = hospitalId;
   }
+  // include verification flag in response for client-side UX
+  authPayload.verified = Boolean(user.isEmailVerified);
+  authPayload.user.isEmailVerified = Boolean(user.isEmailVerified);
   return authPayload;
 };
 
@@ -452,23 +455,12 @@ export const loginDonor = async (data) => {
 
 // Dedicated hospital login - does not require hospitalId here (simple email+password)
 export const loginHospital = async (data) => {
-  const { email, password } = data || {};
-  if (!email) throw new Error('Email is required');
-  if (!password) throw new Error('Password is required');
+  const { email, password, hospitalId } = data || {};
+  if (!email) throw createServiceError('Email is required', 400);
+  if (!password) throw createServiceError('Password is required', 400);
+  if (!hospitalId) throw createServiceError('Hospital ID is required', 400);
 
-  const normalizedEmail = String(email).trim().toLowerCase();
-  const user = await User.findOne({ email: normalizedEmail, role: 'hospital' })
-    .select('+password +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +hospitalId')
-    .lean();
-
-  if (!user) throw new Error('Invalid credentials');
-  if (user.deletedAt) throw new Error('Invalid credentials');
-  if (user.isSuspended) throw new Error('Account is suspended. Contact support.');
-  if (!user.isEmailVerified) throw new Error('Email address is not verified');
-
-  const isMatch = await bcrypt.compare(password, user.password);
-  if (!isMatch) throw new Error('Invalid credentials');
-
+  const { user } = await loadLoginUser({ email, password, role: 'hospital', hospitalId });
   return toLoginUserResponse(user, { hospitalId: user.hospitalId });
 };
 

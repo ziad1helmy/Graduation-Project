@@ -253,6 +253,14 @@ export const loginHospital = async (req, res, next) => {
       return response.error(res, 400, 'password is required');
     }
 
+    // Validate payload with role-specific rules (ensures hospitalId presence/format)
+    payload.role = 'hospital';
+    const { validateLogin } = await import('../validation/auth.validation.js');
+    const validation = validateLogin(payload);
+    if (!validation.valid) {
+      return response.error(res, 400, 'Validation failed', validation.errors);
+    }
+
     const result = await authService.loginHospital(payload);
 
     const user = result.user || {};
@@ -273,6 +281,10 @@ export const loginHospital = async (req, res, next) => {
       error.message === ERR.AUTH_EMAIL_NOT_VERIFIED
     ) {
       return response.error(res, 401, error.message);
+    }
+    // Map service-level hospital ID errors to a proper client response
+    if (error.statusCode) {
+      return response.error(res, error.statusCode, error.message);
     }
     next(error);
   }
