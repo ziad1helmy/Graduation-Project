@@ -5480,6 +5480,88 @@ paths:
           description: Role not allowed
         "404":
           description: Hospital profile not found
+  /hospital/history:
+    get:
+      tags:
+        - Hospital
+      summary: Get paginated request history for the authenticated hospital
+      description: Returns hospital request history with donor engagement metrics, completion metrics, and overall request statistics.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - accepted
+              - in-progress
+              - completed
+              - cancelled
+              - expired
+          description: Optional request status filter
+          example: completed
+      responses:
+        "200":
+          description: Request history retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Request history retrieved successfully
+                data:
+                  statistics:
+                    activeRequests: 3
+                    completedRequests: 42
+                    cancelledRequests: 2
+                  requests:
+                    - _id: 69fe540565ff7785a0313150
+                      bloodType: O+
+                      unitsRequested: 3
+                      urgencyLevel: critical
+                      donorsContacted: 20
+                      donorsConfirmed: 12
+                      isFulfilled: true
+                      requestDate: 2024-09-28T00:00:00.000Z
+                      completionTimeInHours: 3
+                      priority: critical
+                      location: 30.0444, 31.2357
+                      hospitalContact: "01099998888"
+                      hospitalName: Al Noor Hospital
+                      status: completed
+                  pagination:
+                    total: 100
+                    page: 1
+                    currentPage: 1
+                    limit: 10
+                    totalPages: 10
+                    hasNextPage: true
+                    hasPrevPage: false
+        "400":
+          description: Invalid status filter
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
   /hospital/requests:
     get:
       tags:

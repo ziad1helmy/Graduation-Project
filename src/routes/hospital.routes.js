@@ -41,6 +41,7 @@ router.post('/request', hospitalController.createRequest);
 router.post('/requests/create-emergency', hospitalController.createRequest);
 // Hospital dashboard
 router.get('/dashboard', hospitalController.getMonthlyReports);
+router.get('/history', hospitalController.getRequestHistory);
 // Close request (dedicated flow)
 router.post('/requests/:requestId/close', hospitalController.closeRequest);
 router.get('/requests', hospitalController.getRequests);
