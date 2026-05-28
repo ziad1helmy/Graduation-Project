@@ -5278,72 +5278,7 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /hospital/blood-inventory:
-    get:
-      tags:
-        - Hospital
-      summary: Get a read-only blood inventory summary for the authenticated hospital
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Blood inventory retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Blood inventory retrieved successfully
-                data:
-                  scope: hospital
-                  hospitalId: 69f3df915f42685cbbbcbb1b
-                  bloodTypeTotals:
-                    A-:
-                      bloodType: A-
-                      donatedUnits: 9
-                      requestedUnits: 7
-                      netUnits: 2
-                      shortageUnits: 0
-                      shortage: false
-                      lowStock: true
-                    O-:
-                      bloodType: O-
-                      donatedUnits: 3
-                      requestedUnits: 6
-                      netUnits: -3
-                      shortageUnits: 3
-                      shortage: true
-                      lowStock: true
-                  lowStockAlerts:
-                    - bloodType: O-
-                      message: "Shortage detected for O-: 3 unit(s) needed"
-                      severity: high
-                  shortageAlerts:
-                    - bloodType: O-
-                      activeRequests: 3
-                      availableDonors: 1
-                      ratio: "3.00"
-                      status: shortage
-                  requestStats:
-                    total: 24
-                    byStatus:
-                      pending: 5
-                      in-progress: 3
-                      completed: 13
-                      cancelled: 3
-                    byUrgency:
-                      medium: 2
-                      high: 3
-                      critical: 1
-                    byBloodType:
-                      A-: 2
-                      O-: 3
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+  # Removed /hospital/blood-inventory: endpoint deleted from codebase
   /hospital/request:
     post:
       tags:
@@ -5545,6 +5480,88 @@ paths:
           description: Role not allowed
         "404":
           description: Hospital profile not found
+  /hospital/history:
+    get:
+      tags:
+        - Hospital
+      summary: Get paginated request history for the authenticated hospital
+      description: Returns hospital request history with donor engagement metrics, completion metrics, and overall request statistics.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          example: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          example: 10
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+            enum:
+              - pending
+              - accepted
+              - in-progress
+              - completed
+              - cancelled
+              - expired
+          description: Optional request status filter
+          example: completed
+      responses:
+        "200":
+          description: Request history retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Request history retrieved successfully
+                data:
+                  statistics:
+                    activeRequests: 3
+                    completedRequests: 42
+                    cancelledRequests: 2
+                  requests:
+                    - _id: 69fe540565ff7785a0313150
+                      bloodType: O+
+                      unitsRequested: 3
+                      urgencyLevel: critical
+                      donorsContacted: 20
+                      donorsConfirmed: 12
+                      isFulfilled: true
+                      requestDate: 2024-09-28T00:00:00.000Z
+                      completionTimeInHours: 3
+                      priority: critical
+                      location: 30.0444, 31.2357
+                      hospitalContact: "01099998888"
+                      hospitalName: Al Noor Hospital
+                      status: completed
+                  pagination:
+                    total: 100
+                    page: 1
+                    currentPage: 1
+                    limit: 10
+                    totalPages: 10
+                    hasNextPage: true
+                    hasPrevPage: false
+        "400":
+          description: Invalid status filter
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
   /hospital/requests:
     get:
       tags:
@@ -6986,7 +7003,7 @@ paths:
           example: 6
       responses:
         "200":
-          description: Donation trends
+          description: Donation trends (monthly + optional daily/regional breakdowns)
           content:
             application/json:
               example:
@@ -7015,6 +7032,26 @@ paths:
                       cancelled: 6
                       totalUnits: 35
                       successRate: 84.2%
+                  dailyTrends:
+                    - date: 2026-05-16
+                      completed: 3
+                      pending: 2
+                      cancelled: 0
+                      totalUnits: 3
+                    - date: 2026-05-17
+                      completed: 5
+                      pending: 1
+                      cancelled: 1
+                      totalUnits: 6
+                  regionalBreakdown:
+                    - governorate: Cairo
+                      completed: 28
+                      activeRequests: 6
+                      donorsAvailable: 120
+                    - governorate: Giza
+                      completed: 9
+                      activeRequests: 3
+                      donorsAvailable: 45
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -8059,7 +8096,7 @@ paths:
           example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
-          description: Donor details
+          description: Donor details (includes points/eligibility for admin)
           content:
             application/json:
               example:
@@ -8077,6 +8114,17 @@ paths:
                     isSuspended: false
                     completedDonations: 8
                     createdAt: 2026-01-15T09:00:00.000Z
+                    pointsBalance: 850
+                    lifetimePointsEarned: 950
+                    tier: silver
+                    eligibilitySummary:
+                      canDonate: true
+                      nextEligibleAt: 2026-06-20T00:00:00.000Z
+                      reasons: []
+                    profile:
+                      age: 30
+                      weight: 60
+                      hemoglobinLevel: 13.5
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -8949,6 +8997,8 @@ paths:
                       urgency: critical
                       status: pending
                       quantity: 3
+                      donationCount: 2
+                      distanceKm: 4.2
                       hospitalId:
                         _id: 69f3df915f42685cbbbcbb1b
                         hospitalName: Cairo Care Hospital
@@ -9010,7 +9060,7 @@ paths:
           example: 69fe540565ff7785a031314f
       responses:
         "200":
-          description: Request details
+          description: Request details (includes timeline and donation summaries)
           content:
             application/json:
               example:
@@ -9024,11 +9074,25 @@ paths:
                     urgency: critical
                     status: pending
                     quantity: 3
+                    donationCount: 4
+                    distanceKm: 4.2
+                    acceptedDonationId: null
+                    acceptedBy: null
+                    acceptedAt: null
                     notes: Emergency surgery support
                     hospitalId:
                       _id: 69f3df915f42685cbbbcbb1b
                       hospitalName: Cairo Care Hospital
                       contactNumber: "0223456789"
+                    timeline:
+                      - at: 2026-05-18T08:00:00.000Z
+                        event: created
+                        by: hospital
+                        note: Request created by hospital staff
+                      - at: 2026-05-18T09:12:00.000Z
+                        event: broadcasted
+                        by: admin
+                        note: Broadcast sent to nearby donors
                   donations:
                     - _id: 69fe540565ff7785a0313157
                       donorId:

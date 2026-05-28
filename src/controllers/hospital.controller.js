@@ -1065,14 +1065,8 @@ export const updateNotificationPreferences = async (req, res, next) => {
   }
 };
 
-export const getBloodInventory = async (req, res, next) => {
-  try {
-    const summary = await adminService.getBloodInventorySummary(req.user.userId);
-    return response.success(res, 200, 'Blood inventory retrieved successfully', summary);
-  } catch (error) {
-    next(error);
-  }
-};
+// Removed: `getBloodInventory` handler — hospital inventory access consolidated
+// to the admin summary endpoint. Use `GET /admin/blood-inventory-summary` instead.
 
 // GET /hospital/appointments - upcoming appointments for the hospital
 export const getAppointments = async (req, res, next) => {
@@ -1188,7 +1182,188 @@ export const getMonthlyReports = async (req, res, next) => {
   }
 };
 
+export const getRequestHistory = async (req, res, next) => {
+  try {
+    const { offset, limit, page } = parsePagination(req.query);
+    const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
+    const allowedStatuses = ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'];
+    const status = typeof req.query.status === 'string' ? req.query.status.trim().toLowerCase() : null;
 
+    if (status && !allowedStatuses.includes(status)) {
+      return response.error(
+        res,
+        400,
+        `Invalid status filter. Allowed values: ${allowedStatuses.join(', ')}`
+      );
+    }
+
+    const requestMatch = {
+      hospitalId: hospitalObjectId,
+      ...(status ? { status } : {}),
+    };
+
+    const requestsPipeline = [
+      {
+        $match: requestMatch,
+      },
+      {
+        $lookup: {
+          from: 'donations',
+          localField: '_id',
+          foreignField: 'requestId',
+          as: 'donations',
+        },
+      },
+      {
+        $addFields: {
+          donorsContacted: { $size: '$donations' },
+          donorsConfirmed: {
+            $size: {
+              $filter: {
+                input: '$donations',
+                as: 'donation',
+                cond: { $in: ['$$donation.status', ['scheduled', 'completed']] },
+              },
+            },
+          },
+          completionTimeInHours: {
+            $cond: [
+              { $and: [{ $ne: ['$createdAt', null] }, { $ne: ['$completedAt', null] }] },
+              {
+                $round: [
+                  {
+                    $divide: [
+                      { $subtract: ['$completedAt', '$createdAt'] },
+                      3600000,
+                    ],
+                  },
+                  2,
+                ],
+              },
+              null,
+            ],
+          },
+        },
+      },
+      {
+        $project: {
+          bloodType: 1,
+          unitsRequested: '$unitsNeeded',
+          urgencyLevel: '$urgency',
+          donorsContacted: 1,
+          donorsConfirmed: 1,
+          isFulfilled: { $eq: ['$status', 'completed'] },
+          requestDate: '$createdAt',
+          completionTimeInHours: 1,
+          priority: '$urgency',
+          location: {
+            $let: {
+              vars: {
+                lat: {
+                  $ifNull: [
+                    '$hospitalLocation.lat',
+                    {
+                      $ifNull: [
+                        '$locationHospital.latitude',
+                        {
+                          $arrayElemAt: ['$hospitalLocationGeo.coordinates', 1],
+                        },
+                      ],
+                    },
+                  ],
+                },
+                lng: {
+                  $ifNull: [
+                    '$hospitalLocation.lng',
+                    {
+                      $ifNull: [
+                        '$locationHospital.longitude',
+                        {
+                          $arrayElemAt: ['$hospitalLocationGeo.coordinates', 0],
+                        },
+                      ],
+                    },
+                  ],
+                },
+              },
+              in: {
+                $cond: [
+                  {
+                    $and: [
+                      { $ne: ['$$lat', null] },
+                      { $ne: ['$$lng', null] },
+                    ],
+                  },
+                  {
+                    $concat: [
+                      { $toString: '$$lat' },
+                      ', ',
+                      { $toString: '$$lng' },
+                    ],
+                  },
+                  null,
+                ],
+              },
+            },
+          },
+          hospitalContact: { $ifNull: ['$contactNumber', '$hospitalContact'] },
+          hospitalName: 1,
+          status: 1,
+          _id: 1,
+        },
+      },
+      { $sort: { requestDate: -1 } },
+    ];
+
+    const [requests, totalResult] = await Promise.all([
+      Request.aggregate([
+        ...requestsPipeline,
+        { $skip: offset },
+        { $limit: limit },
+      ]),
+      Request.aggregate([
+        ...requestsPipeline,
+        { $count: 'count' },
+      ]),
+    ]);
+
+    const total = totalResult[0]?.count || 0;
+
+    const statsResult = await Request.aggregate([
+      { $match: { hospitalId: hospitalObjectId } },
+      {
+        $group: {
+          _id: '$status',
+          count: { $sum: 1 },
+        },
+      },
+    ]);
+
+    const statusCounts = statsResult.reduce((acc, item) => {
+      acc[item._id] = item.count;
+      return acc;
+    }, {});
+
+    const activeRequests =
+      (statusCounts.pending || 0) +
+      (statusCounts.accepted || 0) +
+      (statusCounts['in-progress'] || 0);
+    const completedRequests = statusCounts.completed || 0;
+    const cancelledRequests = statusCounts.cancelled || 0;
+
+    response.success(res, 200, 'Request history retrieved successfully', {
+      statistics: {
+        activeRequests,
+        completedRequests,
+        cancelledRequests,
+      },
+      requests,
+      pagination: paginationMeta(total, page, limit),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const createHospital = async (req, res, next) => {
   try {

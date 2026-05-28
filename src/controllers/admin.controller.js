@@ -813,7 +813,11 @@ export const getDonationTrends = async (req, res, next) => {
   try {
     const months = parseInt(req.query.months) || 6;
     const trends = await analyticsService.getDonationTrends(months);
-    return response.success(res, 200, 'Donation trends', { trends });
+    return response.success(res, 200, 'Donation trends', {
+      trends,
+      dailyTrends: trends.dailyTrends || [],
+      regionalBreakdown: trends.regionalBreakdown || [],
+    });
   } catch (error) {
     next(error);
   }
@@ -910,6 +914,68 @@ export const updateRewardsConfig = async (req, res, next) => {
 
     const data = await rewardsConfigService.updateRewardsConfig(req.body, req.user._id);
     return response.success(res, 200, 'Rewards config updated successfully', data);
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ──────────────────────────────────────────────
+//  Support Inbox
+// ──────────────────────────────────────────────
+
+export const listSupportMessages = async (req, res, next) => {
+  try {
+    const { status, category, search, page, limit } = req.query;
+    const result = await adminService.listSupportMessages(
+      { status, category, search },
+      { page, limit }
+    );
+
+    return response.success(res, 200, 'Support messages retrieved successfully', result);
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getSupportMessageById = async (req, res, next) => {
+  try {
+    const ticket = await adminService.getSupportMessageById(req.params.id);
+    if (!ticket) {
+      return response.error(res, 404, 'Support message not found');
+    }
+
+    return response.success(res, 200, 'Support message retrieved successfully', { ticket });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const reviewSupportMessage = async (req, res, next) => {
+  try {
+    const ticket = await adminService.reviewSupportMessage(req.params.id, req.user._id);
+    if (!ticket) {
+      return response.error(res, 404, 'Support message not found');
+    }
+
+    return response.success(res, 200, 'Support message marked as reviewed', { ticket });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const replySupportMessage = async (req, res, next) => {
+  try {
+    const reply = String(req.body?.reply || '').trim();
+    if (!reply) {
+      return response.error(res, 400, 'reply is required');
+    }
+
+    const ticket = await adminService.replySupportMessage(req.params.id, reply, req.user._id);
+    if (!ticket) {
+      return response.error(res, 404, 'Support message not found');
+    }
+
+    return response.success(res, 200, 'Support reply saved successfully', { ticket });
   } catch (error) {
     next(error);
   }

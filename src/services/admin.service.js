@@ -3,21 +3,25 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import * as jwt from '../utils/jwt.js';
 import { logger } from '../utils/logger.js';
+import { canDonate } from './eligibility.service.js';
 import AuditLog from '../models/AuditLog.model.js';
 import SystemSettings from '../models/SystemSettings.model.js';
 import User from '../models/User.model.js';
 import Donor from '../models/Donor.model.js';
+import DonorPoints from '../models/DonorPoints.model.js';
 import Hospital from '../models/Hospital.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
+import SupportMessage from '../models/SupportMessage.model.js';
 import RolePermission from '../models/RolePermission.model.js';
 import * as hospitalService from './hospital.service.js';
 import { sendToMultiple } from '../utils/fcm.js';
 import { ERR } from '../utils/errorCodes.js';
 import { env } from '../config/env.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
+import { buildRequestPayload } from '../controllers/request.controller.js';
 
 // ──────────────────────────────────────────────
 //  Audit Logging
@@ -64,6 +68,112 @@ export const getAuditLogs = async (filters = {}, pagination = {}) => {
   ]);
 
   return { logs, total, page: parseInt(page), limit: parseInt(limit) };
+};
+
+const toPlain = (value) => {
+  if (!value) return {};
+  if (typeof value.toObject === 'function') return value.toObject();
+  return { ...value };
+};
+
+const buildEligibilitySummary = async (donor) => {
+  if (!donor) return null;
+
+  const result = await canDonate(donor, { persistTravelDeferral: false });
+  return {
+    eligible: Boolean(result.eligible),
+    reason: result.reason || null,
+    nextEligibleDate: result.nextEligibleDate ? new Date(result.nextEligibleDate).toISOString() : null,
+  };
+};
+
+const enrichDonorUsers = async (users = []) => {
+  if (!Array.isArray(users) || users.length === 0) return users;
+
+  const donorUsers = users.filter((user) => user?.role === 'donor');
+  if (donorUsers.length === 0) return users;
+
+  const donorIds = donorUsers.map((user) => user._id);
+  const pointsAccounts = await DonorPoints.find({ donorId: { $in: donorIds } }).lean();
+  const pointsMap = new Map(pointsAccounts.map((account) => [String(account.donorId), account]));
+
+  const enrichedDonors = await Promise.all(donorUsers.map(async (donor) => {
+    const donorId = String(donor._id);
+    const pointsAccount = pointsMap.get(donorId);
+    const donorObject = toPlain(donor);
+
+    return {
+      ...donorObject,
+      pointsBalance: pointsAccount?.pointsBalance ?? 0,
+      lifetimePointsEarned: pointsAccount?.lifetimePointsEarned ?? 0,
+      tier: pointsAccount?.tier || DonorPoints.calculateTier(pointsAccount?.lifetimePointsEarned ?? 0),
+      eligibilitySummary: await buildEligibilitySummary(donorObject),
+    };
+  }));
+
+  const enrichedMap = new Map(enrichedDonors.map((donor) => [String(donor._id), donor]));
+
+  return users.map((user) => (user?.role === 'donor' ? enrichedMap.get(String(user._id)) || toPlain(user) : toPlain(user)));
+};
+
+const buildRequestTimeline = (request) => {
+  if (!request) return [];
+
+  const source = toPlain(request);
+  const timeline = [];
+
+  if (source.createdAt) {
+    timeline.push({
+      event: 'REQUEST_CREATED',
+      timestamp: source.createdAt,
+      actorType: 'system',
+      actorId: null,
+      metadata: {
+        status: source.status,
+        urgency: source.urgency,
+      },
+    });
+  }
+
+  if (source.acceptedAt) {
+    timeline.push({
+      event: 'REQUEST_ACCEPTED',
+      timestamp: source.acceptedAt,
+      actorType: 'donor',
+      actorId: source.acceptedBy || null,
+      metadata: {
+        acceptedByName: source.acceptedByName || null,
+        acceptedByBloodType: source.acceptedByBloodType || null,
+        acceptedDonationId: source.acceptedDonationId || null,
+      },
+    });
+  }
+
+  if (source.completedAt) {
+    timeline.push({
+      event: 'REQUEST_COMPLETED',
+      timestamp: source.completedAt,
+      actorType: 'system',
+      actorId: null,
+      metadata: {
+        acceptedDonationId: source.acceptedDonationId || null,
+      },
+    });
+  }
+
+  if (source.cancelledAt) {
+    timeline.push({
+      event: 'REQUEST_CANCELLED',
+      timestamp: source.cancelledAt,
+      actorType: 'admin',
+      actorId: null,
+      metadata: {
+        status: 'cancelled',
+      },
+    });
+  }
+
+  return timeline.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
 };
 
 // ──────────────────────────────────────────────
@@ -187,7 +297,12 @@ export const listUsers = async (filters = {}, pagination = {}) => {
     User.countDocuments(query),
   ]);
 
-  return { users, total, page: parseInt(page), limit: parseInt(limit) };
+  return {
+    users: await enrichDonorUsers(users),
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit),
+  };
 };
 
 /**
@@ -201,8 +316,20 @@ export const getUserById = async (id) => {
 
   // For donors, also get donation stats
   if (user.role === 'donor') {
-    const donationCount = await Donation.countDocuments({ donorId: id, status: 'completed' });
-    return { ...user.toObject(), completedDonations: donationCount };
+    const [donationCount, pointsAccount, eligibilitySummary] = await Promise.all([
+      Donation.countDocuments({ donorId: id, status: 'completed' }),
+      DonorPoints.findOne({ donorId: id }).lean(),
+      buildEligibilitySummary(toPlain(user)),
+    ]);
+
+    return {
+      ...user.toObject(),
+      completedDonations: donationCount,
+      pointsBalance: pointsAccount?.pointsBalance ?? 0,
+      lifetimePointsEarned: pointsAccount?.lifetimePointsEarned ?? 0,
+      tier: pointsAccount?.tier || DonorPoints.calculateTier(pointsAccount?.lifetimePointsEarned ?? 0),
+      eligibilitySummary,
+    };
   }
 
   // For hospitals, also get request stats
@@ -750,7 +877,31 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
     Request.countDocuments(query),
   ]);
 
-  return { requests, total, page: parseInt(page), limit: parseInt(limit) };
+  const requestIds = requests.map((request) => request._id);
+  const donationCounts = requestIds.length === 0
+    ? []
+    : await Donation.aggregate([
+        { $match: { requestId: { $in: requestIds } } },
+        { $group: { _id: '$requestId', count: { $sum: 1 } } },
+      ]);
+  const donationCountMap = new Map(donationCounts.map((entry) => [String(entry._id), entry.count]));
+
+  return {
+    requests: requests.map((request) => {
+      const requestObject = request.toObject();
+      const donationCount = donationCountMap.get(String(request._id)) || 0;
+
+      return {
+        ...requestObject,
+        ...buildRequestPayload(requestObject, null, { donationCount }),
+        donationCount,
+        timeline: buildRequestTimeline(requestObject),
+      };
+    }),
+    total,
+    page: parseInt(page),
+    limit: parseInt(limit),
+  };
 };
 
 /**
@@ -887,7 +1038,69 @@ export const getRequestDetails = async (id) => {
     .populate('donorId', 'fullName email phoneNumber bloodType location')
     .sort({ createdAt: -1 });
 
-  return { request, donations };
+  const requestObject = request.toObject();
+
+  return {
+    request: {
+      ...requestObject,
+      ...buildRequestPayload(requestObject, null, { donationCount: donations.length, donations }),
+      donationCount: donations.length,
+      timeline: buildRequestTimeline(requestObject),
+    },
+    donations,
+  };
+};
+
+export const listSupportMessages = async (filters = {}, pagination = {}) => {
+  const { status, category, search } = filters;
+  const { page = 1, limit = 20 } = pagination;
+  const skip = (page - 1) * limit;
+
+  const query = {};
+  if (status) query.status = status;
+  if (category) query.category = category;
+  if (search) {
+    query.$or = [
+      { fullName: { $regex: search, $options: 'i' } },
+      { email: { $regex: search, $options: 'i' } },
+      { subject: { $regex: search, $options: 'i' } },
+      { message: { $regex: search, $options: 'i' } },
+    ];
+  }
+
+  const [tickets, total] = await Promise.all([
+    SupportMessage.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+    SupportMessage.countDocuments(query),
+  ]);
+
+  return { tickets, total, page: parseInt(page), limit: parseInt(limit) };
+};
+
+export const getSupportMessageById = async (id) => SupportMessage.findById(id).lean();
+
+export const reviewSupportMessage = async (id, adminId) => {
+  const ticket = await SupportMessage.findById(id);
+  if (!ticket) return null;
+
+  ticket.status = 'REVIEWED';
+  ticket.adminReplyAt = ticket.adminReplyAt || new Date();
+  ticket.adminReplyBy = adminId;
+  await ticket.save({ validateBeforeSave: false });
+
+  return ticket.toObject();
+};
+
+export const replySupportMessage = async (id, reply, adminId) => {
+  const ticket = await SupportMessage.findById(id);
+  if (!ticket) return null;
+
+  ticket.status = 'REVIEWED';
+  ticket.adminReply = reply;
+  ticket.adminReplyAt = new Date();
+  ticket.adminReplyBy = adminId;
+  await ticket.save({ validateBeforeSave: false });
+
+  return ticket.toObject();
 };
 
 /**

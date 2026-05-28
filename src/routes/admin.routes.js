@@ -68,6 +68,16 @@ router.patch('/inbound-emails/:id/read', adminController.markInboundEmailRead);
 router.patch('/inbound-emails/:id/archive', adminController.archiveInboundEmail);
 
 router.delete('/inbound-emails/:id', adminController.deleteInboundEmail);
+
+// Support inbox management
+
+router.get('/support', adminController.listSupportMessages);
+
+router.get('/support/:id', adminController.getSupportMessageById);
+
+router.patch('/support/:id/review', adminController.reviewSupportMessage);
+
+router.post('/support/:id/reply', adminController.replySupportMessage);
 // Dedicated donor/hospital listing aliases
 
 router.get('/donors', adminController.listDonors);

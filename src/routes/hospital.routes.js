@@ -41,6 +41,7 @@ router.post('/request', hospitalController.createRequest);
 router.post('/requests/create-emergency', hospitalController.createRequest);
 // Hospital dashboard
 router.get('/dashboard', hospitalController.getMonthlyReports);
+router.get('/history', hospitalController.getRequestHistory);
 // Close request (dedicated flow)
 router.post('/requests/:requestId/close', hospitalController.closeRequest);
 router.get('/requests', hospitalController.getRequests);
@@ -64,7 +65,7 @@ router.delete('/notifications/:id', notificationController.deleteNotificationByI
 // Extended compatibility features
 router.get('/blood-bank-settings', hospitalController.getBloodBankSettings);
 router.put('/blood-bank-settings', hospitalController.updateBloodBankSettings);
-router.get('/blood-inventory', hospitalController.getBloodInventory);
+// Removed: GET /hospital/blood-inventory handled by admin summary endpoint
 router.get('/notification-preferences', hospitalController.getNotificationPreferences);
 router.put('/notification-preferences', hospitalController.updateNotificationPreferences);
 router.get('/reports/monthly', hospitalController.getMonthlyReports);

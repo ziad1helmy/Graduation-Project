@@ -36,6 +36,21 @@ const supportMessageSchema = new mongoose.Schema(
       enum: ['OPEN', 'REVIEWED'],
       default: 'OPEN',
     },
+    adminReply: {
+      type: String,
+      default: null,
+      trim: true,
+      maxlength: 4000,
+    },
+    adminReplyAt: {
+      type: Date,
+      default: null,
+    },
+    adminReplyBy: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'User',
+      default: null,
+    },
   },
   { timestamps: true }
 );

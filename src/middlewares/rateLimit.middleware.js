@@ -131,7 +131,6 @@ function limiter(req, res, next) {
     path.includes('/hospitals') ||
     path.includes('/users') ||
     path.includes('/alerts') ||
-    path.includes('/blood-inventory') ||
     path.includes('/blood-bank-settings') ||
     path.includes('/notification-preferences');
 

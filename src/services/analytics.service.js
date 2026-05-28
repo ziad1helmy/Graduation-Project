@@ -54,7 +54,7 @@ export const getDonationTrends = async (months = 6) => {
   const startDate = new Date();
   startDate.setMonth(startDate.getMonth() - months);
 
-  const trends = await Donation.aggregate([
+  const monthlyTrends = await Donation.aggregate([
     { $match: { createdAt: { $gte: startDate } } },
     {
       $group: {
@@ -77,7 +77,112 @@ export const getDonationTrends = async (months = 6) => {
     { $sort: { '_id.year': 1, '_id.month': 1 } },
   ]);
 
-  return trends.map((t) => ({
+  const dailyTrends = await Donation.aggregate([
+    { $match: { createdAt: { $gte: startDate } } },
+    {
+      $group: {
+        _id: {
+          year: { $year: '$createdAt' },
+          month: { $month: '$createdAt' },
+          day: { $dayOfMonth: '$createdAt' },
+        },
+        total: { $sum: 1 },
+        completed: {
+          $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] },
+        },
+        cancelled: {
+          $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] },
+        },
+        totalUnits: {
+          $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$quantity', 0] },
+        },
+      },
+    },
+    { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
+  ]);
+
+  const requestRegionResults = await Request.aggregate([
+    { $match: { createdAt: { $gte: startDate } } },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'hospitalId',
+        foreignField: '_id',
+        as: 'hospital',
+      },
+    },
+    { $unwind: { path: '$hospital', preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: { $ifNull: ['$hospital.location.governorate', 'Unknown'] },
+        requests: { $sum: 1 },
+        activeRequests: {
+          $sum: {
+            $cond: [{ $in: ['$status', ['pending', 'in-progress']] }, 1, 0],
+          },
+        },
+      },
+    },
+    { $sort: { requests: -1 } },
+  ]);
+
+  const donationRegionResults = await Donation.aggregate([
+    { $match: { createdAt: { $gte: startDate }, status: 'completed' } },
+    {
+      $lookup: {
+        from: 'requests',
+        localField: 'requestId',
+        foreignField: '_id',
+        as: 'request',
+      },
+    },
+    { $unwind: { path: '$request', preserveNullAndEmptyArrays: true } },
+    {
+      $lookup: {
+        from: 'users',
+        localField: 'request.hospitalId',
+        foreignField: '_id',
+        as: 'hospital',
+      },
+    },
+    { $unwind: { path: '$hospital', preserveNullAndEmptyArrays: true } },
+    {
+      $group: {
+        _id: { $ifNull: ['$hospital.location.governorate', 'Unknown'] },
+        completedDonations: { $sum: 1 },
+        donatedUnits: { $sum: '$quantity' },
+      },
+    },
+    { $sort: { completedDonations: -1 } },
+  ]);
+
+  const regionalMap = new Map();
+  for (const region of requestRegionResults) {
+    regionalMap.set(String(region._id), {
+      region: String(region._id),
+      requests: region.requests || 0,
+      activeRequests: region.activeRequests || 0,
+      completedDonations: 0,
+      donatedUnits: 0,
+    });
+  }
+
+  for (const region of donationRegionResults) {
+    const key = String(region._id);
+    const current = regionalMap.get(key) || {
+      region: key,
+      requests: 0,
+      activeRequests: 0,
+      completedDonations: 0,
+      donatedUnits: 0,
+    };
+
+    current.completedDonations = region.completedDonations || 0;
+    current.donatedUnits = region.donatedUnits || 0;
+    regionalMap.set(key, current);
+  }
+
+  const trends = monthlyTrends.map((t) => ({
     year: t._id.year,
     month: t._id.month,
     total: t.total,
@@ -86,6 +191,21 @@ export const getDonationTrends = async (months = 6) => {
     totalUnits: t.totalUnits,
     successRate: t.total > 0 ? ((t.completed / t.total) * 100).toFixed(1) + '%' : '0%',
   }));
+
+  trends.dailyTrends = dailyTrends.map((t) => ({
+    year: t._id.year,
+    month: t._id.month,
+    day: t._id.day,
+    total: t.total,
+    completed: t.completed,
+    cancelled: t.cancelled,
+    totalUnits: t.totalUnits,
+    successRate: t.total > 0 ? ((t.completed / t.total) * 100).toFixed(1) + '%' : '0%',
+  }));
+
+  trends.regionalBreakdown = Array.from(regionalMap.values()).sort((a, b) => (b.requests + b.completedDonations) - (a.requests + a.completedDonations));
+
+  return trends;
 };
 
 /**

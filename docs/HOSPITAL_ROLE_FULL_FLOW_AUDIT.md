@@ -225,7 +225,7 @@ Audit prepared by the engineering team during the rollback/hardening process.
 | `PUT /hospital/blood-bank-settings` | Yes | Upsert logic is correct. | Low |
 | `GET /hospital/notification-preferences` | Yes | Simple read. | Low |
 | `PUT /hospital/notification-preferences` | Yes | Upsert logic is correct. | Low |
-| `GET /hospital/blood-inventory` | Yes | Uses `adminService.getBloodInventorySummary` instead of a hospital-specific service path. | Medium |
+| `GET /hospital/blood-inventory` | REMOVED | Endpoint deleted; hospital inventory now available via `GET /admin/blood-inventory-summary` for admins. | N/A |
 | `GET /hospital/dashboard` | Yes | Shares `getMonthlyReports`; counts requests and donations, but donation aggregation uses donation `createdAt` range instead of request date semantics. | Medium |
 | `GET /hospital/reports/monthly` | Yes | Same as above. | Medium |
 

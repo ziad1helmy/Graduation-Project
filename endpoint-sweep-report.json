@@ -2307,7 +2307,7 @@
     },
     {
       "method": "GET",
-      "path": "/hospital/blood-inventory",
+      "path": "/hospital/blood-inventory (REMOVED)",
       "status": 401,
       "durationMs": 3.206,
       "body": {

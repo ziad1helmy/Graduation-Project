@@ -762,15 +762,7 @@ describe('Blood bank settings', () => {
   });
 });
 
-describe('GET /hospital/blood-inventory', () => {
-  it('returns 200 for authenticated hospital', async () => {
-    const hospital = await createHospital();
-    const res = await request(app)
-      .get('/hospital/blood-inventory')
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
-    expect(res.status).toBe(200);
-  });
-});
+// Removed tests for GET /hospital/blood-inventory — endpoint deleted; use admin summary tests instead
 
 describe('Notification preferences', () => {
   it('GET /hospital/notification-preferences returns 200', async () => {

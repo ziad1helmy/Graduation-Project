@@ -108,7 +108,7 @@
     '/hospital/blood-bank-settings': 'Profile & Configuration',
     '/hospital/notification-preferences': 'Profile & Configuration',
 
-    '/hospital/blood-inventory': 'Inventory Management',
+    // '/hospital/blood-inventory': 'Inventory Management', // removed — endpoint deleted
 
     '/hospital/request': 'Blood Requests & Donations',
     '/hospital/requests': 'Blood Requests & Donations',
