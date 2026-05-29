@@ -5,7 +5,6 @@ import { env } from '../config/env.js';
 import * as geoUtil from '../utils/geo.js';
 import { canDonate } from './eligibility.service.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
-import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import {
   getCompatibleDonorTypesForRequest,
   isBloodTypeCompatibleWithAnyRequestType,
