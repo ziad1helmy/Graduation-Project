@@ -2278,17 +2278,9 @@
             "bearerAuth": []
           }
         ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "requestId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "example": "69fe540565ff7785a031314f"
-          }
-        ],
+        "parameters": {
+          "description": "This endpoint returns the donor's current eligibility based on their profile. It does not accept query parameters."
+        },
         "responses": {
           "200": {
             "description": "Eligibility check completed",
@@ -2298,9 +2290,13 @@
                   "success": true,
                   "message": "Eligibility result",
                   "data": {
-                    "eligible": true,
-                    "canProceed": true,
-                    "reason": "Donor is eligible for this request"
+                    "isEligible": true,
+                    "reason": null,
+                    "nextEligibleDate": null,
+                    "participationEnabled": true,
+                    "lastDonationDate": "2026-05-10T00:00:00.000Z",
+                    "cooldownDays": 56,
+                    "daysRemaining": 0
                   }
                 }
               }
@@ -2452,6 +2448,16 @@
               "format": "date"
             },
             "example": "2026-05-12"
+          },
+          {
+            "in": "query",
+            "name": "excludeAppointmentId",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Optional current appointment id to exclude when checking slot capacity during reschedule",
+            "example": "69fe540565ff7785a031315c"
           }
         ],
         "responses": {
@@ -2470,7 +2476,9 @@
                     ],
                     "hospitalId": "69f3df915f42685cbbbcbb1b",
                     "date": "2026-05-12T00:00:00.000Z",
-                    "slotsPerHour": 4
+                    "slotsPerHour": 4,
+                    "openingTime": "08:00",
+                    "closingTime": "19:00"
                   }
                 }
               }
@@ -2678,23 +2686,27 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "date"
+                  "appointmentDate"
                 ],
                 "properties": {
-                  "date": {
+                  "appointmentDate": {
                     "type": "string",
                     "format": "date-time"
                   },
                   "donationType": {
                     "type": "string",
                     "description": "Donation type label or supported alias"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "Optional donor-provided reason for rescheduling"
                   }
                 }
               },
               "example": {
-                "date": "2026-05-13",
-                "time": "11:00 AM",
-                "donationType": "Plasma"
+                "appointmentDate": "2026-05-13T11:00:00.000Z",
+                "donationType": "Plasma",
+                "reason": "Travel conflict"
               }
             }
           }
@@ -2752,14 +2764,24 @@
                       "urgencyLevel": "high",
                       "unitsNeeded": 2,
                       "notes": "Donation follow-up appointment"
-                    }
+                    },
+                    "rescheduleHistory": [
+                      {
+                        "previousAppointmentDate": "2026-05-12T10:00:00.000Z",
+                        "newAppointmentDate": "2026-05-15T14:00:00.000Z",
+                        "previousDonationType": "Whole Blood",
+                        "newDonationType": "Plasma",
+                        "reason": "Travel conflict",
+                        "rescheduledAt": "2026-05-10T09:30:00.000Z"
+                      }
+                    ]
                   }
                 }
               }
             }
           },
           "400": {
-            "description": "Invalid appointment payload"
+            "description": "Invalid appointment payload or reschedule not allowed for the selected appointment/request"
           },
           "401": {
             "description": "Missing or invalid JWT"

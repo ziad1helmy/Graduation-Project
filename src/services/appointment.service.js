@@ -7,6 +7,7 @@ import Request from '../models/Request.model.js';
 import Hospital from '../models/Hospital.model.js';
 import Notification from '../models/Notification.model.js';
 import * as donationService from './donation.service.js';
+import * as eligibilityService from './eligibility.service.js';
 import * as activityService from './activity.service.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
@@ -18,6 +19,7 @@ const QR_VALIDITY_BUFFER_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_MAX_RESCHEDULES = 3;
 const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
 const ACTIVE_REQUEST_STATUSES = ['pending', 'accepted', 'in-progress'];
+const APPOINTMENT_DAY_LABELS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 const DONATION_TYPE_REQUEST_MAP = new Map([
   [DONATION_TYPE_LABELS.WHOLE_BLOOD.toLowerCase(), 'blood'],
@@ -67,7 +69,253 @@ const getHospitalSettings = async (hospitalId) => {
     { upsert: true, returnDocument: 'after' }
   );
 
-  return settings?.appointmentSettings || null;
+  // Return appointmentSettings if they exist, otherwise return default active settings
+  return settings?.appointmentSettings || {
+    isActive: true,
+    openingTime: '09:00',
+    closingTime: '17:00',
+    workingDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    defaultSlotsPerHour: 4,
+    supportedDonationTypes: ['Whole Blood', 'Plasma', 'Platelets', 'Double Red Cells'],
+    minAdvanceHours: 0,
+    maxAdvanceDays: 30,
+    rescheduleAllowed: true,
+    maxReschedules: 3,
+    cancellationAllowedHours: 12,
+  };
+};
+
+const parseAppointmentTime = (value) => {
+  if (!value) return null;
+
+  const trimmed = String(value).trim();
+  const twentyFourHourMatch = trimmed.match(/^(\d{2}):(\d{2})$/);
+  if (twentyFourHourMatch) {
+    return {
+      hour: Number(twentyFourHourMatch[1]),
+      minute: Number(twentyFourHourMatch[2]),
+    };
+  }
+
+  const twelveHourMatch = trimmed.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (twelveHourMatch) {
+    let hour = Number(twelveHourMatch[1]);
+    const minute = Number(twelveHourMatch[2]);
+    const period = twelveHourMatch[3].toUpperCase();
+
+    if (period === 'PM' && hour !== 12) hour += 12;
+    if (period === 'AM' && hour === 12) hour = 0;
+
+    return { hour, minute };
+  }
+
+  return null;
+};
+
+const getAppointmentDayLabel = (dateValue) => APPOINTMENT_DAY_LABELS[new Date(dateValue).getDay()] || null;
+
+const getAppointmentWindow = (hospital, hospitalSettings) => {
+  const openingTime = hospitalSettings?.openingTime || `${String(hospital?.workingHoursStart ?? 9).padStart(2, '0')}:00`;
+  const closingTime = hospitalSettings?.closingTime || `${String(hospital?.workingHoursEnd ?? 17).padStart(2, '0')}:00`;
+
+  return {
+    openingTime,
+    closingTime,
+    openingHour: Number(String(openingTime).split(':')[0]),
+    closingHour: Number(String(closingTime).split(':')[0]),
+  };
+};
+
+const getHourCapacity = (appointmentDate, hospital, hospitalSettings) => {
+  const hourlySlots = hospitalSettings?.hourlySlots instanceof Map
+    ? Object.fromEntries(hospitalSettings.hourlySlots.entries())
+    : (hospitalSettings?.hourlySlots || {});
+  const slotKey = `${String(appointmentDate.getHours()).padStart(2, '0')}:00`;
+  const fallbackCapacity = Number(hospitalSettings?.defaultSlotsPerHour ?? hospital?.slotsPerHour ?? 5);
+  return Number(hourlySlots[slotKey] ?? fallbackCapacity);
+};
+
+const getDailyCapacity = (hospital, hospitalSettings) => {
+  const explicitDailyCapacity = Number(hospitalSettings?.totalDailyCapacity ?? hospital?.totalDailyCapacity ?? 0);
+  if (Number.isFinite(explicitDailyCapacity) && explicitDailyCapacity > 0) {
+    return explicitDailyCapacity;
+  }
+
+  const hourlySlots = hospitalSettings?.hourlySlots instanceof Map
+    ? Object.fromEntries(hospitalSettings.hourlySlots.entries())
+    : (hospitalSettings?.hourlySlots || {});
+  const defaultSlotsPerHour = Number(hospitalSettings?.defaultSlotsPerHour ?? hospital?.slotsPerHour ?? 5);
+  const slotValues = Object.values(hourlySlots);
+
+  if (slotValues.length) {
+    return slotValues.reduce((sum, value) => sum + Number(value || defaultSlotsPerHour), 0);
+  }
+
+  const { openingHour, closingHour } = getAppointmentWindow(hospital, hospitalSettings);
+  return Math.max((closingHour - openingHour) * defaultSlotsPerHour, defaultSlotsPerHour);
+};
+
+const getNormalizedDonationType = (value, fallback = null) => normalizeDonationType(value) || normalizeDonationType(fallback) || DONATION_TYPE_LABELS.WHOLE_BLOOD;
+
+const assertAppointmentWindow = ({ appointmentDate, hospital, hospitalSettings, mode = 'create' }) => {
+  if (!(appointmentDate instanceof Date) || Number.isNaN(appointmentDate.getTime())) {
+    throw new Error(mode === 'reschedule' ? 'New appointment date is invalid' : 'Appointment date is invalid');
+  }
+
+  const now = new Date();
+  if (appointmentDate <= now) {
+    throw new Error(mode === 'reschedule' ? 'New appointment date must be in the future' : 'Appointment date must be in the future');
+  }
+
+  const minAdvanceHours = Number(hospitalSettings?.minAdvanceHours ?? 24);
+  const maxAdvanceDays = Number(hospitalSettings?.maxAdvanceDays ?? 30);
+  const minAllowedDate = new Date(now.getTime() + minAdvanceHours * 60 * 60 * 1000);
+  const maxAllowedDate = new Date(now.getTime() + maxAdvanceDays * 24 * 60 * 60 * 1000);
+
+  if (appointmentDate < minAllowedDate) {
+    throw new Error(mode === 'reschedule'
+      ? `Reschedule must be at least ${minAdvanceHours} hours in advance`
+      : `Appointment must be at least ${minAdvanceHours} hours in advance`);
+  }
+
+  if (appointmentDate > maxAllowedDate) {
+    throw new Error(mode === 'reschedule'
+      ? `Reschedule cannot be more than ${maxAdvanceDays} days in advance`
+      : `Appointment cannot be more than ${maxAdvanceDays} days in advance`);
+  }
+
+  const dayLabel = getAppointmentDayLabel(appointmentDate);
+  const workingDays = Array.isArray(hospitalSettings?.workingDays) && hospitalSettings.workingDays.length
+    ? hospitalSettings.workingDays
+    : ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+  if (!workingDays.includes(dayLabel)) {
+    throw new Error('Selected day is not available for appointments');
+  }
+
+  const { openingHour, closingHour } = getAppointmentWindow(hospital, hospitalSettings);
+  const appointmentHour = appointmentDate.getHours();
+
+  if (appointmentHour < openingHour || appointmentHour >= closingHour) {
+    throw new Error('Selected time slot is outside operating hours');
+  }
+};
+
+const assertHospitalIsEligible = async (hospitalId) => {
+  const hospital = await User.findById(hospitalId).select('role isEmailVerified isSuspended deletedAt fullName hospitalName workingHoursStart workingHoursEnd slotsPerHour totalDailyCapacity');
+
+  if (!hospital || hospital.role !== 'hospital' || hospital.deletedAt) {
+    throw new Error('Hospital not found');
+  }
+
+  if (hospital.isSuspended) {
+    throw new Error('Hospital is suspended');
+  }
+
+  if (!hospital.isEmailVerified) {
+    throw new Error('Hospital is not verified');
+  }
+
+  const hospitalSettings = await getHospitalSettings(hospitalId);
+  if (!hospitalSettings?.isActive) {
+    throw new Error('Hospital appointment scheduling is currently disabled');
+  }
+
+  return { hospital, hospitalSettings };
+};
+
+const assertAppointmentEligibility = async ({ donor, donationType, request = null, mode = 'create' }) => {
+  const normalizedDonationType = getNormalizedDonationType(donationType, request?.type);
+  const requestType = normalizeDonationTypeRequestKey(normalizedDonationType) || request?.type || 'blood';
+
+  if (request) {
+    const requestObject = request.toObject?.() || request;
+    const eligibilityRequest = { ...requestObject, type: requestType };
+    const eligibility = await donationService.validateEligibility(donor, eligibilityRequest);
+    if (!eligibility.eligible) {
+      throw new Error(eligibility.reason || 'Donor is not eligible for this request');
+    }
+  } else {
+    const eligibility = await eligibilityService.canDonate(donor, {
+      persistTravelDeferral: false,
+      donationType: requestType,
+    });
+
+    if (!eligibility.eligible) {
+      throw new Error(eligibility.reason || (mode === 'reschedule' ? 'Donor is not eligible for this donation type' : 'Donor is not eligible for this appointment'));
+    }
+  }
+
+  return normalizedDonationType;
+};
+
+const assertCapacityForAppointment = async ({ hospitalId, hospital, hospitalSettings, appointmentDate, excludeAppointmentId = null }) => {
+  const dayStart = new Date(appointmentDate);
+  dayStart.setHours(0, 0, 0, 0);
+  const nextDay = new Date(dayStart);
+  nextDay.setDate(nextDay.getDate() + 1);
+
+  const activeAppointmentsQuery = {
+    hospitalId,
+    appointmentDate: { $gte: dayStart, $lt: nextDay },
+    status: { $in: ACTIVE_APPOINTMENT_STATUSES },
+  };
+
+  if (excludeAppointmentId) {
+    activeAppointmentsQuery._id = { $ne: excludeAppointmentId };
+  }
+
+  const appointments = await Appointment.find(activeAppointmentsQuery).select('appointmentDate');
+  const appointmentHour = appointmentDate.getHours();
+  const slotCapacity = getHourCapacity(appointmentDate, hospital, hospitalSettings);
+  const bookedCount = appointments.filter((existing) => new Date(existing.appointmentDate).getHours() === appointmentHour).length;
+
+  if (bookedCount >= slotCapacity) {
+    throw new Error('Selected time slot is no longer available');
+  }
+
+  const dailyCapacity = getDailyCapacity(hospital, hospitalSettings);
+  if (appointments.length >= dailyCapacity) {
+    throw new Error('Daily appointment capacity has been reached');
+  }
+};
+
+const validateAppointmentScheduling = async ({
+  hospitalId,
+  donor,
+  appointmentDate,
+  donationType,
+  request = null,
+  mode = 'create',
+  excludeAppointmentId = null,
+}) => {
+  const { hospital, hospitalSettings } = await assertHospitalIsEligible(hospitalId);
+  const normalizedDonationType = await assertAppointmentEligibility({ donor, donationType, request, mode });
+
+  if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
+    throw new Error('Invalid donation type');
+  }
+
+  if (hospitalSettings?.supportedDonationTypes?.length && !hospitalSettings.supportedDonationTypes.includes(normalizedDonationType)) {
+    throw new Error('Hospital does not support this donation type');
+  }
+
+  assertAppointmentWindow({
+    appointmentDate,
+    hospital,
+    hospitalSettings,
+    mode,
+  });
+
+  await assertCapacityForAppointment({
+    hospitalId,
+    hospital,
+    hospitalSettings,
+    appointmentDate,
+    excludeAppointmentId,
+  });
+
+  return { hospital, hospitalSettings, normalizedDonationType };
 };
 
 const formatSlotLabel = (dateValue) => {
@@ -314,11 +562,9 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
 
     const donorDetails = toAppointmentResponse({ donorId: donor }).donorDetails;
 
-    const hospital = await User.findById(hospitalId);
-    if (!hospital || hospital.role !== 'hospital') throw new Error('Hospital not found');
-
+    let request = null;
     if (requestId) {
-      const request = await Request.findById(requestId);
+      request = await Request.findById(requestId);
       if (!request) throw new Error('Request not found');
 
       if (request.hospitalId?.toString?.() !== hospitalId.toString()) {
@@ -328,31 +574,17 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       if (!isRequestStillActive(request)) {
         throw new Error('The linked request is no longer active');
       }
-
-      const eligibility = await donationService.validateEligibility(donor, request);
-      if (!eligibility.eligible) {
-        throw new Error(eligibility.reason || 'Donor is not eligible for this request');
-      }
     }
 
     const apptDate = new Date(appointmentDate);
-    if (isNaN(apptDate.getTime()) || apptDate <= new Date()) {
-      throw new Error('Appointment date must be in the future');
-    }
-
-    const normalizedDonationType = normalizeDonationType(donationType) || DONATION_TYPE_LABELS.WHOLE_BLOOD;
-    if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
-      throw new Error('Invalid donation type');
-    }
-
-    const hospitalSettings = await getHospitalSettings(hospitalId);
-    const supportedDonationTypes = Array.isArray(hospitalSettings?.supportedDonationTypes)
-      ? hospitalSettings.supportedDonationTypes
-      : DONATION_TYPE_OPTIONS;
-
-    if (!supportedDonationTypes.includes(normalizedDonationType)) {
-      throw new Error('Hospital does not support this donation type');
-    }
+    const { normalizedDonationType } = await validateAppointmentScheduling({
+      hospitalId,
+      donor,
+      appointmentDate: apptDate,
+      donationType,
+      request,
+      mode: 'create',
+    });
 
     // Prevent duplicate active appointment for same donor + hospital
     const existing = await Appointment.findOne({
@@ -498,13 +730,22 @@ export const rescheduleAppointment = async (appointmentId, donorId, updateInput,
     if (!donor) throw new Error('Donor not found');
 
     const request = appointment.requestId ? await Request.findById(appointment.requestId) : null;
-    const normalizedDonationType = normalizeDonationType(updatePayload.donationType)
-      || normalizeDonationType(appointment.donationType)
-      || DONATION_TYPE_LABELS.WHOLE_BLOOD;
 
-    if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
-      throw new Error('Invalid donation type');
-    }
+    await assertRescheduleAvailability({
+      appointment,
+      appointmentDate: apptDate,
+      donationType: updatePayload.donationType || appointment.donationType,
+    });
+
+    const { normalizedDonationType } = await validateAppointmentScheduling({
+      hospitalId: appointment.hospitalId,
+      donor,
+      appointmentDate: apptDate,
+      donationType: updatePayload.donationType || appointment.donationType,
+      request,
+      mode: 'reschedule',
+      excludeAppointmentId: appointment._id,
+    });
 
     if (
       isSameInstant(appointment.appointmentDate, apptDate)
@@ -513,25 +754,9 @@ export const rescheduleAppointment = async (appointmentId, donorId, updateInput,
       throw new Error('New appointment details must be different from the current appointment');
     }
 
-    const requestType = normalizeDonationTypeRequestKey(normalizedDonationType) || request?.type || 'blood';
-    const eligibilityRequest = request
-      ? { ...(request.toObject?.() || request), type: requestType }
-      : { type: requestType, bloodType: appointment.requestId?.bloodType || null };
-
-    const eligibility = await donationService.validateEligibility(donor, eligibilityRequest);
-    if (!eligibility.eligible) {
-      throw new Error(eligibility.reason || 'Donor is not eligible for this donation type');
-    }
-
     if (!isRequestStillActive(request)) {
       throw new Error('The linked request is no longer active');
     }
-
-    await assertRescheduleAvailability({
-      appointment,
-      appointmentDate: apptDate,
-      donationType: normalizedDonationType,
-    });
 
     const previousAppointmentDate = appointment.appointmentDate;
     const previousDonationType = appointment.donationType || null;
@@ -651,9 +876,16 @@ export const getAvailableSlots = async (hospitalId, date, options = {}) => {
       const slotKey = `${String(hour).padStart(2, '0')}:00`;
       const slotCapacity = Number(hourlySlots[slotKey] ?? capacity);
       const bookedCount = countsByHour[hour] || 0;
-      if (bookedCount < slotCapacity) {
-        timeSlots.push(formatHourLabel(hour));
-      }
+      const remainingCapacity = slotCapacity - bookedCount;
+      const isAvailable = remainingCapacity > 0;
+      
+      // Always include slot info (even if full) to let frontend show "Full" status
+      timeSlots.push({
+        time: slotKey,
+        remainingCapacity,
+        maxCapacity: slotCapacity,
+        available: isAvailable,
+      });
     }
 
     return {

@@ -354,6 +354,7 @@ describe('GET /hospital/find-donors', () => {
     });
 
     const appointmentDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    appointmentDate.setHours(14, 0, 0, 0); // Set to 2:00 PM for safe booking
 
     const res = await request(app)
       .post(`/hospital/donors/${donor._id}/appointments`)

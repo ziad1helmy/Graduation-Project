@@ -2,13 +2,28 @@ import response from '../utils/response.js';
 import * as appointmentService from '../services/appointment.service.js';
 import ERR from '../utils/errorCodes.js';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
-import { toAppointmentResponse, appointmentPopulateOptions, buildAppointmentConfirmationResponse } from '../utils/appointment.dto.js';
+import { toAppointmentResponse, appointmentPopulateOptions } from '../utils/appointment.dto.js';
 
 const getDonorId = (req) => req?.user?.userId || req?.user?._id;
 
+const hasExplicitTime = (value) => {
+  if (!value) return false;
+
+  const rawValue = String(value).trim();
+  return /T\d{2}:\d{2}/.test(rawValue) || /\d{1,2}:\d{2}\s*(AM|PM)/i.test(rawValue);
+};
+
 const buildAppointmentDate = ({ appointmentDate, date, time }) => {
-  if (appointmentDate) return new Date(appointmentDate);
-  if (!date) return null;
+  if (appointmentDate) {
+    if (typeof appointmentDate === 'string' && !hasExplicitTime(appointmentDate)) {
+      return null;
+    }
+
+    const parsedAppointmentDate = new Date(appointmentDate);
+    return Number.isNaN(parsedAppointmentDate.getTime()) ? null : parsedAppointmentDate;
+  }
+
+  if (!date || !time) return null;
 
   const scheduledDate = new Date(date);
   if (Number.isNaN(scheduledDate.getTime())) return null;
@@ -55,9 +70,7 @@ export const bookAppointment = async (req, res, next) => {
       normalizedDonationType
     );
 
-    const appointmentObj = appointment.toObject ? appointment.toObject() : appointment;
-
-    return response.success(res, 201, 'Appointment booked', appointmentObj);
+    return response.success(res, 201, 'Appointment booked', toAppointmentResponse(appointment));
   } catch (error) {
     if (error.message === 'Hospital not found' || error.message === 'Donor not found') {
       return response.error(res, 404, error.message);
@@ -78,6 +91,7 @@ export const bookAppointment = async (req, res, next) => {
       error.message === 'Donor is not currently available' ||
       error.message === 'Donor is suspended' ||
       error.message === 'Donor has not provided blood type information' ||
+      error.message === 'Selected time slot is outside operating hours' ||
       error.message.startsWith('Donor blood type ') ||
       error.message.startsWith('Must wait ')
     ) {
@@ -152,7 +166,7 @@ export const getAppointmentById = async (req, res, next) => {
 
     // Populate for HTTP response then apply DTO transformation.
     await appointment.populate(appointmentPopulateOptions);
-    return response.success(res, 200, 'Appointment retrieved', buildAppointmentConfirmationResponse(appointment).data);
+    return response.success(res, 200, 'Appointment retrieved', toAppointmentResponse(appointment));
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
@@ -165,8 +179,10 @@ export const rescheduleAppointment = async (req, res, next) => {
     const donorId = getDonorId(req);
     const appointmentId = req.params.appointmentId;
     // Accept either { date, time } (human-readable) or a plain ISO date string in `date`.
-    const { date, time, appointmentDate, donationType, reason } = req.body;
+    const { date, time, appointmentDate, donationType, reason, notes } = req.body;
     const newDate = buildAppointmentDate({ appointmentDate, date, time });
+    // Support both 'notes' (preferred) and 'reason' (legacy) fields
+    const rescheduleReason = notes || reason;
 
     if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
     if (!newDate) return response.error(res, 400, 'date is required');
@@ -174,10 +190,10 @@ export const rescheduleAppointment = async (req, res, next) => {
     const appointment = await appointmentService.rescheduleAppointment(appointmentId, donorId, {
       appointmentDate: newDate,
       donationType,
-      reason,
+      reason: rescheduleReason,
     });
 
-    return response.success(res, 200, 'Appointment rescheduled', buildAppointmentConfirmationResponse(appointment).data);
+    return response.success(res, 200, 'Appointment rescheduled', toAppointmentResponse(appointment));
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');

@@ -1,5 +1,6 @@
 import response from '../utils/response.js';
 import Hospital from '../models/Hospital.model.js';
+import HospitalSettings from '../models/HospitalSettings.model.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import Request from '../models/Request.model.js';
 import { calculateDistance } from '../utils/geo.js';
@@ -34,6 +35,9 @@ const mapHospital = (h, extras = {}) => ({
   bloodTypes: h.bloodBanksAvailable || [],
   isAvailable: (h.bloodBanksAvailable || []).length > 0,
   urgentNeedsCount: extras.urgentNeedsCount ?? 0,
+  appointmentSchedulingEnabled: extras.appointmentSchedulingEnabled ?? true,
+  hospitalActive: extras.hospitalActive ?? true,
+  hospitalVerified: extras.hospitalVerified ?? h.isEmailVerified ?? false,
   ...extras,
 });
 
@@ -57,8 +61,23 @@ export const listHospitals = async (req, res, next) => {
       Hospital.countDocuments(query),
     ]);
 
+    // Fetch HospitalSettings for each hospital to include scheduling status
+    const hospitalIds = hospitals.map(h => h._id);
+    const settingsMap = new Map();
+    if (hospitalIds.length > 0) {
+      const settings = await HospitalSettings.find({ hospitalId: { $in: hospitalIds } });
+      settings.forEach(s => settingsMap.set(s.hospitalId.toString(), s));
+    }
+
     return response.success(res, 200, 'Hospitals retrieved successfully', {
-      hospitals: hospitals.map(mapHospital),
+      hospitals: hospitals.map(h => {
+        const settings = settingsMap.get(h._id.toString());
+        return mapHospital(h, {
+          appointmentSchedulingEnabled: settings?.appointmentSettings?.isActive ?? true,
+          hospitalActive: !h.isSuspended,
+          hospitalVerified: h.isEmailVerified,
+        });
+      }),
       pagination: paginationMeta(total, page, limit),
     });
   } catch (error) {
@@ -80,10 +99,17 @@ export const getHospitalById = async (req, res, next) => {
       return response.error(res, 404, 'Hospital not found');
     }
 
+    // Fetch HospitalSettings for this hospital
+    const settings = await HospitalSettings.findOne({ hospitalId: hospital._id });
+
     // If client provided a lat/long, compute distance to this hospital
     const lat = Number(req.query.lat ?? req.query.latitude);
     const lng = Number(req.query.long ?? req.query.longitude);
-    const result = mapHospital(hospital);
+    const result = mapHospital(hospital, {
+      appointmentSchedulingEnabled: settings?.appointmentSettings?.isActive ?? true,
+      hospitalActive: !hospital.isSuspended,
+      hospitalVerified: hospital.isEmailVerified,
+    });
     const hLat = hospital.lat ?? hospital.location?.coordinates?.lat;
     const hLng = hospital.long ?? hospital.location?.coordinates?.lng;
     if (Number.isFinite(lat) && Number.isFinite(lng) && Number.isFinite(hLat) && Number.isFinite(hLng)) {
@@ -126,8 +152,21 @@ export const getNearbyHospitals = async (req, res, next) => {
     ]);
     const urgentMap = Object.fromEntries(urgentCounts.map(u => [u._id.toString(), u.count]));
 
+    // Fetch HospitalSettings for all hospitals
+    const hospitalIds = hospitals.map(h => h._id);
+    const settingsMap = new Map();
+    if (hospitalIds.length > 0) {
+      const settings = await HospitalSettings.find({ hospitalId: { $in: hospitalIds } });
+      settings.forEach(s => settingsMap.set(s.hospitalId.toString(), s));
+    }
+
     let mapped = hospitals.map((h) => {
-      const entry = mapHospital(h);
+      const settings = settingsMap.get(h._id.toString());
+      const entry = mapHospital(h, {
+        appointmentSchedulingEnabled: settings?.appointmentSettings?.isActive ?? true,
+        hospitalActive: !h.isSuspended,
+        hospitalVerified: h.isEmailVerified,
+      });
       // Support both new format (lat/long) and old format (location.coordinates)
       const hLat = h.lat ?? h.location?.coordinates?.lat;
       const hLng = h.long ?? h.location?.coordinates?.lng;
@@ -182,20 +221,23 @@ export const searchHospitals = async (req, res, next) => {
     }
 
     const hospitals = await Hospital.find(query).sort({ hospitalName: 1, fullName: 1 }).limit(100);
-    let results = hospitals.map((hospital) => ({
-      id: hospital._id,
-      name: hospital.hospitalName || hospital.fullName,
-      address: hospital.address || null,
-      bloodTypes: hospital.bloodBanksAvailable || [],
-      isAvailable: (hospital.bloodBanksAvailable || []).length > 0,
-      lat: hospital.lat ?? null,
-      lng: hospital.long ?? null,
-      location: Number.isFinite(hospital.lat) && Number.isFinite(hospital.long)
-        ? { lat: hospital.lat, lng: hospital.long }
-        : null,
-      hospitalType: hospital.hospitalType || hospital.type || 'General Hospital',
-      workingHours: hospital.workingHours || '9AM - 5PM',
-    }));
+
+    // Fetch HospitalSettings for all hospitals
+    const hospitalIds = hospitals.map(h => h._id);
+    const settingsMap = new Map();
+    if (hospitalIds.length > 0) {
+      const settings = await HospitalSettings.find({ hospitalId: { $in: hospitalIds } });
+      settings.forEach(s => settingsMap.set(s.hospitalId.toString(), s));
+    }
+
+    let results = hospitals.map((hospital) => {
+      const settings = settingsMap.get(hospital._id.toString());
+      return mapHospital(hospital, {
+        appointmentSchedulingEnabled: settings?.appointmentSettings?.isActive ?? true,
+        hospitalActive: !hospital.isSuspended,
+        hospitalVerified: hospital.isEmailVerified,
+      });
+    });
     
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
       results = results.map((hospital) => {

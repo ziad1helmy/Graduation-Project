@@ -211,7 +211,7 @@ describe('Discovery Controller', () => {
       expect(payload.data.hospitals[0].name).toContain('Hope');
       expect(payload.data.hospitals[0].bloodTypes).toContain('O+');
       expect(payload.data.hospitals[0].isAvailable).toBe(true);
-      expect(payload.data.hospitals[0].id.toString()).toBe(targetHospital._id.toString());
+      expect(payload.data.hospitals[0].hospitalId.toString()).toBe(targetHospital._id.toString());
     });
 
     it('returns minimal payload for map markers', async () => {

@@ -74,12 +74,12 @@ const extractDonorLocation = (donor) => {
   return { latitude, longitude };
 };
 
-export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHING_DISTANCE_KM } = {}) => {
+export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHING_DISTANCE_KM, allowOptedOut = false } = {}) => {
   if (!donor || !request) {
     return { matched: false, reason: 'Donor or request not found' };
   }
 
-  if (donor.isOptedIn === false) {
+  if (!allowOptedOut && donor.isOptedIn === false) {
     return { matched: false, reason: 'Donor opted out of matching' };
   }
 
@@ -292,7 +292,7 @@ export const searchCompatibleDonors = async ({
       const match = await evaluateMatch(donor, {
         ...searchRequest,
         locationHospital: { latitude: location.coordinates.lat, longitude: location.coordinates.lng },
-      }, { radiusKm: normalizedRadiusKm });
+      }, { radiusKm: normalizedRadiusKm, allowOptedOut: participation === false });
 
       if (!match.matched) {
         continue;

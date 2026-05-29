@@ -1674,13 +1674,16 @@ paths:
                 appointmentDate:
                   type: string
                   format: date-time
+                donationType:
+                  type: string
+                  description: Donation type (e.g. "Whole Blood", "Plasma", "Platelets", "Double Red Cells")
                 notes:
                   type: string
                   maxLength: 500
             example:
               hospitalId: 69f3df915f42685cbbbcbb1b
-              requestId: 69fe540565ff7785a031314f
               appointmentDate: 2026-05-12T10:00:00.000Z
+              donationType: Whole Blood
               notes: Available in the morning.
       responses:
         "201":
@@ -1707,7 +1710,7 @@ paths:
                     _id: 69f3df915f42685cbbbcbb1b
                     hospitalName: Cairo Care Hospital
                     fullName: Cairo Care Operations
-                  requestId: 69fe540565ff7785a031314f
+                  requestId: null
                   appointmentDate: 2026-05-12T10:00:00.000Z
                   status: pending
                   qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
@@ -1765,9 +1768,18 @@ paths:
                 message: Available slots retrieved successfully
                 data:
                   timeSlots:
-                    - 08:00 AM
-                    - 09:00 AM
-                    - 10:00 AM
+                    - time: "08:00"
+                      remainingCapacity: 2
+                      maxCapacity: 4
+                      available: true
+                    - time: "09:00"
+                      remainingCapacity: 0
+                      maxCapacity: 4
+                      available: false
+                    - time: "10:00"
+                      remainingCapacity: 3
+                      maxCapacity: 4
+                      available: true
                   hospitalId: 69f3df915f42685cbbbcbb1b
                   date: 2026-05-12T00:00:00.000Z
                   slotsPerHour: 4
@@ -1920,22 +1932,24 @@ paths:
             schema:
               type: object
               required:
-                - date
+                - appointmentDate
               properties:
-                date:
+                appointmentDate:
                   type: string
                   format: date-time
                 donationType:
                   type: string
                   description: Donation type label or supported alias
+                notes:
+                  type: string
+                  description: Optional donor-provided reason for rescheduling (preferred field)
                 reason:
                   type: string
-                  description: Optional donor-provided reason for rescheduling
+                  description: Optional donor-provided reason for rescheduling (legacy alias for 'notes')
             example:
-              date: 2026-05-13
-              time: 11:00 AM
+              appointmentDate: 2026-05-13T11:00:00.000Z
               donationType: Plasma
-              reason: Travel conflict
+              notes: Travel conflict
       responses:
         "200":
           description: Appointment rescheduled
@@ -3082,6 +3096,9 @@ paths:
                       distanceKm: 2.35
                       distanceMeters: 2350
                       distance: 2.35 km
+                      appointmentSchedulingEnabled: true
+                      hospitalActive: true
+                      hospitalVerified: true
                   pagination:
                     page: 1
                     limit: 20
@@ -3105,7 +3122,10 @@ paths:
                 data:
                   hospitals:
                     - id: 69f3df915f42685cbbbcbb1b
+                      hospitalId: 69f3df915f42685cbbbcbb1b
+                      hospital_id: 69f3df915f42685cbbbcbb1b
                       name: Cairo Care Hospital
+                      fullName: Cairo Care Operations
                       address:
                         city: Cairo
                         governorate: Cairo
@@ -3124,6 +3144,9 @@ paths:
                       distanceKm: 2.4
                       distanceMeters: 2400
                       distance: 2.40 km
+                      appointmentSchedulingEnabled: true
+                      hospitalActive: true
+                      hospitalVerified: true
   /hospitals/map:
     get:
       summary: Get hospitals for map markers
@@ -3198,6 +3221,9 @@ paths:
                     distanceKm: 2.4
                     distanceMeters: 2400
                     distance: 2.40 km
+                    appointmentSchedulingEnabled: true
+                    hospitalActive: true
+                    hospitalVerified: true
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."

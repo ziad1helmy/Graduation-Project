@@ -60,6 +60,11 @@ vi.mock('../../src/services/hospital.service.js', () => ({
   createHospitalByAdmin: vi.fn(),
 }));
 
+vi.mock('../../src/services/appointment.service.js', () => ({
+  cancelActiveAppointmentsForRequest: vi.fn().mockResolvedValue({}),
+  bookAppointment: vi.fn(),
+}));
+
 describe('Hospital Controller', () => {
   const hospitalId = '507f1f77bcf86cd799439011';
   const requestId = '507f1f77bcf86cd799439022';

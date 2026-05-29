@@ -23,6 +23,28 @@ const bookAppointmentPayload = ({ hospitalId, requestId, appointmentDate, donati
   donationType,
 });
 
+const makeFutureAppointmentDate = (daysAhead = 2, hour = 10) => {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  while (date.getDay() === 0) {
+    date.setDate(date.getDate() + 1);
+  }
+  date.setHours(hour, 0, 0, 0);
+  return date;
+};
+
+const makeRescheduleDate = (daysAhead = 5, hour = 11) => {
+  const date = makeFutureAppointmentDate(daysAhead, hour);
+  return date;
+};
+
+const makePastAppointmentDate = () => {
+  const date = new Date();
+  date.setDate(date.getDate() - 2);
+  date.setHours(10, 0, 0, 0);
+  return date;
+};
+
 setupTestDB();
 
 describe('Appointment Routes Integration', () => {
@@ -36,8 +58,8 @@ describe('Appointment Routes Integration', () => {
     });
 
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const rescheduleDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+    const futureDate = makeFutureAppointmentDate();
+    const rescheduleDate = makeRescheduleDate();
 
     const createResponse = await request(app)
       .post('/donations/book-appointment')
@@ -60,7 +82,7 @@ describe('Appointment Routes Integration', () => {
       .patch(`/appointments/${appointmentId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        date: rescheduleDate.toISOString(),
+        appointmentDate: rescheduleDate.toISOString(),
         donationType: 'Plasma',
       });
 
@@ -92,8 +114,8 @@ describe('Appointment Routes Integration', () => {
     const hospital = await createHospital();
     const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const rescheduleDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+    const futureDate = makeFutureAppointmentDate();
+    const rescheduleDate = makeRescheduleDate();
 
     const createResponse = await request(app)
       .post('/donations/book-appointment')
@@ -111,7 +133,7 @@ describe('Appointment Routes Integration', () => {
       .patch(`/appointments/${appointmentId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        date: rescheduleDate.toISOString(),
+        appointmentDate: rescheduleDate.toISOString(),
         reason: 'Travel conflict',
       });
 
@@ -126,8 +148,8 @@ describe('Appointment Routes Integration', () => {
     const hospital = await createHospital();
     const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
-    const rescheduleDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+    const futureDate = makeFutureAppointmentDate();
+    const rescheduleDate = makeRescheduleDate();
 
     const createResponse = await request(app)
       .post('/donations/book-appointment')
@@ -147,7 +169,7 @@ describe('Appointment Routes Integration', () => {
       .patch(`/appointments/${appointmentId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        date: rescheduleDate.toISOString(),
+        appointmentDate: rescheduleDate.toISOString(),
       });
 
     expect(updateResponse.status).toBe(400);
@@ -160,7 +182,7 @@ describe('Appointment Routes Integration', () => {
     const hospital = await createHospital();
     const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const futureDate = makeFutureAppointmentDate();
 
     const createResponse = await request(app)
       .post('/donations/book-appointment')
@@ -178,7 +200,7 @@ describe('Appointment Routes Integration', () => {
       .patch(`/appointments/${appointmentId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        date: futureDate.toISOString(),
+        appointmentDate: futureDate.toISOString(),
         donationType: 'Whole Blood',
       });
 
@@ -194,7 +216,7 @@ describe('Appointment Routes Integration', () => {
       .post('/donations/book-appointment')
       .send({
         hospitalId: hospital._id.toString(),
-        appointmentDate: new Date().toISOString(),
+        appointmentDate: makeFutureAppointmentDate().toISOString(),
       });
 
     expect(response.status).toBe(401);
@@ -224,7 +246,7 @@ describe('Appointment Routes Integration', () => {
     const hospital = await createHospital();
 
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
-    const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000); // Yesterday
+    const pastDate = makePastAppointmentDate();
 
     const response = await request(app)
       .post('/donations/book-appointment')
@@ -243,7 +265,7 @@ describe('Appointment Routes Integration', () => {
     const donor = await createDonor({ bloodType: 'O+' });
     const hospital = await createHospital();
     const request2 = await createRequest(hospital._id);
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const futureDate = makeFutureAppointmentDate();
 
     // Book an appointment
     await Appointment.create({
@@ -282,7 +304,7 @@ describe('Appointment Routes Integration', () => {
     const donor = await createDonor();
     const hospital = await createHospital();
     const request2 = await createRequest(hospital._id);
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const futureDate = makeFutureAppointmentDate();
 
     const appointment = await Appointment.create({
       donorId: donor._id,
@@ -310,7 +332,7 @@ describe('Appointment Routes Integration', () => {
     const donor = await createDonor();
     const hospital = await createHospital();
     const request2 = await createRequest(hospital._id);
-    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const futureDate = makeFutureAppointmentDate();
 
     const appointment = await Appointment.create({
       donorId: donor._id,

@@ -9,12 +9,34 @@ vi.mock('../../src/services/activity.service.js', () => ({ logActivity: vi.fn().
 
 setupTestDB();
 
+const makeFutureAppointmentDate = (daysAhead = 2, hour = 10) => {
+  const date = new Date();
+  date.setDate(date.getDate() + daysAhead);
+  while (date.getDay() === 0) {
+    date.setDate(date.getDate() + 1);
+  }
+  date.setHours(hour, 0, 0, 0);
+  return date;
+};
+
+const makeRescheduleDate = (daysAhead = 5, hour = 11) => {
+  const date = makeFutureAppointmentDate(daysAhead, hour);
+  return date;
+};
+
+const makePastAppointmentDate = () => {
+  const date = new Date();
+  date.setDate(date.getDate() - 2);
+  date.setHours(10, 0, 0, 0);
+  return date;
+};
+
 describe('Appointment Controller', () => {
   describe('getAppointmentById', () => {
     it('returns appointment by ID for the donor', async () => {
       const donor = await createDonor();
       const hospital = await createHospital();
-      const apptDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const apptDate = makeFutureAppointmentDate();
 
       const appt = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate, 'test notes');
 
@@ -60,7 +82,7 @@ describe('Appointment Controller', () => {
       const donor1 = await createDonor();
       const donor2 = await createDonor();
       const hospital = await createHospital();
-      const apptDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const apptDate = makeFutureAppointmentDate();
 
       const appt = await appointmentService.bookAppointment(donor1._id, hospital._id, null, apptDate);
 
@@ -85,15 +107,15 @@ describe('Appointment Controller', () => {
     it('reschedules appointment to future date', async () => {
       const donor = await createDonor();
       const hospital = await createHospital();
-      const apptDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
-      const newDate = new Date(Date.now() + 120 * 60 * 60 * 1000);
+      const apptDate = makeFutureAppointmentDate();
+      const newDate = makeRescheduleDate();
 
       const appt = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
 
       const req = {
         user: { userId: donor._id },
         params: { appointmentId: appt._id.toString() },
-        body: { date: newDate.toISOString(), donationType: 'Plasma' },
+        body: { appointmentDate: newDate.toISOString(), donationType: 'Plasma' },
       };
       const res = {
         json: vi.fn().mockReturnThis(),
@@ -114,15 +136,15 @@ describe('Appointment Controller', () => {
     it('includes the reschedule reason in appointment history', async () => {
       const donor = await createDonor();
       const hospital = await createHospital();
-      const apptDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
-      const newDate = new Date(Date.now() + 120 * 60 * 60 * 1000);
+      const apptDate = makeFutureAppointmentDate();
+      const newDate = makeRescheduleDate();
 
       const appt = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
 
       const req = {
         user: { userId: donor._id },
         params: { appointmentId: appt._id.toString() },
-        body: { date: newDate.toISOString(), reason: 'Need a different time' },
+        body: { appointmentDate: newDate.toISOString(), reason: 'Need a different time' },
       };
       const res = {
         json: vi.fn().mockReturnThis(),
@@ -140,15 +162,15 @@ describe('Appointment Controller', () => {
     it('returns error when trying to reschedule to past date', async () => {
       const donor = await createDonor();
       const hospital = await createHospital();
-      const apptDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
-      const pastDate = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const apptDate = makeFutureAppointmentDate();
+      const pastDate = makePastAppointmentDate();
 
       const appt = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
 
       const req = {
         user: { userId: donor._id },
         params: { appointmentId: appt._id.toString() },
-        body: { date: pastDate.toISOString() },
+        body: { appointmentDate: pastDate.toISOString() },
       };
       const res = {
         json: vi.fn().mockReturnThis(),
@@ -164,12 +186,12 @@ describe('Appointment Controller', () => {
 
     it('returns 404 when appointment not found', async () => {
       const donor = await createDonor();
-      const newDate = new Date(Date.now() + 120 * 60 * 60 * 1000);
+      const newDate = makeRescheduleDate();
 
       const req = {
         user: { userId: donor._id },
         params: { appointmentId: '507f1f77bcf86cd799439011' },
-        body: { date: newDate.toISOString() },
+        body: { appointmentDate: newDate.toISOString() },
       };
       const res = {
         json: vi.fn().mockReturnThis(),
@@ -187,15 +209,15 @@ describe('Appointment Controller', () => {
       const donor1 = await createDonor();
       const donor2 = await createDonor();
       const hospital = await createHospital();
-      const apptDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
-      const newDate = new Date(Date.now() + 120 * 60 * 60 * 1000);
+      const apptDate = makeFutureAppointmentDate();
+      const newDate = makeRescheduleDate();
 
       const appt = await appointmentService.bookAppointment(donor1._id, hospital._id, null, apptDate);
 
       const req = {
         user: { userId: donor2._id },
         params: { appointmentId: appt._id.toString() },
-        body: { date: newDate.toISOString() },
+        body: { appointmentDate: newDate.toISOString() },
       };
       const res = {
         json: vi.fn().mockReturnThis(),
@@ -218,7 +240,7 @@ describe('Appointment Controller', () => {
         workingHoursEnd: 11,
       });
       const donor = await createDonor();
-      const date = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const date = makeFutureAppointmentDate();
 
       await appointmentService.bookAppointment(donor._id, hospital._id, null, date);
 
@@ -245,7 +267,7 @@ describe('Appointment Controller', () => {
         user: { userId: donor._id },
         query: {
           hospitalId: '507f1f77bcf86cd799439011',
-          date: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          date: makeFutureAppointmentDate().toISOString(),
           excludeAppointmentId: '507f1f77bcf86cd799439012',
         },
       };

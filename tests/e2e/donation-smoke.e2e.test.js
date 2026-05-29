@@ -60,16 +60,26 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
     expect(requestId).toBeDefined();
 
     // 2. Donor books a hospital appointment for the request
+    // Use a specific time (2:00 PM) to ensure it's within operating hours (9 AM - 5 PM)
+    const appointmentDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
+    appointmentDate.setHours(14, 0, 0, 0); // Set to 2:00 PM
+    
     res = await request(app)
       .post('/donations/book-appointment')
       .set('Authorization', `Bearer ${donorToken}`)
       .send({
         hospitalId: hospital._id.toString(),
         requestId,
-        appointmentDate: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(),
+        appointmentDate: appointmentDate.toISOString(),
         donationType: 'Whole Blood',
         notes: 'Book a verified appointment',
       });
+    
+    // Debug: Log response if not successful
+    if (res.status !== 201) {
+      console.log('Booking failed with status:', res.status);
+      console.log('Response body:', JSON.stringify(res.body, null, 2));
+    }
       
     expect(res.status).toBe(201);
     const appointmentId = res.body.data._id || res.body.data.id;
