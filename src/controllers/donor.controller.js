@@ -14,6 +14,8 @@ import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import * as rewardService from '../services/reward.service.js';
 import { formatActivityForTimeline } from '../utils/activity.formatter.js';
 import { buildRequestPayload } from './request.controller.js';
+import { formatBloodTypeLabel, normalizeBloodTypeList } from '../utils/blood-type.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 /**
  * Donor Controller - Handles donor-specific operations
@@ -249,7 +251,7 @@ export const respondToRequest = async (req, res, next) => {
     // Validate eligibility
     const isEligible = await donationService.validateEligibility(donor, request);
     if (!isEligible.eligible) {
-        return response.error(res, 400, isEligible.reason || 'Donor is not eligible');
+      return response.error(res, 400, isEligible.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
     }
 
     // Create donation
@@ -411,7 +413,7 @@ export const getDonationEligibility = async (req, res, next) => {
     if (!donorId) return response.error(res, 500, 'Authenticated donor id not found');
 
     // Load donor profile (readonly)
-    const donor = await Donor.findById(donorId).select('isOptedIn lastDonationDate bloodType gender hemoglobinLevel temporaryDeferralUntil travelHistory');
+    const donor = await Donor.findById(donorId).select('isOptedIn lastDonationDate bloodType gender hemoglobinLevel temporaryDeferralUntil travelHistory dateOfBirth');
     if (!donor) return response.error(res, 404, 'Donor not found');
 
     // Do not accept request-specific parameters for this informational endpoint
@@ -433,8 +435,8 @@ export const getDonationEligibility = async (req, res, next) => {
 
     const reason = eligibility.eligible ? null : (
       eligibility.nextEligibleDate || nextEligibleDate
-        ? `You must wait ${daysRemaining} more day${daysRemaining === 1 ? '' : 's'} before donating again.`
-        : eligibility.reason
+        ? (req.t ? req.t('eligibility.donationCooldownActive') : 'eligibility.donationCooldownActive')
+        : (req.t ? req.t(eligibility.reason || 'eligibility.donorNotEligible') : (eligibility.reason || 'eligibility.donorNotEligible'))
     );
 
     const payload = {
@@ -563,6 +565,8 @@ export const getUrgentRequests = async (req, res, next) => {
       const hospital = r.hospitalId;
       const hLat = hospital?.lat;
       const hLng = hospital?.long;
+      const bloodTypes = normalizeBloodTypeList(r.bloodType);
+      const bloodTypeLabel = formatBloodTypeLabel(bloodTypes);
       let distance = null;
       if (Number.isFinite(userLat) && Number.isFinite(userLng) && hLat && hLng) {
         const toRad = d => d * Math.PI / 180;
@@ -572,8 +576,9 @@ export const getUrgentRequests = async (req, res, next) => {
       }
       return {
         id: r._id,
-        title: `Urgent ${String(r.type || 'request').replace(/^./, (char) => char.toUpperCase())} Request — ${r.bloodType || ''}`.trim(),
-        bloodType: r.bloodType || null,
+        title: `Urgent ${String(r.type || 'request').replace(/^./, (char) => char.toUpperCase())} Request — ${bloodTypeLabel || ''}`.trim(),
+        bloodType: bloodTypes,
+        bloodTypeLabel,
         unitsNeeded: r.quantity || 1,
         hospitalName: hospital?.hospitalName || hospital?.fullName || null,
         distance,
@@ -609,8 +614,9 @@ export const getUrgentRequestDetails = async (req, res, next) => {
     return response.success(res, 200, 'Urgent request retrieved successfully', {
       request: {
         id: request._id,
-        title: `Urgent ${String(request.type || 'request').replace(/^./, (char) => char.toUpperCase())} Request — ${request.bloodType || ''}`.trim(),
-        bloodType: request.bloodType || null,
+        title: `Urgent ${String(request.type || 'request').replace(/^./, (char) => char.toUpperCase())} Request — ${formatBloodTypeLabel(request.bloodType) || ''}`.trim(),
+        bloodType: normalizeBloodTypeList(request.bloodType),
+        bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
         unitsNeeded: request.quantity || 1,
         hospitalName: hospital?.hospitalName || hospital?.fullName || null,
         contactNumber: hospital?.contactNumber || null,

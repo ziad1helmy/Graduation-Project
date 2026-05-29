@@ -33,7 +33,57 @@
     "badge_unlocked_title": "[AR] 🏆 تم فتح الشارة: {{badgeName}}",
     "tier_up_title": "[AR] 🎉 تم الترقية إلى {{tier}}!",
     "reward_redeemed_title": "[AR] 🎁 تم استرداد المكافأة!",
-    "emergency_request_title": "[AR] 🚨 طلب دم طارئ"
+    "emergency_request_title": "[AR] 🚨 طلب دم طارئ",
+    "emergency_request_body": "[AR] هناك حاجة إلى {{bloodType}} بالقرب من {{hospitalName}}",
+    "emergency_request_body_multi": "[AR] هناك حاجة إلى {{bloodTypes}} بالقرب من {{hospitalName}}"
+  },
+
+  "eligibility": {
+    "dateOfBirthRequired": "[AR] تاريخ الميلاد مطلوب",
+    "minimumAge": "[AR] يجب أن يكون عمر المتبرع 17 عامًا على الأقل",
+    "invalidDateOfBirth": "[AR] تاريخ الميلاد غير صالح",
+    "ageVerificationFailed": "[AR] تعذر التحقق من العمر من تاريخ الميلاد",
+    "donorNotFound": "[AR] لم يتم العثور على المتبرع",
+    "donorOrRequestNotFound": "[AR] لم يتم العثور على المتبرع أو الطلب",
+    "donorOptedOutOfMatching": "[AR] المتبرع غير مشترك في المطابقة",
+    "donorHasNoBloodType": "[AR] لم يحدد المتبرع فصيلة الدم",
+    "bloodTypeIncompatible": "[AR] فصيلة دم المتبرع غير متوافقة مع الطلب",
+    "matchingLocationUnavailable": "[AR] موقع المطابقة غير متاح",
+    "outsideMatchingRadius": "[AR] المتبرع خارج نطاق المطابقة",
+    "requestNotFound": "[AR] لم يتم العثور على الطلب",
+    "donorEligible": "[AR] المتبرع مؤهل",
+    "donorNotEligible": "[AR] المتبرع غير مؤهل",
+    "noTemporaryDeferral": "[AR] لا يوجد تأجيل طبي مؤقت",
+    "temporaryDeferralExpired": "[AR] انتهى التأجيل الطبي المؤقت",
+    "temporarilyDeferred": "[AR] مؤجل مؤقتًا",
+    "travelDeferral": "[AR] السفر إلى دولة عالية الخطورة",
+    "noDonationIntervalRestriction": "[AR] لا يوجد تقييد على فترة التبرع",
+    "invalidLastDonationDateIgnored": "[AR] تم تجاهل تاريخ آخر تبرع غير صالح",
+    "donationCooldownActive": "[AR] يجب الانتظار قبل التبرع مرة أخرى",
+    "donationIntervalSatisfied": "[AR] تم استيفاء فترة التبرع",
+    "noHemoglobinRestriction": "[AR] لا يوجد تقييد على الهيموغلوبين",
+    "hemoglobinBelowMinimum": "[AR] مستوى الهيموغلوبين منخفض",
+    "hemoglobinLevelAcceptable": "[AR] مستوى الهيموغلوبين مناسب",
+    "donorSuspended": "[AR] المتبرع موقوف",
+    "donorCurrentlyUnavailable": "[AR] المتبرع غير متاح حاليًا",
+    "requestNoLongerActive": "[AR] الطلب المرتبط لم يعد نشطًا"
+  },
+
+  "request": {
+    "validation": {
+      "blood_types_required": "[AR] مطلوب نوع دم واحد على الأقل",
+      "blood_types_empty": "[AR] لا يمكن أن تكون قائمة أنواع الدم فارغة",
+      "blood_types_invalid": "[AR] يوجد نوع دم واحد أو أكثر غير صالح"
+    },
+    "matching": {
+      "compatible_with_any": "[AR] متوافق مع أي من: {{bloodTypes}}",
+      "not_compatible_with_any": "[AR] فصيلة دم المتبرع {{donorBloodType}} غير متوافقة مع فصائل الطلب {{bloodTypes}}"
+    },
+    "notifications": {
+      "new_request_title": "[AR] 🚨 طلب دم جديد",
+      "new_request_body": "[AR] مطلوب {{bloodType}} بالقرب من {{hospitalName}}. الكمية: {{units}}",
+      "new_request_body_multi": "[AR] مطلوب {{bloodTypes}} بالقرب من {{hospitalName}}. الكمية: {{units}}"
+    }
   },
 
   "email": {

@@ -91,7 +91,7 @@ const seedTestAccounts = async () => {
     const baseRequest = await Request.create({
       hospitalId: hospital._id,
       type: 'blood',
-      bloodType: donor.bloodType,
+      bloodType: [donor.bloodType],
       urgency: 'high',
       status: 'pending',
       requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),

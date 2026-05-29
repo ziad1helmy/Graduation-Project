@@ -5388,17 +5388,21 @@ paths:
                     - blood
                     - plasma
                     - platelets
-                bloodType:
-                  type: string
-                  enum:
-                    - A+
-                    - A-
-                    - B+
-                    - B-
-                    - AB+
-                    - AB-
-                    - O+
-                    - O-
+                bloodTypes:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    enum:
+                      - A+
+                      - A-
+                      - B+
+                      - B-
+                      - AB+
+                      - AB-
+                      - O+
+                      - O-
+                  description: One or more compatible blood types
                 organType:
                   type: string
                   enum:
@@ -5437,9 +5441,14 @@ paths:
                 notes:
                   type: string
                   example: Need compatible donors urgently
+                patientDetails:
+                  type: string
+                  example: Need compatible donors urgently
             example:
               type: blood
-              bloodType: O+
+              bloodTypes:
+                - O+
+                - B-
               urgency: critical
               requiredBy: 2026-05-12T10:00:00.000Z
               quantity: 3
@@ -5447,7 +5456,7 @@ paths:
               patientType: adult
               contactNumber: "01099998888"
               isEmergency: true
-              notes: Emergency surgery support
+              patientDetails: Emergency surgery support
       responses:
         "201":
           description: Donation request created successfully
@@ -5463,7 +5472,9 @@ paths:
                     fullName: Cairo Care Operations
                     hospitalName: Cairo Care Hospital
                   type: blood
-                  bloodType: O+
+                  bloodType:
+                    - O+
+                    - B-
                   urgency: critical
                   requiredBy: 2026-05-12T10:00:00.000Z
                   quantity: 3
@@ -5503,17 +5514,21 @@ paths:
                     - blood
                     - plasma
                     - platelets
-                bloodType:
-                  type: string
-                  enum:
-                    - A+
-                    - A-
-                    - B+
-                    - B-
-                    - AB+
-                    - AB-
-                    - O+
-                    - O-
+                bloodTypes:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: string
+                    enum:
+                      - A+
+                      - A-
+                      - B+
+                      - B-
+                      - AB+
+                      - AB-
+                      - O+
+                      - O-
+                  description: One or more compatible blood types
                 organType:
                   type: string
                   enum:
@@ -5544,16 +5559,20 @@ paths:
                   type: boolean
                 notes:
                   type: string
+                patientDetails:
+                  type: string
             example:
               type: blood
-              bloodType: O+
+              bloodTypes:
+                - O+
+                - B-
               urgency: critical
               requiredBy: 2026-05-12T10:00:00.000Z
               unitsNeeded: 3
               patientType: adult
               contactNumber: "01099998888"
               isEmergency: true
-              notes: Emergency surgery support
+              patientDetails: Emergency surgery support
       responses:
         "201":
           description: Donation request created successfully
@@ -5745,7 +5764,9 @@ paths:
                   request:
                     _id: 69fe540565ff7785a0313150
                     type: blood
-                    bloodType: A-
+                    bloodType:
+                      - A-
+                      - O-
                     urgency: high
                     status: in-progress
                     quantity: 2
@@ -6237,19 +6258,45 @@ paths:
                           fullName: Jane Doe
                           phoneNumber: +201234567890
                           bloodType: O+
-                          email: jane@example.com
-                        hospitalId: 69f3df915f42685cbbbcbb10
-                        requestId:
-                          _id: 69fe540565ff7785a0313151
-                          type: blood
-                          bloodType: O+
-                        appointmentDate: 2026-06-01T09:00:00.000Z
-                        status: pending
-                    pagination:
-                      page: 1
-                      limit: 20
-                      total: 1
-                      totalPages: 1
+    /hospital/appointments/{appointmentId}:
+      get:
+        summary: Get a single appointment details for the authenticated hospital
+        tags:
+          - Hospital
+        security:
+          - bearerAuth: []
+        parameters:
+          - in: path
+            name: appointmentId
+            required: true
+            schema:
+              type: string
+        responses:
+          "200":
+            description: Appointment details
+            content:
+              application/json:
+                example:
+                  success: true
+                  message: Appointment retrieved successfully
+                  data:
+                    appointmentId: 69fe540565ff7785a031315c
+                    appointmentDate: 2026-06-01T09:00:00.000Z
+                    status: confirmed
+                    donorId: 66f100000000000000000002
+                    hospitalId: 69f3df915f42685cbbbcbb10
+                    requestId: 69fe540565ff7785a0313151
+                    donorDetails:
+                      fullName: Jane Doe
+                      phoneNumber: +201234567890
+                      bloodType: O+
+                      email: jane@example.com
+                    donor:
+                      donorId: 66f100000000000000000002
+                      fullName: Jane Doe
+                      email: jane.doe@example.com
+                      phoneNumber: +201234567890
+                      bloodType: O+
   /hospital/notifications/read-all:
     patch:
       summary: Mark all hospital notifications as read
@@ -9251,7 +9298,9 @@ paths:
                   request:
                     _id: 69fe540565ff7785a031314f
                     status: completed
-                    bloodType: O-
+                    bloodType:
+                      - O-
+                      - A+
                     urgency: critical
                     updatedAt: 2026-05-18T09:28:00.000Z
       description: "Demo seed available via `npm run seed-demo`. Base URL example:

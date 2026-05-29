@@ -9,6 +9,7 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
+import ELIGIBILITY_KEYS from '../../src/utils/eligibility-keys.js';
 import { connect, clearDatabase, closeDatabase } from '../helpers/db.js';
 import { createDonor } from '../helpers/factories.js';
 import { canDonate } from '../../src/services/eligibility.service.js';
@@ -32,7 +33,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(true);
-    expect(result.reason).toMatch(/eligible/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONOR_ELIGIBLE);
   });
 
   it('should prevent blood donation before 56 days cooldown expires', async () => {
@@ -44,7 +45,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/wait.*before donating/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE);
     expect(result.nextEligibleDate).toBeDefined();
     
     // Calculate expected next eligible date (lastDate + 56 days)
@@ -67,7 +68,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(true);
-    expect(result.reason).toMatch(/eligible/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONOR_ELIGIBLE);
   });
 
   it('should prevent plasma donation before 14 days cooldown expires', async () => {
@@ -79,7 +80,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'plasma' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/wait.*before donating/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE);
     expect(result.nextEligibleDate).toBeDefined();
   });
 
@@ -92,7 +93,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'plasma' });
 
     expect(result.eligible).toBe(true);
-    expect(result.reason).toMatch(/eligible/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONOR_ELIGIBLE);
   });
 
   it('should prevent platelets donation before 7 days cooldown expires', async () => {
@@ -104,7 +105,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'platelets' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/wait.*before donating/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE);
     expect(result.nextEligibleDate).toBeDefined();
   });
 
@@ -117,6 +118,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'platelets' });
 
     expect(result.eligible).toBe(true);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONOR_ELIGIBLE);
     expect(result.reason).toMatch(/eligible/i);
   });
 
@@ -129,7 +131,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor); // no donationType passed
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/wait.*before donating/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE);
   });
 });
 
@@ -143,7 +145,7 @@ describe('Eligibility Service — Age Restrictions', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/at least 17/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.MINIMUM_AGE);
     expect(result.nextEligibleDate).toBeDefined(); // Should show 17th birthday
   });
 
@@ -235,7 +237,7 @@ describe('Eligibility Service — Multi-Rule Checks', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/at least 17/i); // Age failure reported first
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.MINIMUM_AGE); // Age failure reported first
   });
 
   it('should fail if any single rule fails (cooldown not met)', async () => {
@@ -254,7 +256,7 @@ describe('Eligibility Service — Multi-Rule Checks', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/wait.*before donating/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE);
   });
 
   it('should pass all checks (fully eligible)', async () => {

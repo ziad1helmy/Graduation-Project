@@ -7,6 +7,7 @@
 import { calculateAge } from '../utils/age.js';
 import { isValidArabicEnglishText } from '../utils/textNormalization.js';
 import { ERR } from '../utils/errorCodes.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 // Regex pattern for Arabic + English text (letters + spaces + dash + dot)
 // Allows: Arabic (ا-ي, ء-ة), English (a-z, A-Z), spaces, dots (.), dashes (-)
@@ -66,11 +67,13 @@ const DONOR_RULES = {
   dateOfBirth: {
     required: true,
     type: 'date',
+    requiredMessage: ELIGIBILITY_KEYS.DATE_OF_BIRTH_REQUIRED,
+    typeErrorMessage: ELIGIBILITY_KEYS.INVALID_DATE_OF_BIRTH,
     validator: (val) => {
       const date = new Date(val);
       return date instanceof Date && date <= new Date() && date.getFullYear() >= 1900;
     },
-    errorMessage: 'Date of birth must be a valid past date',
+    errorMessage: ELIGIBILITY_KEYS.INVALID_DATE_OF_BIRTH,
   },
   bloodType: {
     required: true,
@@ -136,7 +139,7 @@ const validateField = (fieldName, value) => {
 
   // Check required
   if (rule.required && (value === undefined || value === null || value === '')) {
-    return { valid: false, error: `${fieldName} is required` };
+    return { valid: false, error: rule.requiredMessage || `${fieldName} is required` };
   }
 
   // If not required and empty, skip further validation
@@ -146,9 +149,13 @@ const validateField = (fieldName, value) => {
 
   // Check type
   if (rule.type === 'date') {
-    const date = new Date(value);
-    if (!(date instanceof Date) || isNaN(date.getTime())) {
-      return { valid: false, error: `${fieldName} must be a valid date` };
+    try {
+      const date = new Date(value);
+      if (!(date instanceof Date) || isNaN(date.getTime())) {
+        return { valid: false, error: rule.typeErrorMessage || `${fieldName} must be a valid date` };
+      }
+    } catch (error) {
+      return { valid: false, error: ELIGIBILITY_KEYS.AGE_VERIFICATION_FAILED };
     }
   }
 
@@ -313,9 +320,17 @@ export const validateRegister = (data) => {
       }
     });
 
-    const age = calculateAge(data.dateOfBirth);
-    if (!errors.dateOfBirth && age !== null && age < 17) {
-      errors.dateOfBirth = 'You must be at least 17 years old to donate';
+    if (!errors.dateOfBirth) {
+      try {
+        const age = calculateAge(data.dateOfBirth);
+        if (age === null) {
+          errors.dateOfBirth = ELIGIBILITY_KEYS.AGE_VERIFICATION_FAILED;
+        } else if (age < 17) {
+          errors.dateOfBirth = ELIGIBILITY_KEYS.MINIMUM_AGE;
+        }
+      } catch (error) {
+        errors.dateOfBirth = ELIGIBILITY_KEYS.AGE_VERIFICATION_FAILED;
+      }
     }
 
     // Validate optional donor fields

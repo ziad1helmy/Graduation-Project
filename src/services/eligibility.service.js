@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { calculateAge } from '../utils/age.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 const malariaRiskCountries = JSON.parse(
   readFileSync(new URL('../data/malariaRiskCountries.json', import.meta.url), 'utf8')
@@ -79,36 +80,49 @@ const getTravelDeferral = (travelHistory = []) => {
 
 const evaluateAgeRule = (donor) => {
   if (!donor) {
-    return makeRuleResult(false, 'Donor not found');
+    return makeRuleResult(false, ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
   }
 
-  const age = calculateAge(donor.dateOfBirth);
-  if (age === null) {
-    return makeRuleResult(false, 'Date of birth is required');
+  if (donor.dateOfBirth === undefined || donor.dateOfBirth === null || donor.dateOfBirth === '') {
+    return makeRuleResult(false, ELIGIBILITY_KEYS.DATE_OF_BIRTH_REQUIRED);
   }
 
-  if (age < 17) {
-    return makeRuleResult(false, 'You must be at least 17 years old to donate', getSeventeenthBirthday(donor.dateOfBirth));
+  try {
+    const birthDate = new Date(donor.dateOfBirth);
+    if (Number.isNaN(birthDate.getTime())) {
+      return makeRuleResult(false, ELIGIBILITY_KEYS.INVALID_DATE_OF_BIRTH);
+    }
+
+    const age = calculateAge(donor.dateOfBirth);
+    if (age === null) {
+      return makeRuleResult(false, ELIGIBILITY_KEYS.AGE_VERIFICATION_FAILED);
+    }
+
+    if (age < 17) {
+      return makeRuleResult(false, ELIGIBILITY_KEYS.MINIMUM_AGE, getSeventeenthBirthday(donor.dateOfBirth));
+    }
+  } catch (error) {
+    return makeRuleResult(false, ELIGIBILITY_KEYS.AGE_VERIFICATION_FAILED);
   }
 
-  return makeRuleResult(true, 'Age requirement satisfied');
+  return makeRuleResult(true, ELIGIBILITY_KEYS.DONOR_ELIGIBLE);
 };
 
 const evaluateTemporaryDeferralRule = (donor) => {
   const now = new Date();
 
   if (!donor?.temporaryDeferralUntil) {
-    return makeRuleResult(true, 'No temporary deferral');
+    return makeRuleResult(true, ELIGIBILITY_KEYS.NO_TEMPORARY_DEFERRAL);
   }
 
   const temporaryDeferralUntil = new Date(donor.temporaryDeferralUntil);
   if (!isValidDate(temporaryDeferralUntil) || temporaryDeferralUntil <= now) {
-    return makeRuleResult(true, 'Temporary deferral expired');
+    return makeRuleResult(true, ELIGIBILITY_KEYS.TEMPORARY_DEFERRAL_EXPIRED);
   }
 
   return makeRuleResult(
     false,
-    donor.lastDeferralReason || 'Temporarily deferred',
+    donor.lastDeferralReason || ELIGIBILITY_KEYS.TEMPORARILY_DEFERRED,
     temporaryDeferralUntil,
   );
 };
@@ -116,50 +130,50 @@ const evaluateTemporaryDeferralRule = (donor) => {
 const evaluateTravelDeferralRule = async (donor, { persistTravelDeferral = true } = {}) => {
   const travelDeferralDate = getTravelDeferral(donor?.travelHistory);
   if (!travelDeferralDate) {
-    return makeRuleResult(true, 'No travel deferral');
+    return makeRuleResult(true, ELIGIBILITY_KEYS.NO_TEMPORARY_DEFERRAL);
   }
 
   donor.temporaryDeferralUntil = travelDeferralDate;
-  donor.lastDeferralReason = 'Travel to high-risk country';
+  donor.lastDeferralReason = ELIGIBILITY_KEYS.TRAVEL_DEFERRAL;
 
   if (persistTravelDeferral && typeof donor.save === 'function') {
     await donor.save({ validateBeforeSave: false });
   }
 
-  return makeRuleResult(false, 'Travel to high-risk country', travelDeferralDate);
+  return makeRuleResult(false, ELIGIBILITY_KEYS.TRAVEL_DEFERRAL, travelDeferralDate);
 };
 
 const evaluateDonationIntervalRule = (donor, { donationType } = {}) => {
   const now = new Date();
   if (!donor?.lastDonationDate) {
-    return makeRuleResult(true, 'No donation interval restriction');
+    return makeRuleResult(true, ELIGIBILITY_KEYS.NO_DONATION_INTERVAL_RESTRICTION);
   }
 
   const lastDonationDate = new Date(donor.lastDonationDate);
   if (!isValidDate(lastDonationDate)) {
-    return makeRuleResult(true, 'Invalid last donation date ignored');
+    return makeRuleResult(true, ELIGIBILITY_KEYS.INVALID_LAST_DONATION_DATE_IGNORED);
   }
 
   const requiredIntervalDays = getRequiredDonationInterval(donor.gender, donationType);
   const nextEligibleDate = addDays(lastDonationDate, requiredIntervalDays);
   if (nextEligibleDate > now) {
-    return makeRuleResult(false, 'You need to wait before donating again', nextEligibleDate);
+    return makeRuleResult(false, ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE, nextEligibleDate);
   }
 
-  return makeRuleResult(true, 'Donation interval satisfied');
+  return makeRuleResult(true, ELIGIBILITY_KEYS.DONATION_INTERVAL_SATISFIED);
 };
 
 const evaluateHemoglobinRule = (donor) => {
   if (donor?.hemoglobinLevel === undefined || donor?.hemoglobinLevel === null || donor?.hemoglobinLevel === '') {
-    return makeRuleResult(true, 'No hemoglobin restriction');
+    return makeRuleResult(true, ELIGIBILITY_KEYS.NO_HEMOGLOBIN_RESTRICTION);
   }
 
   const hemoglobinLevel = Number(donor.hemoglobinLevel);
   if (!Number.isNaN(hemoglobinLevel) && hemoglobinLevel < MIN_HEMOGLOBIN_LEVEL) {
-    return makeRuleResult(false, 'Low hemoglobin level');
+    return makeRuleResult(false, ELIGIBILITY_KEYS.HEMOGLOBIN_BELOW_MINIMUM);
   }
 
-  return makeRuleResult(true, 'Hemoglobin level acceptable');
+  return makeRuleResult(true, ELIGIBILITY_KEYS.HEMOGLOBIN_LEVEL_ACCEPTABLE);
 };
 
 export const canDonate = async (donor, options = {}) => {
@@ -184,7 +198,7 @@ export const canDonate = async (donor, options = {}) => {
 
   return {
     eligible: true,
-    reason: 'Donor is eligible',
+    reason: ELIGIBILITY_KEYS.DONOR_ELIGIBLE,
   };
 };
 

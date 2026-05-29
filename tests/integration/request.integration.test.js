@@ -31,7 +31,10 @@ describe('Request Details Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data.requestId).toBe(urgentRequest._id.toString());
-    expect(response.body.data.bloodType).toBe(donor.bloodType);
+    const respBlood = Array.isArray(response.body.data.bloodType)
+      ? response.body.data.bloodType[0]
+      : response.body.data.bloodType;
+    expect(respBlood).toBe(donor.bloodType);
     expect(response.body.data.hospitalName).toContain('Test Hospital');
     expect(response.body.data.patientType).toBe('Accident Case');
     expect(response.body.data.contactNumber).toBe(hospital.contactNumber);

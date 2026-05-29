@@ -18,6 +18,9 @@ const inferErrorCode = (statusCode, message) => {
   if (normalizedMessage.includes('at least 17') || normalizedMessage.includes('underage')) {
     return 'UNDERAGE_DONOR';
   }
+  if (normalizedMessage.startsWith('eligibility.')) {
+    return 'VALIDATION_ERROR';
+  }
   if (normalizedMessage.includes('not eligible')) {
     return 'DONOR_NOT_ELIGIBLE';
   }
@@ -44,6 +47,21 @@ const inferErrorCode = (statusCode, message) => {
     default:
       return 'INTERNAL_SERVER_ERROR';
   }
+};
+
+const translateValue = (res, value) => {
+  const translate = res?.locals?.t;
+  if (!translate) return value;
+
+  if (Array.isArray(value)) {
+    return value.map((item) => translateValue(res, item));
+  }
+
+  if (typeof value === 'string') {
+    return translate(value);
+  }
+
+  return value;
 };
 
 /**
@@ -73,11 +91,14 @@ export function successResponse(res, statusCode, message, data = undefined) {
  * @returns {import('express').Response} The same res for optional chaining.
  */
 export function errorResponse(res, statusCode, message, details = undefined) {
+  const translatedMessage = translateValue(res, message);
+  const translatedDetails = details !== undefined ? translateValue(res, details) : undefined;
+
   return res.status(statusCode).json({
     success: false,
     code: inferErrorCode(statusCode, message),
-    message,
-    ...(details !== undefined ? { details } : {}),
+    message: translatedMessage,
+    ...(translatedDetails !== undefined ? { details: translatedDetails } : {}),
   });
 }
 

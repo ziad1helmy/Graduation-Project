@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import User from './User.model.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 const donorSchema = new mongoose.Schema({
     phoneNumber: {
@@ -21,12 +22,16 @@ const donorSchema = new mongoose.Schema({
 
     dateOfBirth: {
         type: Date,
-        required: [true, 'Date of birth is required'],
+        required: [true, ELIGIBILITY_KEYS.DATE_OF_BIRTH_REQUIRED],
         validate: {
             validator: function(v) {
-                return v instanceof Date && v <= new Date();
+                try {
+                    return v instanceof Date && v <= new Date();
+                } catch (error) {
+                    return false;
+                }
             },
-            message: 'Date of birth must be in the past',
+            message: ELIGIBILITY_KEYS.INVALID_DATE_OF_BIRTH,
         },
     },
 

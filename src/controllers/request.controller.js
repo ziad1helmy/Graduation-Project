@@ -15,6 +15,11 @@ import {
   validateRequestIdParam,
   validateQrBody,
 } from '../validation/request.validation.js';
+import {
+  formatBloodTypeLabel,
+  normalizeBloodTypeList,
+} from '../utils/blood-type.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 const QR_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -116,7 +121,8 @@ export const buildRequestPayload = (request, viewerLocation = null, { donationCo
   return {
     id: request._id.toString(),
     requestId: request._id.toString(),
-    bloodType: request.bloodType || null,
+    bloodType: normalizeBloodTypeList(request.bloodType),
+    bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
     hospitalName,
     patientType: request.patientType || request.cause || null,
     contactNumber,
@@ -285,7 +291,8 @@ export const verifyQr = async (req, res, next) => {
       valid: true,
       requestId: request._id,
       hospitalName: request.hospitalName || request.hospitalId?.hospitalName || request.hospitalId?.fullName || null,
-      bloodType: request.bloodType || null,
+      bloodType: normalizeBloodTypeList(request.bloodType),
+      bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
       patientType: request.patientType || request.cause || null,
       contactNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.contactNumber || null,
       unitsNeeded: request.unitsNeeded ?? request.quantity ?? 1,
@@ -466,7 +473,7 @@ export const acceptRequest = async (req, res, next) => {
 
     const eligibility = await donationService.validateEligibility(donor, request);
     if (!eligibility.eligible) {
-      return response.error(res, 400, eligibility.reason || 'Donor is not eligible');
+      return response.error(res, 400, eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
     }
 
     const donation = await Donation.create({
@@ -489,7 +496,7 @@ export const acceptRequest = async (req, res, next) => {
       userId: request.hospitalId._id,
       type: request.isEmergency || request.urgency === 'critical' ? 'emergency' : 'request',
       title: 'Request accepted',
-      message: `${donor.fullName || 'A donor'} accepted the request for ${request.bloodType || request.patientType || 'needed supplies'}.`,
+      message: `${donor.fullName || 'A donor'} accepted the request for ${formatBloodTypeLabel(request.bloodType) || request.patientType || 'needed supplies'}.`,
       relatedId: request._id,
       relatedType: 'Request',
       data: {

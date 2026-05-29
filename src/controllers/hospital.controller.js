@@ -20,6 +20,8 @@ import {
   validateBookAppointmentBody,
   validateCreateRequestBody,
 } from '../validation/hospital.validation.js';
+import { normalizeBloodTypeList } from '../utils/blood-type.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 const normalizeLocationInput = (location) => {
   if (!location || typeof location !== 'object') return null;
@@ -549,7 +551,7 @@ export const bookDonorAppointment = async (req, res, next) => {
 
     return response.success(res, 201, 'Appointment booked successfully', appointmentResponse);
   } catch (error) {
-    if (error.message === 'Donor not found' || error.message === 'Hospital not found' || error.message === 'Request not found') {
+    if (error.message === ELIGIBILITY_KEYS.DONOR_NOT_FOUND || error.message === 'Hospital not found' || error.message === ELIGIBILITY_KEYS.REQUEST_NOT_FOUND) {
       return response.error(res, 404, error.message);
     }
     if (
@@ -558,11 +560,11 @@ export const bookDonorAppointment = async (req, res, next) => {
       error.message === 'Invalid request id' ||
       error.message === 'Appointment date must be in the future' ||
       error.message === 'Request does not belong to this hospital' ||
-      error.message === 'Donor is not currently available' ||
-      error.message === 'Donor is suspended' ||
-      error.message === 'Donor has not provided blood type information' ||
-      error.message.startsWith('Donor blood type ') ||
-      error.message.startsWith('Must wait ')
+      error.message === ELIGIBILITY_KEYS.DONOR_CURRENTLY_UNAVAILABLE ||
+      error.message === ELIGIBILITY_KEYS.DONOR_SUSPENDED ||
+      error.message === ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE ||
+      error.message === ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE ||
+      error.message === ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE
     ) {
       return response.error(res, 400, error.message);
     }
@@ -616,6 +618,7 @@ export const createRequest = async (req, res, next) => {
     const {
       type,
       bloodType,
+      bloodTypes,
       organType,
       urgency,
       requiredBy,
@@ -625,12 +628,18 @@ export const createRequest = async (req, res, next) => {
       contactNumber,
       isEmergency,
       notes,
+      patientDetails,
     } = req.body;
 
     const validation = validateCreateRequestBody(req.body);
     if (!validation.valid) {
       return response.error(res, 400, validation.errors[0]);
     }
+
+    const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
+    const normalizedBloodTypes = validation.bloodTypes?.length > 0
+      ? validation.bloodTypes
+      : normalizeBloodTypeList(bloodTypeInput);
 
     const requiredByDate = new Date(requiredBy);
 
@@ -657,7 +666,7 @@ export const createRequest = async (req, res, next) => {
       unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
       patientType: patientType || null,
       isEmergency: isEmergency === true || resolvedUrgency === 'critical',
-      notes: notes || '',
+      notes: notes || patientDetails || '',
     };
 
     // Snapshot hospital location and display name at time of request
@@ -677,8 +686,8 @@ export const createRequest = async (req, res, next) => {
     }
     requestData.hospitalName = hospital?.hospitalName || hospital?.fullName;
 
-    if (type === 'blood') {
-      requestData.bloodType = bloodType;
+    if (normalizedBloodTypes.length > 0) {
+      requestData.bloodType = normalizedBloodTypes;
     }
 
 
@@ -1119,6 +1128,27 @@ export const getAppointments = async (req, res, next) => {
       appointments: appointmentResponses,
       pagination: paginationMeta(total, page, limit),
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// GET /hospital/appointments/:appointmentId - single appointment details for hospital
+export const getAppointmentDetails = async (req, res, next) => {
+  try {
+    const { appointmentId } = req.params;
+
+    if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) return response.error(res, 400, 'Invalid appointment id');
+
+    const appointment = await Appointment.findOne({ _id: appointmentId, hospitalId: req.user.userId });
+    if (!appointment) return response.error(res, 404, 'Appointment not found');
+
+    await appointment.populate(appointmentPopulateOptions);
+    await appointment.populate({ path: 'requestId', select: 'type bloodType organType urgency hospitalId' });
+
+    const appointmentResponse = toAppointmentResponse(appointment);
+    return response.success(res, 200, 'Appointment retrieved successfully', appointmentResponse);
   } catch (error) {
     next(error);
   }
