@@ -4,39 +4,22 @@ import Donation from '../models/Donation.model.js';
 import { env } from '../config/env.js';
 import * as geoUtil from '../utils/geo.js';
 import { canDonate } from './eligibility.service.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import {
+  getCompatibleDonorTypesForRequest,
+  isBloodTypeCompatibleWithAnyRequestType,
+  normalizeBloodTypeList,
+} from '../utils/blood-type.js';
 
 /**
  * Matching Service - Finds compatible donors for requests and vice versa
  */
 
-/**
- * Blood type compatibility matrix
- * Donors with these blood types can donate to recipients with the key
- */
-const BLOOD_TYPE_COMPATIBILITY = {
-  'O+': ['O+', 'A+', 'B+', 'AB+'],
-  'O-': ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'],
-  'A+': ['A+', 'AB+'],
-  'A-': ['A+', 'A-', 'AB+', 'AB-'],
-  'B+': ['B+', 'AB+'],
-  'B-': ['B+', 'B-', 'AB+', 'AB-'],
-  'AB+': ['AB+'],
-  'AB-': ['AB+', 'AB-'],
-};
-
 const DEFAULT_MATCHING_DISTANCE_KM = (() => {
   const configuredDistance = Number(env.MATCHING_DISTANCE_KM);
   return Number.isFinite(configuredDistance) && configuredDistance > 0 ? configuredDistance : 30;
 })();
-
-/**
- * Reverse lookup: which donor blood types can donate TO a given recipient type?
- */
-const getCompatibleDonorTypes = (recipientBloodType) => {
-  return Object.entries(BLOOD_TYPE_COMPATIBILITY)
-    .filter(([, recipients]) => recipients.includes(recipientBloodType))
-    .map(([donorType]) => donorType);
-};
 
 const extractRequestLocation = (request) => {
   const hospital = request?.hospitalId || {};
@@ -76,11 +59,11 @@ const extractDonorLocation = (donor) => {
 
 export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHING_DISTANCE_KM, allowOptedOut = false } = {}) => {
   if (!donor || !request) {
-    return { matched: false, reason: 'Donor or request not found' };
+    return { matched: false, reason: ELIGIBILITY_KEYS.DONOR_OR_REQUEST_NOT_FOUND };
   }
 
   if (!allowOptedOut && donor.isOptedIn === false) {
-    return { matched: false, reason: 'Donor opted out of matching' };
+    return { matched: false, reason: ELIGIBILITY_KEYS.DONOR_OPTED_OUT_OF_MATCHING };
   }
 
   const eligibility = await checkEligibility(donor, request);
@@ -88,18 +71,18 @@ export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHIN
     return { matched: false, reason: eligibility.reason };
   }
 
-  const shouldCheckBloodCompatibility = request.bloodType !== undefined && request.bloodType !== null && request.bloodType !== '';
-  if (shouldCheckBloodCompatibility && !isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
+  const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
+  if (requestBloodTypes.length > 0 && !isBloodTypeCompatible(donor.bloodType, requestBloodTypes)) {
     return {
       matched: false,
-      reason: `Donor blood type ${donor.bloodType} is not compatible with request for ${request.bloodType}`,
+      reason: ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE,
     };
   }
 
   const donorLocation = extractDonorLocation(donor);
   const requestLocation = extractRequestLocation(request);
   if (!donorLocation || !requestLocation) {
-    return { matched: false, reason: 'Matching location is not available' };
+    return { matched: false, reason: ELIGIBILITY_KEYS.MATCHING_LOCATION_UNAVAILABLE };
   }
 
   const distanceKm = geoUtil.calculateDistance(
@@ -110,7 +93,7 @@ export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHIN
   if (!Number.isFinite(distanceKm) || distanceKm > radiusKm) {
     return {
       matched: false,
-      reason: 'Donor is outside the matching radius',
+      reason: ELIGIBILITY_KEYS.OUTSIDE_MATCHING_RADIUS,
       distanceKm: Number.isFinite(distanceKm) ? Math.round(distanceKm * 100) / 100 : null,
     };
   }
@@ -159,10 +142,7 @@ const calculateLocationScore = (donorLocation, hospitalLocation) => {
  * @returns {boolean} - True if compatible
  */
 export const isBloodTypeCompatible = (donorBloodType, requestBloodType) => {
-  if (!donorBloodType || !requestBloodType) return false;
-  
-  const compatibleTypes = BLOOD_TYPE_COMPATIBILITY[donorBloodType];
-  return compatibleTypes && compatibleTypes.includes(requestBloodType);
+  return isBloodTypeCompatibleWithAnyRequestType(donorBloodType, requestBloodType);
 };
 
 /**
@@ -181,17 +161,17 @@ export const checkEligibility = async (donor, request) => {
   }
 
   if (!donor.bloodType) {
-    return { eligible: false, reason: 'Donor has not provided blood type information' };
+    return { eligible: false, reason: ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE };
   }
 
-  if (request.bloodType && !isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
+  if (normalizeBloodTypeList(request?.bloodType).length > 0 && !isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
     return {
       eligible: false,
-      reason: `Donor blood type ${donor.bloodType} is not compatible with request for ${request.bloodType}`,
+      reason: ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE,
     };
   }
 
-  return { eligible: true, reason: 'Donor is eligible' };
+  return { eligible: true, reason: ELIGIBILITY_KEYS.DONOR_ELIGIBLE };
 };
 
 /**
@@ -202,14 +182,15 @@ export const checkEligibility = async (donor, request) => {
 export const findCompatibleDonors = async (requestId) => {
   const request = await Request.findById(requestId).populate('hospitalId', 'location');
   if (!request) {
-    throw new Error('Request not found');
+    throw new Error(ELIGIBILITY_KEYS.REQUEST_NOT_FOUND);
   }
 
   // Pre-filter by participation preference + blood type at DB level.
   // Medical eligibility and hard distance filtering are evaluated dynamically below.
   const donorQuery = { isOptedIn: true, isSuspended: { $ne: true } };
-  if (request.bloodType) {
-    donorQuery.bloodType = { $in: getCompatibleDonorTypes(request.bloodType) };
+  const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
+  if (requestBloodTypes.length > 0) {
+    donorQuery.bloodType = { $in: getCompatibleDonorTypesForRequest(requestBloodTypes) };
   }
 
   const donors = await Donor.find(donorQuery).limit(500);
@@ -240,7 +221,7 @@ export const findCompatibleDonors = async (requestId) => {
     let score = 100;
 
     // Bonus for exact blood type match
-    if (donor.bloodType === request.bloodType) {
+    if (requestBloodTypes.includes(donor.bloodType)) {
       score += 20;
     }
 
@@ -273,12 +254,13 @@ export const searchCompatibleDonors = async ({
     donorQuery.isOptedIn = participation;
   }
 
-  if (bloodType) {
-    donorQuery.bloodType = { $in: getCompatibleDonorTypes(bloodType) };
+  const normalizedSearchBloodTypes = normalizeBloodTypeList(bloodType);
+  if (normalizedSearchBloodTypes.length > 0) {
+    donorQuery.bloodType = { $in: getCompatibleDonorTypesForRequest(normalizedSearchBloodTypes) };
   }
 
   const donors = await Donor.find(donorQuery).limit(500);
-  const searchRequest = bloodType ? { type: 'blood', bloodType } : { type: 'search' };
+  const searchRequest = normalizedSearchBloodTypes.length > 0 ? { type: 'blood', bloodType: normalizedSearchBloodTypes } : { type: 'search' };
   const compatibleDonors = [];
   const normalizedRadiusKm = Number.isFinite(radiusKm) ? radiusKm : DEFAULT_MATCHING_DISTANCE_KM;
   const searchHasLocation = hasCoordinates(location);
@@ -286,7 +268,7 @@ export const searchCompatibleDonors = async ({
   for (const donor of donors) {
     let distanceKm = null;
     let locationScore = 50;
-    let eligibilityReason = 'Donor is eligible';
+    let eligibilityReason = ELIGIBILITY_KEYS.DONOR_ELIGIBLE;
 
     if (searchHasLocation) {
       const match = await evaluateMatch(donor, {
@@ -311,7 +293,7 @@ export const searchCompatibleDonors = async ({
     }
 
     let score = 100;
-    if (bloodType && donor.bloodType === bloodType) {
+    if (normalizedSearchBloodTypes.includes(donor.bloodType)) {
       score += 20;
     }
     score = (score + locationScore) / 2;
@@ -342,7 +324,7 @@ export const searchCompatibleDonors = async ({
 export const findCompatibleRequests = async (donorId) => {
   const donor = await Donor.findById(donorId);
   if (!donor) {
-    throw new Error('Donor not found');
+    throw new Error(ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
   }
 
   if (donor.isOptedIn === false) {
@@ -366,6 +348,7 @@ export const findCompatibleRequests = async (donorId) => {
   const compatibleRequests = [];
 
   for (const request of requests) {
+    const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
     if (respondedRequestIds.has(request._id.toString())) continue;
 
     const match = await evaluateMatch(donor, request);
@@ -375,7 +358,7 @@ export const findCompatibleRequests = async (donorId) => {
     let score = 100;
 
     // Blood type match bonus
-    if (donor.bloodType === request.bloodType) {
+    if (requestBloodTypes.includes(donor.bloodType)) {
       score += 20;
     }
 
@@ -392,7 +375,7 @@ export const findCompatibleRequests = async (donorId) => {
       score: Math.round(score * 10) / 10,
       locationScore,
       compatibility: {
-        bloodTypeMatch: donor.bloodType === request.bloodType,
+        bloodTypeMatch: isBloodTypeCompatible(donor.bloodType, request.bloodType),
         eligible: true,
         distanceKm: match.distanceKm,
       },
@@ -414,7 +397,7 @@ export const getMatchingAnalysis = async (donorId, requestId) => {
     const request = await Request.findById(requestId);
 
     if (!donor || !request) {
-      throw new Error('Donor or Request not found');
+      throw new Error(ELIGIBILITY_KEYS.DONOR_OR_REQUEST_NOT_FOUND);
     }
 
     const eligibility = await checkEligibility(donor, request);
@@ -430,12 +413,12 @@ export const getMatchingAnalysis = async (donorId, requestId) => {
       request: {
         id: request._id,
         type: request.type,
-        bloodType: request.bloodType,
+        bloodType: normalizeBloodTypeList(request.bloodType),
         organType: request.organType,
         urgency: request.urgency,
       },
       compatibility: {
-        bloodTypeMatch: request.bloodType ? isBloodTypeCompatible(donor.bloodType, request.bloodType) : null,
+        bloodTypeMatch: normalizeBloodTypeList(request.bloodType).length > 0 ? isBloodTypeCompatible(donor.bloodType, request.bloodType) : null,
         eligible: eligibility.eligible,
         reason: eligibility.reason,
       },

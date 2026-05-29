@@ -9,6 +9,7 @@ import Notification from '../models/Notification.model.js';
 import * as donationService from './donation.service.js';
 import * as eligibilityService from './eligibility.service.js';
 import * as activityService from './activity.service.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 import { appointmentPopulateOptions, toAppointmentResponse } from '../utils/appointment.dto.js';
@@ -233,7 +234,7 @@ const assertAppointmentEligibility = async ({ donor, donationType, request = nul
     const eligibilityRequest = { ...requestObject, type: requestType };
     const eligibility = await donationService.validateEligibility(donor, eligibilityRequest);
     if (!eligibility.eligible) {
-      throw new Error(eligibility.reason || 'Donor is not eligible for this request');
+      throw new Error(eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
     }
   } else {
     const eligibility = await eligibilityService.canDonate(donor, {
@@ -242,7 +243,7 @@ const assertAppointmentEligibility = async ({ donor, donationType, request = nul
     });
 
     if (!eligibility.eligible) {
-      throw new Error(eligibility.reason || (mode === 'reschedule' ? 'Donor is not eligible for this donation type' : 'Donor is not eligible for this appointment'));
+      throw new Error(eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
     }
   }
 
@@ -557,15 +558,15 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
     }
 
     const donor = await Donor.findById(donorId);
-    if (!donor) throw new Error('Donor not found');
-    if (donor.isSuspended) throw new Error('Donor is suspended');
+    if (!donor) throw new Error(ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
+    if (donor.isSuspended) throw new Error(ELIGIBILITY_KEYS.DONOR_SUSPENDED);
 
     const donorDetails = toAppointmentResponse({ donorId: donor }).donorDetails;
 
     let request = null;
     if (requestId) {
       request = await Request.findById(requestId);
-      if (!request) throw new Error('Request not found');
+      if (!request) throw new Error(ELIGIBILITY_KEYS.REQUEST_NOT_FOUND);
 
       if (request.hospitalId?.toString?.() !== hospitalId.toString()) {
         throw new Error('Request does not belong to this hospital');
@@ -727,7 +728,7 @@ export const rescheduleAppointment = async (appointmentId, donorId, updateInput,
     const reason = normalizeRescheduleReason(updatePayload.reason);
 
     const donor = await Donor.findById(donorId);
-    if (!donor) throw new Error('Donor not found');
+    if (!donor) throw new Error(ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
 
     const request = appointment.requestId ? await Request.findById(appointment.requestId) : null;
 

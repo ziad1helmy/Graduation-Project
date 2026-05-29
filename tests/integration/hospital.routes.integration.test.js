@@ -36,7 +36,7 @@ const tokenFor = (user) =>
 // ─────────────────────────────────────────────────────────────────────────────
 const validRequestBody = () => ({
   type: 'blood',
-  bloodType: 'O+',
+  bloodTypes: ['O+'],
   urgency: 'high',
   requiredBy: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days out
   quantity: 2,
@@ -424,7 +424,7 @@ describe('POST /hospital/request', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         type: 'platelets',
-        bloodType: 'AB+',
+        bloodTypes: ['AB+'],
         urgency: 'critical',
         requiredBy: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
         quantity: 1,
@@ -439,6 +439,7 @@ describe('POST /hospital/request', () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
     const body = validRequestBody();
+    delete body.bloodTypes;
     delete body.bloodType;
 
     const res = await request(app)

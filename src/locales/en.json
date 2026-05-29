@@ -131,7 +131,38 @@
     "appointment_settings_updated": "Appointment settings updated successfully",
 
     "error_not_found": "Hospital profile not found",
-    "error_invalid_blood_type": "Invalid bloodType"
+    "error_invalid_blood_type": "Invalid bloodType value"
+  },
+
+  "eligibility": {
+    "dateOfBirthRequired": "Date of birth is required",
+    "minimumAge": "You must be at least 17 years old to donate",
+    "invalidDateOfBirth": "Date of birth must be a valid past date",
+    "ageVerificationFailed": "Unable to verify age from date of birth",
+    "donorNotFound": "Donor not found",
+    "donorOrRequestNotFound": "Donor or request not found",
+    "donorOptedOutOfMatching": "Donor opted out of matching",
+    "donorHasNoBloodType": "Donor has not provided blood type information",
+    "bloodTypeIncompatible": "Donor blood type is not compatible with the request",
+    "matchingLocationUnavailable": "Matching location is not available",
+    "outsideMatchingRadius": "Donor is outside the matching radius",
+    "requestNotFound": "Request not found",
+    "donorEligible": "Donor is eligible",
+    "donorNotEligible": "Donor is not eligible",
+    "noTemporaryDeferral": "No temporary deferral",
+    "temporaryDeferralExpired": "Temporary deferral expired",
+    "temporarilyDeferred": "Temporarily deferred",
+    "travelDeferral": "Travel to high-risk country",
+    "noDonationIntervalRestriction": "No donation interval restriction",
+    "invalidLastDonationDateIgnored": "Invalid last donation date ignored",
+    "donationCooldownActive": "You need to wait before donating again",
+    "donationIntervalSatisfied": "Donation interval satisfied",
+    "noHemoglobinRestriction": "No hemoglobin restriction",
+    "hemoglobinBelowMinimum": "Low hemoglobin level",
+    "hemoglobinLevelAcceptable": "Hemoglobin level acceptable",
+    "donorSuspended": "Donor is suspended",
+    "donorCurrentlyUnavailable": "Donor is currently unavailable",
+    "requestNoLongerActive": "The linked request is no longer active"
   },
 
   "request": {
@@ -159,6 +190,17 @@
     "error_cancel_own_only": "You can only cancel your own accepted request",
     "error_donor_not_eligible": "Donor is not eligible",
 
+    "validation": {
+      "blood_types_required": "At least one blood type is required",
+      "blood_types_empty": "Blood type list cannot be empty",
+      "blood_types_invalid": "One or more blood types are invalid"
+    },
+
+    "matching": {
+      "compatible_with_any": "Compatible with any of: {{bloodTypes}}",
+      "not_compatible_with_any": "Donor blood type {{donorBloodType}} is not compatible with request blood types {{bloodTypes}}"
+    },
+
     "status": {
       "pending": "Pending",
       "in_progress": "In Progress",
@@ -170,7 +212,8 @@
 
     "notifications": {
       "new_request_title": "🚨 New Blood Request",
-      "new_request_body": "{{bloodType}} needed near {{hospitalName}}. Units: {{units}}"
+      "new_request_body": "{{bloodType}} needed near {{hospitalName}}. Units: {{units}}",
+      "new_request_body_multi": "{{bloodTypes}} needed near {{hospitalName}}. Units: {{units}}"
     }
   },
 
@@ -278,6 +321,7 @@
     "reward_redeemed_message": "Your {{rewardName}} is confirmed. Code: {{confirmationCode}}",
     "emergency_request_title": "🚨 Emergency Blood Request",
     "emergency_request_body": "Critical {{bloodType}} blood needed near {{hospitalName}}",
+    "emergency_request_body_multi": "Critical {{bloodTypes}} blood needed near {{hospitalName}}",
     "urgent_request_accepted_title": "Urgent Request Accepted",
     "urgent_request_accepted_message": "You accepted an urgent {{requestType}} request with {{urgency}} urgency.",
     "urgent_request_declined_title": "Urgent Request Declined",

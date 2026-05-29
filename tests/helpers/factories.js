@@ -8,6 +8,7 @@ import Donor from '../../src/models/Donor.model.js';
 import Hospital from '../../src/models/Hospital.model.js';
 import Request from '../../src/models/Request.model.js';
 import Donation from '../../src/models/Donation.model.js';
+import { normalizeBloodTypeList } from '../../src/utils/blood-type.js';
 
 // Use a high-entropy counter to guarantee uniqueness across parallel test files
 let counter = Math.floor(Math.random() * 100000);
@@ -89,10 +90,11 @@ export async function createHospital(overrides = {}) {
  * Create a blood donation request.
  */
 export async function createRequest(hospitalId, overrides = {}) {
+  const overrideBloodTypes = normalizeBloodTypeList(overrides.bloodType);
   return Request.create({
     hospitalId,
     type: 'blood',
-    bloodType: 'O+',
+    bloodType: overrideBloodTypes.length > 0 ? overrideBloodTypes : ['O+'],
     urgency: 'high',
     status: 'pending',
     requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days

@@ -10,6 +10,7 @@ import * as notificationService from '../../src/services/notification.service.js
 import * as adminService from '../../src/services/admin.service.js';
 import * as hospitalService from '../../src/services/hospital.service.js';
 import { makeMockReq, makeMockRes } from '../helpers/mocks.js';
+import Appointment from '../../src/models/Appointment.model.js';
 
 vi.mock('../../src/models/Hospital.model.js', () => ({
   default: {
@@ -63,6 +64,13 @@ vi.mock('../../src/services/hospital.service.js', () => ({
 vi.mock('../../src/services/appointment.service.js', () => ({
   cancelActiveAppointmentsForRequest: vi.fn().mockResolvedValue({}),
   bookAppointment: vi.fn(),
+}));
+
+vi.mock('../../src/models/Appointment.model.js', () => ({
+  default: {
+    find: vi.fn(),
+    findOne: vi.fn(),
+  },
 }));
 
 describe('Hospital Controller', () => {
@@ -191,7 +199,7 @@ describe('Hospital Controller', () => {
         user: { userId: hospitalId, role: 'hospital' },
         body: {
           type: 'blood',
-          bloodType: 'A+',
+          bloodTypes: ['A+', 'O-'],
           urgency: 'critical',
           requiredBy: requiredByFuture.toISOString(),
           unitsNeeded: 3,
@@ -214,7 +222,7 @@ describe('Hospital Controller', () => {
       const mockCreatedRequest = {
         _id: requestId,
         type: 'blood',
-        bloodType: 'A+',
+        bloodType: ['A+', 'O-'],
         urgency: 'critical',
         unitsNeeded: 3,
         isEmergency: true,
@@ -282,6 +290,54 @@ describe('Hospital Controller', () => {
 
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json.mock.calls[0][0].data.status).toBe('completed');
+    });
+
+    describe('getAppointmentDetails', () => {
+      it('returns 200 and includes donor info when appointment belongs to hospital', async () => {
+        const req = makeMockReq({ user: { userId: hospitalId, role: 'hospital' }, params: { appointmentId: '507f1f77bcf86cd799439033' } });
+        const res = makeMockRes();
+        const next = vi.fn();
+
+        const appointmentMock = {
+          _id: '507f1f77bcf86cd799439033',
+          donorId: { _id: 'donor1', fullName: 'Jane Doe', phoneNumber: '+201234567890', bloodType: 'O+' },
+          hospitalId: { _id: hospitalId },
+          appointmentDate: new Date().toISOString(),
+          status: 'confirmed',
+          donorDetails: { fullName: 'Jane Doe', phoneNumber: '+201234567890', bloodType: 'O+' },
+          populate: vi.fn().mockResolvedValue(true),
+          toObject: vi.fn().mockReturnValue({
+            _id: '507f1f77bcf86cd799439033',
+            donorId: { _id: 'donor1', fullName: 'Jane Doe', phoneNumber: '+201234567890', bloodType: 'O+' },
+            donorDetails: { fullName: 'Jane Doe', phoneNumber: '+201234567890', bloodType: 'O+' },
+            appointmentDate: new Date().toISOString(),
+            status: 'confirmed',
+          }),
+        };
+
+        Appointment.findOne.mockResolvedValue(appointmentMock);
+
+        await hospitalController.getAppointmentDetails(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(200);
+        const callArgs = res.json.mock.calls[0][0];
+        expect(callArgs.success).toBe(true);
+        expect(callArgs.data.appointment).toBeDefined();
+        expect(callArgs.data.donorDetails).toBeDefined();
+        expect(callArgs.data.donorDetails.fullName).toBe('Jane Doe');
+      });
+
+      it('returns 404 when appointment not found', async () => {
+        const req = makeMockReq({ user: { userId: hospitalId, role: 'hospital' }, params: { appointmentId: '507f1f77bcf86cd799439044' } });
+        const res = makeMockRes();
+        const next = vi.fn();
+
+        Appointment.findOne.mockResolvedValue(null);
+
+        await hospitalController.getAppointmentDetails(req, res, next);
+
+        expect(res.status).toHaveBeenCalledWith(404);
+      });
     });
   });
 });

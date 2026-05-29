@@ -42,12 +42,7 @@ export default function errorMiddleware(err, req, res, next) {
       path: req.path,
       detailCount: details.length,
     });
-    return res.status(400).json({
-      success: false,
-      code: 'VALIDATION_ERROR',
-      message: 'Validation failed',
-      details,
-    });
+    return response.error(res, 400, 'error.validation_failed', details);
   }
 
   if (err?.name === 'CastError') {

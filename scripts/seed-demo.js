@@ -592,7 +592,7 @@ async function main() {
     {
       hospitalId: hospitals.cairoCare._id,
       type: 'blood',
-      bloodType: 'O+',
+      bloodType: ['O+', 'B-'],
       urgency: 'critical',
       status: 'pending',
       requiredBy: futureDate(2),
@@ -610,7 +610,7 @@ async function main() {
     {
       hospitalId: hospitals.nileHope._id,
       type: 'blood',
-      bloodType: 'A-',
+      bloodType: ['A-', 'O-'],
       urgency: 'high',
       status: 'in-progress',
       requiredBy: futureDate(3),
@@ -628,7 +628,7 @@ async function main() {
     {
       hospitalId: hospitals.cairoCare._id,
       type: 'blood',
-      bloodType: 'B+',
+      bloodType: ['B+', 'AB+'],
       urgency: 'medium',
       status: 'completed',
       requiredBy: futureDate(1),
@@ -646,7 +646,7 @@ async function main() {
     {
       hospitalId: hospitals.nileHope._id,
       type: 'blood',
-      bloodType: 'AB+',
+      bloodType: ['AB+', 'A+'],
       urgency: 'low',
       status: 'cancelled',
       requiredBy: futureDate(4),
@@ -664,7 +664,7 @@ async function main() {
     {
       hospitalId: hospitals.cairoCare._id,
       type: 'platelets',
-      bloodType: 'AB+',
+      bloodType: ['AB+', 'O-'],
       urgency: 'high',
       status: 'pending',
       requiredBy: futureDate(5),
@@ -682,7 +682,7 @@ async function main() {
     {
       hospitalId: hospitals.nileHope._id,
       type: 'blood',
-      bloodType: 'O-',
+      bloodType: ['O-', 'A-'],
       urgency: 'medium',
       status: 'pending',
       requiredBy: futureDate(6),
@@ -700,7 +700,7 @@ async function main() {
     {
       hospitalId: hospitals.cairoCare._id,
       type: 'plasma',
-      bloodType: 'AB+',
+      bloodType: ['AB+', 'O+'],
       urgency: 'critical',
       status: 'pending',
       requiredBy: futureDate(1),
@@ -718,7 +718,7 @@ async function main() {
     {
       hospitalId: hospitals.nileHope._id,
       type: 'platelets',
-      bloodType: 'O+',
+      bloodType: ['O+', 'B+'],
       urgency: 'high',
       status: 'in-progress',
       requiredBy: futureDate(2),
@@ -736,7 +736,7 @@ async function main() {
     {
       hospitalId: hospitals.cairoCare._id,
       type: 'double_red_cells',
-      bloodType: 'A+',
+      bloodType: ['A+', 'O-'],
       urgency: 'medium',
       status: 'pending',
       requiredBy: futureDate(4),
@@ -754,7 +754,7 @@ async function main() {
     {
       hospitalId: hospitals.cairoCare._id,
       type: 'blood',
-      bloodType: 'O+',
+      bloodType: ['O+', 'A+'],
       urgency: 'critical',
       status: 'pending',
       requiredBy: futureDate(1),
@@ -772,7 +772,7 @@ async function main() {
     {
       hospitalId: hospitals.nileHope._id,
       type: 'blood',
-      bloodType: 'A-',
+      bloodType: ['A-', 'AB-'],
       urgency: 'critical',
       status: 'pending',
       requiredBy: futureDate(1),

@@ -37,8 +37,31 @@ describe('Notification Service', () => {
     expect(items[0].data.body_loc_key).toBe('emergency_request_body');
     expect(items[0].data.actionIds).toEqual(['accept', 'decline', 'view']);
     expect(items[0].data.actions[2].endpoint).toBe(`/urgent-requests/${request._id}`);
+    expect(items[0].data.bloodType).toEqual(['O+']);
+    expect(items[0].data.bloodTypeLabel).toBe('O+');
     const unread = await notificationService.getUnreadNotifications(d1._id);
     expect(unread.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('notifyRequest handles multi-type requests without duplicate donor notifications', async () => {
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, {
+      type: 'blood',
+      bloodType: ['O+', 'A+'],
+      urgency: 'critical',
+    });
+
+    const universalDonor = await createDonor({ bloodType: 'O-' });
+    const compatibleDonor = await createDonor({ bloodType: 'A-' });
+
+    const items = await notificationService.notifyRequest(
+      [universalDonor._id, universalDonor._id, compatibleDonor._id],
+      request,
+    );
+
+    expect(items).toHaveLength(2);
+    expect(new Set(items.map((item) => item.userId.toString())).size).toBe(2);
+    expect(items.every((item) => item.data.bloodTypeLabel === 'O+, A+')).toBe(true);
   });
 
   it('notifyRequest excludes opted-out and incompatible donors', async () => {
@@ -106,7 +129,8 @@ describe('Notification Service', () => {
 
     expect(data.type).toBe('emergency_request');
     expect(data.requestId).toBe(request._id.toString());
-    expect(data.bloodType).toBe('O-');
+    expect(data.bloodType).toEqual(['O-']);
+    expect(data.bloodTypeLabel).toBe('O-');
     expect(data.urgency).toBe('critical');
     expect(data.hospitalName).toBeTruthy();
     expect(data.unitsNeeded).toBe(2);

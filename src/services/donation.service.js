@@ -7,6 +7,7 @@ import * as rewardService from './reward.service.js';
 import * as activityService from './activity.service.js';
 import { ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
 import { logger } from '../utils/logger.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 /**
  * Donation Service - Manages donation lifecycle and eligibility
@@ -42,7 +43,7 @@ export const createDonation = async (donorId, requestId, data = {}) => {
     const request = await Request.findById(requestId).populate('hospitalId', 'fullName hospitalName');
 
     if (!donor || !request) {
-      throw new Error('Donor or Request not found');
+      throw new Error(ELIGIBILITY_KEYS.DONOR_OR_REQUEST_NOT_FOUND);
     }
 
     // Validate eligibility

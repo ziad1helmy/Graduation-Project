@@ -16,6 +16,7 @@ import * as eligibilityService from '../services/eligibility.service.js';
 import * as donationService from '../services/donation.service.js';
 import * as rewardService from '../services/reward.service.js';
 import { normalizeDonationTypeRequestKey } from '../services/appointment.service.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 const MIN_HEMOGLOBIN_LEVEL = 12.5;
 const MAX_HEMOGLOBIN_LEVEL = 20;
@@ -113,7 +114,7 @@ const populateAppointmentForVerification = (query) => {
     .populate('requestId', 'type bloodType urgency quantity unitsNeeded isEmergency hospitalContact hospitalName contactNumber requiredBy status');
 };
 
-const buildVerificationPayload = (appointment, eligibility, sessionId = null) => {
+const buildVerificationPayload = (appointment, eligibility, sessionId = null, translate = (value) => value) => {
   const donor = appointment.donorId;
   const hospital = appointment.hospitalId;
   const donorLocation = donor?.location?.coordinates;
@@ -155,7 +156,7 @@ const buildVerificationPayload = (appointment, eligibility, sessionId = null) =>
     },
     eligibility: {
       eligible: Boolean(eligibility?.eligible),
-      reason: eligibility?.reason || null,
+      reason: eligibility?.reason ? translate(eligibility.reason) : null,
       nextEligibleDate: eligibility?.nextEligibleDate || null,
     },
     checklistRequirements: {
@@ -382,7 +383,7 @@ export const validateDonationEligibility = async (req, res, next) => {
     if (!eligibility.eligible) {
       return response.success(res, 200, 'Donation eligibility checked', {
         canDonate: false,
-        reason: eligibility.reason || 'Donor is not eligible',
+        reason: req.t ? req.t(eligibility.reason || 'eligibility.donorNotEligible') : (eligibility.reason || 'eligibility.donorNotEligible'),
         ...(eligibility.nextEligibleDate ? { nextEligibleDate: eligibility.nextEligibleDate } : {}),
       });
     }
@@ -446,7 +447,7 @@ export const verifyQr = async (req, res, next) => {
     });
     // eligibility computed
     if (!eligibility.eligible) {
-      return response.error(res, 403, eligibility.reason || 'Donor not eligible');
+      return response.error(res, 403, eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
     }
 
     const now = new Date();
@@ -495,7 +496,7 @@ export const verifyQr = async (req, res, next) => {
       },
     }).catch(() => {});
 
-    return response.success(res, 200, 'Donation verification started successfully', buildVerificationPayload(updatedAppointment, eligibility, sessionId));
+    return response.success(res, 200, 'Donation verification started successfully', buildVerificationPayload(updatedAppointment, eligibility, sessionId, req.t));
   } catch (error) {
     next(error);
   }

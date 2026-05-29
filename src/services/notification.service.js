@@ -9,6 +9,7 @@ import {
   buildEmergencyRequestNotificationData,
   buildEmergencyRequestNotificationContent,
 } from '../utils/emergency-notification.js';
+import { formatBloodTypeLabel, normalizeBloodTypeList } from '../utils/blood-type.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -25,7 +26,7 @@ import { logger } from '../utils/logger.js';
 export const notifyMatch = async (userId, donation, request) => {
   try {
     const notificationTitle = 'New Donor Matched';
-    const requestLabel = request.type === 'blood' ? `${request.bloodType} blood` : request.type;
+    const requestLabel = request.type === 'blood' ? `${formatBloodTypeLabel(request.bloodType)} blood` : request.type;
     const notificationMessage = `A donor has matched your ${requestLabel} request`;
     const notificationData = {
       donationId: donation._id,
@@ -83,7 +84,8 @@ export const notifyMatch = async (userId, donation, request) => {
  */
 export const notifyRequest = async (donorIds, request) => {
   try {
-    if (!Array.isArray(donorIds) || donorIds.length === 0) {
+    const uniqueDonorIds = [...new Set((Array.isArray(donorIds) ? donorIds : []).map((donorId) => donorId?.toString?.() || String(donorId)))];
+    if (uniqueDonorIds.length === 0) {
       return [];
     }
 
@@ -91,7 +93,12 @@ export const notifyRequest = async (donorIds, request) => {
       ? await request.populate('hospitalId', 'fullName hospitalName address location contactNumber')
       : request;
 
-    const donors = await Donor.find({ _id: { $in: donorIds } })
+    const normalizedRequestBloodTypes = normalizeBloodTypeList(populatedRequest?.bloodType);
+    if (normalizedRequestBloodTypes.length > 0) {
+      populatedRequest.bloodType = normalizedRequestBloodTypes;
+    }
+
+    const donors = await Donor.find({ _id: { $in: uniqueDonorIds } })
       .select('_id fullName location fcmTokens settings isOptedIn bloodType dateOfBirth gender lastDonationDate hemoglobinLevel temporaryDeferralUntil travelHistory')
       .lean(false);
 
@@ -147,7 +154,7 @@ export const notifyRequest = async (donorIds, request) => {
           sound: 'default',
           titleLocKey: data.title_loc_key,
           bodyLocKey: data.body_loc_key,
-          bodyLocArgs: [data.bloodType || '', data.hospitalName || ''],
+          bodyLocArgs: [data.bloodTypeLabel || '', data.hospitalName || ''],
         };
 
         const tokens = Array.isArray(donor.fcmTokens) ? donor.fcmTokens : [];

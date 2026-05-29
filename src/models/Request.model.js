@@ -1,4 +1,8 @@
 import mongoose from 'mongoose';
+import {
+  BLOOD_TYPE_VALUES,
+  normalizeBloodTypeList,
+} from '../utils/blood-type.js';
 
 /**
  * Request Model - Hospital-created requests for blood donations
@@ -51,20 +55,23 @@ const requestSchema = new mongoose.Schema(
     },
     
     bloodType: {
-      type: String,
-      enum: {
-        values: ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'],
-        message: 'Blood type must be a valid type',
-      },
+      type: [String],
+      set: normalizeBloodTypeList,
+      get: normalizeBloodTypeList,
       validate: {
         validator: function(v) {
-          // Blood type is required for blood, plasma, platelets, and double_red_cells requests
-          if (['blood', 'plasma', 'platelets', 'double_red_cells'].includes(this.type)) {
-            return v !== null && v !== undefined;
+          if (!['blood', 'plasma', 'platelets', 'double_red_cells'].includes(this.type)) {
+            return true;
           }
-          return true;
+
+          const normalized = normalizeBloodTypeList(v);
+          if (normalized.length === 0) {
+            return false;
+          }
+
+          return normalized.every((bloodType) => BLOOD_TYPE_VALUES.includes(bloodType));
         },
-        message: 'Blood type is required for blood, plasma, and platelet donation requests',
+        message: 'Blood type is required for blood, plasma, and platelet donation requests and must contain at least one valid blood type',
       },
     },
     // Cause of the request, e.g. accident, surgery, etc. This helps the donor understand the urgency of the request.
@@ -216,6 +223,12 @@ requestSchema.index({ urgency: 1, status: 1 });
 requestSchema.index({ acceptedBy: 1, status: 1 });
 requestSchema.index({ hospitalLocationGeo: '2dsphere' });
 
+requestSchema.pre('init', function normalizeHydratedRequest(doc) {
+  if (doc && doc.bloodType !== undefined) {
+    doc.bloodType = normalizeBloodTypeList(doc.bloodType);
+  }
+});
+
 // Ensure location fields and request quantity fields remain synchronized.
 // - `locationHospital` containing `{ latitude, longitude }` is canonical for coordinate storage.
 // - `hospitalLocationGeo` containing a GeoJSON `Point` with `[longitude, latitude]` is canonical for geospatial query operations.
@@ -234,6 +247,11 @@ requestSchema.pre('validate', function syncRequestFields() {
     } else if (!hasUnits && !hasQuantity) {
       this.unitsNeeded = 1;
       this.quantity = 1;
+    }
+
+    // 1b. Normalize bloodType so legacy scalar values become arrays.
+    if (this.bloodType !== undefined && this.bloodType !== null) {
+      this.bloodType = normalizeBloodTypeList(this.bloodType);
     }
 
     // 2. Synchronize locationHospital, hospitalLocation, hospitalLocationGeo
@@ -338,6 +356,10 @@ function syncRequestUpdate() {
     }
   }
 
+  if (update.bloodType !== undefined) {
+    update.bloodType = normalizeBloodTypeList(update.bloodType);
+  }
+
   // Sync quantity and unitsNeeded on $set update keys
   if (update.$set) {
     if (update.$set.unitsNeeded !== undefined || update.$set.quantity !== undefined) {
@@ -346,6 +368,10 @@ function syncRequestUpdate() {
         update.$set.unitsNeeded = val;
         update.$set.quantity = val;
       }
+    }
+
+    if (update.$set.bloodType !== undefined) {
+      update.$set.bloodType = normalizeBloodTypeList(update.$set.bloodType);
     }
   }
 }

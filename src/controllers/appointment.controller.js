@@ -3,6 +3,7 @@ import * as appointmentService from '../services/appointment.service.js';
 import ERR from '../utils/errorCodes.js';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
 import { toAppointmentResponse, appointmentPopulateOptions } from '../utils/appointment.dto.js';
+import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 const getDonorId = (req) => req?.user?.userId || req?.user?._id;
 
@@ -72,10 +73,10 @@ export const bookAppointment = async (req, res, next) => {
 
     return response.success(res, 201, 'Appointment booked', toAppointmentResponse(appointment));
   } catch (error) {
-    if (error.message === 'Hospital not found' || error.message === 'Donor not found') {
+    if (error.message === 'Hospital not found' || error.message === ELIGIBILITY_KEYS.DONOR_NOT_FOUND) {
       return response.error(res, 404, error.message);
     }
-    if (error.message === 'Request not found') {
+    if (error.message === ELIGIBILITY_KEYS.REQUEST_NOT_FOUND) {
       return response.error(res, 404, error.message);
     }
     if (error.message === 'You already have an active appointment at this hospital') {
@@ -88,12 +89,12 @@ export const bookAppointment = async (req, res, next) => {
       error.message === 'Invalid request id' ||
       error.message === 'Request does not belong to this hospital' ||
       error.message === 'The linked request is no longer active' ||
-      error.message === 'Donor is not currently available' ||
-      error.message === 'Donor is suspended' ||
-      error.message === 'Donor has not provided blood type information' ||
+      error.message === ELIGIBILITY_KEYS.DONOR_CURRENTLY_UNAVAILABLE ||
+      error.message === ELIGIBILITY_KEYS.DONOR_SUSPENDED ||
+      error.message === ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE ||
       error.message === 'Selected time slot is outside operating hours' ||
-      error.message.startsWith('Donor blood type ') ||
-      error.message.startsWith('Must wait ')
+      error.message === ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE ||
+      error.message === ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE
     ) {
       return response.error(res, 400, error.message);
     }

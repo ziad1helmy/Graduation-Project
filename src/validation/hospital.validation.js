@@ -5,6 +5,10 @@
  */
 
 import { DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
+import {
+  BLOOD_TYPE_VALUES,
+  normalizeBloodTypeList,
+} from '../utils/blood-type.js';
 
 const isValidNumber = (value) => Number.isFinite(Number(value));
 
@@ -69,10 +73,11 @@ export const validateBookAppointmentBody = (body = {}, appointmentDateObj) => {
  */
 export const validateCreateRequestBody = (body = {}) => {
   const errors = [];
-  const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
   const validUrgencies = ['low', 'medium', 'high', 'critical'];
 
-  const { type, urgency, requiredBy, bloodType, isEmergency } = body;
+  const { type, urgency, requiredBy, isEmergency } = body;
+  const bloodTypeInput = body.bloodTypes !== undefined ? body.bloodTypes : body.bloodType;
+  const normalizedBloodTypes = normalizeBloodTypeList(bloodTypeInput);
 
   if (!type || (!urgency && isEmergency !== true) || !requiredBy) {
     errors.push('Type, urgency or emergency flag, and requiredBy are required');
@@ -87,12 +92,24 @@ export const validateCreateRequestBody = (body = {}) => {
     errors.push('Urgency must be low, medium, high, or critical');
   }
 
-  if (['blood', 'double_red_cells'].includes(type) && !bloodType) {
+  if (['blood', 'double_red_cells'].includes(type) && normalizedBloodTypes.length === 0) {
     errors.push('Blood type is required for blood or double red cells donation requests');
   }
 
-  if (bloodType && !validBloodTypes.includes(bloodType)) {
-    errors.push('Invalid blood type');
+  if (bloodTypeInput !== undefined && bloodTypeInput !== null) {
+    if (Array.isArray(bloodTypeInput) && bloodTypeInput.length === 0) {
+      errors.push('Blood type must include at least one valid blood type');
+    }
+
+    const invalidBloodTypes = Array.isArray(bloodTypeInput)
+      ? bloodTypeInput.filter((item) => !BLOOD_TYPE_VALUES.includes(String(item).trim().toUpperCase().replace(/\s+/g, '+')))
+      : normalizedBloodTypes.length === 0 && bloodTypeInput
+        ? [bloodTypeInput]
+        : [];
+
+    if (invalidBloodTypes.length > 0) {
+      errors.push(`Invalid blood type${invalidBloodTypes.length > 1 ? 's' : ''}: ${invalidBloodTypes.join(', ')}`);
+    }
   }
 
   const requiredByDate = new Date(requiredBy);
@@ -102,5 +119,5 @@ export const validateCreateRequestBody = (body = {}) => {
     errors.push('Required date must be in the future');
   }
 
-  return { valid: errors.length === 0, errors };
+  return { valid: errors.length === 0, errors, bloodTypes: normalizedBloodTypes };
 };

@@ -1,4 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
+import ELIGIBILITY_KEYS from '../../src/utils/eligibility-keys.js';
 import { setupTestDB } from '../helpers/db.js';
 import { buildDonor, createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
 import * as matchingService from '../../src/services/matching.service.js';
@@ -22,6 +23,7 @@ describe('Matching Service — pure helpers', () => {
     expect(matchingService.isBloodTypeCompatible('O+', 'A+')).toBe(true);
     expect(matchingService.isBloodTypeCompatible('A+', 'O+')).toBe(false);
     expect(matchingService.isBloodTypeCompatible(null, 'A+')).toBe(false);
+    expect(matchingService.isBloodTypeCompatible('O-', ['A+', 'O-'])).toBe(true);
   });
 
   it('checks eligibility with missing blood type', async () => {
@@ -30,18 +32,17 @@ describe('Matching Service — pure helpers', () => {
     const request = { type: 'blood', bloodType: 'A+' };
     const res = await matchingService.checkEligibility(donor, request);
     expect(res.eligible).toBe(false);
-    expect(res.reason).toMatch(/has not provided blood type/i);
+    expect(res.reason).toBe(ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE);
   });
 });
 
 describe('Matching Service — DB-backed flows', () => {
-  it('findCompatibleDonors returns only compatible, opted-in donors', async () => {
+  it('findCompatibleDonors returns donors compatible with any selected blood type', async () => {
     const hospital = await createHospital();
-    const request = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    const request = await createRequest(hospital._id, { type: 'blood', bloodType: ['O+', 'A+'] });
 
-    // create compatible, opted-in donor
+    // create compatible donors for each selected blood type
     const donorA = await createDonor({ bloodType: 'O+', isOptedIn: true });
-    // create incompatible donor
     const donorB = await createDonor({ bloodType: 'A+', isOptedIn: true });
     // create opted-out donor (voluntary preference — should never appear even if medically eligible)
     const donorC = await createDonor({ bloodType: 'O+', isOptedIn: false });
@@ -53,10 +54,23 @@ describe('Matching Service — DB-backed flows', () => {
 
     // donorA should be excluded because they already responded
     expect(results.find((r) => r.donor._id.toString() === donorA._id.toString())).toBeUndefined();
-    // donorB is incompatible
-    expect(results.find((r) => r.donor._id.toString() === donorB._id.toString())).toBeUndefined();
+    // donorB matches the second selected blood type
+    expect(results.find((r) => r.donor._id.toString() === donorB._id.toString())).toBeDefined();
     // donorC opted out — must be excluded regardless of medical eligibility
     expect(results.find((r) => r.donor._id.toString() === donorC._id.toString())).toBeUndefined();
+  });
+
+  it('findCompatibleRequests marks requests as compatible when any selected blood type matches', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'O+' });
+    const matchingReq = await createRequest(hospital._id, { bloodType: ['O+', 'A+'], status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+    const requestMatch = results.find((entry) => entry.request._id.toString() === matchingReq._id.toString());
+    expect(requestMatch).toBeDefined();
+    expect(requestMatch.compatibility.bloodTypeMatch).toBe(true);
   });
 });
 /**
@@ -324,7 +338,7 @@ describe('findCompatibleDonors', () => {
 
   it('should throw for non-existent request', async () => {
     const fakeId = '000000000000000000000000';
-    await expect(findCompatibleDonors(fakeId)).rejects.toThrow('Request not found');
+    await expect(findCompatibleDonors(fakeId)).rejects.toThrow(ELIGIBILITY_KEYS.REQUEST_NOT_FOUND);
   });
 });
 
@@ -391,6 +405,6 @@ describe('findCompatibleRequests', () => {
 
   it('should throw for non-existent donor', async () => {
     const fakeId = '000000000000000000000000';
-    await expect(findCompatibleRequests(fakeId)).rejects.toThrow('Donor not found');
+    await expect(findCompatibleRequests(fakeId)).rejects.toThrow(ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
   });
 });

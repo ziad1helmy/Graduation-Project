@@ -1,4 +1,8 @@
 import { calculateDistance } from './geo.js';
+import {
+  formatBloodTypeLabel,
+  normalizeBloodTypeList,
+} from './blood-type.js';
 
 export const EMERGENCY_NOTIFICATION_TYPE = 'emergency_request';
 export const EMERGENCY_NOTIFICATION_TITLE_KEY = 'emergency_request_title';
@@ -87,7 +91,8 @@ export const buildEmergencyRequestNotificationData = (request, donor = null) => 
   return {
     type: EMERGENCY_NOTIFICATION_TYPE,
     requestId,
-    bloodType: request?.bloodType || null,
+    bloodType: normalizeBloodTypeList(request?.bloodType),
+    bloodTypeLabel: formatBloodTypeLabel(request?.bloodType),
     urgency: request?.urgency || null,
     hospitalName,
     location,
@@ -123,7 +128,7 @@ export const buildEmergencyRequestNotificationData = (request, donor = null) => 
 export const buildEmergencyRequestNotificationContent = (request, donor = null) => {
   const language = donor?.settings?.language === 'ar' ? 'ar' : 'en';
   const data = buildEmergencyRequestNotificationData(request, donor);
-  const bloodType = data.bloodType || 'blood';
+  const bloodType = data.bloodTypeLabel || 'blood';
   const hospitalName = data.hospitalName || 'nearby hospital';
   const title = language === 'ar'
     ? '🚨 طلب دم طارئ'
@@ -146,7 +151,8 @@ export const buildEmergencyRequestFcmData = (request, donor = null) => {
   return {
     type: data.type,
     requestId: data.requestId,
-    bloodType: data.bloodType || '',
+    bloodType: JSON.stringify(data.bloodType || []),
+    bloodTypeLabel: data.bloodTypeLabel || '',
     urgency: data.urgency || '',
     hospitalName: data.hospitalName || '',
     location: data.location || '',

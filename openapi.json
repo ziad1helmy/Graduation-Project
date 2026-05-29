@@ -2344,6 +2344,10 @@
                     "type": "string",
                     "format": "date-time"
                   },
+                  "donationType": {
+                    "type": "string",
+                    "description": "Donation type (e.g. \"Whole Blood\", \"Plasma\", \"Platelets\", \"Double Red Cells\")"
+                  },
                   "notes": {
                     "type": "string",
                     "maxLength": 500
@@ -2352,8 +2356,8 @@
               },
               "example": {
                 "hospitalId": "69f3df915f42685cbbbcbb1b",
-                "requestId": "69fe540565ff7785a031314f",
                 "appointmentDate": "2026-05-12T10:00:00.000Z",
+                "donationType": "Whole Blood",
                 "notes": "Available in the morning."
               }
             }
@@ -2387,7 +2391,7 @@
                       "hospitalName": "Cairo Care Hospital",
                       "fullName": "Cairo Care Operations"
                     },
-                    "requestId": "69fe540565ff7785a031314f",
+                    "requestId": null,
                     "appointmentDate": "2026-05-12T10:00:00.000Z",
                     "status": "pending",
                     "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
@@ -2470,9 +2474,24 @@
                   "message": "Available slots retrieved successfully",
                   "data": {
                     "timeSlots": [
-                      "08:00 AM",
-                      "09:00 AM",
-                      "10:00 AM"
+                      {
+                        "time": "08:00",
+                        "remainingCapacity": 2,
+                        "maxCapacity": 4,
+                        "available": true
+                      },
+                      {
+                        "time": "09:00",
+                        "remainingCapacity": 0,
+                        "maxCapacity": 4,
+                        "available": false
+                      },
+                      {
+                        "time": "10:00",
+                        "remainingCapacity": 3,
+                        "maxCapacity": 4,
+                        "available": true
+                      }
                     ],
                     "hospitalId": "69f3df915f42685cbbbcbb1b",
                     "date": "2026-05-12T00:00:00.000Z",
@@ -2697,16 +2716,20 @@
                     "type": "string",
                     "description": "Donation type label or supported alias"
                   },
+                  "notes": {
+                    "type": "string",
+                    "description": "Optional donor-provided reason for rescheduling (preferred field)"
+                  },
                   "reason": {
                     "type": "string",
-                    "description": "Optional donor-provided reason for rescheduling"
+                    "description": "Optional donor-provided reason for rescheduling (legacy alias for 'notes')"
                   }
                 }
               },
               "example": {
                 "appointmentDate": "2026-05-13T11:00:00.000Z",
                 "donationType": "Plasma",
-                "reason": "Travel conflict"
+                "notes": "Travel conflict"
               }
             }
           }
@@ -4253,7 +4276,10 @@
                         "urgentNeedsCount": 2,
                         "distanceKm": 2.35,
                         "distanceMeters": 2350,
-                        "distance": "2.35 km"
+                        "distance": "2.35 km",
+                        "appointmentSchedulingEnabled": true,
+                        "hospitalActive": true,
+                        "hospitalVerified": true
                       }
                     ],
                     "pagination": {
@@ -4288,7 +4314,10 @@
                     "hospitals": [
                       {
                         "id": "69f3df915f42685cbbbcbb1b",
+                        "hospitalId": "69f3df915f42685cbbbcbb1b",
+                        "hospital_id": "69f3df915f42685cbbbcbb1b",
                         "name": "Cairo Care Hospital",
+                        "fullName": "Cairo Care Operations",
                         "address": {
                           "city": "Cairo",
                           "governorate": "Cairo"
@@ -4309,7 +4338,10 @@
                         "workingHours": "9AM - 5PM",
                         "distanceKm": 2.4,
                         "distanceMeters": 2400,
-                        "distance": "2.40 km"
+                        "distance": "2.40 km",
+                        "appointmentSchedulingEnabled": true,
+                        "hospitalActive": true,
+                        "hospitalVerified": true
                       }
                     ]
                   }
@@ -4413,7 +4445,10 @@
                       "urgentNeedsCount": 3,
                       "distanceKm": 2.4,
                       "distanceMeters": 2400,
-                      "distance": "2.40 km"
+                      "distance": "2.40 km",
+                      "appointmentSchedulingEnabled": true,
+                      "hospitalActive": true,
+                      "hospitalVerified": true
                     }
                   }
                 }
@@ -7436,18 +7471,23 @@
                       "platelets"
                     ]
                   },
-                  "bloodType": {
-                    "type": "string",
-                    "enum": [
-                      "A+",
-                      "A-",
-                      "B+",
-                      "B-",
-                      "AB+",
-                      "AB-",
-                      "O+",
-                      "O-"
-                    ]
+                  "bloodTypes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "A+",
+                        "A-",
+                        "B+",
+                        "B-",
+                        "AB+",
+                        "AB-",
+                        "O+",
+                        "O-"
+                      ]
+                    },
+                    "description": "One or more compatible blood types"
                   },
                   "organType": {
                     "type": "string",
@@ -7497,12 +7537,19 @@
                   "notes": {
                     "type": "string",
                     "example": "Need compatible donors urgently"
+                  },
+                  "patientDetails": {
+                    "type": "string",
+                    "example": "Need compatible donors urgently"
                   }
                 }
               },
               "example": {
                 "type": "blood",
-                "bloodType": "O+",
+                "bloodTypes": [
+                  "O+",
+                  "B-"
+                ],
                 "urgency": "critical",
                 "requiredBy": "2026-05-12T10:00:00.000Z",
                 "quantity": 3,
@@ -7510,7 +7557,7 @@
                 "patientType": "adult",
                 "contactNumber": "01099998888",
                 "isEmergency": true,
-                "notes": "Emergency surgery support"
+                "patientDetails": "Emergency surgery support"
               }
             }
           }
@@ -7531,7 +7578,10 @@
                       "hospitalName": "Cairo Care Hospital"
                     },
                     "type": "blood",
-                    "bloodType": "O+",
+                    "bloodType": [
+                      "O+",
+                      "B-"
+                    ],
                     "urgency": "critical",
                     "requiredBy": "2026-05-12T10:00:00.000Z",
                     "quantity": 3,
@@ -7590,18 +7640,23 @@
                       "platelets"
                     ]
                   },
-                  "bloodType": {
-                    "type": "string",
-                    "enum": [
-                      "A+",
-                      "A-",
-                      "B+",
-                      "B-",
-                      "AB+",
-                      "AB-",
-                      "O+",
-                      "O-"
-                    ]
+                  "bloodTypes": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "string",
+                      "enum": [
+                        "A+",
+                        "A-",
+                        "B+",
+                        "B-",
+                        "AB+",
+                        "AB-",
+                        "O+",
+                        "O-"
+                      ]
+                    },
+                    "description": "One or more compatible blood types"
                   },
                   "organType": {
                     "type": "string",
@@ -7642,19 +7697,25 @@
                   },
                   "notes": {
                     "type": "string"
+                  },
+                  "patientDetails": {
+                    "type": "string"
                   }
                 }
               },
               "example": {
                 "type": "blood",
-                "bloodType": "O+",
+                "bloodTypes": [
+                  "O+",
+                  "B-"
+                ],
                 "urgency": "critical",
                 "requiredBy": "2026-05-12T10:00:00.000Z",
                 "unitsNeeded": 3,
                 "patientType": "adult",
                 "contactNumber": "01099998888",
                 "isEmergency": true,
-                "notes": "Emergency surgery support"
+                "patientDetails": "Emergency surgery support"
               }
             }
           }
@@ -7930,7 +7991,10 @@
                     "request": {
                       "_id": "69fe540565ff7785a0313150",
                       "type": "blood",
-                      "bloodType": "A-",
+                      "bloodType": [
+                        "A-",
+                        "O-"
+                      ],
                       "urgency": "high",
                       "status": "in-progress",
                       "quantity": 2,
@@ -8629,24 +8693,66 @@
                           "donorDetails": {
                             "fullName": "Jane Doe",
                             "phoneNumber": 201234567890,
-                            "bloodType": "O+",
-                            "email": "jane@example.com"
-                          },
-                          "hospitalId": "69f3df915f42685cbbbcbb10",
-                          "requestId": {
-                            "_id": "69fe540565ff7785a0313151",
-                            "type": "blood",
                             "bloodType": "O+"
-                          },
-                          "appointmentDate": "2026-06-01T09:00:00.000Z",
-                          "status": "pending"
+                          }
                         }
-                      ],
-                      "pagination": {
-                        "page": 1,
-                        "limit": 20,
-                        "total": 1,
-                        "totalPages": 1
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/hospital/appointments/{appointmentId}": {
+        "get": {
+          "summary": "Get a single appointment details for the authenticated hospital",
+          "tags": [
+            "Hospital"
+          ],
+          "security": [
+            {
+              "bearerAuth": []
+            }
+          ],
+          "parameters": [
+            {
+              "in": "path",
+              "name": "appointmentId",
+              "required": true,
+              "schema": {
+                "type": "string"
+              }
+            }
+          ],
+          "responses": {
+            "200": {
+              "description": "Appointment details",
+              "content": {
+                "application/json": {
+                  "example": {
+                    "success": true,
+                    "message": "Appointment retrieved successfully",
+                    "data": {
+                      "appointmentId": "69fe540565ff7785a031315c",
+                      "appointmentDate": "2026-06-01T09:00:00.000Z",
+                      "status": "confirmed",
+                      "donorId": "66f100000000000000000002",
+                      "hospitalId": "69f3df915f42685cbbbcbb10",
+                      "requestId": "69fe540565ff7785a0313151",
+                      "donorDetails": {
+                        "fullName": "Jane Doe",
+                        "phoneNumber": 201234567890,
+                        "bloodType": "O+",
+                        "email": "jane@example.com"
+                      },
+                      "donor": {
+                        "donorId": "66f100000000000000000002",
+                        "fullName": "Jane Doe",
+                        "email": "jane.doe@example.com",
+                        "phoneNumber": 201234567890,
+                        "bloodType": "O+"
                       }
                     }
                   }
@@ -13034,7 +13140,10 @@
                     "request": {
                       "_id": "69fe540565ff7785a031314f",
                       "status": "completed",
-                      "bloodType": "O-",
+                      "bloodType": [
+                        "O-",
+                        "A+"
+                      ],
                       "urgency": "critical",
                       "updatedAt": "2026-05-18T09:28:00.000Z"
                     }

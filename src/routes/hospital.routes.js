@@ -26,6 +26,8 @@ router.use(authMiddleware, requireRole('hospital'));
 router.post('/donors/:donorId/appointments', hospitalController.bookDonorAppointment);
 // Hospital appointments listing
 router.get('/appointments', hospitalController.getAppointments);
+// Get single appointment details (hospital-only)
+router.get('/appointments/:appointmentId', hospitalController.getAppointmentDetails);
 
 // Profile routes
 router.get('/profile', hospitalController.getProfile);

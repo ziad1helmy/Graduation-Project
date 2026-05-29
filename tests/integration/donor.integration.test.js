@@ -289,7 +289,7 @@ describe('Donor Routes Integration', () => {
 
   it('GET /donor/donation-eligibility returns eligibility status', async () => {
     await clearDatabase();
-    const donor = await createDonor();
+    const donor = await createDonor({ dateOfBirth: new Date('1990-01-01') });
     const hospital = await createHospital();
     const req = await createRequest(hospital._id, { bloodType: donor.bloodType });
 
@@ -303,6 +303,7 @@ describe('Donor Routes Integration', () => {
     expect(response.body.success).toBe(true);
     // Response now contains isEligible boolean
     expect(response.body.data).toHaveProperty('isEligible');
+    expect(response.body.data.isEligible).toBe(true);
   });
 
   it('GET /donor/history paginates with page and limit', async () => {

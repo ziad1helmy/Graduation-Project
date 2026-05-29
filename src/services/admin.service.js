@@ -922,6 +922,7 @@ export const getRequestStats = async (hospitalId = null) => {
     ]),
     Request.aggregate([
       { $match: { ...activeMatch, type: 'blood' } },
+      { $unwind: '$bloodType' },
       { $group: { _id: '$bloodType', count: { $sum: 1 } } },
     ]),
     Request.countDocuments(baseMatch),
@@ -980,15 +981,23 @@ export const getBloodInventorySummary = async (hospitalId = null) => {
   const inventory = buildBloodInventoryMap();
 
   for (const request of requests) {
-    if (!request.bloodType || !inventory[request.bloodType]) continue;
-    inventory[request.bloodType].requestedUnits += Number(request.quantity || 1);
+    const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
+    if (requestBloodTypes.length === 0) continue;
+    for (const bloodType of requestBloodTypes) {
+      if (!inventory[bloodType]) continue;
+      inventory[bloodType].requestedUnits += Number(request.quantity || 1);
+    }
   }
 
   for (const donation of completedDonations) {
     const request = donation.requestId;
-    if (!request || request.type !== 'blood' || !request.bloodType || !inventory[request.bloodType]) continue;
+    const requestBloodTypes = normalizeBloodTypeList(request?.bloodType);
+    if (!request || request.type !== 'blood' || requestBloodTypes.length === 0) continue;
     if (hospitalId && request.hospitalId?.toString?.() !== hospitalId.toString()) continue;
-    inventory[request.bloodType].donatedUnits += Number(donation.quantity || 1);
+    for (const bloodType of requestBloodTypes) {
+      if (!inventory[bloodType]) continue;
+      inventory[bloodType].donatedUnits += Number(donation.quantity || 1);
+    }
   }
 
   for (const bloodType of BLOOD_TYPES) {
@@ -1178,8 +1187,9 @@ export const broadcastRequest = async (id, adminId) => {
   };
 
   // Match blood type for blood requests
-  if (request.type === 'blood' && request.bloodType) {
-    donorQuery.bloodType = request.bloodType;
+  const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
+  if (request.type === 'blood' && requestBloodTypes.length > 0) {
+    donorQuery.bloodType = { $in: getCompatibleDonorTypesForRequest(requestBloodTypes) };
   }
 
   // Match governorate if hospital has location
@@ -1196,14 +1206,15 @@ export const broadcastRequest = async (id, adminId) => {
       userId: donor._id,
       type: 'request',
       title: 'Urgent Blood Request',
-      message: `${request.hospitalId?.hospitalName || 'A hospital'} needs ${request.bloodType || request.organType} donors urgently. ${request.urgency} priority.`,
+      message: `${request.hospitalId?.hospitalName || 'A hospital'} needs ${formatBloodTypeLabel(request.bloodType) || request.organType} donors urgently. ${request.urgency} priority.`,
       relatedId: request._id,
       relatedType: 'Request',
       data: {
         requestId: request._id,
         requestType: request.type,
         urgency: request.urgency,
-        bloodType: request.bloodType,
+        bloodType: normalizeBloodTypeList(request.bloodType),
+        bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
       },
     }));
 
@@ -1217,13 +1228,14 @@ export const broadcastRequest = async (id, adminId) => {
     sendToMultiple(
       fcmTokens,
       'Urgent Blood Request',
-      `${request.hospitalId?.hospitalName || 'A hospital'} needs ${request.bloodType || request.organType} donors urgently. ${request.urgency} priority.`,
+      `${request.hospitalId?.hospitalName || 'A hospital'} needs ${formatBloodTypeLabel(request.bloodType) || request.organType} donors urgently. ${request.urgency} priority.`,
       {
         type: 'request_broadcast',
         requestId: String(request._id),
         requestType: request.type || 'blood',
         urgency: request.urgency || 'normal',
-        bloodType: request.bloodType || '',
+        bloodType: normalizeBloodTypeList(request.bloodType),
+        bloodTypeLabel: formatBloodTypeLabel(request.bloodType) || '',
         governorate: hospitalLocation?.governorate || 'all',
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
       },
@@ -1237,7 +1249,8 @@ export const broadcastRequest = async (id, adminId) => {
     donorsNotified: donors.length,
     pushTokenCount: fcmTokens.length,
     governorate: hospitalLocation?.governorate || 'all',
-    bloodType: request.bloodType || 'all',
+    bloodType: normalizeBloodTypeList(request.bloodType),
+    bloodTypeLabel: formatBloodTypeLabel(request.bloodType) || 'all',
   };
 };
 

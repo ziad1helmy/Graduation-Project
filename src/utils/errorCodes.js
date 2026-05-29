@@ -34,17 +34,17 @@ export const ERR = Object.freeze({
 
   // ── Registration ────────────────────────────
   EMAIL_ALREADY_EXISTS:            'Email is already registered',
-  UNDERAGE_DONOR:                  'You must be at least 17 years old to donate',
+  UNDERAGE_DONOR:                  'eligibility.minimumAge',
   LOCATION_INVALID_PAIR:           'Both lat and lng must be provided together',
   LOCATION_OUT_OF_RANGE:           'Coordinates are outside valid range',
 
   // ── Donor Eligibility ───────────────────────
-  DONOR_NOT_ELIGIBLE:              'Donor is not eligible to donate',
-  DONOR_LOW_HEMOGLOBIN:            'Low hemoglobin level',
-  DONOR_TRAVEL_DEFERRAL:           'Travel to high-risk country',
-  DONOR_TEMPORARY_DEFERRAL:        'Temporarily deferred',
-  DONOR_DONATION_INTERVAL:         'Need to wait before donating again',
-  DONOR_UNDERAGE:                  'Must be at least 17 years old',
+  DONOR_NOT_ELIGIBLE:              'eligibility.donorNotEligible',
+  DONOR_LOW_HEMOGLOBIN:            'eligibility.hemoglobinBelowMinimum',
+  DONOR_TRAVEL_DEFERRAL:           'eligibility.travelDeferral',
+  DONOR_TEMPORARY_DEFERRAL:        'eligibility.temporarilyDeferred',
+  DONOR_DONATION_INTERVAL:         'eligibility.donationCooldownActive',
+  DONOR_UNDERAGE:                  'eligibility.minimumAge',
 
   // ── FCM ─────────────────────────────────────
   FCM_TOKEN_REQUIRED:              'fcmToken is required',
@@ -69,10 +69,10 @@ export const ERR = Object.freeze({
   // ── Requests ────────────────────────────────
   REQUEST_ALREADY_FULFILLED:       'Request is already fulfilled',
   REQUEST_ALREADY_CANCELLED:       'Request is already cancelled',
-  REQUEST_NOT_FOUND:               'Request not found',
+  REQUEST_NOT_FOUND:               'eligibility.requestNotFound',
 
   // ── Matching ────────────────────────────────
-  DONOR_NOT_FOUND:                 'Donor not found',
+  DONOR_NOT_FOUND:                 'eligibility.donorNotFound',
 
   // ── Generic ─────────────────────────────────
   NOT_FOUND:                       'Resource not found',
