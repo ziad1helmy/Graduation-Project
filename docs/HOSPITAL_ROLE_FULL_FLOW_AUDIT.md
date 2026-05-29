@@ -284,7 +284,7 @@ Audit prepared by the engineering team during the rollback/hardening process.
 - `src/services/matching.service.js` implements a real blood compatibility matrix and donor eligibility flow. This is production-grade base logic.
 - Blood compatibility is correct for hospital requests: it computes compatible donor types via `getCompatibleDonorTypes` and filters donors with `bloodType` membership. It also prevents same-request duplicate responses via `existingDonations`.
 - Donor exclusion uses `isOptedIn: true`, `isSuspended: { $ne: true }`, and a dynamic eligibility check through `eligibility.service.js`.
-- Cooldown logic in `eligibility.service.js` is largely correct: age, temporary deferral, travel deferral, donation interval, and hemoglobin are validated. `COOLDOWN_DAYS_BY_TYPE` supports blood/plasma/platelets/organ.
+- Cooldown logic in `eligibility.service.js` is largely correct: age, temporary deferral, travel deferral, donation interval, and hemoglobin are validated. `COOLDOWN_DAYS_BY_TYPE` supports blood/plasma/platelets.
 - Geographic filtering is fragile: `searchCompatibleDonors` filters by radius only in application code, not via MongoDB geo queries. It requires coordinate input or returns no results when `radiusKm` is provided without a valid location. This is a real bug in search logic.
 - Emergency prioritization is weak. Emergency requests only gain a boolean `isEmergency` label and notification behavior; there is no separate prioritization algorithm or dedicated request ranking beyond request urgency and score.
 - The matching engine is partially implemented: it is not fake, but it is not fully production-ready because it relies on in-memory operations, 500-donor query limits, and no DB-side geo optimization.

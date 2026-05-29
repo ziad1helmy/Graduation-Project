@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { setupTestDB } from '../helpers/db.js';
 import { createDonor, createHospital, createRequest } from '../helpers/factories.js';
 import * as donorController from '../../src/controllers/donor.controller.js';
+import * as matchingService from '../../src/services/matching.service.js';
 import Donor from '../../src/models/Donor.model.js';
 import Appointment from '../../src/models/Appointment.model.js';
 import Donation from '../../src/models/Donation.model.js';
@@ -122,6 +123,44 @@ describe('getDashboard', () => {
 });
 
 // =============================================================================
+//  getRequests / getMatches
+// =============================================================================
+describe('getRequests / getMatches', () => {
+  it('getRequests returns only matched requests via matching service', async () => {
+    const donor = await createDonor({ bloodType: 'O+', isOptedIn: true });
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, { bloodType: 'O+' });
+
+    matchingService.findCompatibleRequests.mockResolvedValue([
+      {
+        request,
+        score: 99,
+        locationScore: 88,
+        compatibility: { bloodTypeMatch: true, eligible: true },
+      },
+    ]);
+
+    const res = makeRes();
+    await donorController.getRequests({ user: { userId: donor._id }, query: {} }, res, vi.fn());
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    const data = res.json.mock.calls[0][0].data;
+    expect(data.requests).toHaveLength(1);
+    expect(data.requests[0].requestId).toBe(request._id.toString());
+    expect(matchingService.findCompatibleRequests).toHaveBeenCalledWith(donor._id);
+  });
+
+  it('getMatches hides results for opted-out donors', async () => {
+    const donor = await createDonor({ isOptedIn: false });
+    const res = makeRes();
+    await donorController.getMatches({ user: { userId: donor._id }, query: {} }, res, vi.fn());
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json.mock.calls[0][0].data.matches).toHaveLength(0);
+  });
+});
+
+// =============================================================================
 //  getProfile  (enriched — new fields: age, weight, stats, badgeProgress)
 // =============================================================================
 describe('getProfile', () => {
@@ -226,9 +265,17 @@ describe('getDonorRewards', () => {
 describe('getUrgentRequests', () => {
   it('returns 200 with requests array and pagination', async () => {
     const hospital = await createHospital();
-    await createRequest(hospital._id, { urgency: 'critical', status: 'pending' });
-
     const donor = await createDonor();
+    const request = await createRequest(hospital._id, { urgency: 'critical', status: 'pending' });
+    matchingService.findCompatibleRequests.mockResolvedValue([
+      {
+        request,
+        score: 100,
+        locationScore: 90,
+        compatibility: { bloodTypeMatch: true, eligible: true },
+      },
+    ]);
+
     const res = makeRes();
     await donorController.getUrgentRequests(
       { user: { userId: donor._id }, query: {} },
@@ -244,9 +291,17 @@ describe('getUrgentRequests', () => {
 
   it('each request has required fields', async () => {
     const hospital = await createHospital();
-    await createRequest(hospital._id, { urgency: 'high', bloodType: 'A+', status: 'pending' });
-
     const donor = await createDonor();
+    const request = await createRequest(hospital._id, { urgency: 'high', bloodType: 'A+', status: 'pending' });
+    matchingService.findCompatibleRequests.mockResolvedValue([
+      {
+        request,
+        score: 98,
+        locationScore: 87,
+        compatibility: { bloodTypeMatch: true, eligible: true },
+      },
+    ]);
+
     const res = makeRes();
     await donorController.getUrgentRequests(
       { user: { userId: donor._id }, query: {} },
@@ -268,6 +323,14 @@ describe('getUrgentRequests', () => {
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { urgency: 'high', status: 'pending' });
     const donor = await createDonor();
+    matchingService.findCompatibleRequests.mockResolvedValue([
+      {
+        request,
+        score: 95,
+        locationScore: 80,
+        compatibility: { bloodTypeMatch: false, eligible: true },
+      },
+    ]);
 
     // Simulate a decline: cancelled Donation for this request
     await Donation.create({
@@ -286,6 +349,21 @@ describe('getUrgentRequests', () => {
 
     const requestIds = res.json.mock.calls[0][0].data.requests.map(r => r.id.toString());
     expect(requestIds).not.toContain(request._id.toString());
+  });
+
+  it('uses matching service for urgent request visibility', async () => {
+    const donor = await createDonor();
+    const res = makeRes();
+
+    matchingService.findCompatibleRequests.mockResolvedValue([]);
+
+    await donorController.getUrgentRequests(
+      { user: { userId: donor._id }, query: {} },
+      res,
+      vi.fn()
+    );
+
+    expect(matchingService.findCompatibleRequests).toHaveBeenCalledWith(donor._id);
   });
 });
 

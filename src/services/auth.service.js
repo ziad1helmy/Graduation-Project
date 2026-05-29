@@ -701,12 +701,15 @@ export const changePassword = async (userId, { currentPassword, newPassword }) =
   if (!userId) throw createServiceError(ERR.AUTH_USER_NOT_FOUND, 404);
   if (!currentPassword) throw createServiceError('Current password is required', 400);
   if (!newPassword) throw createServiceError('New password is required', 400);
+  if (currentPassword === newPassword) {
+    throw createServiceError('New password must be different from current password', 400);
+  }
 
   const user = await User.findById(userId).select('+password +passwordChangedAt');
   if (!user) throw createServiceError(ERR.AUTH_USER_NOT_FOUND, 404);
 
   const isMatch = await bcrypt.compare(currentPassword, user.password);
-  if (!isMatch) throw createServiceError(ERR.AUTH_INVALID_PASSWORD, 401);
+  if (!isMatch) throw createServiceError(ERR.AUTH_CURRENT_PASSWORD_INCORRECT, 400);
 
   user.password = newPassword;
   user.passwordChangedAt = new Date();

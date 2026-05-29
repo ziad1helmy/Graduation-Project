@@ -70,38 +70,29 @@ export const validateBookAppointmentBody = (body = {}, appointmentDateObj) => {
 export const validateCreateRequestBody = (body = {}) => {
   const errors = [];
   const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-  const validOrganTypes = ['kidney', 'liver', 'heart', 'lung', 'pancreas', 'cornea'];
   const validUrgencies = ['low', 'medium', 'high', 'critical'];
 
-  const { type, urgency, requiredBy, bloodType, organType, isEmergency } = body;
+  const { type, urgency, requiredBy, bloodType, isEmergency } = body;
 
   if (!type || (!urgency && isEmergency !== true) || !requiredBy) {
     errors.push('Type, urgency or emergency flag, and requiredBy are required');
     return { valid: false, errors };
   }
 
-  if (!['blood', 'organ'].includes(type)) {
-    errors.push('Type must be blood or organ');
+  if (!['blood', 'plasma', 'platelets', 'double_red_cells'].includes(type)) {
+    errors.push('Type must be blood, plasma, platelets, or double_red_cells');
   }
 
   if (urgency && !validUrgencies.includes(urgency)) {
     errors.push('Urgency must be low, medium, high, or critical');
   }
 
-  if (type === 'blood' && !bloodType) {
-    errors.push('Blood type is required for blood donation requests');
+  if (['blood', 'double_red_cells'].includes(type) && !bloodType) {
+    errors.push('Blood type is required for blood or double red cells donation requests');
   }
 
   if (bloodType && !validBloodTypes.includes(bloodType)) {
     errors.push('Invalid blood type');
-  }
-
-  if (type === 'organ' && !organType) {
-    errors.push('Organ type is required for organ donation requests');
-  }
-
-  if (organType && !validOrganTypes.includes(organType)) {
-    errors.push('Invalid organ type');
   }
 
   const requiredByDate = new Date(requiredBy);

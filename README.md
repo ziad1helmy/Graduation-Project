@@ -1,16 +1,16 @@
 # 🩸 LifeLink
 
-> **Emergency Blood & Organ Donation Management Platform**  
+> **Emergency Blood Donation Management Platform**  
 > A production-hardened REST API connecting hospitals with compatible donors through real-time matching, push notifications, and a gamified rewards system.
 
 ---
 
 ## Problem Statement
 
-Blood and organ shortages are critical emergencies where minutes matter. Hospitals lack a unified digital channel to quickly reach compatible, eligible donors in their area. Donors have no single platform to discover nearby requests, manage their eligibility, and be rewarded for their life-saving contributions.
+Blood shortages are critical emergencies where minutes matter. Hospitals lack a unified digital channel to quickly reach compatible, eligible donors in their area. Donors have no single platform to discover nearby requests, manage their eligibility, and be rewarded for their life-saving contributions.
 
 LifeLink solves this by providing:
-- A hospital-facing portal to post blood/organ requests and broadcast emergencies
+- A hospital-facing portal to post blood requests and broadcast emergencies
 - A donor-facing mobile-optimized API for discovering requests, accepting them, and tracking impact
 - An intelligent matching engine using blood-type compatibility + geo-proximity scoring
 - Firebase Cloud Messaging (FCM) push notifications for real-time emergency alerts
@@ -26,7 +26,7 @@ LifeLink solves this by providing:
 | Email OTP verification + password reset via OTP | ✅ Complete |
 | JWT access + refresh tokens with blacklisting | ✅ Complete |
 | FCM push notification registration & delivery | ✅ Complete |
-| Blood/organ request creation & lifecycle management | ✅ Complete |
+| Blood request creation & lifecycle management | ✅ Complete |
 | Donor eligibility engine (age, hemoglobin, intervals, travel) | ✅ Complete |
 | Blood-type compatibility matching matrix | ✅ Complete |
 | Geo-proximity scoring (Haversine distance) | ✅ Complete |
@@ -75,7 +75,7 @@ LifeLink solves this by providing:
 - Donor: profile, availability, matches, responses, donation eligibility, dashboard/recent activity, urgent request flows, health history.
 - Hospital: profile, request CRUD, close request, monthly reports, staff, blood-bank settings, notification preferences, blood inventory summary.
 - Appointments: **Schedule Donation** (4-step flow: location → date/time → user details → review) and **Reschedule Donation** (update existing appointment date, time, and donation type) — both fully implemented in the Flutter frontend and integrated with backend APIs. Includes: available-slot fetching, donor booking, appointment list, appointment-by-ID, reschedule via PATCH, and donor cancellation.
-- Donations: completion endpoint and donor appointment listing alias. Support for blood, plasma, platelets, and organ donations with type-specific cooldowns.
+- Donations: completion endpoint and donor appointment listing alias. Support for blood, plasma, and platelets donations with type-specific cooldowns.
 - Rewards: points/history, earning rules, catalog/listing aliases, redeem aliases, badges, redemptions, leaderboard, type-specific point multipliers.
 - Analytics: personal donation stats, leaderboard, donation type statistics, system dashboard metrics (donor, admin).
 - Admin: system health, maintenance, rewards config management, analytics/alerts, donor/hospital management, admin management, role-permissions management.
@@ -256,7 +256,7 @@ Track donor engagement and participation with detailed statistics:
 
 - **Personal Stats** (`GET /analytics/my-stats`): Donor's lifetime donations by type, total points, tier progress
 - **Leaderboard** (`GET /analytics/leaderboard`): Top donors by points over specified period
-- **Donation Types Stats** (`GET /analytics/donation-types`): System-wide distribution of blood, plasma, platelets, and organ donations
+- **Donation Types Stats** (`GET /analytics/donation-types`): System-wide distribution of blood, plasma, and platelets donations
 - **Dashboard** (`GET /analytics/dashboard`, Admin only): System metrics including total donors, completed donations, and points distributed
 
 Server starts on `http://localhost:5000`  
@@ -315,7 +315,7 @@ Interactive docs: `/api-docs`
 | Donor | `/donor` | Profile, requests, matches, donations |
 | Hospital | `/hospital` | Profile, requests management |
 | Admin | `/admin` | Full system management |
-| Requests | `/requests` | Blood/organ request lifecycle |
+| Requests | `/requests` | Blood request lifecycle |
 | Donations | `/donations` | Donation booking + appointment |
 | Rewards | `/rewards` | Points, badges, leaderboard |
 | Notifications | `/notifications` | In-app notification inbox |

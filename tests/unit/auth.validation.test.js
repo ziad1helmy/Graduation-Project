@@ -189,4 +189,15 @@ describe('validateChangePassword', () => {
     expect(result.valid).toBe(false);
     expect(result.errors.confirmPassword).toBeDefined();
   });
+
+  it('should fail when the new password matches the current password', () => {
+    const result = validateChangePassword({
+      currentPassword: 'SamePass@123',
+      newPassword: 'SamePass@123',
+      confirmPassword: 'SamePass@123',
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.newPassword).toBe('newPassword must be different from currentPassword');
+  });
 });

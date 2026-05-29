@@ -2,7 +2,7 @@
 
 ## Overview
 
-The LifeLink rewards system incentivizes blood and organ donations through a points-based mechanism. Donors earn type-specific points upon successful donation completion, with separate medical cooldown periods enforced per donation type.
+The LifeLink rewards system incentivizes blood and component donations through a points-based mechanism. Donors earn type-specific points upon successful donation completion, with separate medical cooldown periods enforced per donation type.
 
 ---
 
@@ -13,13 +13,11 @@ The LifeLink rewards system incentivizes blood and organ donations through a poi
 | **Blood** | 200 points | 56 days | Standard whole blood donations |
 | **Plasma** | 150 points | 14 days | Plasma apheresis (frequent donation eligible) |
 | **Platelets** | 175 points | 7 days | Platelet apheresis (most frequent donation eligible) |
-| **Organ** | 500 points | 365 days (1 year) | Organ donation (kidney, liver, heart, lung, pancreas, cornea) |
 
 ### Allocation Strategy
 - **Blood donations (200 pts)**: Frequent, manageable cooldown; baseline reward
 - **Plasma donations (150 pts)**: More frequent (14-day cooldown); essential for plasma-dependent patients
 - **Platelets donations (175 pts)**: Most frequent (7-day cooldown); critical for cancer patients and post-surgical recovery
-- **Organ donations (500 pts)**: Rare, critical need; significantly higher reward reflecting urgency and impact
 
 ---
 
@@ -75,7 +73,6 @@ const COOLDOWN_DAYS_BY_TYPE = {
   blood: 56,
   plasma: 14,
   platelets: 7,
-  organ: 365,
 };
 
 // Eligibility check considers donation type
@@ -85,8 +82,6 @@ canDonate(donor, { donationType: 'plasma' })
   // Checks if lastDonationDate + 14 days >= today
 canDonate(donor, { donationType: 'platelets' })
   // Checks if lastDonationDate + 7 days >= today
-canDonate(donor, { donationType: 'organ' })
-  // Checks if lastDonationDate + 365 days >= today
 ```
 
 ### Cooldown Application Points
@@ -160,14 +155,12 @@ export const POINTS_BY_TYPE = {
   blood: 200,
   plasma: 150,
   platelets: 175,
-  organ: 500,
 };
 
 export const TRANSACTION_TYPE_BY_TYPE = {
   blood: 'BLOOD_DONATION',
   plasma: 'PLASMA_DONATION',
   platelets: 'PLATELETS_DONATION',
-  organ: 'ORGAN_DONATION',
 };
 ```
 
@@ -218,7 +211,7 @@ export const TRANSACTION_TYPE_BY_TYPE = {
 
 The LifeLink points system balances:
 - **Accessibility**: Blood donations reward frequently; achievable milestones
-- **Impact**: Organ donations reward significantly; critical medical need
+- **Impact**: Higher-value component donations reward more when medical need is urgent
 - **Fairness**: Per-type cooldowns respect medical guidelines
 - **Transparency**: Activity logs audit all transactions
 - **Scalability**: Atomic transactions prevent fraud; indexed lookups for performance

@@ -143,6 +143,31 @@ const appointmentSchema = new mongoose.Schema(
       enum: DONATION_TYPE_OPTIONS,
       default: DONATION_TYPE_LABELS.WHOLE_BLOOD,
     },
+
+    rescheduleCount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    rescheduleHistory: {
+      type: [
+        {
+          previousAppointmentDate: { type: Date, required: true },
+          newAppointmentDate: { type: Date, required: true },
+          previousDonationType: { type: String, default: null },
+          newDonationType: { type: String, default: null },
+          reason: {
+            type: String,
+            default: null,
+            maxlength: [500, 'Reschedule reason cannot exceed 500 characters'],
+          },
+          rescheduledAt: { type: Date, required: true },
+          rescheduledBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User', default: null },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );

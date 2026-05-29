@@ -369,10 +369,14 @@ export const changePassword = async (req, res, next) => {
 
     response.success(res, 200, 'Password changed successfully');
   } catch (error) {
-    if (error.message === ERR.AUTH_INVALID_PASSWORD) {
-      return response.error(res, 401, error.message);
+    if (error.message === ERR.AUTH_CURRENT_PASSWORD_INCORRECT) {
+      return response.error(res, 400, error.message);
     }
-    if (error.message === ERR.AUTH_USER_NOT_FOUND || error.message.includes('required')) {
+    if (
+      error.message === ERR.AUTH_USER_NOT_FOUND ||
+      error.message.includes('required') ||
+      error.message.includes('must be different')
+    ) {
       return response.error(res, 400, error.message);
     }
     next(error);

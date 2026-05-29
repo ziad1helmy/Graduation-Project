@@ -659,18 +659,18 @@ async function main() {
     }
   );
 
-  requests.cairoOrgan = await ensureRequest(
-    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-organ-kidney-high' },
+  requests.cairoPlatelets = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-platelets-high' },
     {
       hospitalId: hospitals.cairoCare._id,
-      type: 'organ',
-      organType: 'kidney',
+      type: 'platelets',
+      bloodType: 'AB+',
       urgency: 'high',
       status: 'pending',
       requiredBy: futureDate(5),
       quantity: 1,
-      cause: 'Urgent transplant waiting list',
-      notes: '[demo-seed] cairo-organ-kidney-high',
+      cause: 'Urgent platelet supply need',
+      notes: '[demo-seed] cairo-platelets-high',
       hospitalContact: hospitals.cairoCare.contactNumber,
       hospitalLocation: hospitals.cairoCare.location.coordinates,
       hospitalName: hospitals.cairoCare.hospitalName,
@@ -735,7 +735,7 @@ async function main() {
     { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-double-red-cells' },
     {
       hospitalId: hospitals.cairoCare._id,
-      type: 'blood',
+      type: 'double_red_cells',
       bloodType: 'A+',
       urgency: 'medium',
       status: 'pending',
@@ -1570,7 +1570,7 @@ async function main() {
   printReferenceBlock('Seeded demo coverage:', [
     '7 donors with varied blood types, participation preference, settings, health history, points, and activity',
     '2 hospitals with discovery-ready coordinates, slot configuration, blood bank settings, and staff',
-    '9 requests covering blood + organ and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
+    '9 requests covering blood + component donations and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
     '9 donations covering pending/scheduled/completed/cancelled/rejected states, including emergency responder matches',
     '5 appointments covering pending/confirmed/cancelled and QR verification flows',
     'Notifications, rewards, badges, support messages, and audit logs',
@@ -1581,7 +1581,7 @@ async function main() {
     `high blood request: ${requests.gizaHighBlood._id}`,
     `completed blood request: ${requests.cairoCompletedBlood._id}`,
     `cancelled blood request: ${requests.gizaCancelledBlood._id}`,
-    `organ request: ${requests.cairoOrgan._id}`,
+    `platelets request: ${requests.cairoPlatelets._id}`,
     `pending O- request: ${requests.gizaOminus._id}`,
     `cairo emergency (O+ responder match): ${requests.cairoEmergencyForResponder._id}`,
     `giza emergency (A- responder match): ${requests.gizaEmergencyForResponder._id}`,

@@ -99,7 +99,7 @@ All three share the same `users` MongoDB collection. Role-specific fields are is
 
 | Model | Collection | Purpose |
 |-------|-----------|---------|
-| Request | requests | Blood/organ donation requests |
+| Request | requests | Blood donation requests |
 | Donation | donations | Donation lifecycle tracking |
 | Appointment | appointments | Scheduled donation appointments |
 | Notification | notifications | In-app notification inbox |
@@ -132,7 +132,7 @@ Each controller contains only:
 | `donor.controller.js` | Donor profile, requests, matches, donations, settings |
 | `hospital.controller.js` | Hospital profile, requests, QR verification |
 | `admin.controller.js` | All admin operations (delegating to admin service) |
-| `request.controller.js` | Blood/organ request CRUD |
+| `request.controller.js` | Blood request CRUD |
 | `donation.controller.js` | Donation lifecycle |
 | `appointment.controller.js` | Appointment booking |
 | `reward.controller.js` | Points, badges, leaderboard, redemption |

@@ -31,7 +31,6 @@ Default point values stored in `RewardsConfig` model (seeded on startup):
 | Blood donation | 100 |
 | Plasma donation | 80 |
 | Platelet donation | 90 |
-| Organ donation | 500 |
 | Emergency bonus (critical urgency) | +50% multiplier |
 
 > All values are configurable via `PUT /admin/rewards/config` without code changes.

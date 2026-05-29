@@ -353,7 +353,6 @@ export const getDonorStats = async (donorId) => {
       blood: 0,
       plasma: 0,
       platelets: 0,
-      organ: 0,
     };
 
     let totalDonations = 0;
@@ -428,7 +427,6 @@ export const getDonationTypeStats = async () => {
       blood: { count: 0, avgPoints: 0 },
       plasma: { count: 0, avgPoints: 0 },
       platelets: { count: 0, avgPoints: 0 },
-      organ: { count: 0, avgPoints: 0 },
     };
 
     for (const donation of completedDonations) {

@@ -414,7 +414,7 @@ describe('POST /hospital/request', () => {
     expect(res.body.data.status).toBe('pending');
   });
 
-  it('creates an organ request', async () => {
+  it('creates a platelets request', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
 
@@ -422,8 +422,8 @@ describe('POST /hospital/request', () => {
       .post('/hospital/request')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        type: 'organ',
-        organType: 'kidney',
+        type: 'platelets',
+        bloodType: 'AB+',
         urgency: 'critical',
         requiredBy: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
         quantity: 1,
@@ -431,7 +431,7 @@ describe('POST /hospital/request', () => {
       });
 
     expect(res.status).toBe(201);
-    expect(res.body.data.organType).toBe('kidney');
+    expect(res.body.data.type).toBe('platelets');
   });
 
   it('rejects a blood request without bloodType', async () => {

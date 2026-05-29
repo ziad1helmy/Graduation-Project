@@ -1,6 +1,6 @@
 # Flutter Donation Scheduling — Feature Documentation
 
-> **Project:** LifeLink — Blood & Organ Donation Platform  
+> **Project:** LifeLink — Blood Donation Platform  
 > **Module:** Flutter Frontend — Appointment Management  
 > **Status:** ✅ Backend endpoints are ready; Flutter integration is pending  
 > **Last Updated:** May 2026
@@ -74,7 +74,7 @@ The donor picks their preferred appointment date, time slot, and donation type.
 **Features:**
 - **Date Picker:** An interactive calendar widget allowing the donor to select any future date.
 - **Available Time Slots:** Time slots are fetched dynamically from the backend based on the selected hospital and date. Only open, un-booked slots are shown.
-- **Donation Type Selector:** Donor can specify the type of donation (Blood, Plasma, Platelets, Organ).
+- **Donation Type Selector:** Donor can specify the type of donation (Blood, Plasma, Platelets, Double Red Cells).
 - Unavailable or fully-booked slots are visually disabled.
 
 **Backend Integration:**
@@ -116,7 +116,7 @@ A summary screen presenting all appointment details before final submission.
     "hospitalId": "<selected_hospital_id>",
     "date": "YYYY-MM-DD",
     "time": "HH:MM AM/PM",
-    "donationType": "blood | plasma | platelets | organ",
+        "donationType": "blood | plasma | platelets | double red cells",
     "notes": "<optional>"
   }
   ```
@@ -212,7 +212,7 @@ Submitting the reschedule triggers a `PATCH` call to the backend appointment upd
   {
     "date": "YYYY-MM-DD",
     "time": "HH:MM AM/PM",
-    "donationType": "blood | plasma | platelets | organ"
+        "donationType": "blood | plasma | platelets | double red cells"
   }
   ```
 - **Response (200 OK):** Returns the updated appointment object with the new date, time, and donation type.
@@ -366,7 +366,7 @@ The Step 4 Review screen and the Confirmation screen display donor preparation t
 | Hospital / Location | Required — must select from list |
 | Appointment Date | Required — must be a future date |
 | Time Slot | Required — must select from available slots only |
-| Donation Type | Required — `blood`, `plasma`, `platelets`, or `organ` |
+| Donation Type | Required — `blood`, `plasma`, `platelets`, or `double red cells` |
 | First Name | Required — min 2 characters |
 | Last Name | Required — min 2 characters |
 | Phone Number | Required — valid phone format |

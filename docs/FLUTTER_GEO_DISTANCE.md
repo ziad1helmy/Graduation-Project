@@ -1,6 +1,6 @@
 # Geo Distance: Backend Review & Flutter Integration Guide
 
-> **Project:** LifeLink — Blood & Organ Donation Platform  
+> **Project:** LifeLink — Blood Donation Platform  
 > **Module:** Geo / Distance Calculation — Backend Review + Flutter Client Integration  
 > **Status:** ✅ Backend fully implemented and tested (14 unit tests passing)  
 > **Last Updated:** May 2026

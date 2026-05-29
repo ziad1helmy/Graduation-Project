@@ -94,7 +94,7 @@
 ### Query Parameters
 
 **GET /donor/requests**
-- `type`: `blood` | `organ`
+- `type`: `blood` | `plasma` | `platelets`
 - `urgency`: `low` | `medium` | `high` | `critical`
 - `page`: number (default 1)
 - `limit`: number (default 10)
@@ -114,7 +114,7 @@
 | PATCH | `/hospital/profile` | Update hospital profile |
 | GET | `/hospital/settings` | Hospital settings |
 | PUT | `/hospital/settings` | Update settings |
-| POST | `/hospital/requests` | Create blood/organ request |
+| POST | `/hospital/requests` | Create blood request |
 | GET | `/hospital/requests` | List hospital's requests |
 | GET | `/hospital/requests/:id` | Get request details |
 | PATCH | `/hospital/requests/:id` | Update request |

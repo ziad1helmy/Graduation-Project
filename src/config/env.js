@@ -65,6 +65,9 @@ const getEnv = () => ({
     process.env.FIREBASE_PRIVATE_KEY
   ),
   FIREBASE_SERVICE_ACCOUNT_PATH: process.env.FIREBASE_SERVICE_ACCOUNT_PATH,
+
+  // Matching
+  MATCHING_DISTANCE_KM: process.env.MATCHING_DISTANCE_KM || '30',
 });
 
 const required = ['MONGO_URI', 'JWT_SECRET'];

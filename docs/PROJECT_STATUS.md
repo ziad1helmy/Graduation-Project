@@ -45,11 +45,11 @@
 - [x] Separate hospital login endpoint
 - [x] Admin login with `adminKey` third-factor
 
-#### Blood/Organ Request System
-- [x] Hospital creates request (blood/organ, blood type, urgency, quantity, location)
+#### Blood Request System
+- [x] Hospital creates request (blood, plasma, platelets, blood type, urgency, quantity, location)
 - [x] Request lifecycle: pending → in-progress → completed / cancelled / fulfilled
 - [x] Request urgency: low / medium / high / critical
-- [x] Request types: blood / organ
+- [x] Request types: blood / plasma / platelets
 - [x] Donor can browse requests (paginated, filtered by type/urgency)
 - [x] Donor can view "urgent" requests (high/critical only, with declined filter)
 - [x] Donor can decline urgent requests (creates cancelled Donation record)
@@ -69,7 +69,7 @@
 
 #### Donor Eligibility Engine
 - [x] Minimum age: 17 years
-- [x] Donation interval: 56 days (blood), 14 days (plasma), 7 days (platelets), 365 days (organ)
+- [x] Donation interval: 56 days (blood), 14 days (plasma), 7 days (platelets)
 - [x] Gender-based intervals: male 84 days, female 112 days (fallback when no type)
 - [x] Temporary deferral support (admin-set `temporaryDeferralUntil`)
 - [x] Travel deferral: 28 days after return from malaria-risk countries (JSON dataset)

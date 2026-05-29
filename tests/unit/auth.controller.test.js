@@ -201,7 +201,7 @@ describe('Auth Controller', () => {
       expect(res.json.mock.calls[0][0].data).toBe('Password changed successfully');
     });
 
-    it('returns 401 on incorrect current password', async () => {
+    it('returns 400 on incorrect current password', async () => {
       const req = makeMockReq({
         user: { userId },
         body: { currentPassword: 'Password123!', newPassword: 'NewPassword123!', confirmPassword: 'NewPassword123!' },
@@ -209,11 +209,26 @@ describe('Auth Controller', () => {
       const res = makeMockRes();
       const next = vi.fn();
 
-      authService.changePassword.mockRejectedValue(new Error(ERR.AUTH_INVALID_PASSWORD));
+      authService.changePassword.mockRejectedValue(new Error(ERR.AUTH_CURRENT_PASSWORD_INCORRECT));
 
       await authController.changePassword(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(401);
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json.mock.calls[0][0].message).toBe(ERR.AUTH_CURRENT_PASSWORD_INCORRECT);
+    });
+
+    it('returns 400 when the new password matches the current password', async () => {
+      const req = makeMockReq({
+        user: { userId },
+        body: { currentPassword: 'Password123!', newPassword: 'Password123!', confirmPassword: 'Password123!' },
+      });
+      const res = makeMockRes();
+      const next = vi.fn();
+
+      await authController.changePassword(req, res, next);
+
+      expect(res.status).toHaveBeenCalledWith(400);
+      expect(res.json.mock.calls[0][0].code).toBe('VALIDATION_ERROR');
     });
   });
 

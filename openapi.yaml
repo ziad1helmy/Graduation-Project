@@ -1049,9 +1049,26 @@ paths:
                 success: true
                 message: Password changed successfully
         "400":
-          description: Validation error
+          description: Validation or business-rule error
+          content:
+            application/json:
+              examples:
+                incorrectCurrentPassword:
+                  summary: Current password mismatch
+                  value:
+                    success: false
+                    code: VALIDATION_ERROR
+                    message: Current password is incorrect
+                samePassword:
+                  summary: New password matches current password
+                  value:
+                    success: false
+                    code: VALIDATION_ERROR
+                    message: Validation failed
+                    details:
+                      newPassword: newPassword must be different from currentPassword
         "401":
-          description: Current password is incorrect
+          description: Unauthorized - missing, invalid, or expired JWT token
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
@@ -1609,12 +1626,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - in: query
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
+        description: This endpoint returns the donor's current eligibility based on their profile. It does not accept query parameters.
       responses:
         "200":
           description: Eligibility check completed
@@ -1624,9 +1636,14 @@ paths:
                 success: true
                 message: Eligibility result
                 data:
-                  eligible: true
-                  canProceed: true
-                  reason: Donor is eligible for this request
+                  isEligible: true
+                  reason: null
+                  nextEligibleDate: null
+                  participationEnabled: true
+                  lastDonationDate: 2026-05-10T00:00:00.000Z
+                  cooldownDays: 56
+                  daysRemaining: 0
+                  # reason appears above; no duplicate keys
         "400":
           description: requestId is required
         "404":
@@ -1731,6 +1748,13 @@ paths:
             type: string
             format: date
           example: 2026-05-12
+        - in: query
+          name: excludeAppointmentId
+          required: false
+          schema:
+            type: string
+          description: Optional current appointment id to exclude when checking slot capacity during reschedule
+          example: 69fe540565ff7785a031315c
       responses:
         "200":
           description: Available appointment slots retrieved successfully
@@ -1747,6 +1771,8 @@ paths:
                   hospitalId: 69f3df915f42685cbbbcbb1b
                   date: 2026-05-12T00:00:00.000Z
                   slotsPerHour: 4
+                  openingTime: "08:00"
+                  closingTime: "19:00"
         "400":
           description: Invalid hospitalId or date
         "404":
@@ -1899,9 +1925,17 @@ paths:
                 date:
                   type: string
                   format: date-time
+                donationType:
+                  type: string
+                  description: Donation type label or supported alias
+                reason:
+                  type: string
+                  description: Optional donor-provided reason for rescheduling
             example:
               date: 2026-05-13
               time: 11:00 AM
+              donationType: Plasma
+              reason: Travel conflict
       responses:
         "200":
           description: Appointment rescheduled
@@ -1912,14 +1946,55 @@ paths:
                 message: Appointment rescheduled
                 data:
                   _id: 69fe540565ff7785a031315c
+                  appointmentId: 69fe540565ff7785a031315c
                   donorId: 69f3df915f42685cbbbcbb18
                   hospitalId: 69f3df915f42685cbbbcbb1b
+                  requestId: 69fe540565ff7785a031314f
                   appointmentDate: 2026-05-15T14:00:00.000Z
+                  appointmentTime: 02:00 PM
+                  appointmentDay: 2026-05-15
                   status: pending
+                  notes: Donation follow-up appointment
                   qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
-                  donationType: Whole Blood
+                  donationType: Plasma
+                  donor:
+                    donorId: 69f3df915f42685cbbbcbb18
+                    firstName: Aya
+                    lastName: Hassan
+                    fullName: Aya Hassan
+                    email: aya.hassan@lifelink.demo
+                    phoneNumber: '01011111111'
+                    bloodType: O+
+                    gender: female
+                    dateOfBirth: 1995-01-15T00:00:00.000Z
+                  appointment:
+                    appointmentId: 69fe540565ff7785a031315c
+                    donationType: Plasma
+                    appointmentDate: 2026-05-15T14:00:00.000Z
+                    appointmentTime: 02:00 PM
+                    status: pending
+                    hospitalId: 69f3df915f42685cbbbcbb1b
+                    hospitalName: Cairo Care Hospital
+                  hospital:
+                    hospitalId: 69f3df915f42685cbbbcbb1b
+                    id: 69f3df915f42685cbbbcbb1b
+                    name: Cairo Care Hospital
+                    hospitalName: Cairo Care Hospital
+                  request:
+                    requestId: 69fe540565ff7785a031314f
+                    id: 69fe540565ff7785a031314f
+                    urgencyLevel: high
+                    unitsNeeded: 2
+                    notes: Donation follow-up appointment
+                  rescheduleHistory:
+                    - previousAppointmentDate: 2026-05-12T10:00:00.000Z
+                      newAppointmentDate: 2026-05-15T14:00:00.000Z
+                      previousDonationType: Whole Blood
+                      newDonationType: Plasma
+                      reason: Travel conflict
+                      rescheduledAt: 2026-05-10T09:30:00.000Z
         "400":
-          description: Invalid appointment payload
+          description: Invalid appointment payload or reschedule not allowed for the selected appointment/request
         "401":
           description: Missing or invalid JWT
         "403":
@@ -1994,7 +2069,7 @@ paths:
         - Platelets
                                             - Double Red Cells
                                           - Double Red Cells: 7-day cooldown, 175 points
-        - Organ: 365-day cooldown, 500 points
+        - Double Red Cells: 7-day cooldown, 175 points
 
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
@@ -2023,11 +2098,6 @@ paths:
                       cooldownDays: 7
                       pointsAward: 175
                       description: Platelet donation - shortest cooldown period
-                    - type: organ
-                      name: Organ
-                      cooldownDays: 365
-                      pointsAward: 500
-                      description: Organ donation - highest point value
   /donations/validate:
     post:
       tags:
@@ -2035,7 +2105,7 @@ paths:
       summary: Validate if a donor can donate for a given hospital and date
       description: |-
         Checks donation eligibility based on:
-        - Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d, organ: 365d)
+        - Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d)
         - Minimum age (17 years old)
         - Hemoglobin level (minimum 12.5 g/dL)
         - Travel deferrals
@@ -2067,8 +2137,7 @@ paths:
                   enum:
                     - blood
                     - plasma
-                    - Platelets - Double Red Cells - Double Red Cells
-                    - organ
+                    - platelets
                   default: blood
                   description: Type of donation - affects cooldown period
             examples:
@@ -2163,7 +2232,7 @@ paths:
         - Donor
       summary: List active donation requests available to donors
       description: |-
-        Retrieve paginated list of blood and organ donation requests that match donor eligibility criteria. Filters by type and urgency
+        Retrieve paginated list of blood, plasma, and platelets donation requests that match donor eligibility criteria. Filters by type and urgency
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
@@ -2175,7 +2244,6 @@ paths:
             type: string
             enum:
               - blood
-              - organ
           description: Request type filter
           example: blood
         - in: query
@@ -2541,7 +2609,6 @@ paths:
             type: string
             enum:
               - blood
-              - organ
           description: Filter by request type
           example: blood
         - in: query
@@ -2644,7 +2711,7 @@ paths:
       summary: Get full request details including all donation type information
       description: |-
         Returns complete request details with donor responses and history.
-        Works for blood, plasma, platelets, and organ requests.
+        Works for blood, plasma, and platelets requests.
 
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
@@ -3485,10 +3552,6 @@ paths:
                   - type: platelets_donation
                     title: Platelet Donation
                     points: 175
-                    category: donation
-                  - type: organ_donation
-                    title: Organ Donation
-                    points: 500
                     category: donation
                   - type: first_donation
                     title: First Donation Bonus
@@ -4414,8 +4477,6 @@ paths:
                         type: number
                       platelets:
                         type: number
-                      organ:
-                        type: number
                   lastDonationDate:
                     type: string
                     format: date-time
@@ -4434,7 +4495,6 @@ paths:
                   blood: 6
                   plasma: 1
                   platelets: 1
-                  organ: 0
                 lastDonationDate: 2026-05-08T12:00:00.000Z
                 joinDate: 2026-05-08T12:00:00.000Z
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
@@ -4515,9 +4575,6 @@ paths:
                       avgPoints: 0
                     platelets:
                       count: 27
-                      avgPoints: 0
-                    organ:
-                      count: 8
                       avgPoints: 0
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
@@ -5284,7 +5341,7 @@ paths:
       tags:
         - Hospital
       summary: Create a hospital donation request
-      description: "Creates a blood or organ donation request for the authenticated
+      description: "Creates a blood, plasma, or platelets donation request for the authenticated
         hospital. Emergency requests may set `isEmergency: true` and omit
         `urgency`."
       security:
@@ -5303,7 +5360,8 @@ paths:
                   type: string
                   enum:
                     - blood
-                    - organ
+                    - plasma
+                    - platelets
                 bloodType:
                   type: string
                   enum:
@@ -5417,7 +5475,8 @@ paths:
                   type: string
                   enum:
                     - blood
-                    - organ
+                    - plasma
+                    - platelets
                 bloodType:
                   type: string
                   enum:
@@ -5586,7 +5645,6 @@ paths:
             type: string
             enum:
               - blood
-              - organ
           example: blood
         - in: query
           name: limit
@@ -5618,9 +5676,8 @@ paths:
                       quantity: 2
                       requiredBy: 2026-05-18T18:00:00.000Z
                     - _id: 69fe540565ff7785a0313153
-                      type: organ
-                      organType: kidney
-                      urgency: critical
+                      type: platelets
+                      urgency: pending
                       status: pending
                       quantity: 1
                       requiredBy: 2026-05-19T10:00:00.000Z
@@ -8932,7 +8989,7 @@ paths:
         aligned with the seeded demo dataset where possible."
   /admin/requests:
     get:
-      summary: List all blood/organ requests
+      summary: List all blood requests
       tags:
         - Admin
       security:
@@ -8969,7 +9026,6 @@ paths:
             type: string
             enum:
               - blood
-              - organ
           example: blood
         - in: query
           name: page
@@ -9379,4 +9435,3 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-

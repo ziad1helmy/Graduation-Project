@@ -15,6 +15,7 @@ import {
 import * as eligibilityService from '../services/eligibility.service.js';
 import * as donationService from '../services/donation.service.js';
 import * as rewardService from '../services/reward.service.js';
+import { normalizeDonationTypeRequestKey } from '../services/appointment.service.js';
 
 const MIN_HEMOGLOBIN_LEVEL = 12.5;
 const MAX_HEMOGLOBIN_LEVEL = 20;
@@ -175,6 +176,7 @@ const buildDonationSummary = (donation, appointment, pointsEarned) => ({
   },
   pointsEarned,
 });
+
 
 const ensureAppointmentIsActive = (appointment) => {
   if (!appointment) {
@@ -371,9 +373,11 @@ export const validateDonationEligibility = async (req, res, next) => {
       return response.error(res, 400, 'Invalid date');
     }
 
+    // Normalize donationType values from client (labels) to canonical request.type keys
+    const donationTypeKey = donationType ? normalizeDonationTypeRequestKey(donationType) : 'blood';
     const eligibility = await eligibilityService.canDonate(donor, {
       persistTravelDeferral: false,
-      donationType: donationType || 'blood',
+      donationType: donationTypeKey || 'blood',
     });
     if (!eligibility.eligible) {
       return response.success(res, 200, 'Donation eligibility checked', {
@@ -416,6 +420,8 @@ export const verifyQr = async (req, res, next) => {
       Appointment.findOne({ qrToken })
     );
 
+    // appointment fetched
+
     if (!appointment) return response.error(res, 404, 'Invalid QR code');
 
     const activeError = ensureAppointmentIsActive(appointment);
@@ -432,10 +438,13 @@ export const verifyQr = async (req, res, next) => {
       return response.error(res, 404, 'Donor not found');
     }
 
+    // Normalize appointment donation label to request.type key before eligibility check
+    const apptDonationKey = normalizeDonationTypeRequestKey(appointment.donationType) || 'blood';
     const eligibility = await eligibilityService.canDonate(donor, {
       persistTravelDeferral: false,
-      donationType: appointment.donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD,
+      donationType: apptDonationKey,
     });
+    // eligibility computed
     if (!eligibility.eligible) {
       return response.error(res, 403, eligibility.reason || 'Donor not eligible');
     }
@@ -517,10 +526,18 @@ export const confirmArrival = async (req, res, next) => {
     if (activeError) {
       return response.error(res, activeError.status, activeError.message);
     }
+        // Ensure donor and donationType are taken from the appointment
+        const donor = appointment.donorId;
+        const donationType = appointment.donationType;
+        if (!donor) {
+          return response.error(res, 404, 'Donor not found');
+        }
 
-    if (!appointment.qrScannedAt) {
-      return response.error(res, 400, 'Appointment must be verified before confirming arrival');
-    }
+        const donationTypeKey = normalizeDonationTypeRequestKey(donationType) || 'blood';
+        const eligibility = await eligibilityService.canDonate(donor, {
+          persistTravelDeferral: false,
+          donationType: donationTypeKey,
+        });
 
     if (appointment.verificationStatus === 'rejected') {
       return response.error(res, 409, 'Rejected appointments cannot continue');

@@ -1,17 +1,16 @@
 import mongoose from 'mongoose';
 
 /**
- * Request Model - Hospital-created requests for blood/organ donations
+ * Request Model - Hospital-created requests for blood donations
  * 
  * Fields:
  * - hospitalId: reference to Hospital user, required
- * - type: 'blood' or 'organ', enum, required
+ * - type: 'blood', 'plasma', or 'platelets', enum, required
  * - bloodType: A+, A-, B+, B-, AB+, AB-, O+, O-, required for blood type
  * - urgency: 'low', 'medium', 'high', 'critical', required
  * - status: 'pending', 'in-progress', 'completed', 'cancelled', default: 'pending'
  * - requiredBy: deadline date, required
- * - quantity: number of units/organs needed, default: 1
- * - organType: specific organ type (kidney, liver, heart, etc) for organ requests
+ * - quantity: number of units needed, default: 1
  * - notes: additional notes/requirements
  * - createdAt: timestamp, auto
  * - updatedAt: timestamp, auto
@@ -45,8 +44,8 @@ const requestSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: {
-        values: ['blood', 'plasma', 'platelets', 'organ'],
-        message: 'Type must be blood, plasma, platelets, or organ',
+        values: ['blood', 'plasma', 'platelets', 'double_red_cells'],
+        message: 'Type must be blood, plasma, platelets, or double_red_cells',
       },
       required: [true, 'Request type is required'],
     },
@@ -59,8 +58,8 @@ const requestSchema = new mongoose.Schema(
       },
       validate: {
         validator: function(v) {
-          // Blood type is required for blood, plasma, and platelets requests
-          if (['blood', 'plasma', 'platelets'].includes(this.type)) {
+          // Blood type is required for blood, plasma, platelets, and double_red_cells requests
+          if (['blood', 'plasma', 'platelets', 'double_red_cells'].includes(this.type)) {
             return v !== null && v !== undefined;
           }
           return true;
@@ -68,30 +67,11 @@ const requestSchema = new mongoose.Schema(
         message: 'Blood type is required for blood, plasma, and platelet donation requests',
       },
     },
-    // Cause of the request, e.g. accident, surgery, etc. This will help the donor to understand the urgency of the request and the type of blood/organ needed
+    // Cause of the request, e.g. accident, surgery, etc. This helps the donor understand the urgency of the request.
     cause: {
       type: String,
       maxlength: [200, 'Cause cannot exceed 200 characters'],
     },
-    
-    organType: {
-      type: String,
-      enum: {
-        values: ['kidney', 'liver', 'heart', 'lung', 'pancreas', 'cornea'],
-        message: 'Organ type must be valid',
-      },
-      validate: {
-        validator: function(v) {
-          // Organ type is required only for organ requests
-          if (this.type === 'organ') {
-            return v !== null && v !== undefined;
-          }
-          return true;
-        },
-        message: 'Organ type is required for organ donation requests',
-      },
-    },
-    
     urgency: {
       type: String,
       enum: {

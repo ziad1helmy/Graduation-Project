@@ -296,12 +296,13 @@ describe('Donor Routes Integration', () => {
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
 
     const response = await request(app)
-      .get(`/donor/donation-eligibility?requestId=${req._id}`)
+      .get('/donor/donation-eligibility')
       .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('eligible');
+    // Response now contains isEligible boolean
+    expect(response.body.data).toHaveProperty('isEligible');
   });
 
   it('GET /donor/history paginates with page and limit', async () => {

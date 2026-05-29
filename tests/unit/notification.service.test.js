@@ -41,6 +41,56 @@ describe('Notification Service', () => {
     expect(unread.length).toBeGreaterThanOrEqual(1);
   });
 
+  it('notifyRequest excludes opted-out and incompatible donors', async () => {
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, {
+      type: 'plasma',
+      bloodType: 'O+',
+      urgency: 'critical',
+    });
+
+    const eligibleDonor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0444, lng: 31.2357 },
+        lastUpdated: new Date(),
+      },
+    });
+    const optedOutDonor = await createDonor({
+      bloodType: 'O+',
+      isOptedIn: false,
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0444, lng: 31.2357 },
+        lastUpdated: new Date(),
+      },
+    });
+    const incompatibleDonor = await createDonor({
+      bloodType: 'A+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0444, lng: 31.2357 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    await request.populate('hospitalId', 'fullName hospitalName address location contactNumber');
+
+    const items = await notificationService.notifyRequest(
+      [eligibleDonor._id, optedOutDonor._id, incompatibleDonor._id],
+      request,
+    );
+
+    expect(items).toHaveLength(1);
+    expect(items[0].userId.toString()).toBe(eligibleDonor._id.toString());
+    expect(await Notification.countDocuments({ userId: optedOutDonor._id })).toBe(0);
+    expect(await Notification.countDocuments({ userId: incompatibleDonor._id })).toBe(0);
+  });
+
   it('buildEmergencyRequestNotificationData includes request snapshot fields', async () => {
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, {

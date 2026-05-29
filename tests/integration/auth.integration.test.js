@@ -1,8 +1,11 @@
 import { describe, it, expect, vi } from 'vitest';
+import request from 'supertest';
+import app from '../../src/app.js';
 import { setupTestDB } from '../helpers/db.js';
-import { buildDonor } from '../helpers/factories.js';
+import { buildDonor, createDonor } from '../helpers/factories.js';
 import Donor from '../../src/models/Donor.model.js';
 import * as authService from '../../src/services/auth.service.js';
+import { signToken } from '../../src/utils/jwt.js';
 
 vi.mock('../../src/utils/mailer.js', () => ({
   sendEmailVerificationEmail: vi.fn(() => Promise.resolve()),
@@ -36,5 +39,95 @@ describe('Auth Integration', () => {
     expect(loginRes).toHaveProperty('accessToken');
     expect(loginRes).toHaveProperty('refreshToken');
     expect(loginRes.user.email).toBe(email);
+  });
+
+  describe('POST /auth/change-password', () => {
+    it('returns 400 when the current password is incorrect', async () => {
+      const donor = await createDonor({ password: 'CorrectPass@123' });
+      const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          currentPassword: 'WrongPass@123',
+          newPassword: 'BrandNew@123',
+          confirmPassword: 'BrandNew@123',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toBe('Current password is incorrect');
+    });
+
+    it('returns 401 when the token is missing', async () => {
+      const res = await request(app)
+        .post('/auth/change-password')
+        .send({
+          currentPassword: 'CorrectPass@123',
+          newPassword: 'BrandNew@123',
+          confirmPassword: 'BrandNew@123',
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.body.message).toBe('Authorization header is required');
+    });
+
+    it('returns 401 when the token is expired', async () => {
+      const donor = await createDonor({ password: 'CorrectPass@123' });
+      const expiredToken = signToken(
+        { userId: donor._id.toString(), role: donor.role },
+        { expiresIn: '-1s' }
+      );
+
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${expiredToken}`)
+        .send({
+          currentPassword: 'CorrectPass@123',
+          newPassword: 'BrandNew@123',
+          confirmPassword: 'BrandNew@123',
+        });
+
+      expect(res.status).toBe(401);
+      expect(res.body.message).toBe('Token has expired');
+    });
+
+    it('returns 200 when the current password is correct', async () => {
+      const donor = await createDonor({ password: 'CorrectPass@123' });
+      const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          currentPassword: 'CorrectPass@123',
+          newPassword: 'BrandNew@123',
+          confirmPassword: 'BrandNew@123',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Password changed successfully');
+    });
+
+    it('returns 400 when the new password matches the current password', async () => {
+      const donor = await createDonor({ password: 'SamePass@123' });
+      const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+      const res = await request(app)
+        .post('/auth/change-password')
+        .set('Authorization', `Bearer ${token}`)
+        .send({
+          currentPassword: 'SamePass@123',
+          newPassword: 'SamePass@123',
+          confirmPassword: 'SamePass@123',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.code).toBe('VALIDATION_ERROR');
+      expect(res.body.details.newPassword).toBe('newPassword must be different from currentPassword');
+    });
   });
 });

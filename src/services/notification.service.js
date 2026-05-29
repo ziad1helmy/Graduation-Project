@@ -2,6 +2,7 @@ import mongoose from 'mongoose';
 import Donor from '../models/Donor.model.js';
 import User from '../models/User.model.js';
 import Notification from '../models/Notification.model.js';
+import * as matchingService from './matching.service.js';
 import { sendToMultiple, sendToMultipleWithRetry } from '../utils/fcm.js';
 import {
   buildEmergencyRequestFcmData,
@@ -24,7 +25,8 @@ import { logger } from '../utils/logger.js';
 export const notifyMatch = async (userId, donation, request) => {
   try {
     const notificationTitle = 'New Donor Matched';
-    const notificationMessage = `A donor has matched your ${request.type === 'blood' ? request.bloodType + ' blood' : request.organType + ' organ'} request`;
+    const requestLabel = request.type === 'blood' ? `${request.bloodType} blood` : request.type;
+    const notificationMessage = `A donor has matched your ${requestLabel} request`;
     const notificationData = {
       donationId: donation._id,
       requestId: request._id,
@@ -90,17 +92,29 @@ export const notifyRequest = async (donorIds, request) => {
       : request;
 
     const donors = await Donor.find({ _id: { $in: donorIds } })
-      .select('_id fullName location fcmTokens settings')
+      .select('_id fullName location fcmTokens settings isOptedIn bloodType dateOfBirth gender lastDonationDate hemoglobinLevel temporaryDeferralUntil travelHistory')
       .lean(false);
 
     if (donors.length === 0) {
       return [];
     }
 
+    const matchedDonors = [];
+    for (const donor of donors) {
+      const match = await matchingService.evaluateMatch(donor, populatedRequest);
+      if (match.matched) {
+        matchedDonors.push({ donor, match });
+      }
+    }
+
+    if (matchedDonors.length === 0) {
+      return [];
+    }
+
     const isEmergency = request.isEmergency || ['high', 'critical'].includes(request.urgency);
     const notificationType = isEmergency ? 'emergency' : 'request';
     const notifications = await Notification.insertMany(
-      donors.map((donor) => {
+      matchedDonors.map(({ donor }) => {
         const content = buildEmergencyRequestNotificationContent(populatedRequest, donor);
         const notificationData = buildEmergencyRequestNotificationData(populatedRequest, donor);
 
@@ -118,8 +132,8 @@ export const notifyRequest = async (donorIds, request) => {
 
     try {
       // Directly send FCM notifications for each donor — await to ensure delivery attempted
-      for (let i = 0; i < donors.length; i += 1) {
-        const donor = donors[i];
+      for (let i = 0; i < matchedDonors.length; i += 1) {
+        const donor = matchedDonors[i].donor;
         const notification = notifications[i];
         if (!notification) continue;
 

@@ -7,6 +7,7 @@ import Donation from '../models/Donation.model.js';
 import Donor from '../models/Donor.model.js';
 import Notification from '../models/Notification.model.js';
 import * as donationService from '../services/donation.service.js';
+import * as appointmentService from '../services/appointment.service.js';
 import { calculateDistance } from '../utils/geo.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import {
@@ -560,6 +561,10 @@ export const cancelRequest = async (req, res, next) => {
       request.acceptedDonationId = null;
       request.cancelledAt = new Date();
       await request.save();
+      await appointmentService.cancelActiveAppointmentsForRequest(request._id, {
+        cancelledAt: request.cancelledAt,
+        notes: 'Appointment cancelled because the linked request was cancelled',
+      });
 
       return response.success(res, 200, 'Request cancelled successfully', {
         request: getRequestSummary(request),
@@ -590,6 +595,10 @@ export const cancelRequest = async (req, res, next) => {
     request.status = 'cancelled';
     request.cancelledAt = new Date();
     await request.save();
+    await appointmentService.cancelActiveAppointmentsForRequest(request._id, {
+      cancelledAt: request.cancelledAt,
+      notes: 'Appointment cancelled because the linked request was cancelled',
+    });
 
     return response.success(res, 200, 'Request cancelled successfully', {
       request: getRequestSummary(request),

@@ -259,6 +259,14 @@ export const validateChangePassword = (data) => {
     }
   }
 
+  if (
+    data.currentPassword &&
+    newPassword &&
+    String(data.currentPassword) === String(newPassword)
+  ) {
+    errors.newPassword = 'newPassword must be different from currentPassword';
+  }
+
   return {
     valid: Object.keys(errors).length === 0,
     errors,

@@ -1469,10 +1469,35 @@
             }
           },
           "400": {
-            "description": "Validation error"
+            "description": "Validation or business-rule error",
+            "content": {
+              "application/json": {
+                "examples": {
+                  "incorrectCurrentPassword": {
+                    "summary": "Current password mismatch",
+                    "value": {
+                      "success": false,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Current password is incorrect"
+                    }
+                  },
+                  "samePassword": {
+                    "summary": "New password matches current password",
+                    "value": {
+                      "success": false,
+                      "code": "VALIDATION_ERROR",
+                      "message": "Validation failed",
+                      "details": {
+                        "newPassword": "newPassword must be different from currentPassword"
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
           "401": {
-            "description": "Current password is incorrect"
+            "description": "Unauthorized - missing, invalid, or expired JWT token"
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
@@ -2659,12 +2684,17 @@
                   "date": {
                     "type": "string",
                     "format": "date-time"
+                  },
+                  "donationType": {
+                    "type": "string",
+                    "description": "Donation type label or supported alias"
                   }
                 }
               },
               "example": {
                 "date": "2026-05-13",
-                "time": "11:00 AM"
+                "time": "11:00 AM",
+                "donationType": "Plasma"
               }
             }
           }
@@ -2679,12 +2709,50 @@
                   "message": "Appointment rescheduled",
                   "data": {
                     "_id": "69fe540565ff7785a031315c",
+                    "appointmentId": "69fe540565ff7785a031315c",
                     "donorId": "69f3df915f42685cbbbcbb18",
                     "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "requestId": "69fe540565ff7785a031314f",
                     "appointmentDate": "2026-05-15T14:00:00.000Z",
+                    "appointmentTime": "02:00 PM",
+                    "appointmentDay": "2026-05-15",
                     "status": "pending",
+                    "notes": "Donation follow-up appointment",
                     "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
-                    "donationType": "Whole Blood"
+                    "donationType": "Plasma",
+                    "donor": {
+                      "donorId": "69f3df915f42685cbbbcbb18",
+                      "firstName": "Aya",
+                      "lastName": "Hassan",
+                      "fullName": "Aya Hassan",
+                      "email": "aya.hassan@lifelink.demo",
+                      "phoneNumber": "01011111111",
+                      "bloodType": "O+",
+                      "gender": "female",
+                      "dateOfBirth": "1995-01-15T00:00:00.000Z"
+                    },
+                    "appointment": {
+                      "appointmentId": "69fe540565ff7785a031315c",
+                      "donationType": "Plasma",
+                      "appointmentDate": "2026-05-15T14:00:00.000Z",
+                      "appointmentTime": "02:00 PM",
+                      "status": "pending",
+                      "hospitalId": "69f3df915f42685cbbbcbb1b",
+                      "hospitalName": "Cairo Care Hospital"
+                    },
+                    "hospital": {
+                      "hospitalId": "69f3df915f42685cbbbcbb1b",
+                      "id": "69f3df915f42685cbbbcbb1b",
+                      "name": "Cairo Care Hospital",
+                      "hospitalName": "Cairo Care Hospital"
+                    },
+                    "request": {
+                      "requestId": "69fe540565ff7785a031314f",
+                      "id": "69fe540565ff7785a031314f",
+                      "urgencyLevel": "high",
+                      "unitsNeeded": 2,
+                      "notes": "Donation follow-up appointment"
+                    }
                   }
                 }
               }
@@ -2785,7 +2853,7 @@
           "Donor"
         ],
         "summary": "Get supported donation types with details",
-        "description": "Returns all supported donation types including medical hold periods and point values.\n- Blood: 56-day cooldown, 200 points\n- Plasma: 14-day cooldown, 150 points\n- Platelets\n                                    - Double Red Cells\n                                  - Double Red Cells: 7-day cooldown, 175 points\n- Organ: 365-day cooldown, 500 points\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns all supported donation types including medical hold periods and point values.\n- Blood: 56-day cooldown, 200 points\n- Plasma: 14-day cooldown, 150 points\n- Platelets\n                                    - Double Red Cells\n                                  - Double Red Cells: 7-day cooldown, 175 points\n- Double Red Cells: 7-day cooldown, 175 points\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "responses": {
           "200": {
             "description": "Donation types retrieved successfully",
@@ -2816,13 +2884,6 @@
                         "cooldownDays": 7,
                         "pointsAward": 175,
                         "description": "Platelet donation - shortest cooldown period"
-                      },
-                      {
-                        "type": "organ",
-                        "name": "Organ",
-                        "cooldownDays": 365,
-                        "pointsAward": 500,
-                        "description": "Organ donation - highest point value"
                       }
                     ]
                   }
@@ -2839,7 +2900,7 @@
           "Donor"
         ],
         "summary": "Validate if a donor can donate for a given hospital and date",
-        "description": "Checks donation eligibility based on:\n- Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d, organ: 365d)\n- Minimum age (17 years old)\n- Hemoglobin level (minimum 12.5 g/dL)\n- Travel deferrals\n- Temporary medical deferrals\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "description": "Checks donation eligibility based on:\n- Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d)\n- Minimum age (17 years old)\n- Hemoglobin level (minimum 12.5 g/dL)\n- Travel deferrals\n- Temporary medical deferrals\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -2870,8 +2931,7 @@
                     "enum": [
                       "blood",
                       "plasma",
-                      "Platelets - Double Red Cells - Double Red Cells",
-                      "organ"
+                      "platelets"
                     ],
                     "default": "blood",
                     "description": "Type of donation - affects cooldown period"
@@ -3010,7 +3070,7 @@
           "Donor"
         ],
         "summary": "List active donation requests available to donors",
-        "description": "Retrieve paginated list of blood and organ donation requests that match donor eligibility criteria. Filters by type and urgency\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Retrieve paginated list of blood, plasma, and platelets donation requests that match donor eligibility criteria. Filters by type and urgency\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -3023,8 +3083,7 @@
             "schema": {
               "type": "string",
               "enum": [
-                "blood",
-                "organ"
+                "blood"
               ]
             },
             "description": "Request type filter",
@@ -3550,8 +3609,7 @@
             "schema": {
               "type": "string",
               "enum": [
-                "blood",
-                "organ"
+                "blood"
               ]
             },
             "description": "Filter by request type",
@@ -3692,7 +3750,7 @@
           "Donor"
         ],
         "summary": "Get full request details including all donation type information",
-        "description": "Returns complete request details with donor responses and history.\nWorks for blood, plasma, platelets, and organ requests.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns complete request details with donor responses and history.\nWorks for blood, plasma, and platelets requests.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -4847,12 +4905,6 @@
                       "type": "platelets_donation",
                       "title": "Platelet Donation",
                       "points": 175,
-                      "category": "donation"
-                    },
-                    {
-                      "type": "organ_donation",
-                      "title": "Organ Donation",
-                      "points": 500,
                       "category": "donation"
                     },
                     {
@@ -6163,9 +6215,6 @@
                         },
                         "platelets": {
                           "type": "number"
-                        },
-                        "organ": {
-                          "type": "number"
                         }
                       }
                     },
@@ -6190,8 +6239,7 @@
                   "donationsByType": {
                     "blood": 6,
                     "plasma": 1,
-                    "platelets": 1,
-                    "organ": 0
+                    "platelets": 1
                   },
                   "lastDonationDate": "2026-05-08T12:00:00.000Z",
                   "joinDate": "2026-05-08T12:00:00.000Z"
@@ -6306,10 +6354,6 @@
                       },
                       "platelets": {
                         "count": 27,
-                        "avgPoints": 0
-                      },
-                      "organ": {
-                        "count": 8,
                         "avgPoints": 0
                       }
                     }
@@ -7345,7 +7389,7 @@
           "Hospital"
         ],
         "summary": "Create a hospital donation request",
-        "description": "Creates a blood or organ donation request for the authenticated hospital. Emergency requests may set `isEmergency: true` and omit `urgency`.",
+        "description": "Creates a blood, plasma, or platelets donation request for the authenticated hospital. Emergency requests may set `isEmergency: true` and omit `urgency`.",
         "security": [
           {
             "bearerAuth": []
@@ -7366,7 +7410,8 @@
                     "type": "string",
                     "enum": [
                       "blood",
-                      "organ"
+                      "plasma",
+                      "platelets"
                     ]
                   },
                   "bloodType": {
@@ -7519,7 +7564,8 @@
                     "type": "string",
                     "enum": [
                       "blood",
-                      "organ"
+                      "plasma",
+                      "platelets"
                     ]
                   },
                   "bloodType": {
@@ -7610,6 +7656,119 @@
         }
       }
     },
+    "/hospital/history": {
+      "get": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Get paginated request history for the authenticated hospital",
+        "description": "Returns hospital request history with donor engagement metrics, completion metrics, and overall request statistics.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "example": 1
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 10
+            },
+            "example": 10
+          },
+          {
+            "in": "query",
+            "name": "status",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "enum": [
+                "pending",
+                "accepted",
+                "in-progress",
+                "completed",
+                "cancelled",
+                "expired"
+              ]
+            },
+            "description": "Optional request status filter",
+            "example": "completed"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Request history retrieved successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Request history retrieved successfully",
+                  "data": {
+                    "statistics": {
+                      "activeRequests": 3,
+                      "completedRequests": 42,
+                      "cancelledRequests": 2
+                    },
+                    "requests": [
+                      {
+                        "_id": "69fe540565ff7785a0313150",
+                        "bloodType": "O+",
+                        "unitsRequested": 3,
+                        "urgencyLevel": "critical",
+                        "donorsContacted": 20,
+                        "donorsConfirmed": 12,
+                        "isFulfilled": true,
+                        "requestDate": "2024-09-28T00:00:00.000Z",
+                        "completionTimeInHours": 3,
+                        "priority": "critical",
+                        "location": "30.0444, 31.2357",
+                        "hospitalContact": "01099998888",
+                        "hospitalName": "Al Noor Hospital",
+                        "status": "completed"
+                      }
+                    ],
+                    "pagination": {
+                      "total": 100,
+                      "page": 1,
+                      "currentPage": 1,
+                      "limit": 10,
+                      "totalPages": 10,
+                      "hasNextPage": true,
+                      "hasPrevPage": false
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid status filter"
+          },
+          "401": {
+            "description": "Missing or invalid JWT"
+          },
+          "403": {
+            "description": "Role not allowed"
+          }
+        }
+      }
+    },
     "/hospital/requests": {
       "get": {
         "tags": [
@@ -7642,8 +7801,7 @@
             "schema": {
               "type": "string",
               "enum": [
-                "blood",
-                "organ"
+                "blood"
               ]
             },
             "example": "blood"
@@ -7688,9 +7846,8 @@
                       },
                       {
                         "_id": "69fe540565ff7785a0313153",
-                        "type": "organ",
-                        "organType": "kidney",
-                        "urgency": "critical",
+                        "type": "platelets",
+                        "urgency": "pending",
                         "status": "pending",
                         "quantity": 1,
                         "requiredBy": "2026-05-19T10:00:00.000Z"
@@ -12519,7 +12676,7 @@
     },
     "/admin/requests": {
       "get": {
-        "summary": "List all blood/organ requests",
+        "summary": "List all blood requests",
         "tags": [
           "Admin"
         ],
@@ -12571,8 +12728,7 @@
             "schema": {
               "type": "string",
               "enum": [
-                "blood",
-                "organ"
+                "blood"
               ]
             },
             "example": "blood"

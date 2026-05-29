@@ -16,7 +16,7 @@ const COOLDOWN_DAYS_BY_TYPE = {
   blood: 56,
   plasma: 14,
   platelets: 7,
-  organ: 365,
+  double_red_cells: 7,
 };
 const TRAVEL_DEFERRAL_DAYS = 28;
 const MIN_HEMOGLOBIN_LEVEL = 12.5;
@@ -190,4 +190,34 @@ export const canDonate = async (donor, options = {}) => {
 
 export default {
   canDonate,
+};
+
+// Helper exports for controller/UI usage -------------------------------------------------
+// Return the cooldown (required interval) in days for a donor or gender + donation type
+export const getCooldownDays = (donorOrGender, donationType) => {
+  try {
+    if (!donorOrGender) return getRequiredDonationInterval(undefined, donationType);
+    // If passed a donor object, prefer the donor.gender
+    if (typeof donorOrGender === 'object') {
+      return getRequiredDonationInterval(donorOrGender.gender, donationType);
+    }
+    // Otherwise treat as gender string
+    return getRequiredDonationInterval(donorOrGender, donationType);
+  } catch (e) {
+    return DEFAULT_DONATION_INTERVAL_DAYS;
+  }
+};
+
+// Compute the next eligible date based on donor.lastDonationDate and cooldown days
+export const computeNextEligibleDate = (donor, donationType) => {
+  try {
+    if (!donor || !donor.lastDonationDate) return null;
+    const last = new Date(donor.lastDonationDate);
+    if (Number.isNaN(last.getTime())) return null;
+    const days = getCooldownDays(donor, donationType);
+    const nextDate = addDays(last, days);
+    return nextDate;
+  } catch (e) {
+    return null;
+  }
 };

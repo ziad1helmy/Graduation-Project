@@ -27,7 +27,7 @@
 
 ## Executive Summary
 
-The LifeLink Reward System is a **points-based gamification engine** designed to incentivize blood and organ donors through a multi-tier system featuring:
+The LifeLink Reward System is a **points-based gamification engine** designed to incentivize blood and component donors through a multi-tier system featuring:
 
 - **Dynamic Points Economy**: Donors earn points from donations, emergency responses, profile completion, and tier promotions
 - **Tier Progression**: Bronze → Silver → Gold → Platinum (lifetime-based, never downgrade)

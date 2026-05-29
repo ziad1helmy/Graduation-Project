@@ -8,7 +8,7 @@ LifeLink has four roles stored in the `User.role` field:
 
 | Role | Description | Who Creates Them |
 |------|-------------|-----------------|
-| `donor` | Blood/organ donor (mobile app user) | Self-registration |
+| `donor` | Blood donor (mobile app user) | Self-registration |
 | `hospital` | Hospital staff account | Admin only |
 | `admin` | Platform administrator | Superadmin only |
 | `superadmin` | Full-access administrator | System seeded / another superadmin |

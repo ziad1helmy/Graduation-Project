@@ -679,8 +679,6 @@ export const createRequest = async (req, res, next) => {
 
     if (type === 'blood') {
       requestData.bloodType = bloodType;
-    } else if (type === 'organ') {
-      requestData.organType = organType;
     }
 
 
@@ -775,7 +773,7 @@ export const getRequests = async (req, res, next) => {
     if (status && ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
       filter.status = status;
     }
-    if (type && ['blood', 'organ'].includes(type)) {
+    if (type && ['blood', 'plasma', 'platelets', 'double_red_cells'].includes(type)) {
       filter.type = type;
     }
 
@@ -856,6 +854,13 @@ export const updateRequest = async (req, res, next) => {
       { returnDocument: 'after' }
     );
 
+    if (['completed', 'cancelled', 'expired'].includes(status)) {
+      await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
+        cancelledAt: new Date(),
+        notes: `Appointment cancelled because request was marked as ${status}`,
+      });
+    }
+
     response.success(res, 200, 'Request status updated successfully', updatedRequest);
   } catch (error) {
     next(error);
@@ -881,7 +886,16 @@ export const closeRequest = async (req, res, next) => {
       return response.error(res, 400, 'Request is already completed');
     }
 
-    const updatedRequest = await Request.findByIdAndUpdate(requestId, { status: 'completed', completedAt: new Date() }, { returnDocument: 'after' });
+    const completedAt = new Date();
+    const updatedRequest = await Request.findByIdAndUpdate(
+      requestId,
+      { status: 'completed', completedAt },
+      { returnDocument: 'after' }
+    );
+    await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
+      cancelledAt: completedAt,
+      notes: 'Appointment cancelled because the linked request was completed',
+    });
 
     return response.success(res, 200, 'Request closed successfully', updatedRequest);
   } catch (error) {
@@ -923,6 +937,11 @@ export const deleteRequest = async (req, res, next) => {
     } finally {
       session.endSession();
     }
+
+    await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
+      cancelledAt: new Date(),
+      notes: 'Appointment cancelled because the linked request was cancelled',
+    });
 
     response.success(res, 200, 'Request cancelled successfully');
   } catch (error) {

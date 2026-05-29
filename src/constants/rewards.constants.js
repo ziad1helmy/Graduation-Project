@@ -8,7 +8,6 @@ export const TYPE_LABEL_MAP = {
   BLOOD_DONATION: 'Blood Donation',
   PLASMA_DONATION: 'Plasma Donation',
   PLATELETS_DONATION: 'Platelets Donation',
-  ORGAN_DONATION: 'Organ Donation',
   ADMIN_ADJUSTMENT: 'Admin Adjustment',
   // fallback keys used elsewhere in the code
   blood_donation: 'Blood Donation',

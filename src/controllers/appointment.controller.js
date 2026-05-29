@@ -2,7 +2,7 @@ import response from '../utils/response.js';
 import * as appointmentService from '../services/appointment.service.js';
 import ERR from '../utils/errorCodes.js';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
-import { toAppointmentResponse, appointmentPopulateOptions } from '../utils/appointment.dto.js';
+import { toAppointmentResponse, appointmentPopulateOptions, buildAppointmentConfirmationResponse } from '../utils/appointment.dto.js';
 
 const getDonorId = (req) => req?.user?.userId || req?.user?._id;
 
@@ -74,6 +74,7 @@ export const bookAppointment = async (req, res, next) => {
       error.message === 'Invalid appointment id' ||
       error.message === 'Invalid request id' ||
       error.message === 'Request does not belong to this hospital' ||
+      error.message === 'The linked request is no longer active' ||
       error.message === 'Donor is not currently available' ||
       error.message === 'Donor is suspended' ||
       error.message === 'Donor has not provided blood type information' ||
@@ -101,13 +102,15 @@ export const getMyAppointments = async (req, res, next) => {
 
 export const getAvailableSlots = async (req, res, next) => {
   try {
-    const { hospitalId, date } = req.query;
+    const { hospitalId, date, excludeAppointmentId } = req.query;
 
     if (!hospitalId || !date) {
       return response.error(res, 400, 'hospitalId and date are required');
     }
 
-    const slots = await appointmentService.getAvailableSlots(hospitalId, date);
+    const slots = await appointmentService.getAvailableSlots(hospitalId, date, {
+      excludeAppointmentId: excludeAppointmentId || undefined,
+    });
     return response.success(res, 200, 'Available slots retrieved successfully', slots);
   } catch (error) {
     if (error.message === 'Invalid hospital id' || error.message === 'Invalid date') {
@@ -133,6 +136,7 @@ export const cancelAppointment = async (req, res, next) => {
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, ERR.APPOINTMENT_NOT_FOUND);
     if (error.message === 'This appointment cannot be cancelled') return response.error(res, 400, ERR.APPOINTMENT_CANNOT_CANCEL);
+    if (error.message.includes('Cancellation must be at least')) return response.error(res, 400, error.message);
     next(error);
   }
 };
@@ -148,8 +152,7 @@ export const getAppointmentById = async (req, res, next) => {
 
     // Populate for HTTP response then apply DTO transformation.
     await appointment.populate(appointmentPopulateOptions);
-    const appointmentDto = toAppointmentResponse(appointment);
-    return response.success(res, 200, 'Appointment retrieved', appointmentDto);
+    return response.success(res, 200, 'Appointment retrieved', buildAppointmentConfirmationResponse(appointment).data);
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
@@ -162,21 +165,37 @@ export const rescheduleAppointment = async (req, res, next) => {
     const donorId = getDonorId(req);
     const appointmentId = req.params.appointmentId;
     // Accept either { date, time } (human-readable) or a plain ISO date string in `date`.
-    const { date, time, appointmentDate } = req.body;
+    const { date, time, appointmentDate, donationType, reason } = req.body;
     const newDate = buildAppointmentDate({ appointmentDate, date, time });
 
     if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
     if (!newDate) return response.error(res, 400, 'date is required');
 
-    const appointment = await appointmentService.rescheduleAppointment(appointmentId, donorId, newDate);
+    const appointment = await appointmentService.rescheduleAppointment(appointmentId, donorId, {
+      appointmentDate: newDate,
+      donationType,
+      reason,
+    });
 
-    const appointmentDto = toAppointmentResponse(appointment);
-    return response.success(res, 200, 'Appointment rescheduled', appointmentDto);
+    return response.success(res, 200, 'Appointment rescheduled', buildAppointmentConfirmationResponse(appointment).data);
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
     if (error.message.includes('rescheduled')) return response.error(res, 400, error.message);
     if (error.message.includes('future')) return response.error(res, 400, error.message);
+    if (
+      error.message.includes('different from the current appointment')
+      || error.message.includes('maximum number of reschedules')
+      || error.message.includes('Hospital does not allow rescheduling')
+      || error.message.includes('linked request is no longer active')
+      || error.message.includes('Selected time slot is no longer available')
+      || error.message.includes('at least')
+      || error.message.includes('cannot be more than')
+      || error.message.includes('support this donation type')
+      || error.message.includes('Only pending or confirmed appointments can be rescheduled')
+    ) {
+      return response.error(res, 400, error.message);
+    }
     next(error);
   }
 };

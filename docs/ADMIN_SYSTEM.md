@@ -98,7 +98,7 @@ Admin accounts are created with `isEmailVerified: true` by default (no email ver
 
 ## Request Management
 
-Admins have read + write access to all blood/organ requests across all hospitals:
+Admins have read + write access to all blood requests across all hospitals:
 
 - List all requests with filters (status, urgency, blood type, hospital, type)
 - Get request statistics (counts by status, urgency, blood type)
@@ -203,7 +203,7 @@ PUT  /admin/rewards/config     → Update config
 ```
 
 Configurable values (validated by `validateRewardsConfigBody`):
-- Points per donation type (blood, plasma, platelets, organ)
+- Points per donation type (blood, plasma, platelets)
 - Emergency bonus multiplier
 - Tier thresholds (Silver, Gold, Platinum)
 - Tier bonus points

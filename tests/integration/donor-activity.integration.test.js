@@ -57,11 +57,11 @@ describe('Donor Activity Integration', () => {
         expect(donation.status).toBe('pending');
       });
 
-      it('should accept organ urgent request', async () => {
+      it('should accept platelets urgent request', async () => {
         const testRequest = await createRequest(testHospital._id, {
           bloodType: testDonor.bloodType,
           urgency: 'high',
-          type: 'organ',
+          type: 'platelets',
         });
 
         const donation = await donationService.createDonation(
@@ -96,9 +96,9 @@ describe('Donor Activity Integration', () => {
         expect(declinedDonation.notes).toContain('Declined urgent request');
       });
 
-      it('should decline urgent request with reason', async () => {
+      it('should decline urgent platelets request with reason', async () => {
         const testRequest = await createRequest(testHospital._id, {
-          type: 'organ',
+          type: 'platelets',
           bloodType: testDonor.bloodType,
           urgency: 'high',
           quantity: 1,

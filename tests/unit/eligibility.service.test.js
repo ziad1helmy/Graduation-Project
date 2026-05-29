@@ -2,7 +2,7 @@
  * Tests for src/services/eligibility.service.js
  *
  * Covers:
- * - Per-type cooldown enforcement (blood: 56d, plasma: 14d, platelets: 7d, organ: 365d)
+ * - Per-type cooldown enforcement (blood: 56d, plasma: 14d, platelets: 7d)
  * - Age eligibility (minimum 17 years)
  * - Temporary and travel deferrals
  * - Hemoglobin level requirements
@@ -115,31 +115,6 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const donor = await createDonor({ lastDonationDate: lastDate });
 
     const result = await canDonate(donor, { donationType: 'platelets' });
-
-    expect(result.eligible).toBe(true);
-    expect(result.reason).toMatch(/eligible/i);
-  });
-
-  it('should prevent organ donation before 365 days cooldown expires', async () => {
-    const lastDate = new Date();
-    lastDate.setDate(lastDate.getDate() - 300); // 300 days ago (65 days too soon)
-    
-    const donor = await createDonor({ lastDonationDate: lastDate });
-
-    const result = await canDonate(donor, { donationType: 'organ' });
-
-    expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/wait.*before donating/i);
-    expect(result.nextEligibleDate).toBeDefined();
-  });
-
-  it('should allow organ donation after 365 days cooldown expires', async () => {
-    const lastDate = new Date();
-    lastDate.setDate(lastDate.getDate() - 366); // 366 days ago (1 day past cooldown)
-    
-    const donor = await createDonor({ lastDonationDate: lastDate });
-
-    const result = await canDonate(donor, { donationType: 'organ' });
 
     expect(result.eligible).toBe(true);
     expect(result.reason).toMatch(/eligible/i);

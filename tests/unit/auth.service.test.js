@@ -111,4 +111,43 @@ describe('Auth Service', () => {
     const loginRes = await authService.login({ email, password: newPassword, role: 'donor' });
     expect(loginRes.user.email).toBe(email);
   });
+
+  it('returns a 400 service error when the current password is incorrect', async () => {
+    const email = 'eve@example.com';
+    const currentPassword = 'OldPass@123';
+    const newPassword = 'NewPass@123';
+    const data = buildDonor({ email, password: currentPassword, confirmPassword: currentPassword });
+
+    await authService.register(data);
+    const user = await Donor.findOne({ email });
+    user.isEmailVerified = true;
+    await user.save();
+
+    await expect(authService.changePassword(user._id, {
+      currentPassword: 'WrongPass@123',
+      newPassword,
+    })).rejects.toMatchObject({
+      message: 'Current password is incorrect',
+      statusCode: 400,
+    });
+  });
+
+  it('rejects reusing the current password', async () => {
+    const email = 'frank@example.com';
+    const password = 'SamePass@123';
+    const data = buildDonor({ email, password, confirmPassword: password });
+
+    await authService.register(data);
+    const user = await Donor.findOne({ email });
+    user.isEmailVerified = true;
+    await user.save();
+
+    await expect(authService.changePassword(user._id, {
+      currentPassword: password,
+      newPassword: password,
+    })).rejects.toMatchObject({
+      message: 'New password must be different from current password',
+      statusCode: 400,
+    });
+  });
 });

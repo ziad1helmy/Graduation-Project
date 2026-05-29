@@ -4,13 +4,13 @@ import { createDonor, createHospital } from '../helpers/factories.js';
 import * as appointmentController from '../../src/controllers/appointment.controller.js';
 import * as appointmentService from '../../src/services/appointment.service.js';
 
-// Mock Notification model
 vi.mock('../../src/models/Notification.model.js', () => ({ default: { create: vi.fn().mockResolvedValue(null) } }));
+vi.mock('../../src/services/activity.service.js', () => ({ logActivity: vi.fn().mockResolvedValue(null) }));
 
 setupTestDB();
 
 describe('Appointment Controller', () => {
-  describe('Dev 1: Task 3 — getAppointmentById', () => {
+  describe('getAppointmentById', () => {
     it('returns appointment by ID for the donor', async () => {
       const donor = await createDonor();
       const hospital = await createHospital();
@@ -52,12 +52,11 @@ describe('Appointment Controller', () => {
 
       await appointmentController.getAppointmentById(req, res, next);
 
-      expect(res.json).toHaveBeenCalled();
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
     });
 
-    it('returns 403 when donor does not own the appointment', async () => {
+    it('returns error when donor does not own the appointment', async () => {
       const donor1 = await createDonor();
       const donor2 = await createDonor();
       const hospital = await createHospital();
@@ -77,13 +76,12 @@ describe('Appointment Controller', () => {
 
       await appointmentController.getAppointmentById(req, res, next);
 
-      expect(res.json).toHaveBeenCalled();
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
     });
   });
 
-  describe('Dev 1: Task 4 — rescheduleAppointment', () => {
+  describe('rescheduleAppointment', () => {
     it('reschedules appointment to future date', async () => {
       const donor = await createDonor();
       const hospital = await createHospital();
@@ -95,7 +93,7 @@ describe('Appointment Controller', () => {
       const req = {
         user: { userId: donor._id },
         params: { appointmentId: appt._id.toString() },
-        body: { date: newDate.toISOString() },
+        body: { date: newDate.toISOString(), donationType: 'Plasma' },
       };
       const res = {
         json: vi.fn().mockReturnThis(),
@@ -105,10 +103,38 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      expect(res.json).toHaveBeenCalled();
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
       expect(new Date(callArgs.data.appointmentDate).getTime()).toBe(newDate.getTime());
+      expect(callArgs.data.donationType).toBe('Plasma');
+      expect(callArgs.data.donor.firstName).toBeDefined();
+      expect(callArgs.data.hospital.name).toBeDefined();
+    });
+
+    it('includes the reschedule reason in appointment history', async () => {
+      const donor = await createDonor();
+      const hospital = await createHospital();
+      const apptDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+      const newDate = new Date(Date.now() + 120 * 60 * 60 * 1000);
+
+      const appt = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
+
+      const req = {
+        user: { userId: donor._id },
+        params: { appointmentId: appt._id.toString() },
+        body: { date: newDate.toISOString(), reason: 'Need a different time' },
+      };
+      const res = {
+        json: vi.fn().mockReturnThis(),
+        status: vi.fn().mockReturnThis(),
+      };
+      const next = vi.fn();
+
+      await appointmentController.rescheduleAppointment(req, res, next);
+
+      const callArgs = res.json.mock.calls[0][0];
+      expect(callArgs.success).toBe(true);
+      expect(callArgs.data.rescheduleHistory[0].reason).toBe('Need a different time');
     });
 
     it('returns error when trying to reschedule to past date', async () => {
@@ -132,7 +158,6 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      expect(res.json).toHaveBeenCalled();
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
     });
@@ -154,7 +179,6 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      expect(res.json).toHaveBeenCalled();
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
     });
@@ -181,13 +205,12 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      expect(res.json).toHaveBeenCalled();
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
     });
   });
 
-  describe('Dev 2: Task 7 — getAvailableSlots', () => {
+  describe('getAvailableSlots', () => {
     it('returns available slots for a hospital and date', async () => {
       const hospital = await createHospital({
         slotsPerHour: 1,
@@ -211,10 +234,36 @@ describe('Appointment Controller', () => {
 
       await appointmentController.getAvailableSlots(req, res, next);
 
-      expect(res.json).toHaveBeenCalled();
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
       expect(Array.isArray(callArgs.data.timeSlots)).toBe(true);
+    });
+
+    it('forwards excludeAppointmentId when provided', async () => {
+      const donor = await createDonor();
+      const req = {
+        user: { userId: donor._id },
+        query: {
+          hospitalId: '507f1f77bcf86cd799439011',
+          date: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+          excludeAppointmentId: '507f1f77bcf86cd799439012',
+        },
+      };
+      const res = {
+        json: vi.fn().mockReturnThis(),
+        status: vi.fn().mockReturnThis(),
+      };
+      const next = vi.fn();
+      const slotsSpy = vi.spyOn(appointmentService, 'getAvailableSlots').mockResolvedValueOnce({
+        timeSlots: ['08:00 AM'],
+      });
+
+      await appointmentController.getAvailableSlots(req, res, next);
+
+      expect(slotsSpy).toHaveBeenCalledWith(req.query.hospitalId, req.query.date, {
+        excludeAppointmentId: req.query.excludeAppointmentId,
+      });
+      expect(res.json).toHaveBeenCalled();
     });
   });
 });

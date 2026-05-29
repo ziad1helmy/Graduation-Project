@@ -9,6 +9,7 @@ import * as matchingService from '../services/matching.service.js';
 import * as donationService from '../services/donation.service.js';
 import * as notificationService from '../services/notification.service.js';
 import * as activityService from '../services/activity.service.js';
+import * as eligibilityService from '../services/eligibility.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import * as rewardService from '../services/reward.service.js';
 import { formatActivityForTimeline } from '../utils/activity.formatter.js';
@@ -156,35 +157,34 @@ export const updateProfile = async (req, res, next) => {
   }
 };
 
-// Get all active requests — supports ?page=1&limit=10
+// Get matched requests for this donor — supports ?page=1&limit=10
 export const getRequests = async (req, res, next) => {
   try {
-    const { type, urgency } = req.query;
     const { offset, limit, page } = parsePagination(req.query);
 
-    const filter = {
-      status: { $in: ['pending', 'in-progress'] },
-    };
-
-    if (type && ['blood', 'organ'].includes(type)) {
-      filter.type = type;
-    }
-    if (urgency && ['low', 'medium', 'high', 'critical'].includes(urgency)) {
-      filter.urgency = urgency;
+    const donor = await Donor.findById(req.user.userId);
+    if (!donor) {
+      return response.error(res, 404, 'Donor not found');
     }
 
-    const [requests, total] = await Promise.all([
-      Request.find(filter)
-        .populate('hospitalId', 'fullName hospitalName address contactNumber')
-        .skip(offset)
-        .limit(limit)
-        .sort({ createdAt: -1 }),
-      Request.countDocuments(filter),
-    ]);
+    if (donor.isOptedIn === false) {
+      return response.success(res, 200, 'Requests retrieved successfully', {
+        requests: [],
+        pagination: paginationMeta(0, page, limit),
+      });
+    }
+
+    const matchedRequests = await matchingService.findCompatibleRequests(donor._id);
+    const paginatedRequests = matchedRequests.slice(offset, offset + limit).map(({ request, score, locationScore, compatibility }) => ({
+      ...buildRequestPayload(request),
+      score,
+      locationScore,
+      compatibility,
+    }));
 
     response.success(res, 200, 'Requests retrieved successfully', {
-      requests: requests.map((request) => buildRequestPayload(request)),
-      pagination: paginationMeta(total, page, limit),
+      requests: paginatedRequests,
+      pagination: paginationMeta(matchedRequests.length, page, limit),
     });
   } catch (error) {
     next(error);
@@ -194,12 +194,18 @@ export const getRequests = async (req, res, next) => {
 // Get matching requests for this donor — supports ?page=1&limit=10
 export const getMatches = async (req, res, next) => {
   try {
+    const { offset, limit, page } = parsePagination(req.query);
     const donor = await Donor.findById(req.user.userId);
     if (!donor) {
       return response.error(res, 404, 'Donor not found');
     }
 
-    const { offset, limit, page } = parsePagination(req.query);
+    if (donor.isOptedIn === false) {
+      return response.success(res, 200, 'Matching requests retrieved successfully', {
+        matches: [],
+        pagination: paginationMeta(0, page, limit),
+      });
+    }
 
     const matches = await matchingService.findCompatibleRequests(donor._id);
     const paginatedMatches = matches.slice(offset, offset + limit);
@@ -395,23 +401,53 @@ export const updateParticipation = async (req, res, next) => {
 // Check donation eligibility for a specific request
 export const getDonationEligibility = async (req, res, next) => {
   try {
-    const { requestId } = req.query;
-    if (!requestId) {
-      return response.error(res, 400, 'requestId is required');
+    // Reject any attempt to specify another donor's id
+    if (req.params?.donorId || req.query?.donorId || req.body?.donorId) {
+      return response.error(res, 400, 'Specifying donorId is not allowed');
     }
 
-    const request = await Request.findById(requestId);
-    if (!request) {
-      return response.error(res, 404, 'Request not found');
+    // Determine authenticated donor id (support either field used by JWT middleware)
+    const donorId = req.user?.userId ?? req.user?.id ?? req.user?._id;
+    if (!donorId) return response.error(res, 500, 'Authenticated donor id not found');
+
+    // Load donor profile (readonly)
+    const donor = await Donor.findById(donorId).select('isOptedIn lastDonationDate bloodType gender hemoglobinLevel temporaryDeferralUntil travelHistory');
+    if (!donor) return response.error(res, 404, 'Donor not found');
+
+    // Do not accept request-specific parameters for this informational endpoint
+    if (req.query?.requestId || req.query?.donationType) {
+      return response.error(res, 400, 'requestId and donationType are not accepted on this endpoint');
     }
 
-    const donor = await Donor.findById(req.user.userId);
-    if (!donor) {
-      return response.error(res, 404, 'Donor not found');
-    }
+    // Build a generic eligibility request using donor's default context (Health Profile uses current donor info)
+    const eligibilityRequest = { type: 'blood', bloodType: donor.bloodType || null };
 
-    const eligibility = await donationService.validateEligibility(donor, request);
-    return response.success(res, 200, 'Eligibility result', eligibility);
+    // Use the same validation used by matching, booking, rescheduling and donation flows
+    const eligibility = await donationService.validateEligibility(donor, eligibilityRequest);
+
+    // Compute UI-friendly fields (donationType not exposed — eligibility is donor-centric)
+    const cooldownDays = eligibilityService.getCooldownDays(donor);
+    const nextEligibleDate = eligibility.nextEligibleDate ? new Date(eligibility.nextEligibleDate) : eligibilityService.computeNextEligibleDate(donor);
+    const now = new Date();
+    const daysRemaining = nextEligibleDate ? Math.max(0, Math.ceil((new Date(nextEligibleDate) - now) / (1000 * 60 * 60 * 24))) : 0;
+
+    const reason = eligibility.eligible ? null : (
+      eligibility.nextEligibleDate || nextEligibleDate
+        ? `You must wait ${daysRemaining} more day${daysRemaining === 1 ? '' : 's'} before donating again.`
+        : eligibility.reason
+    );
+
+    const payload = {
+      isEligible: !!eligibility.eligible,
+      reason,
+      nextEligibleDate: nextEligibleDate ? new Date(nextEligibleDate).toISOString() : null,
+      participationEnabled: donor.isOptedIn ?? true,
+      lastDonationDate: donor.lastDonationDate ? new Date(donor.lastDonationDate).toISOString() : null,
+      cooldownDays,
+      daysRemaining,
+    };
+
+    return response.success(res, 200, 'Eligibility result', payload);
   } catch (error) {
     next(error);
   }
@@ -492,6 +528,18 @@ export const getUrgentRequests = async (req, res, next) => {
     const offset = (page - 1) * limit;
     const donorId = req.user.userId;
 
+    const donor = await Donor.findById(donorId);
+    if (!donor) {
+      return response.error(res, 404, 'Donor not found');
+    }
+
+    if (donor.isOptedIn === false) {
+      return response.success(res, 200, 'Urgent requests retrieved', {
+        requests: [],
+        pagination: { total: 0, page: parseInt(page), limit: parseInt(limit) },
+      });
+    }
+
     // Exclude requests this donor already declined (cancelled donations)
     const declinedRequestIds = await Donation.distinct('requestId', {
       donorId,
@@ -499,18 +547,14 @@ export const getUrgentRequests = async (req, res, next) => {
       requestId: { $ne: null },
     });
 
-    const filter = {
-      status: { $in: ['pending', 'in-progress'] },
-      urgency: { $in: ['high', 'critical'] },
-      ...(declinedRequestIds.length > 0 ? { _id: { $nin: declinedRequestIds } } : {}),
-    };
+    const matchedRequests = await matchingService.findCompatibleRequests(donor._id);
+    const urgentMatches = matchedRequests
+      .filter(({ request }) => ['high', 'critical'].includes(request.urgency))
+      .filter(({ request }) => !declinedRequestIds.some((id) => id.toString() === request._id.toString()));
 
-    const [requests, total] = await Promise.all([
-      Request.find(filter)
-        .populate('hospitalId', 'fullName hospitalName contactNumber lat long')
-        .sort({ createdAt: -1 }).skip(offset).limit(parseInt(limit)),
-      Request.countDocuments(filter),
-    ]);
+    const paginatedMatches = urgentMatches.slice(offset, offset + parseInt(limit));
+    const requests = paginatedMatches.map(({ request }) => request);
+    const total = urgentMatches.length;
 
     const userLat = parseFloat(lat);
     const userLng = parseFloat(lng);
@@ -528,7 +572,7 @@ export const getUrgentRequests = async (req, res, next) => {
       }
       return {
         id: r._id,
-        title: `Urgent ${r.type === 'blood' ? 'Blood' : 'Organ'} Request — ${r.bloodType || r.organType || ''}`.trim(),
+        title: `Urgent ${String(r.type || 'request').replace(/^./, (char) => char.toUpperCase())} Request — ${r.bloodType || ''}`.trim(),
         bloodType: r.bloodType || null,
         unitsNeeded: r.quantity || 1,
         hospitalName: hospital?.hospitalName || hospital?.fullName || null,
@@ -565,7 +609,7 @@ export const getUrgentRequestDetails = async (req, res, next) => {
     return response.success(res, 200, 'Urgent request retrieved successfully', {
       request: {
         id: request._id,
-        title: `Urgent ${request.type === 'blood' ? 'Blood' : 'Organ'} Request — ${request.bloodType || request.organType || ''}`.trim(),
+        title: `Urgent ${String(request.type || 'request').replace(/^./, (char) => char.toUpperCase())} Request — ${request.bloodType || ''}`.trim(),
         bloodType: request.bloodType || null,
         unitsNeeded: request.quantity || 1,
         hospitalName: hospital?.hospitalName || hospital?.fullName || null,

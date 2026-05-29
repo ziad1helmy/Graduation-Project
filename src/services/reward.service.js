@@ -19,12 +19,13 @@ export const POINTS_BY_TYPE = {
   blood: 200,
   plasma: 150,
   platelets: 175,
-  organ: 500,
+  double_red_cells: 175,
 };
 
 const TRANSACTION_TYPE_BY_TYPE = {
   blood: 'BLOOD_DONATION',  plasma: 'PLASMA_DONATION',
-  platelets: 'PLATELETS_DONATION',  organ: 'ORGAN_DONATION',
+  platelets: 'PLATELETS_DONATION',
+  double_red_cells: 'DOUBLE_RED_CELLS_DONATION',
 };
 
 // ──────────────────────────────────────────────
@@ -813,7 +814,7 @@ export const getEarningRules = async () => {
     { type: 'blood_donation',      title: 'Blood Donation',      points: POINTS_BY_TYPE.blood,        category: 'donation' },
     { type: 'plasma_donation',     title: 'Plasma Donation',     points: POINTS_BY_TYPE.plasma,       category: 'donation' },
     { type: 'platelets_donation',  title: 'Platelet Donation',   points: POINTS_BY_TYPE.platelets,    category: 'donation' },
-    { type: 'organ_donation',      title: 'Organ Donation',      points: POINTS_BY_TYPE.organ,        category: 'donation' },
+    { type: 'double_red_cells_donation', title: 'Double Red Cells Donation', points: POINTS_BY_TYPE.double_red_cells, category: 'donation' },
     { type: 'first_donation',      title: 'First Donation Bonus', points: rewardsConfig.points.firstDonation,      category: 'bonus' },
     { type: 'emergency_response',  title: 'Emergency Response',  points: rewardsConfig.points.emergencyResponse,  category: 'bonus' },
     { type: 'profile_completion',  title: 'Profile Completion',  points: rewardsConfig.points.profileCompletion,  category: 'bonus' },

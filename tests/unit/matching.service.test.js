@@ -152,6 +152,35 @@ describe('findCompatibleDonors', () => {
     expect(results.some((entry) => entry.donor._id.toString() === donor._id.toString())).toBe(true);
   });
 
+  it('excludes donors outside the matching radius', async () => {
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, { bloodType: 'O+' });
+    const nearDonor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.05, lng: 31.24 },
+        lastUpdated: new Date(),
+      },
+    });
+    const farDonor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Alexandria',
+        governorate: 'Alexandria',
+        coordinates: { lat: 31.2001, lng: 29.9187 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const results = await findCompatibleDonors(request._id);
+    const donorIds = results.map((r) => r.donor._id.toString());
+
+    expect(donorIds).toContain(nearDonor._id.toString());
+    expect(donorIds).not.toContain(farDonor._id.toString());
+  });
+
   it('should exclude donors who already responded', async () => {
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { bloodType: 'O+' });
@@ -290,9 +319,7 @@ describe('findCompatibleDonors', () => {
     const farResult = results.find((r) => r.donor._id.toString() === farDonor._id.toString());
 
     expect(nearbyResult).toBeDefined();
-    expect(farResult).toBeDefined();
-    expect(nearbyResult.locationScore).toBeGreaterThan(farResult.locationScore);
-    expect(nearbyResult.score).toBeGreaterThan(farResult.score);
+    expect(farResult).toBeUndefined();
   });
 
   it('should throw for non-existent request', async () => {
@@ -317,6 +344,24 @@ describe('findCompatibleRequests', () => {
     expect(results.length).toBeGreaterThanOrEqual(1);
     const reqIds = results.map((r) => r.request._id.toString());
     expect(reqIds).toContain(matchingReq._id.toString());
+  });
+
+  it('should exclude opted-out donors from matched requests', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'O+', isOptedIn: false });
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
+  it('should apply blood compatibility to non-blood requests as well', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'A+' });
+    await createRequest(hospital._id, { type: 'platelets', bloodType: 'O+', status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
   });
 
   it('should prioritize critical urgency requests', async () => {

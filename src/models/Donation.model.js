@@ -7,7 +7,7 @@ import mongoose from 'mongoose';
  * - donorId: reference to Donor user, required
  * - requestId: reference to Request, required
  * - status: 'pending', 'scheduled', 'completed', 'cancelled', default: 'pending'
- * - quantity: amount being donated (units for blood, 1 for organ)
+ * - quantity: amount being donated (units for blood and component donations)
  * - scheduledDate: when donation is scheduled
  * - completedDate: when donation was actually completed
  * - notes: donation notes (blood pressure, any complications, etc)

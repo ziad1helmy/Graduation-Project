@@ -854,7 +854,7 @@ export const deleteRolePermission = async (role, adminId) => {
 // ──────────────────────────────────────────────
 
 /**
- * List all blood/organ requests with filters and pagination.
+ * List all blood requests with filters and pagination.
  */
 export const listAllRequests = async (filters = {}, pagination = {}) => {
   const { status, urgency, bloodType, hospitalId, type } = filters;

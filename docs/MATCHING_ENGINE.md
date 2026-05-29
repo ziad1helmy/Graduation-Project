@@ -4,7 +4,7 @@
 
 ## Overview
 
-The matching engine connects blood/organ donation requests to compatible, eligible, nearby donors. It lives entirely in `src/services/matching.service.js` and is called synchronously on request creation and by the broadcast endpoint.
+The matching engine connects blood donation requests to compatible, eligible, nearby donors. It lives entirely in `src/services/matching.service.js` and is called synchronously on request creation and by the broadcast endpoint.
 
 ---
 

@@ -209,17 +209,17 @@ describe('getPointsSummary', () => {
 });
 
 describe('Type-specific awards and cooldowns', () => {
-  it('awards correct points for organ donations', async () => {
+  it('awards correct points for platelets donations', async () => {
     const hospital = await createHospital();
     const donor = await createDonor();
-    const request = await createRequest(hospital._id, { type: 'organ', organType: 'kidney' });
+    const request = await createRequest(hospital._id, { type: 'platelets' });
     const donation = await createDonation(donor._id, request._id, { status: 'completed' });
 
     await onDonationCompleted(donor._id, donation._id, false);
 
-    const tx = await PointsTransaction.findOne({ donorId: donor._id, transactionType: 'ORGAN_DONATION' });
+    const tx = await PointsTransaction.findOne({ donorId: donor._id, transactionType: 'PLATELETS_DONATION' });
     expect(tx).toBeTruthy();
-    expect(tx.pointsAmount).toBe(rewardService.POINTS_BY_TYPE.organ);
+    expect(tx.pointsAmount).toBe(rewardService.POINTS_BY_TYPE.platelets);
   });
 
   it('enforces per-type cooldowns', async () => {
@@ -230,19 +230,19 @@ describe('Type-specific awards and cooldowns', () => {
     await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: past });
 
     const bloodRequest = await createRequest(hospital._id, { type: 'blood' });
-    const organRequest = await createRequest(hospital._id, { type: 'organ', organType: 'kidney' });
+    const plateletsRequest = await createRequest(hospital._id, { type: 'platelets' });
 
     const bloodReq = await Request.findById(bloodRequest._id);
-    const organReq = await Request.findById(organRequest._id);
+    const plateletsReq = await Request.findById(plateletsRequest._id);
 
     // Re-fetch donor so lastDonationDate update is visible in the document passed to checkEligibility
     const refreshedDonor = await Donor.findById(donor._id);
     const bloodEligibility = await matchingService.checkEligibility(refreshedDonor, bloodReq);
-    const organEligibility = await matchingService.checkEligibility(refreshedDonor, organReq);
+    const plateletsEligibility = await matchingService.checkEligibility(refreshedDonor, plateletsReq);
 
-    // 100 days -> blood (56 days) eligible, organ (365 days) not eligible
+    // 100 days -> blood (56 days) eligible, platelets (7 days) eligible
     expect(bloodEligibility.eligible).toBe(true);
-    expect(organEligibility.eligible).toBe(false);
+    expect(plateletsEligibility.eligible).toBe(true);
   });
 
   it('handles donations with missing request gracefully (fallback)', async () => {
@@ -298,23 +298,23 @@ describe('Type-specific awards and cooldowns', () => {
     expect(tx).toBeTruthy();
   });
 
-  it('should award 500 points for an organ donation', async () => {
+  it('should award 175 points for a platelets donation', async () => {
     const hospital = await createHospital();
     const donor = await createDonor();
-    const request = await createRequest(hospital._id, { type: 'organ', organType: 'kidney' });
+    const request = await createRequest(hospital._id, { type: 'platelets' });
     const donation = await createDonation(donor._id, request._id, { status: 'completed' });
 
     await onDonationCompleted(donor._id, donation._id, false);
 
     const account = await DonorPoints.findOne({ donorId: donor._id });
     expect(account).toBeTruthy();
-    // 500 points for organ + first donation bonus
-    expect(account.pointsBalance).toBeGreaterThanOrEqual(500);
+    // 175 points for platelets + first donation bonus
+    expect(account.pointsBalance).toBeGreaterThanOrEqual(175);
 
     // Verify transaction type
     const tx = await PointsTransaction.findOne({
       donorId: donor._id,
-      transactionType: 'ORGAN_DONATION',
+      transactionType: 'PLATELETS_DONATION',
     });
     expect(tx).toBeTruthy();
   });

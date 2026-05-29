@@ -156,7 +156,6 @@ Displays the full earned/spent points log. Transaction types the backend produce
 | `BLOOD_DONATION` | Blood donation completed |
 | `PLASMA_DONATION` | Plasma donation completed |
 | `PLATELETS_DONATION` | Platelet donation completed |
-| `ORGAN_DONATION` | Organ donation completed |
 | `FIRST_DONATION` | One-time bonus on first-ever donation |
 | `EMERGENCY_RESPONSE` | Donation on a critical-urgency request |
 | `BADGE_UNLOCK` | Achievement unlocked with point reward |

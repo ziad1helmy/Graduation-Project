@@ -1,6 +1,7 @@
 import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
+import { env } from '../config/env.js';
 import * as geoUtil from '../utils/geo.js';
 import { canDonate } from './eligibility.service.js';
 
@@ -23,6 +24,11 @@ const BLOOD_TYPE_COMPATIBILITY = {
   'AB-': ['AB+', 'AB-'],
 };
 
+const DEFAULT_MATCHING_DISTANCE_KM = (() => {
+  const configuredDistance = Number(env.MATCHING_DISTANCE_KM);
+  return Number.isFinite(configuredDistance) && configuredDistance > 0 ? configuredDistance : 30;
+})();
+
 /**
  * Reverse lookup: which donor blood types can donate TO a given recipient type?
  */
@@ -30,6 +36,91 @@ const getCompatibleDonorTypes = (recipientBloodType) => {
   return Object.entries(BLOOD_TYPE_COMPATIBILITY)
     .filter(([, recipients]) => recipients.includes(recipientBloodType))
     .map(([donorType]) => donorType);
+};
+
+const extractRequestLocation = (request) => {
+  const hospital = request?.hospitalId || {};
+  const hospitalLocation = hospital.location || {};
+
+  const latitude = request?.locationHospital?.latitude
+    ?? request?.hospitalLocation?.lat
+    ?? request?.hospitalLocationGeo?.coordinates?.[1]
+    ?? hospitalLocation.coordinates?.lat
+    ?? hospital.lat
+    ?? null;
+  const longitude = request?.locationHospital?.longitude
+    ?? request?.hospitalLocation?.lng
+    ?? request?.hospitalLocationGeo?.coordinates?.[0]
+    ?? hospitalLocation.coordinates?.lng
+    ?? hospital.long
+    ?? null;
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
+
+const extractDonorLocation = (donor) => {
+  const coordinates = donor?.location?.coordinates || {};
+  const latitude = coordinates.lat ?? donor?.location?.latitude ?? donor?.location?.lat ?? null;
+  const longitude = coordinates.lng ?? donor?.location?.longitude ?? donor?.location?.long ?? null;
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
+
+export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHING_DISTANCE_KM } = {}) => {
+  if (!donor || !request) {
+    return { matched: false, reason: 'Donor or request not found' };
+  }
+
+  if (donor.isOptedIn === false) {
+    return { matched: false, reason: 'Donor opted out of matching' };
+  }
+
+  const eligibility = await checkEligibility(donor, request);
+  if (!eligibility.eligible) {
+    return { matched: false, reason: eligibility.reason };
+  }
+
+  const shouldCheckBloodCompatibility = request.bloodType !== undefined && request.bloodType !== null && request.bloodType !== '';
+  if (shouldCheckBloodCompatibility && !isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
+    return {
+      matched: false,
+      reason: `Donor blood type ${donor.bloodType} is not compatible with request for ${request.bloodType}`,
+    };
+  }
+
+  const donorLocation = extractDonorLocation(donor);
+  const requestLocation = extractRequestLocation(request);
+  if (!donorLocation || !requestLocation) {
+    return { matched: false, reason: 'Matching location is not available' };
+  }
+
+  const distanceKm = geoUtil.calculateDistance(
+    { latitude: donorLocation.latitude, longitude: donorLocation.longitude },
+    { latitude: requestLocation.latitude, longitude: requestLocation.longitude },
+  );
+
+  if (!Number.isFinite(distanceKm) || distanceKm > radiusKm) {
+    return {
+      matched: false,
+      reason: 'Donor is outside the matching radius',
+      distanceKm: Number.isFinite(distanceKm) ? Math.round(distanceKm * 100) / 100 : null,
+    };
+  }
+
+  return {
+    matched: true,
+    distanceKm: Math.round(distanceKm * 100) / 100,
+    locationScore: geoUtil.getLocationScore(distanceKm, radiusKm),
+    eligibility: eligibility.reason,
+  };
 };
 
 const hasCoordinates = (location) => {
@@ -58,7 +149,7 @@ const calculateLocationScore = (donorLocation, hospitalLocation) => {
     { latitude: hospitalCoords.lat, longitude: hospitalCoords.lng },
   );
 
-  return geoUtil.getLocationScore(distance, 100);
+  return geoUtil.getLocationScore(distance, DEFAULT_MATCHING_DISTANCE_KM);
 };
 
 /**
@@ -89,18 +180,15 @@ export const checkEligibility = async (donor, request) => {
     return donorEligibility;
   }
 
-  // Check blood type compatibility for blood requests
-  if (request.type === 'blood') {
-    if (!donor.bloodType) {
-      return { eligible: false, reason: 'Donor has not provided blood type information' };
-    }
+  if (!donor.bloodType) {
+    return { eligible: false, reason: 'Donor has not provided blood type information' };
+  }
 
-    if (!isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
-      return {
-        eligible: false,
-        reason: `Donor blood type ${donor.bloodType} is not compatible with request for ${request.bloodType}`,
-      };
-    }
+  if (request.bloodType && !isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
+    return {
+      eligible: false,
+      reason: `Donor blood type ${donor.bloodType} is not compatible with request for ${request.bloodType}`,
+    };
   }
 
   return { eligible: true, reason: 'Donor is eligible' };
@@ -118,9 +206,9 @@ export const findCompatibleDonors = async (requestId) => {
   }
 
   // Pre-filter by participation preference + blood type at DB level.
-  // Medical eligibility (cooldown, deferral, etc.) is evaluated dynamically below.
+  // Medical eligibility and hard distance filtering are evaluated dynamically below.
   const donorQuery = { isOptedIn: true, isSuspended: { $ne: true } };
-  if (request.type === 'blood' && request.bloodType) {
+  if (request.bloodType) {
     donorQuery.bloodType = { $in: getCompatibleDonorTypes(request.bloodType) };
   }
 
@@ -143,8 +231,8 @@ export const findCompatibleDonors = async (requestId) => {
       continue;
     }
 
-    const eligibility = await checkEligibility(donor, request);
-    if (!eligibility.eligible) {
+    const match = await evaluateMatch(donor, request);
+    if (!match.matched) {
       continue;
     }
 
@@ -152,7 +240,7 @@ export const findCompatibleDonors = async (requestId) => {
     let score = 100;
 
     // Bonus for exact blood type match
-    if (request.type === 'blood' && donor.bloodType === request.bloodType) {
+    if (donor.bloodType === request.bloodType) {
       score += 20;
     }
 
@@ -164,7 +252,8 @@ export const findCompatibleDonors = async (requestId) => {
       donor,
       score: Math.round(score * 10) / 10,
       locationScore,
-      eligibility: eligibility.reason,
+      eligibility: match.eligibility,
+      distanceKm: match.distanceKm,
     });
   }
 
@@ -191,36 +280,34 @@ export const searchCompatibleDonors = async ({
   const donors = await Donor.find(donorQuery).limit(500);
   const searchRequest = bloodType ? { type: 'blood', bloodType } : { type: 'search' };
   const compatibleDonors = [];
-  const normalizedRadiusKm = Number.isFinite(radiusKm) ? radiusKm : 5;
+  const normalizedRadiusKm = Number.isFinite(radiusKm) ? radiusKm : DEFAULT_MATCHING_DISTANCE_KM;
+  const searchHasLocation = hasCoordinates(location);
 
   for (const donor of donors) {
-    const eligibility = await checkEligibility(donor, searchRequest);
-    if (!eligibility.eligible) {
-      continue;
-    }
-
     let distanceKm = null;
     let locationScore = 50;
+    let eligibilityReason = 'Donor is eligible';
 
-    if (hasCoordinates(location) && hasCoordinates(donor.location)) {
-      distanceKm = geoUtil.calculateDistance(
-        {
-          latitude: location.coordinates.lat,
-          longitude: location.coordinates.lng,
-        },
-        {
-          latitude: donor.location.coordinates.lat,
-          longitude: donor.location.coordinates.lng,
-        }
-      );
+    if (searchHasLocation) {
+      const match = await evaluateMatch(donor, {
+        ...searchRequest,
+        locationHospital: { latitude: location.coordinates.lat, longitude: location.coordinates.lng },
+      }, { radiusKm: normalizedRadiusKm });
 
-      if (distanceKm > normalizedRadiusKm) {
+      if (!match.matched) {
         continue;
       }
 
-      locationScore = geoUtil.getLocationScore(distanceKm, 100);
-    } else if (hasCoordinates(location)) {
-      continue;
+      distanceKm = match.distanceKm;
+      locationScore = match.locationScore;
+      eligibilityReason = match.eligibility;
+    } else {
+      const eligibility = await checkEligibility(donor, searchRequest);
+      if (!eligibility.eligible) {
+        continue;
+      }
+
+      eligibilityReason = eligibility.reason;
     }
 
     let score = 100;
@@ -233,7 +320,7 @@ export const searchCompatibleDonors = async ({
       donor,
       score: Math.round(score * 10) / 10,
       locationScore,
-      eligibility: eligibility.reason,
+      eligibility: eligibilityReason,
       distanceKm: distanceKm === null ? null : Math.round(distanceKm * 100) / 100,
     });
   }
@@ -258,6 +345,10 @@ export const findCompatibleRequests = async (donorId) => {
     throw new Error('Donor not found');
   }
 
+  if (donor.isOptedIn === false) {
+    return [];
+  }
+
   // Get all active requests with hospital location for geo-scoring
   const requests = await Request.find({
     status: { $in: ['pending', 'in-progress'] },
@@ -277,14 +368,14 @@ export const findCompatibleRequests = async (donorId) => {
   for (const request of requests) {
     if (respondedRequestIds.has(request._id.toString())) continue;
 
-    const eligibility = await checkEligibility(donor, request);
-    if (!eligibility.eligible) continue;
+    const match = await evaluateMatch(donor, request);
+    if (!match.matched) continue;
 
     // Calculate compatibility score
     let score = 100;
 
     // Blood type match bonus
-    if (request.type === 'blood' && donor.bloodType === request.bloodType) {
+    if (donor.bloodType === request.bloodType) {
       score += 20;
     }
 
@@ -303,6 +394,7 @@ export const findCompatibleRequests = async (donorId) => {
       compatibility: {
         bloodTypeMatch: donor.bloodType === request.bloodType,
         eligible: true,
+        distanceKm: match.distanceKm,
       },
     });
   }
@@ -343,9 +435,7 @@ export const getMatchingAnalysis = async (donorId, requestId) => {
         urgency: request.urgency,
       },
       compatibility: {
-        bloodTypeMatch: request.type === 'blood' 
-          ? isBloodTypeCompatible(donor.bloodType, request.bloodType)
-          : null,
+        bloodTypeMatch: request.bloodType ? isBloodTypeCompatible(donor.bloodType, request.bloodType) : null,
         eligible: eligibility.eligible,
         reason: eligibility.reason,
       },
@@ -353,4 +443,10 @@ export const getMatchingAnalysis = async (donorId, requestId) => {
   } catch (error) {
     throw error;
   }
+};
+
+export {
+  DEFAULT_MATCHING_DISTANCE_KM,
+  extractDonorLocation,
+  extractRequestLocation,
 };

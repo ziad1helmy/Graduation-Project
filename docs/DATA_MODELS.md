@@ -122,9 +122,8 @@ Admin and superadmin accounts are stored as `User` documents with `role: 'admin'
 | Field | Type | Required | Notes |
 |-------|------|----------|-------|
 | `hospitalId` | ObjectId (ref: User) | Yes | |
-| `type` | String | Yes | `blood`, `organ` |
+| `type` | String | Yes | `blood`, `plasma`, `platelets` |
 | `bloodType` | String | No | Required if type=blood |
-| `organType` | String | No | Required if type=organ |
 | `urgency` | String | Yes | `low`, `medium`, `high`, `critical` |
 | `quantity` | Number | Yes | Units needed (decrements as donors respond) |
 | `status` | String | — | `pending`, `in-progress`, `completed`, `cancelled`, `fulfilled` |

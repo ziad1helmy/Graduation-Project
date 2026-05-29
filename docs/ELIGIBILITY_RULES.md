@@ -6,7 +6,7 @@
 
 ## Overview
 
-Before a donor can respond to a blood/organ request, they must pass a series of eligibility rules. Rules are evaluated sequentially — the first failing rule short-circuits the chain and returns the reason.
+Before a donor can respond to a blood request, they must pass a series of eligibility rules. Rules are evaluated sequentially — the first failing rule short-circuits the chain and returns the reason.
 
 ```javascript
 // Called from: donation.service.validateEligibility()
@@ -72,7 +72,6 @@ if nextEligibleDate > now → INELIGIBLE
 | blood | 56 |
 | plasma | 14 |
 | platelets | 7 |
-| organ | 365 |
 
 **Gender-based fallback** (when no type specified):
 

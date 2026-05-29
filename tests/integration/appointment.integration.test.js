@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
 import { setupTestDB, clearDatabase } from '../helpers/db.js';
@@ -6,11 +6,13 @@ import { createDonor, createHospital, createRequest, createAdmin } from '../help
 import { signToken } from '../../src/utils/jwt.js';
 import Appointment from '../../src/models/Appointment.model.js';
 
+vi.mock('../../src/services/activity.service.js', () => ({ logActivity: vi.fn().mockResolvedValue(null) }));
+
 const DONATION_FLOW_TYPES = [
   { donationType: 'Whole Blood', requestType: 'blood' },
   { donationType: 'Plasma', requestType: 'plasma' },
   { donationType: 'Platelets', requestType: 'platelets' },
-  { donationType: 'Double Red Cells', requestType: 'blood' },
+  { donationType: 'Double Red Cells', requestType: 'double_red_cells' },
 ];
 
 const bookAppointmentPayload = ({ hospitalId, requestId, appointmentDate, donationType }) => ({
@@ -59,17 +61,21 @@ describe('Appointment Routes Integration', () => {
       .set('Authorization', `Bearer ${token}`)
       .send({
         date: rescheduleDate.toISOString(),
+        donationType: 'Plasma',
       });
 
     expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.data.donationType).toBe(donationType);
+    expect(updateResponse.body.data.donationType).toBe('Plasma');
+    expect(updateResponse.body.data.appointment.appointmentId).toBeDefined();
+    expect(updateResponse.body.data.donor.email).toBeDefined();
 
     const detailResponse = await request(app)
       .get(`/appointments/${appointmentId}`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(detailResponse.status).toBe(200);
-    expect(detailResponse.body.data.donationType).toBe(donationType);
+    expect(detailResponse.body.data.donationType).toBe('Plasma');
+    expect(detailResponse.body.data.appointmentTime).toBeDefined();
 
     const listResponse = await request(app)
       .get('/donations/book-appointment/my-appointments')
@@ -77,7 +83,107 @@ describe('Appointment Routes Integration', () => {
 
     expect(listResponse.status).toBe(200);
     expect(listResponse.body.data.appointments.some((appointment) => appointment._id === appointmentId)).toBe(true);
-    expect(listResponse.body.data.appointments.find((appointment) => appointment._id === appointmentId).donationType).toBe(donationType);
+    expect(listResponse.body.data.appointments.find((appointment) => appointment._id === appointmentId).donationType).toBe('Plasma');
+  });
+
+  it('PATCH /appointments/:appointmentId stores a reschedule reason and returns updated history', async () => {
+    await clearDatabase();
+    const donor = await createDonor({ bloodType: 'O+' });
+    const hospital = await createHospital();
+    const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const rescheduleDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+
+    const createResponse = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${token}`)
+      .send(bookAppointmentPayload({
+        hospitalId: hospital._id,
+        requestId: request2._id,
+        appointmentDate: futureDate,
+        donationType: 'Whole Blood',
+      }));
+
+    const appointmentId = createResponse.body.data._id;
+
+    const updateResponse = await request(app)
+      .patch(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        date: rescheduleDate.toISOString(),
+        reason: 'Travel conflict',
+      });
+
+    expect(updateResponse.status).toBe(200);
+    expect(updateResponse.body.data.rescheduleHistory).toHaveLength(1);
+    expect(updateResponse.body.data.rescheduleHistory[0].reason).toBe('Travel conflict');
+  });
+
+  it('PATCH /appointments/:appointmentId rejects reschedule when linked request is completed', async () => {
+    await clearDatabase();
+    const donor = await createDonor({ bloodType: 'O+' });
+    const hospital = await createHospital();
+    const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const rescheduleDate = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000);
+
+    const createResponse = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${token}`)
+      .send(bookAppointmentPayload({
+        hospitalId: hospital._id,
+        requestId: request2._id,
+        appointmentDate: futureDate,
+        donationType: 'Whole Blood',
+      }));
+
+    const appointmentId = createResponse.body.data._id;
+    await Appointment.updateOne({ _id: appointmentId }, { $set: { status: 'pending' } });
+    await request2.updateOne({ $set: { status: 'completed', completedAt: new Date() } });
+
+    const updateResponse = await request(app)
+      .patch(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        date: rescheduleDate.toISOString(),
+      });
+
+    expect(updateResponse.status).toBe(400);
+    expect(updateResponse.body.message).toBe('The linked request is no longer active');
+  });
+
+  it('PATCH /appointments/:appointmentId rejects no-op reschedules', async () => {
+    await clearDatabase();
+    const donor = await createDonor({ bloodType: 'O+' });
+    const hospital = await createHospital();
+    const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+    const futureDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+    const createResponse = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${token}`)
+      .send(bookAppointmentPayload({
+        hospitalId: hospital._id,
+        requestId: request2._id,
+        appointmentDate: futureDate,
+        donationType: 'Whole Blood',
+      }));
+
+    const appointmentId = createResponse.body.data._id;
+
+    const updateResponse = await request(app)
+      .patch(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        date: futureDate.toISOString(),
+        donationType: 'Whole Blood',
+      });
+
+    expect(updateResponse.status).toBe(400);
+    expect(updateResponse.body.message).toBe('New appointment details must be different from the current appointment');
   });
 
   it('POST /donations/book-appointment requires authentication', async () => {

@@ -26,6 +26,7 @@ export const ERR = Object.freeze({
   AUTH_REFRESH_TOKEN_INVALID:      'Invalid refresh token',
   AUTH_RESET_TOKEN_INVALID:        'Invalid or expired reset token',
   AUTH_INVALID_PASSWORD:           'Invalid password',
+  AUTH_CURRENT_PASSWORD_INCORRECT: 'Current password is incorrect',
   AUTH_INVALID_ADMIN_KEY:          'Invalid admin key',
   AUTH_USER_NOT_FOUND:             'User not found',
   AUTH_ACCOUNT_NOT_FOUND:          'Account not found',
