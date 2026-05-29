@@ -131,7 +131,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor); // no donationType passed
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/wait.*before donating/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE);
   });
 });
 
@@ -237,7 +237,7 @@ describe('Eligibility Service — Multi-Rule Checks', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/at least 17/i); // Age failure reported first
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.MINIMUM_AGE); // Age failure reported first
   });
 
   it('should fail if any single rule fails (cooldown not met)', async () => {
@@ -256,7 +256,7 @@ describe('Eligibility Service — Multi-Rule Checks', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toMatch(/wait.*before donating/i);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE);
   });
 
   it('should pass all checks (fully eligible)', async () => {
