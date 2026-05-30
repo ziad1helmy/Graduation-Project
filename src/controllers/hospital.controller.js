@@ -929,6 +929,7 @@ export const deleteRequest = async (req, res, next) => {
 
     // Cancel all pending/scheduled donations for this request and update request status atomically.
     const session = await mongoose.startSession();
+    const cancelledAt = new Date();
     try {
       await session.withTransaction(async () => {
         await Donation.updateMany(
@@ -939,7 +940,16 @@ export const deleteRequest = async (req, res, next) => {
 
         await Request.findByIdAndUpdate(
           requestId,
-          { status: 'cancelled', cancelledAt: new Date() },
+          {
+            status: 'cancelled',
+            cancelledAt,
+            acceptedBy: null,
+            acceptedByName: null,
+            acceptedByPhoneNumber: null,
+            acceptedByBloodType: null,
+            acceptedAt: null,
+            acceptedDonationId: null,
+          },
           { session }
         );
       });
@@ -948,11 +958,22 @@ export const deleteRequest = async (req, res, next) => {
     }
 
     await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
-      cancelledAt: new Date(),
+      cancelledAt,
       notes: 'Appointment cancelled because the linked request was cancelled',
     });
 
-    response.success(res, 200, 'Request cancelled successfully');
+    request.status = 'cancelled';
+    request.cancelledAt = cancelledAt;
+    request.acceptedBy = null;
+    request.acceptedByName = null;
+    request.acceptedByPhoneNumber = null;
+    request.acceptedByBloodType = null;
+    request.acceptedAt = null;
+    request.acceptedDonationId = null;
+
+    response.success(res, 200, 'Request cancelled successfully', {
+      request,
+    });
   } catch (error) {
     next(error);
   }

@@ -29,6 +29,8 @@ router.get('/settings', donorController.getSettings);
 router.put('/settings', donorController.updateSettings);
 
 // Request and matching routes
+// NOTE: Both /requests and /matches return compatible requests for donor
+// TODO: Consolidate into single endpoint in future refactor
 router.get('/requests', donorController.getRequests);
 router.get('/matches', donorController.getMatches);
 
@@ -44,10 +46,8 @@ router.get('/donation-eligibility', donorController.getDonationEligibility);
 router.get('/dashboard', donorController.getDashboard);
 router.get('/recent-activity', donorController.getRecentActivity);
 
-// Urgent requests feed
-router.get('/urgent-requests', donorController.getUrgentRequests);
-router.get('/urgent-requests/:requestId', donorController.getUrgentRequestDetails);
-router.post('/urgent-requests/:requestId/decline', donorController.declineUrgentRequest);
+// NOTE: Urgent requests endpoints removed - use GET /requests/nearby?urgency=critical instead
+// Previous endpoints: GET /urgent-requests, GET /urgent-requests/:requestId, POST /urgent-requests/:requestId/decline
 
 // Donation history
 router.get('/history', donorController.getDonationHistory);

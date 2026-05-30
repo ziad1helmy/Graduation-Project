@@ -2317,6 +2317,7 @@
           "Donor"
         ],
         "summary": "Book a donor appointment with a hospital",
+        "description": "Books an appointment for an authenticated donor at a hospital.\n\n**Important notes:**\n- Donors can only have ONE active appointment per hospital\n- Concurrent booking attempts are handled atomically to prevent duplicates\n- Appointment date must be in the future and within hospital's scheduling window\n- Hospital must be verified and active to accept bookings\n",
         "security": [
           {
             "bearerAuth": []
@@ -2365,7 +2366,7 @@
         },
         "responses": {
           "201": {
-            "description": "Appointment booked",
+            "description": "Appointment booked successfully",
             "content": {
               "application/json": {
                 "example": {
@@ -2404,7 +2405,7 @@
             }
           },
           "400": {
-            "description": "Invalid appointment payload"
+            "description": "Invalid appointment payload, validation error, or scheduling conflict"
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -2416,10 +2417,9 @@
             "description": "Hospital, donor, or request not found"
           },
           "409": {
-            "description": "Active appointment already exists for this hospital"
+            "description": "Active appointment already exists for this hospital (duplicate prevention)"
           }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
+        }
       }
     },
     "/donations/book-appointment/available-slots": {
@@ -2823,6 +2823,7 @@
           "Donor"
         ],
         "summary": "Cancel a donor appointment",
+        "description": "Cancels a pending or confirmed appointment.\n\n**Cancellation Requirements:**\n- Appointment must be in \"pending\" or \"confirmed\" status\n- Cancellation must be requested at least 12 hours BEFORE the appointment\n- Example: If appointment is on Monday 10:00 AM, must cancel by Sunday 10:00 AM or earlier\n- Cannot cancel \"completed\" or already \"cancelled\" appointments\n",
         "security": [
           {
             "bearerAuth": []
@@ -2841,7 +2842,7 @@
         ],
         "responses": {
           "200": {
-            "description": "Appointment cancelled",
+            "description": "Appointment cancelled successfully",
             "content": {
               "application/json": {
                 "example": {
@@ -2877,7 +2878,7 @@
             }
           },
           "400": {
-            "description": "Invalid appointment id"
+            "description": "Invalid appointment id or cannot cancel (too close to appointment time or already cancelled/completed)"
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -2888,8 +2889,7 @@
           "404": {
             "description": "Appointment not found"
           }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
+        }
       }
     },
     "/donations/types": {

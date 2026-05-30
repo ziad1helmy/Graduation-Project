@@ -398,4 +398,83 @@ describe('Appointment Service', () => {
       appointmentService.cancelAppointment(created._id, donor._id)
     ).rejects.toThrow('Cancellation must be at least 72 hours in advance');
   });
+
+  // Race condition and duplicate prevention tests
+  it('prevents duplicate active appointments for same donor at same hospital', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const apptDate = makeFutureAppointmentDate();
+
+    await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
+
+    await expect(
+      appointmentService.bookAppointment(donor._id, hospital._id, null, makeFutureAppointmentDate(3, 14))
+    ).rejects.toThrow('You already have an active appointment at this hospital');
+  });
+
+  it('allows booking at different hospitals even with active appointment at one', async () => {
+    const hospital1 = await createHospital();
+    const hospital2 = await createHospital();
+    const donor = await createDonor();
+    const apptDate1 = makeFutureAppointmentDate();
+    const apptDate2 = makeRescheduleDate(5, 14);
+
+    const appt1 = await appointmentService.bookAppointment(donor._id, hospital1._id, null, apptDate1);
+    const appt2 = await appointmentService.bookAppointment(donor._id, hospital2._id, null, apptDate2);
+
+    expect(appt1._id).not.toEqual(appt2._id);
+    const h1Id = typeof appt1.hospitalId === 'object' ? appt1.hospitalId._id : appt1.hospitalId;
+    const h2Id = typeof appt2.hospitalId === 'object' ? appt2.hospitalId._id : appt2.hospitalId;
+    expect(h1Id.toString()).toBe(hospital1._id.toString());
+    expect(h2Id.toString()).toBe(hospital2._id.toString());
+  });
+
+  it('allows rebooking after cancelling previous appointment', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const apptDate1 = makeFutureAppointmentDate();
+    const apptDate2 = makeRescheduleDate(7, 15);
+
+    const created = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate1);
+    await appointmentService.cancelAppointment(created._id, donor._id);
+
+    const newAppt = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate2);
+    expect(newAppt).toBeTruthy();
+    expect(newAppt.status).toBe('pending');
+  });
+
+  it('handles duplicate key error from unique index constraint', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const apptDate = makeFutureAppointmentDate();
+
+    await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
+
+    await expect(
+      appointmentService.bookAppointment(donor._id, hospital._id, null, makeFutureAppointmentDate(4, 11))
+    ).rejects.toThrow('You already have an active appointment at this hospital');
+  });
+
+  it('simulates concurrent booking attempts (race condition prevention)', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const apptDate = makeFutureAppointmentDate();
+    const apptDate2 = makeFutureAppointmentDate(3, 15);
+
+    // Book first appointment
+    const appt1 = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
+    expect(appt1).toBeTruthy();
+
+    // Try to book a second appointment at same hospital - should fail
+    try {
+      await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate2);
+      throw new Error('Should have thrown duplicate appointment error');
+    } catch (e) {
+      expect(e.message).toContain('You already have an active appointment at this hospital');
+    }
+
+    // Verify only one appointment exists
+    const appointments = await Appointment.find({ donorId: donor._id, hospitalId: hospital._id });
+    expect(appointments.length).toBe(1);
+  });
 });

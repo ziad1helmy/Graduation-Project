@@ -175,6 +175,7 @@ const appointmentSchema = new mongoose.Schema(
 appointmentSchema.index({ donorId: 1 });
 appointmentSchema.index({ hospitalId: 1 });
 appointmentSchema.index({ status: 1 });
+appointmentSchema.index({ donorId: 1, hospitalId: 1, status: 1 }, { unique: true, sparse: true, partialFilterExpression: { status: { $in: ['pending', 'confirmed'] } } });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);
 

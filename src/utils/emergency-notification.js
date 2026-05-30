@@ -9,7 +9,7 @@ export const EMERGENCY_NOTIFICATION_TITLE_KEY = 'emergency_request_title';
 export const EMERGENCY_NOTIFICATION_BODY_KEY = 'emergency_request_body';
 export const EMERGENCY_NOTIFICATION_ACTIONS = [
   { id: 'accept', labelKey: 'accept', label: 'Accept' },
-  { id: 'decline', labelKey: 'decline', label: 'Decline' },
+  // { id: 'decline', labelKey: 'decline', label: 'Decline' }, // REMOVED: Phase 7 decline flow removal
   { id: 'view', labelKey: 'view_details', label: 'View Details' },
 ];
 
@@ -107,7 +107,7 @@ export const buildEmergencyRequestNotificationData = (request, donor = null) => 
     requestDetailsScreen: 'EmergencyRequestDetailsScreen',
     requestDetailsRoute: requestId ? `/urgent-requests/${requestId}` : null,
     acceptEndpoint: requestId ? `/urgent-requests/${requestId}/accept` : null,
-    declineEndpoint: requestId ? `/urgent-requests/${requestId}/decline` : null,
+    // declineEndpoint removed: Phase 7 decline flow removal
     actionIds: EMERGENCY_NOTIFICATION_ACTIONS.map((action) => action.id),
     defaultActionId: 'view',
     notificationState: 'DISPLAYED',
@@ -117,9 +117,7 @@ export const buildEmergencyRequestNotificationData = (request, donor = null) => 
       endpoint: requestId
         ? action.id === 'accept'
           ? `/urgent-requests/${requestId}/accept`
-          : action.id === 'decline'
-            ? `/urgent-requests/${requestId}/decline`
-            : `/urgent-requests/${requestId}`
+          : `/urgent-requests/${requestId}`
         : null,
     })),
   };
@@ -167,7 +165,7 @@ export const buildEmergencyRequestFcmData = (request, donor = null) => {
     requestDetailsScreen: data.requestDetailsScreen,
     requestDetailsRoute: data.requestDetailsRoute || '',
     acceptEndpoint: data.acceptEndpoint || '',
-    declineEndpoint: data.declineEndpoint || '',
+    // declineEndpoint removed: Phase 7 decline flow removal
     defaultActionId: data.defaultActionId,
     notificationState: data.notificationState,
     fsmState: data.fsmState,

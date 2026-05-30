@@ -191,10 +191,13 @@ app.use('/support', limiter, supportRoutes);
 // Flutter-facing aliases that keep the newer root paths stable.
 app.get('/dashboard', limiter, authMiddleware, requireRole('donor'), donorController.getDashboard);
 app.get('/activity', limiter, authMiddleware, requireRole('donor'), activityController.getTimeline);
-app.get('/urgent-requests', limiter, authMiddleware, requireRole('donor'), donorController.getUrgentRequests);
-app.get('/urgent-requests/:requestId', limiter, authMiddleware, requireRole('donor'), donorController.getUrgentRequestDetails);
-app.post('/urgent-requests/:requestId/accept', limiter, authMiddleware, requireRole('donor'), donorController.respondToRequest);
-app.post('/urgent-requests/:requestId/decline', limiter, authMiddleware, requireRole('donor'), donorController.declineUrgentRequest);
+
+// REMOVED: Phase 7 - Urgent request endpoints removed
+// Use GET /requests/nearby?urgency=critical instead
+// app.get('/urgent-requests', limiter, authMiddleware, requireRole('donor'), donorController.getUrgentRequests);
+// app.get('/urgent-requests/:requestId', limiter, authMiddleware, requireRole('donor'), donorController.getUrgentRequestDetails);
+// app.post('/urgent-requests/:requestId/accept', limiter, authMiddleware, requireRole('donor'), donorController.respondToRequest);
+// app.post('/urgent-requests/:requestId/decline', limiter, authMiddleware, requireRole('donor'), donorController.declineUrgentRequest);
 
 // Alias /badges -> /rewards/badges
 app.get('/badges', limiter, authMiddleware, requireRole('donor'), rc.getBadges);

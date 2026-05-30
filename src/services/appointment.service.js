@@ -578,16 +578,8 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
     }
 
     const apptDate = new Date(appointmentDate);
-    const { normalizedDonationType } = await validateAppointmentScheduling({
-      hospitalId,
-      donor,
-      appointmentDate: apptDate,
-      donationType,
-      request,
-      mode: 'create',
-    });
 
-    // Prevent duplicate active appointment for same donor + hospital
+    // Prevent duplicate active appointment (BEFORE expensive validation to fail fast)
     const existing = await Appointment.findOne({
       donorId,
       hospitalId,
@@ -597,7 +589,15 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       throw new Error('You already have an active appointment at this hospital');
     }
 
-    // Generate unique QR token
+    const { normalizedDonationType } = await validateAppointmentScheduling({
+      hospitalId,
+      donor,
+      appointmentDate: apptDate,
+      donationType,
+      request,
+      mode: 'create',
+    });
+
     const qrToken = crypto.randomBytes(32).toString('hex');
 
     const appointment = await Appointment.create({
@@ -615,7 +615,6 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
 
     await appointment.populate(appointmentPopulateOptions);
 
-    // Fire-and-forget notification to hospital
     Notification.create({
       userId: hospitalId,
       type: 'system',
@@ -628,9 +627,11 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       message: err?.message,
     }));
 
-    // Return the Mongoose document for internal callers; controllers format to DTO.
     return appointment;
   } catch (error) {
+    if (error.code === 11000 && error.keyPattern?.donorId && error.keyPattern?.hospitalId) {
+      throw new Error('You already have an active appointment at this hospital');
+    }
     throw error;
   }
 };
@@ -673,8 +674,8 @@ export const cancelAppointment = async (appointmentId, donorId) => {
 
     const hospitalSettings = await getHospitalSettings(toObjectIdString(appointment.hospitalId));
     const cancellationAllowedHours = Number(hospitalSettings?.cancellationAllowedHours ?? 12);
-    const cancellationCutoff = new Date(Date.now() + cancellationAllowedHours * 60 * 60 * 1000);
-    if (appointment.appointmentDate < cancellationCutoff) {
+    const cancellationDeadline = new Date(appointment.appointmentDate.getTime() - cancellationAllowedHours * 60 * 60 * 1000);
+    if (new Date() > cancellationDeadline) {
       throw new Error(`Cancellation must be at least ${cancellationAllowedHours} hours in advance`);
     }
 

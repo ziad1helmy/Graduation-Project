@@ -2,10 +2,18 @@ openapi: 3.0.0
 info:
   title: LifeLink API
   version: 1.0.0
-  description: OpenAPI documentation for the LifeLink donation platform API. All
-    routes are mounted at root paths. For realistic data and examples, run `npm
-    run seed-demo` and use the seeded demo credentials, QR tokens, and printed
-    IDs.
+  description: |-
+    OpenAPI documentation for the LifeLink donation platform API. All routes are mounted at root paths. For realistic data and examples, run `npm run seed-demo` and use the seeded demo credentials, QR tokens, and printed IDs.
+
+    **⚠️  Migration Notice (Effective June 1, 2026)**
+
+    The following endpoints have been removed and consolidated into `/requests/nearby`:
+    - `GET /donor/urgent-requests` → Use `GET /requests/nearby?urgency=critical`
+    - `GET /donor/urgent-requests/{requestId}` → Use `GET /requests/{requestId}`
+    - `POST /donor/urgent-requests/{requestId}/accept` → Use `POST /requests/{requestId}/accept`
+    - `POST /donor/urgent-requests/{requestId}/decline` → No longer supported (non-response indicates non-interest)
+
+    See the `urgency` parameter in `/requests/nearby` for filtering by urgency level. For detailed migration instructions, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md).
 servers:
   - url: https://graduation-project-cy61.onrender.com
     description: Production server
@@ -1654,6 +1662,14 @@ paths:
       tags:
         - Donor
       summary: Book a donor appointment with a hospital
+      description: |
+        Books an appointment for an authenticated donor at a hospital.
+
+        **Important notes:**
+        - Donors can only have ONE active appointment per hospital
+        - Concurrent booking attempts are handled atomically to prevent duplicates
+        - Appointment date must be in the future and within hospital's scheduling window
+        - Hospital must be verified and active to accept bookings
       security:
         - bearerAuth: []
       requestBody:
@@ -1687,7 +1703,7 @@ paths:
               notes: Available in the morning.
       responses:
         "201":
-          description: Appointment booked
+          description: Appointment booked successfully
           content:
             application/json:
               example:
@@ -1718,7 +1734,7 @@ paths:
                   notes: First-time donor, available in the morning.
                   donationType: Whole Blood
         "400":
-          description: Invalid appointment payload
+          description: Invalid appointment payload, validation error, or scheduling conflict
         "401":
           description: Missing or invalid JWT
         "403":
@@ -1726,10 +1742,7 @@ paths:
         "404":
           description: Hospital, donor, or request not found
         "409":
-          description: Active appointment already exists for this hospital
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
+          description: Active appointment already exists for this hospital (duplicate prevention)
   /donations/book-appointment/available-slots:
     get:
       tags:
@@ -2022,6 +2035,14 @@ paths:
       tags:
         - Donor
       summary: Cancel a donor appointment
+      description: |
+        Cancels a pending or confirmed appointment.
+
+        **Cancellation Requirements:**
+        - Appointment must be in "pending" or "confirmed" status
+        - Cancellation must be requested at least 12 hours BEFORE the appointment
+        - Example: If appointment is on Monday 10:00 AM, must cancel by Sunday 10:00 AM or earlier
+        - Cannot cancel "completed" or already "cancelled" appointments
       security:
         - bearerAuth: []
       parameters:
@@ -2033,7 +2054,7 @@ paths:
           example: 69fe540565ff7785a031315c
       responses:
         "200":
-          description: Appointment cancelled
+          description: Appointment cancelled successfully
           content:
             application/json:
               example:
@@ -2061,16 +2082,13 @@ paths:
                   cancelledAt: 2026-05-09T10:30:00.000Z
                   donationType: Whole Blood
         "400":
-          description: Invalid appointment id
+          description: "Invalid appointment id or cannot cancel (too close to appointment time or already cancelled/completed)"
         "401":
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
         "404":
           description: Appointment not found
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
   /donations/types:
     get:
       tags:
@@ -2445,142 +2463,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
-  /donor/urgent-requests:
-    get:
-      tags:
-        - Donor
-      summary: Get urgent donation requests for the authenticated donor
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Urgent requests retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Urgent requests retrieved
-                data:
-                  requests:
-                    - id: 69fe540565ff7785a031314f
-                      title: Urgent Blood Request - O-
-                      bloodType: O-
-                      unitsNeeded: 3
-                      hospitalName: Cairo Care Hospital
-                      distance: 2.4
-                      isEmergency: true
-                      patientType: blood
-                      contactNumber: "0223456789"
-                      createdAt: 2026-05-18T08:20:00.000Z
-                      location:
-                        lat: 30.0444
-                        lng: 31.2357
-                  pagination:
-                    total: 1
-                    page: 1
-                    limit: 20
-  /donor/urgent-requests/{requestId}:
-    get:
-      tags:
-        - Donor
-      summary: Get details for one urgent donation request
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
-      responses:
-        "200":
-          description: Urgent request details retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Urgent request retrieved successfully
-                data:
-                  request:
-                    id: 69fe540565ff7785a031314f
-                    title: Urgent Blood Request - O-
-                    bloodType: O-
-                    unitsNeeded: 3
-                    hospitalName: Cairo Care Hospital
-                    contactNumber: "0223456789"
-                    isEmergency: true
-                    patientType: blood
-                    createdAt: 2026-05-18T08:20:00.000Z
-                    location:
-                      lat: 30.0444
-                      lng: 31.2357
-        "404":
-          description: Request not found
-  /donor/urgent-requests/{requestId}/accept:
-    post:
-      tags:
-        - Donor
-      summary: Accept an urgent donation request
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                quantity:
-                  type: number
-                  example: 1
-            example:
-              quantity: 1
-      responses:
-        "201":
-          description: Response submitted successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Response submitted successfully
-                data:
-                  _id: 66f100000000000000000010
-                  donorId: 66f100000000000000000002
-                  requestId: 66f100000000000000000020
-                  quantity: 1
-                  status: pending
-  /donor/urgent-requests/{requestId}/decline:
-    post:
-      tags:
-        - Donor
-      summary: Decline an urgent donation request
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
-      responses:
-        "200":
-          description: Urgent request declined successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Urgent request declined successfully
-        "404":
-          description: Request not found
   /requests/nearby:
     get:
       tags:
@@ -2591,6 +2473,9 @@ paths:
         This endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.
         Current controller behavior filters requests by status (`pending` and `accepted`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.
 
+        **Migration Note**: This endpoint replaces the deprecated endpoints:
+        - `GET /donor/urgent-requests` → Use `GET /requests/nearby?urgency=critical`
+        - `GET /donor/urgent-requests/{requestId}` → Use `GET /requests/{requestId}`
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
@@ -2640,7 +2525,11 @@ paths:
               - medium
               - high
               - critical
-          description: Filter by urgency
+          description: |-
+            Filter requests by urgency level.
+            - Use `urgency=critical` or `urgency=high` to retrieve urgent requests.
+            - This parameter replaces the deprecated `/donor/urgent-requests` endpoints.
+            - If not specified, returns requests of all urgency levels.
           example: critical
         - in: query
           name: isEmergency

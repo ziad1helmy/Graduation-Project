@@ -633,6 +633,8 @@ describe('DELETE /hospital/requests/:requestId', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
+    expect(res.body.data.request.status).toBe('cancelled');
+    expect(res.body.data.request.cancelledAt).toBeTruthy();
   });
 
   it('rolls back donation cancellation if request update fails inside the transaction', async () => {

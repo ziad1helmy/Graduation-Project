@@ -8,6 +8,7 @@ import Donor from '../models/Donor.model.js';
 import Notification from '../models/Notification.model.js';
 import * as donationService from '../services/donation.service.js';
 import * as appointmentService from '../services/appointment.service.js';
+import * as eligibilityService from '../services/eligibility.service.js';
 import { calculateDistance } from '../utils/geo.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import {
@@ -370,9 +371,25 @@ export const getNearbyRequests = async (req, res, next) => {
       query.isEmergency = true;
     }
 
-    const requests = await populateRequest(
+    let requests = await populateRequest(
       Request.find(query).sort({ urgency: -1, createdAt: -1 }).limit(500)
     );
+
+    // AUDIT FIX: Add eligibility filtering for donors
+    if (req.user?.role === 'donor') {
+      const donor = await Donor.findById(req.user.userId);
+      if (donor) {
+        // Filter out ineligible requests
+        const eligibleRequests = [];
+        for (const req of requests) {
+          const eligibility = await eligibilityService.canDonate(donor, req);
+          if (eligibility.eligible) {
+            eligibleRequests.push(req);
+          }
+        }
+        requests = eligibleRequests;
+      }
+    }
 
     const filtered = filterNearbyRequests(requests, viewerLocation, Number.isFinite(radiusKm) ? radiusKm : null);
     const paginated = filtered.slice(offset, offset + limit);
