@@ -16,6 +16,7 @@ import { formatActivityForTimeline } from '../utils/activity.formatter.js';
 import { buildRequestPayload } from './request.controller.js';
 import { formatBloodTypeLabel, normalizeBloodTypeList } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import { validateOrphanState, validateTransition } from '../utils/state-machine.js';
 
 /**
  * Donor Controller - Handles donor-specific operations
@@ -243,11 +244,21 @@ export const respondToRequest = async (req, res, next) => {
       return response.error(res, 404, 'Donor not found');
     }
 
+    if (request.status !== 'pending') {
+      return response.error(res, 400, 'This request is no longer accepting responses');
+    }
+
+    try {
+      validateTransition('request', request.status, 'accepted');
+    } catch (err) {
+      return response.error(res, 400, err.message);
+    }
+
     // Check if donor already responded
     const existingDonation = await Donation.findOne({
       donorId: req.user.userId,
       requestId,
-      status: { $ne: 'cancelled' },
+      status: { $nin: ['cancelled', 'rejected'] },
     });
 
     if (existingDonation) {
@@ -268,15 +279,20 @@ export const respondToRequest = async (req, res, next) => {
       status: 'pending',
     });
 
-    // Decrement quantity and auto-close if 0
-    const donatedQty = quantity || 1;
-    const updatedRequest = await Request.findByIdAndUpdate(
-      requestId,
-      { $inc: { quantity: -donatedQty, unitsNeeded: -donatedQty } },
-      { returnDocument: 'after' }
-    );
-    if (updatedRequest && updatedRequest.quantity <= 0) {
-      await Request.findByIdAndUpdate(requestId, { status: 'completed' });
+    request.status = 'accepted';
+    request.acceptedBy = req.user.userId;
+    request.acceptedByName = donor.fullName || null;
+    request.acceptedByPhoneNumber = donor.phoneNumber || null;
+    request.acceptedByBloodType = donor.bloodType || null;
+    request.acceptedAt = new Date();
+    request.acceptedDonationId = donation._id;
+    await request.save();
+
+    try {
+      validateOrphanState('request', request, { donation });
+    } catch (err) {
+      await Donation.findByIdAndDelete(donation._id);
+      return response.error(res, 400, err.message);
     }
 
     // Log activity based on request urgency (fire-and-forget)

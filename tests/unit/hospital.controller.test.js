@@ -32,6 +32,7 @@ vi.mock('../../src/models/Request.model.js', () => ({
 vi.mock('../../src/models/Donation.model.js', () => ({
   default: {
     find: vi.fn(),
+    findOne: vi.fn(),
     updateMany: vi.fn(),
     aggregate: vi.fn(),
   },
@@ -278,11 +279,16 @@ describe('Hospital Controller', () => {
       const mockRequest = {
         _id: requestId,
         hospitalId: hospitalId,
-        status: 'pending',
+        status: 'in-progress',
       };
       Request.findById.mockResolvedValue(mockRequest);
       Request.findByIdAndUpdate.mockResolvedValue({
         ...mockRequest,
+        status: 'completed',
+      });
+      Donation.findOne.mockResolvedValue({
+        _id: '507f1f77bcf86cd799439044',
+        requestId,
         status: 'completed',
       });
 

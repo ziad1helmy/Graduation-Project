@@ -22,6 +22,7 @@ import {
 } from '../validation/hospital.validation.js';
 import { normalizeBloodTypeList } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import { validateTransition } from '../utils/state-machine.js';
 
 const normalizeLocationInput = (location) => {
   if (!location || typeof location !== 'object') return null;
@@ -828,6 +829,7 @@ export const getRequestDetails = async (req, res, next) => {
     response.success(res, 200, 'Request details retrieved successfully', {
       request,
       donations,
+      responseCount: donations.length,
       donationCount: donations.length,
     });
   } catch (error) {
@@ -853,6 +855,27 @@ export const updateRequest = async (req, res, next) => {
     // Verify hospital ownership
     if (request.hospitalId.toString() !== req.user.userId.toString()) {
       return response.error(res, 403, 'Unauthorized access to this request');
+    }
+
+    // Guard: validate transition through the centralized state machine.
+    try {
+      validateTransition('request', request.status, status);
+    } catch (err) {
+      return response.error(res, 400, err.message);
+    }
+
+    if (status === 'completed') {
+      const completedDonation = await Donation.findOne({
+        requestId: request._id,
+        status: 'completed',
+      });
+      if (!completedDonation) {
+        return response.error(res, 400, 'Cannot complete request: no completed donation found for this request. Use cancel instead.');
+      }
+    }
+
+    if (status === 'accepted' && !request.acceptedDonationId) {
+      return response.error(res, 400, 'Cannot mark request accepted without an accepted donation');
     }
 
     // runValidators is intentionally omitted: past requiredBy date would fail
@@ -891,8 +914,19 @@ export const closeRequest = async (req, res, next) => {
       return response.error(res, 403, 'Unauthorized access to this request');
     }
 
-    if (request.status === 'completed' || request.status === 'expired') {
-      return response.error(res, 400, 'Request is already completed');
+    // Guard: only non-terminal requests can be closed.
+    try {
+      validateTransition('request', request.status, 'completed');
+    } catch (err) {
+      return response.error(res, 400, err.message);
+    }
+
+    const completedDonation = await Donation.findOne({
+      requestId: request._id,
+      status: 'completed',
+    });
+    if (!completedDonation) {
+      return response.error(res, 400, 'Cannot close request: no completed donation found for this request. Use cancel instead.');
     }
 
     const completedAt = new Date();
@@ -927,16 +961,28 @@ export const deleteRequest = async (req, res, next) => {
       return response.error(res, 403, 'Unauthorized access to this request');
     }
 
+    // Guard: only non-terminal requests can be cancelled.
+    try {
+      validateTransition('request', request.status, 'cancelled');
+    } catch (err) {
+      return response.error(res, 400, err.message);
+    }
+
     // Cancel all pending/scheduled donations for this request and update request status atomically.
     const session = await mongoose.startSession();
     const cancelledAt = new Date();
     try {
       await session.withTransaction(async () => {
-        await Donation.updateMany(
-          { requestId, status: { $ne: 'completed' } },
-          { status: 'cancelled' },
+        const donationsToCancel = await Donation.find(
+          { requestId, status: { $nin: ['completed', 'cancelled', 'rejected'] } },
+          null,
           { session }
         );
+        for (const donation of donationsToCancel) {
+          validateTransition('donation', donation.status, 'cancelled');
+          donation.status = 'cancelled';
+          await donation.save({ session });
+        }
 
         await Request.findByIdAndUpdate(
           requestId,
@@ -1204,7 +1250,7 @@ export const getMonthlyReports = async (req, res, next) => {
     ]);
 
     const responseCount = donationsAgg.length;
-    const totalDonations = donationsAgg.length;
+    const totalResponses = donationsAgg.length;
     const uniqueDonorsResponded = new Set(donationsAgg.map((d) => d.donorId?.toString())).size;
     const confirmedDonorCount = new Set(donationsAgg.filter((d) => ['scheduled', 'completed'].includes(d.status)).map((d) => d.donorId?.toString())).size;
 
@@ -1229,6 +1275,19 @@ export const getMonthlyReports = async (req, res, next) => {
       { $count: 'count' },
     ]);
     const recentActivityCount = recentAgg[0]?.count || 0;
+    const recentCompletedDonationAgg = await Donation.aggregate([
+      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+      { $unwind: '$request' },
+      {
+        $match: {
+          'request.hospitalId': hospitalObjectId,
+          createdAt: { $gte: recentStart },
+          status: 'completed',
+        },
+      },
+      { $count: 'count' },
+    ]);
+    const recentCompletedDonationCount = recentCompletedDonationAgg[0]?.count || 0;
 
     return response.success(res, 200, 'Monthly report retrieved successfully', {
       month,
@@ -1239,13 +1298,16 @@ export const getMonthlyReports = async (req, res, next) => {
       totalCancelled,
       emergencyRequests,
       responseCount,
-      totalDonations,
+      totalResponses,
+      totalDonations: totalResponses,
+      completedDonations: donationsAgg.filter((d) => d.status === 'completed').length,
       uniqueDonorsResponded,
       confirmedDonorCount,
       overdueCount,
       dueSoonCount,
       avgDaysToRequiredBy,
       recentActivityCount,
+      recentCompletedDonationCount,
     });
   } catch (error) {
     next(error);

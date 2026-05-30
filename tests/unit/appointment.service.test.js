@@ -258,12 +258,13 @@ describe('Appointment Service', () => {
   it('ensures QR tokens are unique across different appointments', async () => {
     const hospital1 = await createHospital();
     const hospital2 = await createHospital();
-    const donor = await createDonor();
+    const donor1 = await createDonor();
+    const donor2 = await createDonor();
     const apptDate1 = makeFutureAppointmentDate();
     const apptDate2 = makeRescheduleDate(6, 12);
 
-    const appt1 = await appointmentService.bookAppointment(donor._id, hospital1._id, null, apptDate1);
-    const appt2 = await appointmentService.bookAppointment(donor._id, hospital2._id, null, apptDate2);
+    const appt1 = await appointmentService.bookAppointment(donor1._id, hospital1._id, null, apptDate1);
+    const appt2 = await appointmentService.bookAppointment(donor2._id, hospital2._id, null, apptDate2);
 
     expect(appt1.qrToken).not.toBe(appt2.qrToken);
   });
@@ -412,21 +413,18 @@ describe('Appointment Service', () => {
     ).rejects.toThrow('You already have an active appointment at this hospital');
   });
 
-  it('allows booking at different hospitals even with active appointment at one', async () => {
+  it('prevents booking at different hospitals when donor already has active appointment/donation at one', async () => {
     const hospital1 = await createHospital();
     const hospital2 = await createHospital();
     const donor = await createDonor();
     const apptDate1 = makeFutureAppointmentDate();
     const apptDate2 = makeRescheduleDate(5, 14);
 
-    const appt1 = await appointmentService.bookAppointment(donor._id, hospital1._id, null, apptDate1);
-    const appt2 = await appointmentService.bookAppointment(donor._id, hospital2._id, null, apptDate2);
+    await appointmentService.bookAppointment(donor._id, hospital1._id, null, apptDate1);
 
-    expect(appt1._id).not.toEqual(appt2._id);
-    const h1Id = typeof appt1.hospitalId === 'object' ? appt1.hospitalId._id : appt1.hospitalId;
-    const h2Id = typeof appt2.hospitalId === 'object' ? appt2.hospitalId._id : appt2.hospitalId;
-    expect(h1Id.toString()).toBe(hospital1._id.toString());
-    expect(h2Id.toString()).toBe(hospital2._id.toString());
+    await expect(
+      appointmentService.bookAppointment(donor._id, hospital2._id, null, apptDate2)
+    ).rejects.toThrow(/active donation/i);
   });
 
   it('allows rebooking after cancelling previous appointment', async () => {

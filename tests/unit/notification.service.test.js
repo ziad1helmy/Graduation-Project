@@ -35,8 +35,8 @@ describe('Notification Service', () => {
     expect(items[0].data.requestId).toBe(request._id.toString());
     expect(items[0].data.title_loc_key).toBe('emergency_request_title');
     expect(items[0].data.body_loc_key).toBe('emergency_request_body');
-    expect(items[0].data.actionIds).toEqual(['accept', 'decline', 'view']);
-    expect(items[0].data.actions[2].endpoint).toBe(`/urgent-requests/${request._id}`);
+    expect(items[0].data.actionIds).toEqual(['accept', 'view']);
+    expect(items[0].data.actions[1].endpoint).toBe(`/urgent-requests/${request._id}`);
     expect(items[0].data.bloodType).toEqual(['O+']);
     expect(items[0].data.bloodTypeLabel).toBe('O+');
     const unread = await notificationService.getUnreadNotifications(d1._id);
@@ -140,7 +140,7 @@ describe('Notification Service', () => {
     expect(data.title_loc_key).toBe('emergency_request_title');
     expect(data.body_loc_key).toBe('emergency_request_body');
     expect(Array.isArray(data.actions)).toBe(true);
-    expect(data.actions.map((action) => action.id)).toEqual(['accept', 'decline', 'view']);
+    expect(data.actions.map((action) => action.id)).toEqual(['accept', 'view']);
   });
 
   it('notifyMilestone creates milestone notification', async () => {

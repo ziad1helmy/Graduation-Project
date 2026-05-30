@@ -9,6 +9,8 @@ import Notification from '../models/Notification.model.js';
 import * as donationService from '../services/donation.service.js';
 import * as appointmentService from '../services/appointment.service.js';
 import * as eligibilityService from '../services/eligibility.service.js';
+import * as matchingService from '../services/matching.service.js';
+import { rejectDonationLifecycle } from '../services/request-lifecycle.service.js';
 import { calculateDistance } from '../utils/geo.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import {
@@ -21,6 +23,7 @@ import {
   normalizeBloodTypeList,
 } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import { validateOrphanState, validateTransition } from '../utils/state-machine.js';
 
 const QR_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -107,7 +110,7 @@ const computeDistanceDetails = (viewerLocation, request) => {
   };
 };
 
-export const buildRequestPayload = (request, viewerLocation = null, { donationCount = 0, donations = null } = {}) => {
+export const buildRequestPayload = (request, viewerLocation = null, { responseCount = 0, donations = null } = {}) => {
   const requestLocation = getRequestCoordinates(request);
   const distance = computeDistanceDetails(viewerLocation, request);
   const hospitalName = request.hospitalName
@@ -154,7 +157,7 @@ export const buildRequestPayload = (request, viewerLocation = null, { donationCo
       longitude: requestLocation?.longitude ?? null,
     },
     ...distance,
-    ...(donations ? { donations, donationCount } : {}),
+    ...(donations ? { donations, responseCount, donationCount: responseCount, totalResponses: responseCount } : {}),
   };
 };
 
@@ -185,6 +188,7 @@ const normalizeRequestIfExpired = async (request) => {
 
   const requestExpired = request.requiredBy && new Date(request.requiredBy) <= new Date();
   if (requestExpired && request.status === 'pending') {
+    validateTransition('request', request.status, 'expired');
     request.status = 'expired';
     await request.save({ validateBeforeSave: false });
   }
@@ -340,7 +344,7 @@ export const getRequestDetails = async (req, res, next) => {
 
     return response.success(res, 200, 'Request details retrieved successfully', {
       ...buildRequestPayload(request, viewerLocation, {
-        donationCount: donations?.length || 0,
+        responseCount: donations?.length || 0,
         donations: donations || undefined,
       }),
     });
@@ -357,46 +361,50 @@ export const getNearbyRequests = async (req, res, next) => {
     }
 
     const viewerLocation = parseViewerLocation(req.query);
-    const radiusKm = req.query.radius === undefined || req.query.radius === '' ? null : Number(req.query.radius);
+    const radiusKm = req.query.radius === undefined || req.query.radius === '' ? undefined : Number(req.query.radius);
     const { page, limit, offset } = parsePagination(req.query, 20);
 
-    const query = {
-      status: { $in: ['pending', 'accepted'] },
+    const requestFilters = {
+      bloodType: req.query.bloodType || null,
+      type: req.query.type || null,
+      urgency: req.query.urgency || null,
+      isEmergency: req.query.isEmergency === 'true' || req.query.isEmergency === '1',
     };
 
-    if (req.query.bloodType) query.bloodType = req.query.bloodType;
-    if (req.query.type) query.type = req.query.type;
-    if (req.query.urgency) query.urgency = req.query.urgency;
-    if (req.query.isEmergency === 'true' || req.query.isEmergency === '1') {
-      query.isEmergency = true;
-    }
-
-    let requests = await populateRequest(
-      Request.find(query).sort({ urgency: -1, createdAt: -1 }).limit(500)
-    );
-
-    // AUDIT FIX: Add eligibility filtering for donors
+    let nearbyResults = [];
     if (req.user?.role === 'donor') {
-      const donor = await Donor.findById(req.user.userId);
-      if (donor) {
-        // Filter out ineligible requests
-        const eligibleRequests = [];
-        for (const req of requests) {
-          const eligibility = await eligibilityService.canDonate(donor, req);
-          if (eligibility.eligible) {
-            eligibleRequests.push(req);
-          }
-        }
-        requests = eligibleRequests;
-      }
+      nearbyResults = await matchingService.findCompatibleRequests(req.user.userId, {
+        radiusKm,
+        filters: requestFilters,
+        limit: 500,
+      });
+    } else {
+      const discoveryResults = await matchingService.findNearbyRequests({
+        location: viewerLocation,
+        radiusKm,
+        filters: requestFilters,
+        limit: 500,
+      });
+
+      nearbyResults = discoveryResults.map(({ request }) => ({ request }));
     }
 
-    const filtered = filterNearbyRequests(requests, viewerLocation, Number.isFinite(radiusKm) ? radiusKm : null);
-    const paginated = filtered.slice(offset, offset + limit);
+    const formatted = nearbyResults.map((entry) => {
+      const requestPayload = buildRequestPayload(entry.request, req.user?.role === 'donor' ? null : viewerLocation);
+      return {
+        ...requestPayload,
+        ...(entry.score !== undefined ? { score: entry.score } : {}),
+        ...(entry.locationScore !== undefined ? { locationScore: entry.locationScore } : {}),
+        ...(entry.compatibility ? { compatibility: entry.compatibility } : {}),
+        ...(entry.distanceKm !== undefined ? { distanceKm: entry.distanceKm } : {}),
+      };
+    });
+
+    const paginated = formatted.slice(offset, offset + limit);
 
     return response.success(res, 200, 'Nearby requests retrieved successfully', {
       requests: paginated,
-      pagination: paginationMeta(filtered.length, page, limit),
+      pagination: paginationMeta(formatted.length, page, limit),
       viewerLocation,
       radiusKm: Number.isFinite(radiusKm) ? radiusKm : null,
     });
@@ -466,12 +474,13 @@ export const acceptRequest = async (req, res, next) => {
     }
 
     await normalizeRequestIfExpired(request);
-    if (request.status === 'expired') {
-      return response.error(res, 400, 'Request has expired');
-    }
 
-    if (['accepted', 'completed', 'cancelled'].includes(request.status)) {
-      return response.error(res, 400, 'Request is no longer available');
+    // Guard: use the centralized state machine to validate pending -> accepted.
+    // This also catches expired, completed, cancelled, and any other terminal states.
+    try {
+      validateTransition('request', request.status, 'accepted');
+    } catch (err) {
+      return response.error(res, 400, err.message);
     }
 
     if (request.acceptedBy) {
@@ -481,7 +490,7 @@ export const acceptRequest = async (req, res, next) => {
     const existingDonation = await Donation.findOne({
       donorId: donor._id,
       requestId: request._id,
-      status: { $ne: 'cancelled' },
+      status: { $nin: ['cancelled', 'rejected'] },
     });
 
     if (existingDonation) {
@@ -508,6 +517,13 @@ export const acceptRequest = async (req, res, next) => {
     request.acceptedAt = new Date();
     request.acceptedDonationId = donation._id;
     await request.save();
+
+    try {
+      validateOrphanState('request', request, { donation });
+    } catch (err) {
+      await Donation.findByIdAndDelete(donation._id);
+      return response.error(res, 400, err.message);
+    }
 
     await Notification.create({
       userId: request.hospitalId._id,
@@ -559,6 +575,13 @@ export const cancelRequest = async (req, res, next) => {
 
     await normalizeRequestIfExpired(request);
 
+    // Guard: terminal requests cannot be cancelled in normal user-facing flows.
+    try {
+      validateTransition('request', request.status, 'cancelled');
+    } catch (err) {
+      return response.error(res, 400, err.message);
+    }
+
     if (req.user.role === 'donor') {
       if (request.acceptedBy?.toString?.() !== req.user.userId) {
         return response.error(res, 403, 'You can only cancel your own accepted request');
@@ -568,30 +591,20 @@ export const cancelRequest = async (req, res, next) => {
       const donation = await Donation.findOne({
         donorId: req.user.userId,
         requestId: request._id,
-        status: { $ne: 'cancelled' },
+        status: { $nin: ['cancelled', 'rejected'] },
       });
 
-      if (donation) {
-        donation.status = 'cancelled';
-        await donation.save();
-      }
-
-      request.status = 'cancelled';
-      request.acceptedBy = null;
-      request.acceptedByName = null;
-      request.acceptedByPhoneNumber = null;
-      request.acceptedByBloodType = null;
-      request.acceptedAt = null;
-      request.acceptedDonationId = null;
-      request.cancelledAt = new Date();
-      await request.save();
-      await appointmentService.cancelActiveAppointmentsForRequest(request._id, {
-        cancelledAt: request.cancelledAt,
-        notes: 'Appointment cancelled because the linked request was cancelled',
+      const cancellation = await rejectDonationLifecycle({
+        donationId: donation?._id || request.acceptedDonationId,
+        requestId: request._id,
+        donorId: req.user.userId,
+        donationStatus: 'cancelled',
+        requestStatus: 'pending',
+        reason: 'Donation cancelled by donor',
       });
 
       return response.success(res, 200, 'Request cancelled successfully', {
-        request: getRequestSummary(request),
+        request: getRequestSummary(cancellation.request),
         donor: donor
           ? {
               id: donor._id,
@@ -611,10 +624,12 @@ export const cancelRequest = async (req, res, next) => {
       return response.error(res, 403, 'Unauthorized access to this request');
     }
 
-    await Donation.updateMany(
-      { requestId: request._id, status: { $ne: 'cancelled' } },
-      { status: 'cancelled' }
-    );
+    const activeDonations = await Donation.find({ requestId: request._id, status: { $in: ['pending', 'scheduled'] } });
+    for (const donation of activeDonations) {
+      validateTransition('donation', donation.status, 'cancelled');
+      donation.status = 'cancelled';
+      await donation.save();
+    }
 
     request.status = 'cancelled';
     request.cancelledAt = new Date();
@@ -626,6 +641,55 @@ export const cancelRequest = async (req, res, next) => {
 
     return response.success(res, 200, 'Request cancelled successfully', {
       request: getRequestSummary(request),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const rejectRequest = async (req, res, next) => {
+  try {
+    const validation = validateRequestIdParam(req.params);
+    if (!validation.valid) {
+      return response.error(res, 400, validation.errors[0]);
+    }
+
+    if (!['hospital', 'admin', 'superadmin'].includes(req.user.role)) {
+      return response.error(res, 403, 'Unauthorized');
+    }
+
+    const { id } = req.params;
+    if (!isValidObjectId(id)) {
+      return response.error(res, 400, 'Invalid request id');
+    }
+
+    const request = await populateRequest(Request.findById(id));
+    if (!request) {
+      return response.error(res, 404, 'Request not found');
+    }
+
+    await normalizeRequestIfExpired(request);
+
+    if (req.user.role === 'hospital' && request.hospitalId?._id?.toString?.() !== req.user.userId) {
+      return response.error(res, 403, 'Unauthorized access to this request');
+    }
+
+    if (!request.acceptedDonationId && !request.acceptedBy) {
+      return response.error(res, 400, 'Request has no accepted donation to reject');
+    }
+
+    const result = await rejectDonationLifecycle({
+      donationId: request.acceptedDonationId,
+      requestId: request._id,
+      donorId: request.acceptedBy,
+      reason: req.body?.reason || 'Donation rejected by hospital',
+      rejectedBy: req.user.userId,
+      requestStatus: 'pending',
+    });
+
+    return response.success(res, 200, 'Request rejected successfully', {
+      request: getRequestSummary(result.request),
+      donation: result.donation,
     });
   } catch (error) {
     next(error);

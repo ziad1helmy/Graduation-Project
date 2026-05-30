@@ -20,6 +20,10 @@ import * as rewardService from '../../src/services/reward.service.js';
 setupTestDB();
 
 describe('Donation Service', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
   it('validateEligibility returns matching service result', async () => {
     const donor = { isOptedIn: true, bloodType: 'O+' };
     const request = { type: 'blood', bloodType: 'O+' };
@@ -54,7 +58,7 @@ describe('Donation Service', () => {
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+', urgency: 'critical' });
     const donor = await createDonor({ bloodType: 'O+' });
-    const donation = await createDonationRecord(donor._id, request._id, { status: 'pending' });
+    const donation = await createDonationRecord(donor._id, request._id, { status: 'scheduled' });
 
     const updated = await donationService.updateDonationStatus(donation._id, 'completed');
     expect(updated.status).toBe('completed');
@@ -68,6 +72,20 @@ describe('Donation Service', () => {
     expect(rewardService.onDonationCompleted).toHaveBeenCalled();
   });
 
+  it('updateDonationStatus rejects donation without awarding completion credit', async () => {
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    const donor = await createDonor({ bloodType: 'O+' });
+    const donation = await createDonationRecord(donor._id, request._id, { status: 'pending' });
+
+    const updated = await donationService.updateDonationStatus(donation._id, 'rejected');
+    expect(updated.status).toBe('rejected');
+
+    const updatedDonor = await Donor.findById(donor._id);
+    expect(updatedDonor.lastDonationDate).toBeUndefined();
+    expect(rewardService.onDonationCompleted).not.toHaveBeenCalled();
+  });
+
   it('getDonationHistory and stats return expected shapes', async () => {
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
@@ -75,13 +93,17 @@ describe('Donation Service', () => {
 
     await createDonationRecord(donor._id, request._id, { status: 'completed', quantity: 2 });
     await createDonationRecord(donor._id, request._id, { status: 'pending', quantity: 1 });
+    await createDonationRecord(donor._id, request._id, { status: 'rejected', quantity: 1 });
 
     const history = await donationService.getDonationHistory(donor._id, {});
     expect(history).toHaveProperty('donations');
     expect(history).toHaveProperty('total');
 
     const stats = await donationService.getDonorStats(donor._id);
-    expect(stats.totalDonations).toBeGreaterThanOrEqual(2);
+    expect(stats.totalResponses).toBeGreaterThanOrEqual(3);
+    expect(stats.responseCount).toBeGreaterThanOrEqual(3);
+    expect(stats.totalDonations).toBe(1);
+    expect(stats.completedDonations).toBe(1);
     expect(stats.totalUnitsDonated).toBeGreaterThanOrEqual(2);
   });
 

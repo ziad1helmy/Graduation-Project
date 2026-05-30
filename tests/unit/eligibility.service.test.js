@@ -11,7 +11,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach, vi } from 'vitest';
 import ELIGIBILITY_KEYS from '../../src/utils/eligibility-keys.js';
 import { connect, clearDatabase, closeDatabase } from '../helpers/db.js';
-import { createDonor } from '../helpers/factories.js';
+import { createDonor, createHospital, createRequest, createDonation as createDonationRecord } from '../helpers/factories.js';
 import { canDonate } from '../../src/services/eligibility.service.js';
 
 beforeAll(async () => {
@@ -27,6 +27,21 @@ afterAll(async () => {
 });
 
 describe('Eligibility Service — Donation Interval Cooldowns', () => {
+  it('allows donors without an active donation', async () => {
+    const donor = await createDonor({
+      bloodType: 'O+',
+      dateOfBirth: new Date('1990-01-01'),
+      hemoglobinLevel: 14.5,
+      lastDonationDate: null,
+      temporaryDeferralUntil: null,
+    });
+
+    const result = await canDonate(donor, { donationType: 'blood' });
+
+    expect(result.eligible).toBe(true);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONOR_ELIGIBLE);
+  });
+
   it('should allow donation when no lastDonationDate (first donation)', async () => {
     const donor = await createDonor({ lastDonationDate: null });
 
@@ -132,6 +147,103 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
 
     expect(result.eligible).toBe(false);
     expect(result.reason).toBe(ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE);
+  });
+
+  it('blocks donors with an active pending donation', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      dateOfBirth: new Date('1990-01-01'),
+      hemoglobinLevel: 14.5,
+      lastDonationDate: null,
+      temporaryDeferralUntil: null,
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    await createDonationRecord(donor._id, request._id, { status: 'pending' });
+
+    const result = await canDonate(donor, { donationType: 'blood' });
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('Donor already has an active donation in progress');
+  });
+
+  it('blocks donors with an active scheduled donation', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      dateOfBirth: new Date('1990-01-01'),
+      hemoglobinLevel: 14.5,
+      lastDonationDate: null,
+      temporaryDeferralUntil: null,
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    await createDonationRecord(donor._id, request._id, { status: 'scheduled' });
+
+    const result = await canDonate(donor, { donationType: 'blood' });
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('Donor already has an active donation in progress');
+  });
+
+  it('allows donors with only completed donations', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      dateOfBirth: new Date('1990-01-01'),
+      hemoglobinLevel: 14.5,
+      lastDonationDate: null,
+      temporaryDeferralUntil: null,
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    await createDonationRecord(donor._id, request._id, { status: 'completed' });
+
+    const result = await canDonate(donor, { donationType: 'blood' });
+
+    expect(result.eligible).toBe(true);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONOR_ELIGIBLE);
+  });
+
+  it('allows donors with only cancelled donations', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      dateOfBirth: new Date('1990-01-01'),
+      hemoglobinLevel: 14.5,
+      lastDonationDate: null,
+      temporaryDeferralUntil: null,
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    await createDonationRecord(donor._id, request._id, { status: 'cancelled' });
+
+    const result = await canDonate(donor, { donationType: 'blood' });
+
+    expect(result.eligible).toBe(true);
+    expect(result.reason).toBe(ELIGIBILITY_KEYS.DONOR_ELIGIBLE);
+  });
+
+  it('blocks donors with multiple active donations', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      dateOfBirth: new Date('1990-01-01'),
+      hemoglobinLevel: 14.5,
+      lastDonationDate: null,
+      temporaryDeferralUntil: null,
+    });
+    const requestOne = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+    const requestTwo = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    await createDonationRecord(donor._id, requestOne._id, { status: 'pending' });
+    await createDonationRecord(donor._id, requestTwo._id, { status: 'scheduled' });
+
+    const result = await canDonate(donor, { donationType: 'blood' });
+
+    expect(result.eligible).toBe(false);
+    expect(result.reason).toBe('Donor already has an active donation in progress');
   });
 });
 

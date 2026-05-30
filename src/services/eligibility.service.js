@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import Donation from '../models/Donation.model.js';
 import { calculateAge } from '../utils/age.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
@@ -11,6 +12,8 @@ const GENDER_DONATION_INTERVAL_DAYS = {
   male: 84,
   female: 112,
 };
+
+const ACTIVE_DONATION_STATUSES = ['pending', 'scheduled'];
 
 // Per-donation-type cooldowns (days). Use request.type enum values.
 const COOLDOWN_DAYS_BY_TYPE = {
@@ -50,6 +53,28 @@ const makeRuleResult = (valid, reason, nextEligibleDate) => ({
   reason,
   ...(nextEligibleDate ? { nextEligibleDate } : {}),
 });
+
+const getDonorId = (donor) => donor?._id || donor?.id || null;
+
+export const hasActiveDonationInProgress = async (donor, options = {}) => {
+  const donorId = getDonorId(donor);
+  if (!donorId) {
+    return false;
+  }
+
+  const query = {
+    donorId,
+    status: { $in: ACTIVE_DONATION_STATUSES },
+  };
+
+  if (options.excludeDonationId) {
+    query._id = { $ne: options.excludeDonationId };
+  }
+
+  const activeDonation = await Donation.exists(query);
+
+  return Boolean(activeDonation);
+};
 
 const getTravelDeferral = (travelHistory = []) => {
   if (!Array.isArray(travelHistory) || travelHistory.length === 0) {
@@ -177,11 +202,18 @@ const evaluateHemoglobinRule = (donor) => {
 };
 
 export const canDonate = async (donor, options = {}) => {
+  if (await hasActiveDonationInProgress(donor, options)) {
+    return {
+      eligible: false,
+      reason: ELIGIBILITY_KEYS.ACTIVE_DONATION_IN_PROGRESS,
+    };
+  }
+
   const rules = [
     () => evaluateAgeRule(donor),
     () => evaluateTemporaryDeferralRule(donor),
     () => evaluateTravelDeferralRule(donor, options),
-      () => evaluateDonationIntervalRule(donor, options),
+    () => evaluateDonationIntervalRule(donor, options),
     () => evaluateHemoglobinRule(donor),
   ];
 

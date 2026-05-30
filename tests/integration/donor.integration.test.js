@@ -366,23 +366,6 @@ describe('Donor Routes Integration', () => {
     expect(response.body.data).toHaveProperty('notifications');
   });
 
-  it('GET /donor/urgent-requests returns urgent donation requests', async () => {
-    await clearDatabase();
-    const donor = await createDonor();
-    const hospital = await createHospital();
-    await createRequest(hospital._id, { bloodType: donor.bloodType, urgency: 'critical' });
-
-    const token = signToken({ userId: donor._id.toString(), role: donor.role });
-
-    const response = await request(app)
-      .get('/donor/urgent-requests')
-      .set('Authorization', `Bearer ${token}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('requests');
-  });
-
   it('POST /donor/respond/:requestId creates donation response', async () => {
     await clearDatabase();
     const donor = await createDonor();

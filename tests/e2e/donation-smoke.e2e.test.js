@@ -59,6 +59,13 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
     const requestId = res.body.data._id || res.body.data.id;
     expect(requestId).toBeDefined();
 
+    // 1.5. Donor responds to request (replaces request status with 'accepted')
+    res = await request(app)
+      .post(`/donor/respond/${requestId}`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({ quantity: 1 });
+    expect(res.status).toBe(201);
+
     // 2. Donor books a hospital appointment for the request
     // Use a specific time (2:00 PM) to ensure it's within operating hours (9 AM - 5 PM)
     const appointmentDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
@@ -111,6 +118,13 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.readyForDonation).toBe(true);
 
+    // 4.5. Hospital updates request status to in-progress
+    res = await request(app)
+      .put(`/hospital/requests/${requestId}`)
+      .set('Authorization', `Bearer ${hospitalToken}`)
+      .send({ status: 'in-progress' });
+    expect(res.status).toBe(200);
+
     // 5. Hospital confirms the donation with medical validation
     res = await request(app)
       .post('/donations/complete')
@@ -123,6 +137,10 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
         notes: 'Donation completed successfully.',
       });
 
+    if (res.status !== 200) {
+      console.log('Completion failed with status:', res.status);
+      console.log('Response body:', JSON.stringify(res.body, null, 2));
+    }
     expect(res.status).toBe(200);
     expect(res.body.data.donation.status).toBe('completed');
     expect(res.body.data.pointsEarned).toBeGreaterThan(0);

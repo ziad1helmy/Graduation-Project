@@ -1,9 +1,10 @@
 import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
+import Appointment from '../models/Appointment.model.js';
 import { env } from '../config/env.js';
 import * as geoUtil from '../utils/geo.js';
-import { canDonate } from './eligibility.service.js';
+import { canDonate, hasActiveDonationInProgress } from './eligibility.service.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import {
   getCompatibleDonorTypesForRequest,
@@ -19,6 +20,145 @@ const DEFAULT_MATCHING_DISTANCE_KM = (() => {
   const configuredDistance = Number(env.MATCHING_DISTANCE_KM);
   return Number.isFinite(configuredDistance) && configuredDistance > 0 ? configuredDistance : 30;
 })();
+
+const ACTIVE_REQUEST_STATUSES = ['pending', 'in-progress'];
+const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
+
+const toNumber = (value) => {
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+};
+
+const toGeoPoint = (location = null) => {
+  if (!location) return null;
+
+  // 1. Array coordinates: check if location.coordinates is an array of [lng, lat]
+  if (Array.isArray(location.coordinates) && location.coordinates.length >= 2) {
+    const lat = toNumber(location.coordinates[1]);
+    const lng = toNumber(location.coordinates[0]);
+    if (lat !== null && lng !== null) return { latitude: lat, longitude: lng };
+  }
+
+  // 2. Direct array check: check if location is an array [lng, lat]
+  if (Array.isArray(location) && location.length >= 2) {
+    const lat = toNumber(location[1]);
+    const lng = toNumber(location[0]);
+    if (lat !== null && lng !== null) return { latitude: lat, longitude: lng };
+  }
+
+  // 3. Object properties check
+  const latitude = toNumber(
+    location?.lat
+      ?? location?.latitude
+      ?? location?.coordinates?.lat
+      ?? location?.coordinates?.latitude
+      ?? location?.location?.coordinates?.lat
+      ?? location?.location?.coordinates?.latitude
+  );
+  const longitude = toNumber(
+    location?.lng
+      ?? location?.long
+      ?? location?.longitude
+      ?? location?.coordinates?.lng
+      ?? location?.coordinates?.long
+      ?? location?.coordinates?.longitude
+      ?? location?.location?.coordinates?.lng
+      ?? location?.location?.coordinates?.long
+      ?? location?.location?.coordinates?.longitude
+  );
+
+  if (latitude === null || longitude === null) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
+
+const getRequestLocationPoint = (request) => {
+  const latitude = toNumber(
+    request?.locationHospital?.latitude
+      ?? request?.hospitalLocation?.lat
+      ?? request?.hospitalLocationGeo?.coordinates?.[1]
+      ?? request?.hospitalId?.location?.coordinates?.lat
+      ?? request?.hospitalId?.lat
+  );
+  const longitude = toNumber(
+    request?.locationHospital?.longitude
+      ?? request?.hospitalLocation?.lng
+      ?? request?.hospitalLocationGeo?.coordinates?.[0]
+      ?? request?.hospitalId?.location?.coordinates?.lng
+      ?? request?.hospitalId?.long
+  );
+
+  if (latitude === null || longitude === null) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
+
+const getDonorLocationPoint = (donor) => {
+  const coordinates = donor?.location?.coordinates || {};
+  const latitude = toNumber(coordinates.lat ?? donor?.location?.latitude ?? donor?.location?.lat);
+  const longitude = toNumber(coordinates.lng ?? donor?.location?.longitude ?? donor?.location?.long);
+
+  if (latitude === null || longitude === null) {
+    return null;
+  }
+
+  return { latitude, longitude };
+};
+
+const buildRequestGeoQuery = (location, radiusKm = DEFAULT_MATCHING_DISTANCE_KM) => {
+  const geoPoint = toGeoPoint(location);
+  const normalizedRadiusKm = Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : DEFAULT_MATCHING_DISTANCE_KM;
+
+  if (!geoPoint) {
+    return { geoQuery: null, radiusKm: normalizedRadiusKm };
+  }
+
+  return {
+    radiusKm: normalizedRadiusKm,
+    geoQuery: {
+      hospitalLocationGeo: {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [geoPoint.longitude, geoPoint.latitude],
+          },
+          $maxDistance: normalizedRadiusKm * 1000,
+        },
+      },
+    },
+  };
+};
+
+const buildRequestQuery = ({ bloodType = null, type = null, urgency = null, isEmergency = null } = {}) => {
+  const query = {
+    status: { $in: ACTIVE_REQUEST_STATUSES },
+  };
+
+  if (bloodType) query.bloodType = bloodType;
+  if (type) query.type = type;
+  if (urgency) query.urgency = urgency;
+  if (isEmergency === true) query.isEmergency = true;
+
+  return query;
+};
+
+const isRequestMatchable = (request) => {
+  if (!request) return false;
+  if (!ACTIVE_REQUEST_STATUSES.includes(request.status)) return false;
+
+  if (request.status === 'pending' && request.requiredBy) {
+    const requiredBy = new Date(request.requiredBy);
+    if (!Number.isNaN(requiredBy.getTime()) && requiredBy <= new Date()) {
+      return false;
+    }
+  }
+
+  return request.status !== 'cancelled' && request.status !== 'completed' && request.status !== 'expired';
+};
 
 const extractRequestLocation = (request) => {
   const hospital = request?.hospitalId || {};
@@ -56,7 +196,8 @@ const extractDonorLocation = (donor) => {
   return { latitude, longitude };
 };
 
-export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHING_DISTANCE_KM, allowOptedOut = false } = {}) => {
+export const evaluateMatch = async (donor, request, options = {}) => {
+  const { radiusKm = DEFAULT_MATCHING_DISTANCE_KM, allowOptedOut = false } = options;
   if (!donor || !request) {
     return { matched: false, reason: ELIGIBILITY_KEYS.DONOR_OR_REQUEST_NOT_FOUND };
   }
@@ -65,7 +206,7 @@ export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHIN
     return { matched: false, reason: ELIGIBILITY_KEYS.DONOR_OPTED_OUT_OF_MATCHING };
   }
 
-  const eligibility = await checkEligibility(donor, request);
+  const eligibility = await checkEligibility(donor, request, options);
   if (!eligibility.eligible) {
     return { matched: false, reason: eligibility.reason };
   }
@@ -103,11 +244,6 @@ export const evaluateMatch = async (donor, request, { radiusKm = DEFAULT_MATCHIN
     locationScore: geoUtil.getLocationScore(distanceKm, radiusKm),
     eligibility: eligibility.reason,
   };
-};
-
-const hasCoordinates = (location) => {
-  const coords = location?.coordinates;
-  return Number.isFinite(coords?.lat) && Number.isFinite(coords?.lng);
 };
 
 /**
@@ -153,8 +289,8 @@ export const isBloodTypeCompatible = (donorBloodType, requestBloodType) => {
  * @param {Object} request - Request document
  * @returns {Object} - {eligible: boolean, reason: string}
  */
-export const checkEligibility = async (donor, request) => {
-  const donorEligibility = await canDonate(donor, { persistTravelDeferral: false, donationType: request?.type });
+export const checkEligibility = async (donor, request, options = {}) => {
+  const donorEligibility = await canDonate(donor, { persistTravelDeferral: false, donationType: request?.type, ...options });
   if (!donorEligibility.eligible) {
     return donorEligibility;
   }
@@ -196,18 +332,29 @@ export const findCompatibleDonors = async (requestId) => {
 
   // Batch check existing donations (eliminates N+1 queries)
   const donorIds = donors.map((d) => d._id);
-  const existingDonations = await Donation.find({
-    donorId: { $in: donorIds },
-    requestId,
-    status: { $ne: 'cancelled' },
-  }).select('donorId');
+  const [existingDonations, activeDonations] = await Promise.all([
+    Donation.find({
+      donorId: { $in: donorIds },
+      requestId,
+      status: { $nin: ['cancelled', 'rejected'] },
+    }).select('donorId'),
+    Donation.find({
+      donorId: { $in: donorIds },
+      status: { $in: ['pending', 'scheduled'] },
+    }).select('donorId'),
+  ]);
+
   const respondedDonorIds = new Set(existingDonations.map((d) => d.donorId.toString()));
+  const activeDonationDonorIds = new Set(activeDonations.map((d) => d.donorId.toString()));
 
   const hospitalLocation = request.hospitalId?.location;
   const compatibleDonors = [];
 
   for (const donor of donors) {
     if (respondedDonorIds.has(donor._id.toString())) {
+      continue;
+    }
+    if (activeDonationDonorIds.has(donor._id.toString())) {
       continue;
     }
 
@@ -259,12 +406,23 @@ export const searchCompatibleDonors = async ({
   }
 
   const donors = await Donor.find(donorQuery).limit(500);
+  const activeDonations = await Donation.find({
+    donorId: { $in: donors.map((donor) => donor._id) },
+    status: { $in: ['pending', 'scheduled'] },
+  }).select('donorId');
+  const activeDonationDonorIds = new Set(activeDonations.map((donation) => donation.donorId.toString()));
+
   const searchRequest = normalizedSearchBloodTypes.length > 0 ? { type: 'blood', bloodType: normalizedSearchBloodTypes } : { type: 'search' };
   const compatibleDonors = [];
   const normalizedRadiusKm = Number.isFinite(radiusKm) ? radiusKm : DEFAULT_MATCHING_DISTANCE_KM;
-  const searchHasLocation = hasCoordinates(location);
+  const geoPoint = toGeoPoint(location);
+  const searchHasLocation = Boolean(geoPoint);
 
   for (const donor of donors) {
+    if (activeDonationDonorIds.has(donor._id.toString())) {
+      continue;
+    }
+
     let distanceKm = null;
     let locationScore = 50;
     let eligibilityReason = ELIGIBILITY_KEYS.DONOR_ELIGIBLE;
@@ -272,7 +430,7 @@ export const searchCompatibleDonors = async ({
     if (searchHasLocation) {
       const match = await evaluateMatch(donor, {
         ...searchRequest,
-        locationHospital: { latitude: location.coordinates.lat, longitude: location.coordinates.lng },
+        locationHospital: { latitude: geoPoint.latitude, longitude: geoPoint.longitude },
       }, { radiusKm: normalizedRadiusKm, allowOptedOut: participation === false });
 
       if (!match.matched) {
@@ -320,7 +478,32 @@ export const searchCompatibleDonors = async ({
  * @param {string} donorId - Donor ID
  * @returns {Array} - Array of compatible requests
  */
-export const findCompatibleRequests = async (donorId) => {
+export const findNearbyRequests = async ({
+  location = null,
+  radiusKm = DEFAULT_MATCHING_DISTANCE_KM,
+  filters = {},
+  limit = 500,
+} = {}) => {
+  const { geoQuery, radiusKm: normalizedRadiusKm } = buildRequestGeoQuery(location, radiusKm);
+  const requestQuery = geoQuery
+    ? Request.find({ ...buildRequestQuery(filters), ...geoQuery })
+    : Request.find(buildRequestQuery(filters));
+
+  const requests = await requestQuery
+    .populate('hospitalId', 'fullName hospitalName address contactNumber location')
+    .limit(limit)
+    .sort(geoQuery ? undefined : { urgency: -1, createdAt: -1 });
+
+  return requests
+    .filter((request) => isRequestMatchable(request))
+    .map((request) => ({
+      request,
+      radiusKm: normalizedRadiusKm,
+      location: getRequestLocationPoint(request),
+    }));
+};
+
+export const findCompatibleRequests = async (donorId, { radiusKm = DEFAULT_MATCHING_DISTANCE_KM, filters = {}, limit = 500 } = {}) => {
   const donor = await Donor.findById(donorId);
   if (!donor) {
     throw new Error(ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
@@ -330,18 +513,47 @@ export const findCompatibleRequests = async (donorId) => {
     return [];
   }
 
+  if (donor.isSuspended) {
+    return [];
+  }
+
+  // Two-layer defense: this global donation guard blocks donors already in a
+  // pending/scheduled lifecycle, while the appointment query below catches
+  // any active booking state that is not represented by a donation document.
+  if (await hasActiveDonationInProgress(donor)) {
+    return [];
+  }
+
+  const donorLocation = getDonorLocationPoint(donor);
+  const { geoQuery, radiusKm: normalizedRadiusKm } = buildRequestGeoQuery(donorLocation, radiusKm);
+  const requestQuery = geoQuery
+    ? Request.find({ ...buildRequestQuery(filters), ...geoQuery })
+    : Request.find(buildRequestQuery(filters));
+
   // Get all active requests with hospital location for geo-scoring
-  const requests = await Request.find({
-    status: { $in: ['pending', 'in-progress'] },
-  }).populate('hospitalId', 'address location').limit(500);
+  const requests = await requestQuery
+    .populate('hospitalId', 'address location')
+    .limit(limit)
+    .sort(geoQuery ? undefined : { urgency: -1, createdAt: -1 });
 
   // Batch check existing donations (eliminates N+1 queries)
   const requestIds = requests.map((r) => r._id);
-  const existingDonations = await Donation.find({
-    donorId,
-    requestId: { $in: requestIds },
-    status: { $ne: 'cancelled' },
-  }).select('requestId');
+  const [existingDonations, activeAppointments] = await Promise.all([
+    Donation.find({
+      donorId,
+      requestId: { $in: requestIds },
+      status: { $nin: ['cancelled', 'rejected'] },
+    }).select('requestId'),
+    Appointment.find({
+      donorId,
+      status: { $in: ACTIVE_APPOINTMENT_STATUSES },
+    }).select('requestId'),
+  ]);
+
+  if (activeAppointments.length > 0) {
+    return [];
+  }
+
   const respondedRequestIds = new Set(existingDonations.map((d) => d.requestId.toString()));
 
   const compatibleRequests = [];
@@ -350,7 +562,7 @@ export const findCompatibleRequests = async (donorId) => {
     const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
     if (respondedRequestIds.has(request._id.toString())) continue;
 
-    const match = await evaluateMatch(donor, request);
+    const match = await evaluateMatch(donor, request, { radiusKm: normalizedRadiusKm });
     if (!match.matched) continue;
 
     // Calculate compatibility score

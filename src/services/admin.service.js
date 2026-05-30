@@ -22,6 +22,7 @@ import { ERR } from '../utils/errorCodes.js';
 import { env } from '../config/env.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 import { buildRequestPayload } from '../controllers/request.controller.js';
+import { validateTransition } from '../utils/state-machine.js';
 
 // ──────────────────────────────────────────────
 //  Audit Logging
@@ -893,7 +894,7 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
 
       return {
         ...requestObject,
-        ...buildRequestPayload(requestObject, null, { donationCount }),
+          ...buildRequestPayload(requestObject, null, { responseCount: donationCount }),
         donationCount,
         timeline: buildRequestTimeline(requestObject),
       };
@@ -1052,7 +1053,8 @@ export const getRequestDetails = async (id) => {
   return {
     request: {
       ...requestObject,
-      ...buildRequestPayload(requestObject, null, { donationCount: donations.length, donations }),
+      ...buildRequestPayload(requestObject, null, { responseCount: donations.length, donations }),
+      responseCount: donations.length,
       donationCount: donations.length,
       timeline: buildRequestTimeline(requestObject),
     },
@@ -1142,6 +1144,13 @@ export const fulfillRequest = async (id, adminId) => {
     throw new Error('Request is already fulfilled');
   }
 
+  const completedDonation = await Donation.findOne({ requestId: request._id, status: 'completed' });
+  if (!completedDonation) {
+    throw new Error('Cannot fulfill request without a completed donation');
+  }
+
+  validateTransition('request', request.status, 'completed', { isAdminOverride: true });
+
   request.status = 'completed';
   await request.save({ validateBeforeSave: false });
 
@@ -1159,6 +1168,8 @@ export const cancelRequest = async (id, reason, adminId) => {
   if (request.status === 'cancelled') {
     throw new Error('Request is already cancelled');
   }
+
+  validateTransition('request', request.status, 'cancelled', { isAdminOverride: true });
 
   request.status = 'cancelled';
   if (reason) request.notes = (request.notes ? request.notes + '\n' : '') + `[Admin cancelled]: ${reason}`;

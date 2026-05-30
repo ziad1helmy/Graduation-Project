@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
 import { setupTestDB, clearDatabase } from '../helpers/db.js';
-import { createDonor, createHospital, createRequest, createAdmin } from '../helpers/factories.js';
+import { createDonor, createHospital, createRequest, createAdmin, createDonation } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
 import Appointment from '../../src/models/Appointment.model.js';
 
@@ -142,6 +142,33 @@ describe('Appointment Routes Integration', () => {
     expect(updateResponse.body.data.rescheduleHistory[0].reason).toBe('Travel conflict');
   });
 
+  it('POST /donations/book-appointment rejects donors with an active donation', async () => {
+    await clearDatabase();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      dateOfBirth: new Date('1990-01-01'),
+      hemoglobinLevel: 14.5,
+    });
+    const hospital = await createHospital();
+    const request1 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    await createDonation(donor._id, request1._id, { status: 'pending' });
+    const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${token}`)
+      .send(bookAppointmentPayload({
+        hospitalId: hospital._id,
+        requestId: request2._id,
+        appointmentDate: makeFutureAppointmentDate(),
+        donationType: 'Whole Blood',
+      }));
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Donor already has an active donation in progress');
+  });
+
   it('PATCH /appointments/:appointmentId rejects reschedule when linked request is completed', async () => {
     await clearDatabase();
     const donor = await createDonor({ bloodType: 'O+' });
@@ -258,6 +285,27 @@ describe('Appointment Routes Integration', () => {
 
     expect(response.status).toBe(400);
     expect(response.body.message).toMatch(/future/i);
+  });
+
+  it('POST /donations/book-appointment rejects appointments inside the minimum advance window', async () => {
+    await clearDatabase();
+    const donor = await createDonor({ bloodType: 'O+' });
+    const hospital = await createHospital();
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+    const soon = new Date(Date.now() + 12 * 60 * 60 * 1000);
+
+    const response = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        hospitalId: hospital._id.toString(),
+        appointmentDate: soon.toISOString(),
+        donationType: 'Whole Blood',
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toBe('Appointment must be at least 24 hours in advance');
   });
 
   it('GET /donations/book-appointment/my-appointments returns donor appointments', async () => {

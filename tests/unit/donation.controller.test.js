@@ -321,26 +321,36 @@ describe('verification checklist flow', () => {
     await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, makeRes(), vi.fn());
 
     const rejectRes = makeRes();
+    const nextMock = vi.fn();
     await donationController.rejectVerification(
       {
         user: { userId: hospital._id },
         body: { appointmentId: appointment._id.toString(), reason: 'Patient not ready' },
       },
       rejectRes,
-      vi.fn()
+      nextMock
     );
+
+    if (nextMock.mock.calls.length) {
+      console.log('REJECT_ERROR:', nextMock.mock.calls[0][0]);
+    }
 
     expect(rejectRes.status).toHaveBeenCalledWith(200);
 
     const resetRes = makeRes();
+    const resetNext = vi.fn();
     await donationController.resetVerification(
       {
         user: { userId: hospital._id },
         body: { appointmentId: appointment._id.toString() },
       },
       resetRes,
-      vi.fn()
+      resetNext
     );
+
+    if (resetNext.mock.calls.length) {
+      console.log('RESET_ERROR:', resetNext.mock.calls[0][0]);
+    }
 
     expect(resetRes.status).toHaveBeenCalledWith(200);
 
@@ -357,7 +367,7 @@ describe('completeDonation', () => {
   it('completes a verified appointment donation and awards points', async () => {
     const donor = await createDonor({ hemoglobinLevel: 15, weight: 70 });
     const hospital = await createHospital();
-    const request = await createRequest(hospital._id, { bloodType: donor.bloodType, status: 'pending' });
+    const request = await createRequest(hospital._id, { bloodType: donor.bloodType, status: 'in-progress' });
     const appointment = await createVerifiedAppointment({ donor, hospital, request, donationType: 'Whole Blood' });
     const next = vi.fn();
 
@@ -436,7 +446,7 @@ describe('completeDonation', () => {
   it('keeps the legacy donationId completion path working', async () => {
     const donor = await createDonor();
     const request = await createRequest((await createHospital())._id, { bloodType: donor.bloodType });
-    const donation = await createDonation(donor._id, request._id, { status: 'pending' });
+    const donation = await createDonation(donor._id, request._id, { status: 'scheduled' });
 
     const res = makeRes();
     await donationController.completeDonation(

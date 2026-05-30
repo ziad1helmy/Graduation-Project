@@ -3,6 +3,7 @@ import User from '../models/User.model.js';
 import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
+import DonorPoints from '../models/DonorPoints.model.js';
 
 /**
  * Analytics Service - Dashboard metrics, trends, and statistics
@@ -186,6 +187,8 @@ export const getDonationTrends = async (months = 6) => {
     year: t._id.year,
     month: t._id.month,
     total: t.total,
+    totalAttempts: t.total,
+    totalResponses: t.total,
     completed: t.completed,
     cancelled: t.cancelled,
     totalUnits: t.totalUnits,
@@ -197,6 +200,8 @@ export const getDonationTrends = async (months = 6) => {
     month: t._id.month,
     day: t._id.day,
     total: t.total,
+    totalAttempts: t.total,
+    totalResponses: t.total,
     completed: t.completed,
     cancelled: t.cancelled,
     totalUnits: t.totalUnits,
@@ -390,15 +395,32 @@ export const getLeaderboard = async (limit = 10, days = 30) => {
   try {
     const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
-    const topDonors = await Donor.find({
+    const donors = await Donor.find({
       isSuspended: false,
       isEmailVerified: true,
       lastDonationDate: { $gte: startDate },
     })
-      .select('fullName email bloodType pointsBalance lastDonationDate')
-      .sort({ pointsBalance: -1 })
-      .limit(limit)
+      .select('fullName email bloodType lastDonationDate')
       .lean();
+
+    const donorIds = donors.map((donor) => donor._id);
+    const pointsAccounts = await DonorPoints.find({ donorId: { $in: donorIds } })
+      .select('donorId pointsBalance lifetimePointsEarned tier')
+      .lean();
+    const pointsByDonorId = new Map(pointsAccounts.map((account) => [account.donorId.toString(), account]));
+
+    const topDonors = donors
+      .map((donor) => {
+        const account = pointsByDonorId.get(donor._id.toString());
+        return {
+          ...donor,
+          pointsBalance: account?.pointsBalance ?? 0,
+          lifetimePointsEarned: account?.lifetimePointsEarned ?? 0,
+          tier: account?.tier || DonorPoints.calculateTier(account?.lifetimePointsEarned ?? 0),
+        };
+      })
+      .sort((a, b) => b.pointsBalance - a.pointsBalance)
+      .slice(0, parseInt(limit));
 
     return {
       period: `Last ${days} days`,

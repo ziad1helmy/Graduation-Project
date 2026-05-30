@@ -20,6 +20,7 @@ import request from 'supertest';
 import app from '../../src/app.js';
 import { setupTestDB } from '../helpers/db.js';
 import { createHospital, createDonor, createRequest, createDonation, createAdmin } from '../helpers/factories.js';
+import mongoose from 'mongoose';
 import { signToken } from '../../src/utils/jwt.js';
 import Notification from '../../src/models/Notification.model.js';
 import Request from '../../src/models/Request.model.js';
@@ -354,6 +355,9 @@ describe('GET /hospital/find-donors', () => {
     });
 
     const appointmentDate = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    while (appointmentDate.getDay() === 0) {
+      appointmentDate.setDate(appointmentDate.getDate() + 1);
+    }
     appointmentDate.setHours(14, 0, 0, 0); // Set to 2:00 PM for safe booking
 
     const res = await request(app)
@@ -582,7 +586,7 @@ describe('PUT /hospital/requests/:requestId', () => {
   it('updates request status to in-progress', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
-    const req = await createRequest(hospital._id);
+    const req = await createRequest(hospital._id, { status: 'accepted', acceptedDonationId: new mongoose.Types.ObjectId() });
 
     const res = await request(app)
       .put(`/hospital/requests/${req._id}`)

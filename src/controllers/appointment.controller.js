@@ -48,6 +48,10 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
 
 export const bookAppointment = async (req, res, next) => {
   try {
+    console.log('BOOK_APPOINTMENT_START');
+    console.log('AUTH_USER:', req.user);
+    console.log('REQUEST_BODY:', req.body);
+
     const donorId = getDonorId(req);
     const { hospitalId, requestId, appointmentDate, date, time, notes, donationType } = req.body;
 
@@ -73,6 +77,9 @@ export const bookAppointment = async (req, res, next) => {
 
     return response.success(res, 201, 'Appointment booked', toAppointmentResponse(appointment));
   } catch (error) {
+    console.error('BOOK_APPOINTMENT_ERROR:', error);
+    console.error('STACK:', error?.stack);
+
     if (error.message === 'Hospital not found' || error.message === ELIGIBILITY_KEYS.DONOR_NOT_FOUND) {
       return response.error(res, 404, error.message);
     }
@@ -84,6 +91,12 @@ export const bookAppointment = async (req, res, next) => {
     }
     if (
       error.message === 'Appointment date must be in the future' ||
+      error.message === 'Appointment date is invalid' ||
+      error.message === 'Appointment must be at least 24 hours in advance' ||
+      error.message === 'Appointment cannot be more than 30 days in advance' ||
+      error.message === 'Selected day is not available for appointments' ||
+      error.message === 'Hospital appointment scheduling is currently disabled' ||
+      error.message === 'Hospital does not support this donation type' ||
       error.message === 'Invalid donor or hospital id' ||
       error.message === 'Invalid appointment id' ||
       error.message === 'Invalid request id' ||
@@ -92,13 +105,31 @@ export const bookAppointment = async (req, res, next) => {
       error.message === ELIGIBILITY_KEYS.DONOR_CURRENTLY_UNAVAILABLE ||
       error.message === ELIGIBILITY_KEYS.DONOR_SUSPENDED ||
       error.message === ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE ||
+      error.message === ELIGIBILITY_KEYS.ACTIVE_DONATION_IN_PROGRESS ||
       error.message === 'Selected time slot is outside operating hours' ||
+      error.message === 'Selected time slot is no longer available' ||
+      error.message === 'Daily appointment capacity has been reached' ||
       error.message === ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE ||
       error.message === ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE
     ) {
       return response.error(res, 400, error.message);
     }
-    next(error);
+
+    if (error?.name === 'ValidationError') {
+      const details = Object.values(error.errors || {}).map((item) => item.message);
+      return response.error(res, 400, 'error.validation_failed', details);
+    }
+
+    if (error?.name === 'CastError') {
+      return response.error(res, 400, `Invalid ${error.path}`);
+    }
+
+    if (error?.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0];
+      return response.error(res, 409, field ? `Duplicate ${field}` : error.message);
+    }
+
+    return response.error(res, 500, error?.message || 'Internal server error');
   }
 };
 

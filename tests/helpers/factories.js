@@ -100,6 +100,18 @@ export async function createRequest(hospitalId, overrides = {}) {
     requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
     quantity: 2,
     hospitalContact: '1044444444',
+    locationHospital: {
+      latitude: 30.0511,
+      longitude: 31.2435,
+    },
+    hospitalLocation: {
+      lat: 30.0511,
+      lng: 31.2435,
+    },
+    hospitalLocationGeo: {
+      type: 'Point',
+      coordinates: [31.2435, 30.0511],
+    },
     ...overrides,
   });
 }

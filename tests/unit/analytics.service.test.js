@@ -5,6 +5,7 @@ import * as analyticsService from '../../src/services/analytics.service.js';
 import User from '../../src/models/User.model.js';
 import Donation from '../../src/models/Donation.model.js';
 import Request from '../../src/models/Request.model.js';
+import DonorPoints from '../../src/models/DonorPoints.model.js';
 
 setupTestDB();
 
@@ -43,7 +44,11 @@ describe('Analytics Service', () => {
     const currentMonth = trends.find((t) => t.month === new Date().getMonth() + 1);
     expect(currentMonth).toBeTruthy();
     expect(currentMonth.total).toBeGreaterThanOrEqual(3);
+    expect(currentMonth.totalAttempts).toBe(currentMonth.total);
+    expect(currentMonth.totalResponses).toBe(currentMonth.total);
     expect(currentMonth.successRate).toBeTruthy();
+    expect(trends.dailyTrends[0]).toHaveProperty('totalAttempts');
+    expect(trends.dailyTrends[0]).toHaveProperty('totalResponses');
   });
 
   it('getBloodTypeDistribution returns donor and request distribution', async () => {
@@ -79,6 +84,29 @@ describe('Analytics Service', () => {
     expect(topDonors.length).toBeGreaterThan(0);
     // Top donor should have more completed donations
     expect(topDonors[0].completedDonations).toBeGreaterThanOrEqual(topDonors[topDonors.length - 1].completedDonations);
+  });
+
+  it('getLeaderboard ranks verified donors by DonorPoints balance', async () => {
+    const recentDate = new Date();
+    const lowPointsDonor = await createDonor({ fullName: 'Low Points', lastDonationDate: recentDate });
+    const highPointsDonor = await createDonor({ fullName: 'High Points', lastDonationDate: recentDate });
+
+    await DonorPoints.create({
+      donorId: lowPointsDonor._id,
+      pointsBalance: 100,
+      lifetimePointsEarned: 100,
+    });
+    await DonorPoints.create({
+      donorId: highPointsDonor._id,
+      pointsBalance: 900,
+      lifetimePointsEarned: 900,
+    });
+
+    const leaderboard = await analyticsService.getLeaderboard(10, 30);
+
+    expect(leaderboard.count).toBeGreaterThanOrEqual(2);
+    expect(leaderboard.leaderboard[0].fullName).toBe('High Points');
+    expect(leaderboard.leaderboard[0].pointsBalance).toBe(900);
   });
 
   it('getGrowthMetrics tracks user, request, and donation growth', async () => {

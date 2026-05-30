@@ -4,6 +4,7 @@ import { createHospital, createDonor, createRequest } from '../helpers/factories
 import * as donationService from '../../src/services/donation.service.js';
 import * as activityService from '../../src/services/activity.service.js';
 import Activity from '../../src/models/Activity.model.js';
+import Donation from '../../src/models/Donation.model.js';
 
 setupTestDB();
 
@@ -87,6 +88,7 @@ describe('Donation Activity Integration', () => {
       await Activity.deleteMany({ userId: testDonor._id });
 
       // Update donation status to completed
+      await Donation.findByIdAndUpdate(donation._id, { status: 'scheduled' });
       await donationService.updateDonationStatus(donation._id, 'completed');
 
       await new Promise((resolve) => setTimeout(resolve, 100));
@@ -119,6 +121,7 @@ describe('Donation Activity Integration', () => {
 
       await Activity.deleteMany({ userId: testDonor._id });
 
+      await Donation.findByIdAndUpdate(donation._id, { status: 'scheduled' });
       await donationService.updateDonationStatus(donation._id, 'completed');
 
       await new Promise((resolve) => setTimeout(resolve, 100));

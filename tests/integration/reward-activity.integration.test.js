@@ -5,6 +5,7 @@ import * as rewardService from '../../src/services/reward.service.js';
 import * as donationService from '../../src/services/donation.service.js';
 import * as activityService from '../../src/services/activity.service.js';
 import Activity from '../../src/models/Activity.model.js';
+import Donation from '../../src/models/Donation.model.js';
 import DonorPoints from '../../src/models/DonorPoints.model.js';
 import Badge from '../../src/models/Badge.model.js';
 
@@ -36,6 +37,7 @@ describe('Reward Activity Integration', () => {
       await Activity.deleteMany({ userId: testDonor._id });
 
       // Complete donation and trigger reward
+      await Donation.findByIdAndUpdate(donation._id, { status: 'scheduled' });
       await donationService.updateDonationStatus(donation._id, 'completed');
 
       // Wait for fire-and-forget logging
@@ -69,6 +71,7 @@ describe('Reward Activity Integration', () => {
       );
 
       await Activity.deleteMany({ userId: testDonor._id });
+      await Donation.findByIdAndUpdate(donation._id, { status: 'scheduled' });
       await donationService.updateDonationStatus(donation._id, 'completed');
 
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -338,6 +341,7 @@ describe('Reward Activity Integration', () => {
       );
 
       await Activity.deleteMany({ userId: testDonor._id });
+      await Donation.findByIdAndUpdate(donation._id, { status: 'scheduled' });
       await donationService.updateDonationStatus(donation._id, 'completed');
 
       await new Promise((resolve) => setTimeout(resolve, 150));
@@ -361,6 +365,7 @@ describe('Reward Activity Integration', () => {
         { quantity: 1 }
       );
 
+      await Donation.findByIdAndUpdate(donation._id, { status: 'scheduled' });
       await donationService.updateDonationStatus(donation._id, 'completed');
 
       await new Promise((resolve) => setTimeout(resolve, 150));

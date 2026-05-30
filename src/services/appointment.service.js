@@ -15,6 +15,8 @@ import { logger } from '../utils/logger.js';
 import { appointmentPopulateOptions, toAppointmentResponse } from '../utils/appointment.dto.js';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
+import Donation from '../models/Donation.model.js';
+import { validateTransition, validateOrphanState } from '../utils/state-machine.js';
 
 const QR_VALIDITY_BUFFER_MS = 24 * 60 * 60 * 1000;
 const DEFAULT_MAX_RESCHEDULES = 3;
@@ -225,14 +227,14 @@ const assertHospitalIsEligible = async (hospitalId) => {
   return { hospital, hospitalSettings };
 };
 
-const assertAppointmentEligibility = async ({ donor, donationType, request = null, mode = 'create' }) => {
+const assertAppointmentEligibility = async ({ donor, donationType, request = null, mode = 'create', excludeDonationId = null }) => {
   const normalizedDonationType = getNormalizedDonationType(donationType, request?.type);
   const requestType = normalizeDonationTypeRequestKey(normalizedDonationType) || request?.type || 'blood';
 
   if (request) {
     const requestObject = request.toObject?.() || request;
     const eligibilityRequest = { ...requestObject, type: requestType };
-    const eligibility = await donationService.validateEligibility(donor, eligibilityRequest);
+    const eligibility = await donationService.validateEligibility(donor, eligibilityRequest, { excludeDonationId });
     if (!eligibility.eligible) {
       throw new Error(eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
     }
@@ -240,6 +242,7 @@ const assertAppointmentEligibility = async ({ donor, donationType, request = nul
     const eligibility = await eligibilityService.canDonate(donor, {
       persistTravelDeferral: false,
       donationType: requestType,
+      excludeDonationId,
     });
 
     if (!eligibility.eligible) {
@@ -289,9 +292,10 @@ const validateAppointmentScheduling = async ({
   request = null,
   mode = 'create',
   excludeAppointmentId = null,
+  excludeDonationId = null,
 }) => {
   const { hospital, hospitalSettings } = await assertHospitalIsEligible(hospitalId);
-  const normalizedDonationType = await assertAppointmentEligibility({ donor, donationType, request, mode });
+  const normalizedDonationType = await assertAppointmentEligibility({ donor, donationType, request, mode, excludeDonationId });
 
   if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
     throw new Error('Invalid donation type');
@@ -461,6 +465,15 @@ export const cancelActiveAppointmentsForRequest = async (requestId, options = {}
     update.notes = options.notes;
   }
 
+  const appointmentsToCancel = await Appointment.find({
+    requestId,
+    status: { $in: ACTIVE_APPOINTMENT_STATUSES },
+  });
+
+  for (const appt of appointmentsToCancel) {
+    validateTransition('appointment', appt.status, 'cancelled');
+  }
+
   const result = await Appointment.updateMany(
     {
       requestId,
@@ -589,6 +602,8 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       throw new Error('You already have an active appointment at this hospital');
     }
 
+    const pendingDonation = requestId ? await Donation.findOne({ donorId, requestId, status: 'pending' }) : null;
+
     const { normalizedDonationType } = await validateAppointmentScheduling({
       hospitalId,
       donor,
@@ -596,11 +611,12 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       donationType,
       request,
       mode: 'create',
+      excludeDonationId: pendingDonation?._id,
     });
 
     const qrToken = crypto.randomBytes(32).toString('hex');
 
-    const appointment = await Appointment.create({
+    const payload = {
       donorId,
       donorDetails,
       hospitalId,
@@ -611,7 +627,60 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       donationType: normalizedDonationType,
       qrToken,
       qrExpiresAt: getQrExpiryDate(apptDate),
-    });
+    };
+
+    const appointment = await Appointment.create(payload);
+
+    // Create/link a scheduled donation record for the appointment
+    let donation;
+    if (requestId) {
+      // Find the pending donation created when the donor responded to the request
+      donation = await Donation.findOne({ donorId, requestId, status: 'pending' });
+      if (donation) {
+        validateTransition('donation', donation.status, 'scheduled');
+        donation.status = 'scheduled';
+        donation.appointmentId = appointment._id;
+        donation.scheduledDate = apptDate;
+        await donation.save();
+      } else {
+        // Fallback: create a scheduled donation if it wasn't created yet
+        donation = await Donation.create({
+          donorId,
+          requestId,
+          appointmentId: appointment._id,
+          status: 'scheduled',
+          scheduledDate: apptDate,
+          quantity: 1,
+        });
+      }
+
+      if (request.status === 'accepted') {
+        validateTransition('request', request.status, 'in-progress');
+        request.status = 'in-progress';
+        await request.save();
+      }
+    } else {
+      // General appointment: create a scheduled donation
+      donation = await Donation.create({
+        donorId,
+        appointmentId: appointment._id,
+        status: 'scheduled',
+        scheduledDate: apptDate,
+        quantity: 1,
+      });
+    }
+
+    // Call orphan validation to assert integrity
+    try {
+      validateOrphanState('appointment', appointment, { donation });
+      validateOrphanState('donation', donation, { appointment });
+    } catch (err) {
+      await Appointment.findByIdAndDelete(appointment._id);
+      if (donation) {
+        await Donation.findByIdAndDelete(donation._id);
+      }
+      throw err;
+    }
 
     await appointment.populate(appointmentPopulateOptions);
 
@@ -668,8 +737,11 @@ export const cancelAppointment = async (appointmentId, donorId) => {
     const appointment = await Appointment.findOne({ _id: appointmentId, donorId });
     if (!appointment) throw new Error('Appointment not found');
 
-    if (['completed', 'cancelled'].includes(appointment.status)) {
-      throw new Error('This appointment cannot be cancelled');
+    // Guard: validate transition through the centralized state machine.
+    try {
+      validateTransition('appointment', appointment.status, 'cancelled');
+    } catch (err) {
+      throw new Error(err.message);
     }
 
     const hospitalSettings = await getHospitalSettings(toObjectIdString(appointment.hospitalId));
@@ -682,6 +754,23 @@ export const cancelAppointment = async (appointmentId, donorId) => {
     appointment.status = 'cancelled';
     appointment.cancelledAt = new Date();
     await appointment.save();
+
+    // Find and cancel the linked Donation
+    const donation = await Donation.findOne({ appointmentId: appointment._id });
+    if (donation && ['pending', 'scheduled'].includes(donation.status)) {
+      validateTransition('donation', donation.status, 'cancelled');
+      donation.status = 'cancelled';
+      await donation.save();
+    }
+
+    try {
+      validateOrphanState('appointment', appointment, { donation });
+      if (donation) {
+        validateOrphanState('donation', donation, { appointment });
+      }
+    } catch (err) {
+      throw new Error(err.message);
+    }
 
     await appointment.populate(appointmentPopulateOptions);
 
@@ -732,6 +821,7 @@ export const rescheduleAppointment = async (appointmentId, donorId, updateInput,
     if (!donor) throw new Error(ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
 
     const request = appointment.requestId ? await Request.findById(appointment.requestId) : null;
+    const donation = await Donation.findOne({ appointmentId: appointment._id });
 
     await assertRescheduleAvailability({
       appointment,
@@ -747,6 +837,7 @@ export const rescheduleAppointment = async (appointmentId, donorId, updateInput,
       request,
       mode: 'reschedule',
       excludeAppointmentId: appointment._id,
+      excludeDonationId: donation?._id,
     });
 
     if (
@@ -765,7 +856,10 @@ export const rescheduleAppointment = async (appointmentId, donorId, updateInput,
 
     appointment.appointmentDate = apptDate;
     appointment.donationType = normalizedDonationType;
-    appointment.status = 'pending';
+    if (appointment.status !== 'pending') {
+      validateTransition('appointment', appointment.status, 'pending');
+      appointment.status = 'pending';
+    }
     appointment.verificationStatus = 'pending';
     appointment.qrToken = crypto.randomBytes(32).toString('hex');
     appointment.qrExpiresAt = getQrExpiryDate(apptDate);
@@ -795,6 +889,20 @@ export const rescheduleAppointment = async (appointmentId, donorId, updateInput,
 
     syncDonorSnapshot(appointment, donor);
     await appointment.save();
+
+    if (donation) {
+      donation.scheduledDate = apptDate;
+      await donation.save();
+    }
+
+    try {
+      validateOrphanState('appointment', appointment, { donation });
+      if (donation) {
+        validateOrphanState('donation', donation, { appointment });
+      }
+    } catch (err) {
+      throw new Error(err.message);
+    }
 
     await appointment.populate(appointmentPopulateOptions);
 

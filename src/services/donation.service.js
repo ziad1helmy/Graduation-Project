@@ -2,12 +2,15 @@ import mongoose from 'mongoose';
 import Donation from '../models/Donation.model.js';
 import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
+import Appointment from '../models/Appointment.model.js';
 import * as matchingService from './matching.service.js';
 import * as rewardService from './reward.service.js';
 import * as activityService from './activity.service.js';
 import { ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
 import { logger } from '../utils/logger.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import { validateTransition } from '../utils/state-machine.js';
+import { rejectDonationLifecycle } from './request-lifecycle.service.js';
 
 /**
  * Donation Service - Manages donation lifecycle and eligibility
@@ -19,10 +22,10 @@ import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
  * @param {Object} request - Request document
  * @returns {Object} - {eligible: boolean, reason: string}
  */
-export const validateEligibility = async (donor, request) => {
+export const validateEligibility = async (donor, request, options = {}) => {
   try {
     // Use matching service to check eligibility
-    const eligibility = await matchingService.checkEligibility(donor, request);
+    const eligibility = await matchingService.checkEligibility(donor, request, options);
     return eligibility;
   } catch (error) {
     return { eligible: false, reason: 'Error validating eligibility: ' + error.message };
@@ -56,7 +59,7 @@ export const createDonation = async (donorId, requestId, data = {}) => {
     const existingDonation = await Donation.findOne({
       donorId,
       requestId,
-      status: { $ne: 'cancelled' },
+      status: { $nin: ['cancelled', 'rejected'] },
     });
 
     if (existingDonation) {
@@ -104,7 +107,7 @@ export const createDonation = async (donorId, requestId, data = {}) => {
  */
 export const updateDonationStatus = async (donationId, status, data = {}) => {
   try {
-    if (!['pending', 'scheduled', 'completed', 'cancelled'].includes(status)) {
+    if (!['pending', 'scheduled', 'completed', 'cancelled', 'rejected'].includes(status)) {
       throw new Error('Invalid donation status');
     }
 
@@ -115,6 +118,31 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
 
     if (currentDonation.status === status && status === 'completed') {
       return currentDonation;
+    }
+
+    validateTransition('donation', currentDonation.status, status);
+
+    if (status === 'scheduled' && !(data.appointmentId || currentDonation.appointmentId)) {
+      throw new Error('Scheduled donation requires an appointment');
+    }
+
+    if (['cancelled', 'rejected'].includes(status) && (currentDonation.requestId || currentDonation.appointmentId)) {
+      const result = await rejectDonationLifecycle({
+        donationId,
+        donationStatus: status,
+        requestStatus: 'pending',
+      });
+      return result.donation;
+    }
+
+    if (status === 'completed') {
+      if (!currentDonation.appointmentId) {
+        throw new Error('Completed donation requires a completed appointment');
+      }
+      const appointment = await Appointment.findById(currentDonation.appointmentId);
+      if (!appointment || appointment.status !== 'completed') {
+        throw new Error('Completed donation requires a completed appointment');
+      }
     }
 
     const updateData = { status, ...data };
@@ -175,6 +203,22 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
           message: e.message,
         });
       }
+    } else if (status === 'rejected') {
+      await activityService
+        .logActivity(donation.donorId, {
+          type: 'donation',
+          action: 'rejected_donation',
+          title: ACTIVITY_TITLE_MAP.donation_cancelled,
+          description: `Donation rejected (${donation.quantity} unit(s))`,
+          referenceId: donation._id.toString(),
+          referenceType: 'Donation',
+          metadata: {
+            quantity: donation.quantity,
+            previousStatus: currentDonation.status,
+            hospitalName: request?.hospitalName || request?.hospitalId?.hospitalName || request?.hospitalId?.fullName || null,
+          },
+        })
+        .catch((error) => logger.error('Activity log error', { message: error.message }));
     } else if (status === 'cancelled') {
       // Log cancellation activity and await to make logging deterministic for tests
       await activityService
@@ -238,7 +282,7 @@ export const getDonorStats = async (donorId) => {
     { $match: { donorId: new mongoose.Types.ObjectId(donorId) } },
     {
       $facet: {
-        total:     [{ $count: 'n' }],
+        totalResponses: [{ $count: 'n' }],
         completed: [{ $match: { status: 'completed' } }, { $count: 'n' }],
         pending:   [{ $match: { status: 'pending' } },   { $count: 'n' }],
         scheduled: [{ $match: { status: 'scheduled' } }, { $count: 'n' }],
@@ -247,12 +291,17 @@ export const getDonorStats = async (donorId) => {
     },
   ]);
 
+  const totalResponses = result?.totalResponses?.[0]?.n ?? 0;
+  const completedDonations = result?.completed?.[0]?.n ?? 0;
+
   return {
-    totalDonations:     result?.total?.[0]?.n     ?? 0,
-    completedDonations: result?.completed?.[0]?.n ?? 0,
-    pendingDonations:   result?.pending?.[0]?.n   ?? 0,
+    totalResponses,
+    responseCount: totalResponses,
+    totalDonations: completedDonations,
+    completedDonations,
+    pendingDonations: result?.pending?.[0]?.n ?? 0,
     scheduledDonations: result?.scheduled?.[0]?.n ?? 0,
-    totalUnitsDonated:  result?.unitsSum?.[0]?.sum ?? 0,
+    totalUnitsDonated: result?.unitsSum?.[0]?.sum ?? 0,
   };
 };
 
@@ -297,29 +346,13 @@ export const cancelDonation = async (donationId) => {
       throw new Error('Donation not found');
     }
 
-    const donation = await Donation.findByIdAndUpdate(
+    const result = await rejectDonationLifecycle({
       donationId,
-      { status: 'cancelled' },
-      { returnDocument: 'after' }
-    );
+      donationStatus: 'cancelled',
+      requestStatus: 'pending',
+    });
 
-    // Log cancellation activity
-    await activityService
-      .logActivity(donation.donorId, {
-        type: 'donation',
-        action: 'cancelled_donation',
-        title: ACTIVITY_TITLE_MAP.donation_cancelled,
-        description: `Donation cancelled (${donation.quantity} unit(s))`,
-        referenceId: donation._id.toString(),
-        referenceType: 'Donation',
-        metadata: {
-          quantity: donation.quantity,
-          previousStatus: currentDonation.status,
-        },
-      })
-      .catch((error) => logger.error('Activity log error', { message: error.message }));
-
-    return donation;
+    return result.donation;
   } catch (error) {
     throw error;
   }

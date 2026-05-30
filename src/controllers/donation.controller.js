@@ -16,7 +16,9 @@ import * as eligibilityService from '../services/eligibility.service.js';
 import * as donationService from '../services/donation.service.js';
 import * as rewardService from '../services/reward.service.js';
 import { normalizeDonationTypeRequestKey } from '../services/appointment.service.js';
+import { rejectDonationLifecycle } from '../services/request-lifecycle.service.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import { validateTransition, validateOrphanState } from '../utils/state-machine.js';
 
 const MIN_HEMOGLOBIN_LEVEL = 12.5;
 const MAX_HEMOGLOBIN_LEVEL = 20;
@@ -251,56 +253,133 @@ export const completeDonation = async (req, res, next) => {
         return response.error(res, 400, medicalValidation.errors[0], medicalValidation.errors);
       }
 
-      const existingDonation = await Donation.findOne({ appointmentId: appointment._id });
-      if (existingDonation) {
+      // Guard: appointment must transition to completed.
+      try {
+        validateTransition('appointment', appointment.status, 'completed');
+      } catch (err) {
+        return response.error(res, 400, err.message);
+      }
+
+      let donation = await Donation.findOne({ appointmentId: appointment._id });
+      if (donation && donation.status === 'completed') {
         return response.error(res, 409, 'Donation has already been confirmed for this appointment');
+      }
+
+      if (!donation && appointment.requestId?._id) {
+        donation = await Donation.findOne({
+          donorId: donor._id,
+          requestId: appointment.requestId._id,
+          status: { $in: ['pending', 'scheduled'] },
+        });
       }
 
       const now = new Date();
       const request = appointment.requestId?._id
-        ? await Request.findById(appointment.requestId._id).select('urgency hospitalId hospitalName fullName')
+        ? await Request.findById(appointment.requestId._id).select('status urgency hospitalId hospitalName fullName')
         : null;
 
-      const donation = await Donation.create({
-        appointmentId: appointment._id,
-        donorId: donor._id,
-        requestId: appointment.requestId?._id || null,
-        quantity: medicalValidation.unitsCollected,
-        unitsCollected: medicalValidation.unitsCollected,
-        hemoglobinLevel: medicalValidation.hemoglobinLevel,
-        weight: medicalValidation.weight,
-        status: 'completed',
-        notes: medicalValidation.notes,
-        verifiedAt: now,
-        completedDate: now,
-        qrToken: appointment.qrToken || null,
-      });
+      try {
+        if (donation) {
+          if (donation.status === 'pending') {
+            validateTransition('donation', donation.status, 'scheduled');
+            validateTransition('donation', 'scheduled', 'completed');
+          } else {
+            validateTransition('donation', donation.status, 'completed');
+          }
+        } else {
+          validateTransition('donation', 'scheduled', 'completed');
+        }
 
-      await Appointment.findByIdAndUpdate(
-        appointment._id,
-        {
-          $set: {
-            status: 'completed',
-            verificationStatus: 'completed',
-            verificationVerifiedAt: now,
-            verificationChecklist: {
-              ...(appointment.verificationChecklist || {}),
-              completedAt: now,
-            },
-          },
-        },
-        { returnDocument: 'after' }
-      );
-
-      if (appointment.requestId?._id) {
-        await Request.findByIdAndUpdate(appointment.requestId._id, {
-          status: 'completed',
-          completedAt: now,
-          acceptedDonationId: donation._id,
-        });
+        if (request) {
+          if (request.status === 'accepted') {
+            validateTransition('request', request.status, 'in-progress');
+            validateTransition('request', 'in-progress', 'completed');
+          } else {
+            validateTransition('request', request.status, 'completed');
+          }
+        }
+      } catch (err) {
+        return response.error(res, 400, err.message);
       }
 
-      await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: now });
+      let updatedAppointment = null;
+      let updatedRequest = null;
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          if (donation) {
+            donation.appointmentId = appointment._id;
+            donation.quantity = medicalValidation.unitsCollected;
+            donation.unitsCollected = medicalValidation.unitsCollected;
+            donation.hemoglobinLevel = medicalValidation.hemoglobinLevel;
+            donation.weight = medicalValidation.weight;
+            donation.status = 'completed';
+            donation.notes = medicalValidation.notes;
+            donation.verifiedAt = now;
+            donation.completedDate = now;
+            donation.qrToken = appointment.qrToken || null;
+            await donation.save({ session });
+          } else {
+            [donation] = await Donation.create([{
+              appointmentId: appointment._id,
+              donorId: donor._id,
+              requestId: appointment.requestId?._id || null,
+              quantity: medicalValidation.unitsCollected,
+              unitsCollected: medicalValidation.unitsCollected,
+              hemoglobinLevel: medicalValidation.hemoglobinLevel,
+              weight: medicalValidation.weight,
+              status: 'scheduled',
+              notes: medicalValidation.notes,
+              qrToken: appointment.qrToken || null,
+            }], { session });
+            donation.status = 'completed';
+            donation.verifiedAt = now;
+            donation.completedDate = now;
+            await donation.save({ session });
+          }
+
+          updatedAppointment = await Appointment.findByIdAndUpdate(
+            appointment._id,
+            {
+              $set: {
+                status: 'completed',
+                verificationStatus: 'completed',
+                verificationVerifiedAt: now,
+                verificationChecklist: {
+                  ...(appointment.verificationChecklist || {}),
+                  completedAt: now,
+                },
+              },
+            },
+            { returnDocument: 'after', session }
+          );
+
+          if (request) {
+            const requestToUpdate = await Request.findById(request._id).session(session);
+            if (requestToUpdate.status === 'accepted') {
+              requestToUpdate.status = 'in-progress';
+              await requestToUpdate.save({ session });
+            }
+            requestToUpdate.status = 'completed';
+            requestToUpdate.completedAt = now;
+            requestToUpdate.acceptedDonationId = donation._id;
+            updatedRequest = await requestToUpdate.save({ session });
+          }
+
+          validateOrphanState('donation', donation, { appointment: updatedAppointment });
+          validateOrphanState('appointment', updatedAppointment, { donation });
+          if (updatedRequest) {
+            validateOrphanState('request', updatedRequest, { donation });
+          }
+
+          await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: now }, { session });
+        });
+      } catch (err) {
+        return response.error(res, 400, err.message);
+      } finally {
+        session.endSession();
+      }
+
       await rewardService.onDonationCompleted(donor._id, donation._id, request?.urgency === 'critical');
 
       activityService.logActivity(donor._id, {
@@ -342,6 +421,9 @@ export const completeDonation = async (req, res, next) => {
       return response.error(res, 404, error.message);
     }
     if (error.message === 'Invalid donation status') {
+      return response.error(res, 400, error.message);
+    }
+    if (error.message === 'Completed donation requires a completed appointment') {
       return response.error(res, 400, error.message);
     }
     next(error);
@@ -441,9 +523,11 @@ export const verifyQr = async (req, res, next) => {
 
     // Normalize appointment donation label to request.type key before eligibility check
     const apptDonationKey = normalizeDonationTypeRequestKey(appointment.donationType) || 'blood';
+    const donation = await Donation.findOne({ appointmentId: appointment._id });
     const eligibility = await eligibilityService.canDonate(donor, {
       persistTravelDeferral: false,
       donationType: apptDonationKey,
+      excludeDonationId: donation?._id,
     });
     // eligibility computed
     if (!eligibility.eligible) {
@@ -535,9 +619,11 @@ export const confirmArrival = async (req, res, next) => {
         }
 
         const donationTypeKey = normalizeDonationTypeRequestKey(donationType) || 'blood';
+        const linkedDonation = await Donation.findOne({ appointmentId: appointment._id });
         const eligibility = await eligibilityService.canDonate(donor, {
           persistTravelDeferral: false,
           donationType: donationTypeKey,
+          excludeDonationId: linkedDonation?._id,
         });
 
     if (appointment.verificationStatus === 'rejected') {
@@ -555,12 +641,21 @@ export const confirmArrival = async (req, res, next) => {
       return response.error(res, 400, 'All checklist items must be completed');
     }
 
+    if (appointment.status !== 'confirmed') {
+      try {
+        validateTransition('appointment', appointment.status, 'confirmed');
+      } catch (err) {
+        return response.error(res, 400, err.message);
+      }
+    }
+
     const now = new Date();
     const updatedAppointment = await populateAppointmentForVerification(
       Appointment.findByIdAndUpdate(
         appointment._id,
         {
           $set: {
+            status: 'confirmed',
             verificationStatus: 'verified',
             verificationVerifiedAt: now,
             verificationChecklist: {
@@ -575,6 +670,14 @@ export const confirmArrival = async (req, res, next) => {
 
     if (!updatedAppointment) {
       return response.error(res, 409, 'Verification has already been updated');
+    }
+
+    // Call orphan validation to assert cross-entity constraints
+    const donation = await Donation.findOne({ appointmentId: updatedAppointment._id });
+    try {
+      validateOrphanState('appointment', updatedAppointment, { donation });
+    } catch (err) {
+      return response.error(res, 400, err.message);
     }
 
     return response.success(res, 200, 'Arrival confirmed successfully', {
@@ -624,6 +727,20 @@ export const rejectVerification = async (req, res, next) => {
       return response.error(res, 409, 'Appointment has already been completed');
     }
 
+    // Guard: validate appointment transition to 'completed' status is not already in a terminal state
+    // (the appointment itself moves to a verification-failed state, not completed,
+    //  so we only block if it is already 'completed' or 'cancelled').
+    try {
+      // verificationStatus rejection does not change appointment.status directly;
+      // the downstream rejectDonationLifecycle cancels the appointment.
+      // We verify the appointment is not already terminal before proceeding.
+      if (appointment.status === 'cancelled') {
+        return response.error(res, 400, 'Appointment is already cancelled');
+      }
+    } catch (err) {
+      return response.error(res, 400, err.message);
+    }
+
     const now = new Date();
     const updatedAppointment = await Appointment.findByIdAndUpdate(
       appointment._id,
@@ -637,11 +754,22 @@ export const rejectVerification = async (req, res, next) => {
       { returnDocument: 'after' }
     );
 
+    const rejection = await rejectDonationLifecycle({
+      appointmentId: updatedAppointment._id,
+      requestId: updatedAppointment.requestId?._id || updatedAppointment.requestId,
+      donorId: updatedAppointment.donorId?._id || updatedAppointment.donorId,
+      reason: reason || 'Verification rejected by hospital',
+      rejectedBy: req.user.userId,
+      requestStatus: 'pending',
+    });
+
     return response.success(res, 200, 'Verification rejected successfully', {
       appointmentId: updatedAppointment._id,
       verificationStatus: updatedAppointment.verificationStatus,
       rejectedAt: updatedAppointment.verificationRejectedAt,
       reason: updatedAppointment.verificationRejectedReason,
+      requestStatus: rejection.request?.status || null,
+      donationStatus: rejection.donation?.status || null,
     });
   } catch (error) {
     next(error);
@@ -670,10 +798,19 @@ export const resetVerification = async (req, res, next) => {
       return response.error(res, 409, 'Completed appointments cannot be reset');
     }
 
+    if (appointment.status !== 'pending') {
+      try {
+        validateTransition('appointment', appointment.status, 'pending', { isAdminOverride: true });
+      } catch (err) {
+        return response.error(res, 400, err.message);
+      }
+    }
+
     const updatedAppointment = await Appointment.findByIdAndUpdate(
       appointment._id,
       {
         $set: {
+          status: 'pending',
           qrScannedAt: null,
           verificationStatus: 'pending',
           verificationSessionId: null,

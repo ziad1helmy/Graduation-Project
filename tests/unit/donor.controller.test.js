@@ -260,118 +260,10 @@ describe('getDonorRewards', () => {
 });
 
 // =============================================================================
-//  getUrgentRequests  (now excludes declined requests)
-// =============================================================================
-describe('getUrgentRequests', () => {
-  it('returns 200 with requests array and pagination', async () => {
-    const hospital = await createHospital();
-    const donor = await createDonor();
-    const request = await createRequest(hospital._id, { urgency: 'critical', status: 'pending' });
-    matchingService.findCompatibleRequests.mockResolvedValue([
-      {
-        request,
-        score: 100,
-        locationScore: 90,
-        compatibility: { bloodTypeMatch: true, eligible: true },
-      },
-    ]);
-
-    const res = makeRes();
-    await donorController.getUrgentRequests(
-      { user: { userId: donor._id }, query: {} },
-      res,
-      vi.fn()
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    const data = res.json.mock.calls[0][0].data;
-    expect(Array.isArray(data.requests)).toBe(true);
-    expect(data).toHaveProperty('pagination');
-  });
-
-  it('each request has required fields', async () => {
-    const hospital = await createHospital();
-    const donor = await createDonor();
-    const request = await createRequest(hospital._id, { urgency: 'high', bloodType: 'A+', status: 'pending' });
-    matchingService.findCompatibleRequests.mockResolvedValue([
-      {
-        request,
-        score: 98,
-        locationScore: 87,
-        compatibility: { bloodTypeMatch: true, eligible: true },
-      },
-    ]);
-
-    const res = makeRes();
-    await donorController.getUrgentRequests(
-      { user: { userId: donor._id }, query: {} },
-      res,
-      vi.fn()
-    );
-
-    const first = res.json.mock.calls[0][0].data.requests[0];
-    expect(first).toHaveProperty('id');
-    expect(first).toHaveProperty('title');
-    expect(first).toHaveProperty('bloodType');
-    expect(first).toHaveProperty('unitsNeeded');
-    expect(first).toHaveProperty('isEmergency');
-    expect(first).toHaveProperty('patientType');
-    expect(first).toHaveProperty('createdAt');
-  });
-
-  it('excludes requests this donor already declined', async () => {
-    const hospital = await createHospital();
-    const request = await createRequest(hospital._id, { urgency: 'high', status: 'pending' });
-    const donor = await createDonor();
-    matchingService.findCompatibleRequests.mockResolvedValue([
-      {
-        request,
-        score: 95,
-        locationScore: 80,
-        compatibility: { bloodTypeMatch: false, eligible: true },
-      },
-    ]);
-
-    // Simulate a decline: cancelled Donation for this request
-    await Donation.create({
-      donorId: donor._id,
-      requestId: request._id,
-      quantity: 1,
-      status: 'cancelled',
-    });
-
-    const res = makeRes();
-    await donorController.getUrgentRequests(
-      { user: { userId: donor._id }, query: {} },
-      res,
-      vi.fn()
-    );
-
-    const requestIds = res.json.mock.calls[0][0].data.requests.map(r => r.id.toString());
-    expect(requestIds).not.toContain(request._id.toString());
-  });
-
-  it('uses matching service for urgent request visibility', async () => {
-    const donor = await createDonor();
-    const res = makeRes();
-
-    matchingService.findCompatibleRequests.mockResolvedValue([]);
-
-    await donorController.getUrgentRequests(
-      { user: { userId: donor._id }, query: {} },
-      res,
-      vi.fn()
-    );
-
-    expect(matchingService.findCompatibleRequests).toHaveBeenCalledWith(donor._id);
-  });
-});
-
-// =============================================================================
 //  respondToRequest  (accept — decrements unitsNeeded + auto-closes at 0)
 // =============================================================================
 describe('respondToRequest — accept', () => {
-  it('decrements request quantity on accept', async () => {
+  it('keeps request quantity unchanged on accept', async () => {
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { urgency: 'high', quantity: 3, status: 'pending' });
     const donor = await createDonor();
@@ -386,10 +278,11 @@ describe('respondToRequest — accept', () => {
     expect(res.status).toHaveBeenCalledWith(201);
     const { default: Request } = await import('../../src/models/Request.model.js');
     const updated = await Request.findById(request._id);
-    expect(updated.quantity).toBe(2);
+    expect(updated.quantity).toBe(3);
+    expect(updated.status).toBe('accepted');
   });
 
-  it('auto-closes request when unitsNeeded reaches 0', async () => {
+  it('does not auto-close request when accepted quantity equals requested quantity', async () => {
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { urgency: 'critical', quantity: 1, status: 'pending' });
     const donor = await createDonor();
@@ -403,7 +296,7 @@ describe('respondToRequest — accept', () => {
 
     const { default: Request } = await import('../../src/models/Request.model.js');
     const updated = await Request.findById(request._id);
-    expect(updated.status).toBe('completed');
+    expect(updated.status).toBe('accepted');
   });
 
   it('prevents duplicate acceptance', async () => {

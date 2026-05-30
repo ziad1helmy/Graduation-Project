@@ -3,7 +3,8 @@ import ELIGIBILITY_KEYS from '../../src/utils/eligibility-keys.js';
 import { setupTestDB } from '../helpers/db.js';
 import { buildDonor, createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
 import * as matchingService from '../../src/services/matching.service.js';
-import { searchCompatibleDonors } from '../../src/services/matching.service.js';
+import { searchCompatibleDonors, findCompatibleRequests, findNearbyRequests } from '../../src/services/matching.service.js';
+import Appointment from '../../src/models/Appointment.model.js';
 
 vi.mock('../../src/utils/geo.js', () => ({
   calculateDistance: vi.fn(({ latitude: lat1 }, { latitude: lat2 }) => {
@@ -71,6 +72,22 @@ describe('Matching Service — DB-backed flows', () => {
     const requestMatch = results.find((entry) => entry.request._id.toString() === matchingReq._id.toString());
     expect(requestMatch).toBeDefined();
     expect(requestMatch.compatibility.bloodTypeMatch).toBe(true);
+  });
+
+  it('findCompatibleRequests excludes donors with an active donation in progress', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      dateOfBirth: new Date('1990-01-01'),
+      hemoglobinLevel: 14.5,
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    await createDonation(donor._id, request._id, { status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+
+    expect(results).toHaveLength(0);
   });
 });
 /**
@@ -406,5 +423,187 @@ describe('findCompatibleRequests', () => {
   it('should throw for non-existent donor', async () => {
     const fakeId = '000000000000000000000000';
     await expect(findCompatibleRequests(fakeId)).rejects.toThrow(ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
+  });
+});
+
+describe('shared nearby matching engine', () => {
+  it('excludes opted-out donors', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'O+', isOptedIn: false });
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
+  it('excludes suspended donors', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'O+', isSuspended: true });
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
+  it('excludes incompatible blood types', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'A+' });
+    await createRequest(hospital._id, { bloodType: ['B+'], status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
+  it('excludes already responded requests', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'O+' });
+    const request = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    await createDonation(donor._id, request._id, { status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
+  it('excludes donors with an active appointment', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'O+' });
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    await Appointment.create({
+      donorId: donor._id,
+      hospitalId: hospital._id,
+      appointmentDate: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      status: 'pending',
+    });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
+  it('excludes fulfilled, cancelled, and expired requests', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ bloodType: 'O+' });
+
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'completed' });
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'cancelled' });
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'expired' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
+  it('excludes requests outside the matching radius', async () => {
+    const nearHospital = await createHospital({
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0511, lng: 31.2435 },
+        lastUpdated: new Date(),
+      },
+    });
+    const farHospital = await createHospital({
+      location: {
+        city: 'Alexandria',
+        governorate: 'Alexandria',
+        coordinates: { lat: 31.2001, lng: 29.9187 },
+        lastUpdated: new Date(),
+      },
+    });
+    const donor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0444, lng: 31.2357 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const nearRequest = await createRequest(nearHospital._id, {
+      bloodType: 'O+',
+      status: 'pending',
+      locationHospital: {
+        latitude: nearHospital.location.coordinates.lat,
+        longitude: nearHospital.location.coordinates.lng,
+      },
+      hospitalLocation: {
+        lat: nearHospital.location.coordinates.lat,
+        lng: nearHospital.location.coordinates.lng,
+      },
+      hospitalLocationGeo: {
+        type: 'Point',
+        coordinates: [nearHospital.location.coordinates.lng, nearHospital.location.coordinates.lat],
+      },
+    });
+    const farRequest = await createRequest(farHospital._id, {
+      bloodType: 'O+',
+      status: 'pending',
+      locationHospital: {
+        latitude: farHospital.location.coordinates.lat,
+        longitude: farHospital.location.coordinates.lng,
+      },
+      hospitalLocation: {
+        lat: farHospital.location.coordinates.lat,
+        lng: farHospital.location.coordinates.lng,
+      },
+      hospitalLocationGeo: {
+        type: 'Point',
+        coordinates: [farHospital.location.coordinates.lng, farHospital.location.coordinates.lat],
+      },
+    });
+
+    const results = await findCompatibleRequests(donor._id, { radiusKm: 20 });
+    const requestIds = results.map((entry) => entry.request._id.toString());
+
+    expect(requestIds).toContain(nearRequest._id.toString());
+    expect(requestIds).not.toContain(farRequest._id.toString());
+  });
+
+  it('returns compatible requests inside the radius', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0444, lng: 31.2357 },
+        lastUpdated: new Date(),
+      },
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].request._id.toString()).toBe(request._id.toString());
+  });
+
+  it('keeps nearby discovery aligned for a compatible request pair', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0444, lng: 31.2357 },
+        lastUpdated: new Date(),
+      },
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    const nearbyResults = await findNearbyRequests({
+      location: donor.location,
+      radiusKm: 30,
+      filters: { bloodType: 'O+' },
+      limit: 10,
+    });
+
+    const matchResults = await findCompatibleRequests(donor._id, { radiusKm: 30 });
+    const nearbyRequestIds = nearbyResults.map((entry) => entry.request._id.toString());
+    const matchRequestIds = matchResults.map((entry) => entry.request._id.toString());
+
+    expect(nearbyRequestIds).toContain(request._id.toString());
+    expect(matchRequestIds).toContain(request._id.toString());
   });
 });

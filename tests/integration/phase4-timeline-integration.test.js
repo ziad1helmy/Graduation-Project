@@ -75,6 +75,7 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
           req._id,
           { quantity: 1 }
         );
+        await Donation.findByIdAndUpdate(donation._id, { status: 'completed' });
         donations.push(donation);
       }
 
@@ -133,6 +134,7 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
           req._id,
           { quantity: 1 }
         );
+        await Donation.findByIdAndUpdate(donation._id, { status: 'completed' });
         donations.push(donation);
         
         await new Promise((resolve) => setTimeout(resolve, 10));
@@ -196,7 +198,8 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
         const req = await createRequest(testHospital._id, {
           bloodType: testDonor.bloodType,
         });
-        await donationService.createDonation(testDonor._id, req._id, { quantity: 1 });
+        const donation = await donationService.createDonation(testDonor._id, req._id, { quantity: 1 });
+        await Donation.findByIdAndUpdate(donation._id, { status: 'completed' });
       }
 
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -217,7 +220,8 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
         const req = await createRequest(testHospital._id, {
           bloodType: testDonor.bloodType,
         });
-        await donationService.createDonation(testDonor._id, req._id, { quantity: 1 });
+        const donation = await donationService.createDonation(testDonor._id, req._id, { quantity: 1 });
+        await Donation.findByIdAndUpdate(donation._id, { status: 'completed' });
       }
 
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -285,7 +289,8 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
         const req = await createRequest(testHospital._id, {
           bloodType: testDonor.bloodType,
         });
-        await donationService.createDonation(testDonor._id, req._id, { quantity: 1 });
+        const donation = await donationService.createDonation(testDonor._id, req._id, { quantity: 1 });
+        await Donation.findByIdAndUpdate(donation._id, { status: 'completed' });
       }
 
       await new Promise((resolve) => setTimeout(resolve, 200));
@@ -308,7 +313,8 @@ describe('Phase 4: Timeline Integration — End-to-End Workflows', () => {
         const req = await createRequest(testHospital._id, {
           bloodType: testDonor.bloodType,
         });
-        await donationService.createDonation(testDonor._id, req._id, { quantity: 1 });
+        const donation = await donationService.createDonation(testDonor._id, req._id, { quantity: 1 });
+        await Donation.findByIdAndUpdate(donation._id, { status: 'completed' });
       }
 
       await new Promise((resolve) => setTimeout(resolve, 200));
