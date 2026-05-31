@@ -121,3 +121,46 @@ export const validateCreateRequestBody = (body = {}) => {
 
   return { valid: errors.length === 0, errors, bloodTypes: normalizedBloodTypes };
 };
+
+/**
+ * Validate create emergency request payload.
+ */
+export const validateCreateEmergencyRequestBody = (body = {}) => {
+  const errors = [];
+  const allowedFields = new Set(['bloodType', 'unitsNeeded', 'patientDetails', 'isEmergency']);
+  const unexpectedFields = Object.keys(body).filter((key) => !allowedFields.has(key));
+
+  if (unexpectedFields.length > 0) {
+    errors.push(`Unexpected field${unexpectedFields.length > 1 ? 's' : ''}: ${unexpectedFields.join(', ')}`);
+  }
+
+  if (!body.bloodType || typeof body.bloodType !== 'string' || !body.bloodType.trim()) {
+    errors.push('bloodType is required');
+  }
+
+  const unitsNeeded = Number(body.unitsNeeded);
+  if (!Number.isInteger(unitsNeeded) || unitsNeeded < 1) {
+    errors.push('unitsNeeded is required and must be a positive integer');
+  }
+
+  if (typeof body.patientDetails !== 'string' || !body.patientDetails.trim()) {
+    errors.push('patientDetails is required');
+  }
+
+  if (body.isEmergency !== undefined && body.isEmergency !== true) {
+    errors.push('isEmergency must be true');
+  }
+
+  const bloodTypes = body.bloodType ? normalizeBloodTypeList(body.bloodType) : [];
+  if (body.bloodType && bloodTypes.length === 0) {
+    errors.push('bloodType must be a valid blood type');
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors,
+    bloodTypes,
+    unitsNeeded: Number.isInteger(unitsNeeded) && unitsNeeded > 0 ? unitsNeeded : null,
+    patientDetails: typeof body.patientDetails === 'string' ? body.patientDetails.trim() : '',
+  };
+};

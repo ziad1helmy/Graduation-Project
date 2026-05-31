@@ -599,7 +599,9 @@ export const cancelRequest = async (req, res, next) => {
         requestId: request._id,
         donorId: req.user.userId,
         donationStatus: 'cancelled',
-        requestStatus: 'pending',
+        // When a donor cancels their accepted request, we treat the whole
+        // request as cancelled rather than reverting it to pending.
+        requestStatus: 'cancelled',
         reason: 'Donation cancelled by donor',
       });
 

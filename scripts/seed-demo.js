@@ -659,6 +659,24 @@ async function main() {
     }
   );
 
+  requests.cairoUrgentBlood = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-urgent-ab-positive' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      type: 'blood',
+      bloodType: ['AB+', 'A+'],
+      urgency: 'high',
+      status: 'pending',
+      requiredBy: futureDate(2),
+      quantity: 2,
+      cause: 'Emergency trauma support',
+      notes: '[demo-seed] cairo-urgent-ab-positive',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
+    }
+  );
+
   requests.cairoPlatelets = await ensureRequest(
     { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-platelets-high' },
     {
@@ -822,10 +840,10 @@ async function main() {
   );
 
   donations.leilaDeclined = await ensureDonation(
-    { donorId: donors.leila._id, requestId: requests.cairoOrgan._id, status: 'cancelled' },
+    { donorId: donors.leila._id, requestId: requests.cairoUrgentBlood._id, status: 'cancelled' },
     {
       donorId: donors.leila._id,
-      requestId: requests.cairoOrgan._id,
+      requestId: requests.cairoUrgentBlood._id,
       status: 'cancelled',
       quantity: 1,
       notes: 'Declined urgent request due to temporary unavailability.',
@@ -1267,12 +1285,12 @@ async function main() {
     type: 'emergency_response',
     action: 'declined_urgent_request',
     title: 'Urgent Request Declined',
-    description: 'Leila Mansour declined the emergency kidney request while unavailable.',
+    description: 'Leila Mansour declined the emergency blood request while unavailable.',
     referenceId: donations.leilaDeclined._id.toString(),
     referenceType: 'Donation',
     icon: 'x-circle',
     metadata: {
-      requestId: requests.cairoOrgan._id.toString(),
+      requestId: requests.cairoUrgentBlood._id.toString(),
       urgency: 'high',
     },
   });
@@ -1570,8 +1588,8 @@ async function main() {
   printReferenceBlock('Seeded demo coverage:', [
     '7 donors with varied blood types, participation preference, settings, health history, points, and activity',
     '2 hospitals with discovery-ready coordinates, slot configuration, blood bank settings, and staff',
-    '9 requests covering blood + component donations and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
-    '9 donations covering pending/scheduled/completed/cancelled/rejected states, including emergency responder matches',
+    '12 requests covering blood + component donations and pending/in-progress/completed/cancelled states, plus critical emergency responder matches',
+    '13 donations covering pending/scheduled/completed/cancelled/rejected states, including emergency responder matches',
     '5 appointments covering pending/confirmed/cancelled and QR verification flows',
     'Notifications, rewards, badges, support messages, and audit logs',
   ]);
@@ -1581,6 +1599,7 @@ async function main() {
     `high blood request: ${requests.gizaHighBlood._id}`,
     `completed blood request: ${requests.cairoCompletedBlood._id}`,
     `cancelled blood request: ${requests.gizaCancelledBlood._id}`,
+    `urgent blood request: ${requests.cairoUrgentBlood._id}`,
     `platelets request: ${requests.cairoPlatelets._id}`,
     `pending O- request: ${requests.gizaOminus._id}`,
     `cairo emergency (O+ responder match): ${requests.cairoEmergencyForResponder._id}`,

@@ -40,7 +40,7 @@ router.put('/appointment-settings', hospitalController.updateAppointmentSettings
 // Request management routes
 router.post('/request', hospitalController.createRequest);
 // Backwards-compatible alias for emergency shortcut
-router.post('/requests/create-emergency', hospitalController.createRequest);
+router.post('/requests/create-emergency', hospitalController.createEmergencyRequest);
 // Hospital dashboard
 router.get('/dashboard', hospitalController.getMonthlyReports);
 router.get('/history', hospitalController.getRequestHistory);

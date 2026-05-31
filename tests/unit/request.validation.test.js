@@ -4,6 +4,7 @@ import {
   validateRequestIdParam,
   validateQrBody,
 } from '../../src/validation/request.validation.js';
+import { validateCreateEmergencyRequestBody } from '../../src/validation/hospital.validation.js';
 
 describe('request validation', () => {
   it('accepts a valid nearby query', () => {
@@ -21,5 +22,31 @@ describe('request validation', () => {
   it('rejects missing request id', () => {
     const result = validateRequestIdParam({});
     expect(result.valid).toBe(false);
+  });
+
+  it('accepts a valid emergency request payload', () => {
+    const result = validateCreateEmergencyRequestBody({
+      bloodType: 'A+',
+      unitsNeeded: 2,
+      patientDetails: 'Patient details',
+      isEmergency: true,
+    });
+
+    expect(result.valid).toBe(true);
+    expect(result.errors).toHaveLength(0);
+    expect(result.bloodTypes).toEqual(['A+']);
+    expect(result.unitsNeeded).toBe(2);
+  });
+
+  it('rejects unexpected fields in emergency request payload', () => {
+    const result = validateCreateEmergencyRequestBody({
+      bloodType: 'A+',
+      unitsNeeded: 2,
+      patientDetails: 'Patient details',
+      hospitalId: 'bad-id',
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/Unexpected field/i);
   });
 });

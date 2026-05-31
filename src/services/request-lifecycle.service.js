@@ -185,6 +185,7 @@ export const rejectDonationLifecycle = async ({
       referenceId: donation._id.toString(),
       referenceType: 'Donation',
       metadata: {
+          quantity: donation?.quantity || 1,
         requestId: request ? request._id.toString() : null,
         donationId: donation._id.toString(),
         previousStatus: previousDonationStatus,

@@ -466,17 +466,86 @@ describe('POST /hospital/request', () => {
 
     expect(res.status).toBeGreaterThanOrEqual(400);
   });
+});
 
-  it('emergency alias POST /hospital/requests/create-emergency also works', async () => {
+describe('POST /hospital/requests/create-emergency', () => {
+  it('creates a minimal emergency request and derives hospital data from auth', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
 
     const res = await request(app)
       .post('/hospital/requests/create-emergency')
       .set('Authorization', `Bearer ${token}`)
-      .send({ ...validRequestBody(), urgency: 'critical' });
+      .send({
+        bloodType: 'A+',
+        unitsNeeded: 2,
+        patientDetails: 'Patient details...',
+        isEmergency: true,
+      });
 
     expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.isEmergency).toBe(true);
+    expect(res.body.data.urgency).toBe('critical');
+    expect(res.body.data.unitsNeeded).toBe(2);
+    expect(res.body.data.patientType).toBe('Patient details...');
+    expect(String(res.body.data.hospitalId._id || res.body.data.hospitalId)).toBe(hospital._id.toString());
+
+    const stored = await Request.findById(res.body.data._id).populate('hospitalId', 'hospitalName contactNumber');
+    expect(String(stored.hospitalId._id || stored.hospitalId)).toBe(hospital._id.toString());
+    expect(stored.hospitalName).toBe(hospital.hospitalName);
+    expect(stored.contactNumber).toBe(hospital.contactNumber);
+    expect(stored.isEmergency).toBe(true);
+  });
+
+  it('rejects emergency requests missing bloodType', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    const res = await request(app)
+      .post('/hospital/requests/create-emergency')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        unitsNeeded: 2,
+        patientDetails: 'Patient details...',
+        isEmergency: true,
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects emergency requests missing unitsNeeded', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    const res = await request(app)
+      .post('/hospital/requests/create-emergency')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        bloodType: 'A+',
+        patientDetails: 'Patient details...',
+        isEmergency: true,
+      });
+
+    expect(res.status).toBe(400);
+  });
+
+  it('rejects emergency requests with extra fields', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    const res = await request(app)
+      .post('/hospital/requests/create-emergency')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        bloodType: 'A+',
+        unitsNeeded: 2,
+        patientDetails: 'Patient details...',
+        isEmergency: true,
+        hospitalId: 'bad-id',
+      });
+
+    expect(res.status).toBe(400);
   });
 });
 
