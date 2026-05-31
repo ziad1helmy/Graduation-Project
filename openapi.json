@@ -3,7 +3,7 @@
   "info": {
     "title": "LifeLink API",
     "version": "1.0.0",
-    "description": "OpenAPI documentation for the LifeLink donation platform API. All routes are mounted at root paths. For realistic data and examples, run `npm run seed-demo` and use the seeded demo credentials, QR tokens, and printed IDs."
+    "description": "OpenAPI documentation for the LifeLink donation platform API. All routes are mounted at root paths. For realistic data and examples, run `npm run seed-demo` and use the seeded demo credentials, QR tokens, and printed IDs.\n\nCurrent lifecycle rules reflected by the backend implementation:\n- Request states: `pending` -> `accepted` -> `in-progress` -> `completed`, with `cancelled` and `expired` as terminal states.\n- Donation states: `pending` -> `scheduled` -> `completed`, with `cancelled` and `rejected` as terminal states.\n- Appointment states: `pending` -> `confirmed` -> `completed`, with `cancelled` as the terminal cancellation state.\n- Rejecting a donation clears the request's `acceptedDonationId`, restores the request to `pending` when the request-flow allows it, cancels linked appointments, and restores matching visibility.\n- A request can only be completed when a completed donation exists for the same `requestId`.\n- Donors with active donations (`pending` or `scheduled`) cannot respond to requests, book new appointments, or receive donor match results.\n- Matching is centralized and applies blood compatibility, ABO/Rh compatibility, participation preference, donation cooldown rules, temporary deferrals, travel deferrals, and active-donation blocking before a match is returned.\n\n**âš ï¸  Migration Notice (Effective June 1, 2026)**\n\nThe following endpoints have been removed and consolidated into `/requests/nearby`:\n- `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`\n- `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`\n- `POST /donor/urgent-requests/{requestId}/accept` â†’ Use `POST /requests/{requestId}/accept`\n- `POST /donor/urgent-requests/{requestId}/decline` â†’ No longer supported (non-response indicates non-interest)\n\nSee the `urgency` parameter in `/requests/nearby` for filtering by urgency level. For detailed migration instructions, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)."
   },
   "servers": [
     {
@@ -1813,7 +1813,7 @@
                       },
                       {
                         "id": "69fe540565ff7785a0313157",
-                        "title": "200 Points Earned — Blood Donation",
+                        "title": "200 Points Earned â€” Blood Donation",
                         "description": "Points awarded for completed blood donation.",
                         "type": "reward",
                         "action": "earned_points",
@@ -2196,7 +2196,7 @@
           "Donor"
         ],
         "summary": "Update donor participation preference",
-        "description": "Allows a donor to opt in or out of donor matching.\nThis updates **participation preference only** — it does NOT affect\nmedical eligibility, which is computed dynamically from donation history,\ndeferral state, and health fields.\n\nBoth `isOptedIn` (new) and `isAvailable` (legacy) are accepted\nfor backward compatibility. Internally always stored as `isOptedIn`.\n\nDemo seed available via `npm run seed-demo`.\n",
+        "description": "Allows a donor to opt in or out of donor matching.\nThis updates **participation preference only** â€” it does NOT affect\nmedical eligibility, which is computed dynamically from donation history,\ndeferral state, and health fields.\n\nBoth `isOptedIn` (new) and `isAvailable` (legacy) are accepted\nfor backward compatibility. Internally always stored as `isOptedIn`.\n\nDemo seed available via `npm run seed-demo`.\n",
         "security": [
           {
             "bearerAuth": []
@@ -2317,7 +2317,7 @@
           "Donor"
         ],
         "summary": "Book a donor appointment with a hospital",
-        "description": "Books an appointment for an authenticated donor at a hospital.\n\n**Important notes:**\n- Donors can only have ONE active appointment per hospital\n- Concurrent booking attempts are handled atomically to prevent duplicates\n- Appointment date must be in the future and within hospital's scheduling window\n- Hospital must be verified and active to accept bookings\n",
+        "description": "Books an appointment for an authenticated donor at a hospital.\n\n**Important notes:**\n- Donors with an active donation (`pending` or `scheduled`) cannot book a new appointment\n- Donors can only have ONE active appointment per hospital\n- Concurrent booking attempts are handled atomically to prevent duplicates\n- Appointment date must be in the future and within hospital's scheduling window\n- Hospital must be verified and active to accept bookings\n",
         "security": [
           {
             "bearerAuth": []
@@ -2411,7 +2411,7 @@
             "description": "Missing or invalid JWT"
           },
           "403": {
-            "description": "Role not allowed"
+            "description": "Role not allowed or donor has an active donation in progress"
           },
           "404": {
             "description": "Hospital, donor, or request not found"
@@ -2945,7 +2945,7 @@
           "Donor"
         ],
         "summary": "Validate if a donor can donate for a given hospital and date",
-        "description": "Checks donation eligibility based on:\n- Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d)\n- Minimum age (17 years old)\n- Hemoglobin level (minimum 12.5 g/dL)\n- Travel deferrals\n- Temporary medical deferrals\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "description": "Checks donation eligibility based on:\n- Active donation blocking (`pending` or `scheduled` donations are not eligible)\n- Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d)\n- Minimum age (17 years old)\n- Hemoglobin level (minimum 12.5 g/dL)\n- Travel deferrals\n- Temporary medical deferrals\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -3022,7 +3022,8 @@
                   "message": "Donation eligibility checked",
                   "data": {
                     "canDonate": true,
-                    "reason": null
+                    "reason": null,
+                    "nextEligibleDate": null
                   }
                 }
               }
@@ -3238,7 +3239,7 @@
           "Donor"
         ],
         "summary": "List donation requests matched to the authenticated donor",
-        "description": "Returns requests produced by the shared matching engine in `src/services/matching.service.js` (`findCompatibleRequests`).\nThis is the donor-facing endpoint that already uses the same blood-type, availability, eligibility, and location-aware matching logic referenced by hospital emergency flows.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns requests produced by the centralized matching engine in `src/services/matching.service.js` (`findCompatibleRequests`).\nMatching applies blood compatibility, ABO/Rh compatibility, participation preference, active donation blocking, donation cooldowns, temporary deferrals, travel deferrals, and location distance before a request is returned.\nDonors with active donations (`pending` or `scheduled`) receive an empty match list.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -3279,7 +3280,8 @@
                         "locationScore": 73.5,
                         "compatibility": {
                           "bloodTypeMatch": true,
-                          "eligible": true
+                          "eligible": true,
+                          "distanceKm": 2.4
                         },
                         "request": {
                           "_id": "69fe540565ff7785a031314f",
@@ -3395,224 +3397,13 @@
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
       }
     },
-    "/donor/urgent-requests": {
-      "get": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Get urgent donation requests for the authenticated donor",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Urgent requests retrieved successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Urgent requests retrieved",
-                  "data": {
-                    "requests": [
-                      {
-                        "id": "69fe540565ff7785a031314f",
-                        "title": "Urgent Blood Request - O-",
-                        "bloodType": "O-",
-                        "unitsNeeded": 3,
-                        "hospitalName": "Cairo Care Hospital",
-                        "distance": 2.4,
-                        "isEmergency": true,
-                        "patientType": "blood",
-                        "contactNumber": "0223456789",
-                        "createdAt": "2026-05-18T08:20:00.000Z",
-                        "location": {
-                          "lat": 30.0444,
-                          "lng": 31.2357
-                        }
-                      }
-                    ],
-                    "pagination": {
-                      "total": 1,
-                      "page": 1,
-                      "limit": 20
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/donor/urgent-requests/{requestId}": {
-      "get": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Get details for one urgent donation request",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "requestId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "example": "69fe540565ff7785a031314f"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Urgent request details retrieved successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Urgent request retrieved successfully",
-                  "data": {
-                    "request": {
-                      "id": "69fe540565ff7785a031314f",
-                      "title": "Urgent Blood Request - O-",
-                      "bloodType": "O-",
-                      "unitsNeeded": 3,
-                      "hospitalName": "Cairo Care Hospital",
-                      "contactNumber": "0223456789",
-                      "isEmergency": true,
-                      "patientType": "blood",
-                      "createdAt": "2026-05-18T08:20:00.000Z",
-                      "location": {
-                        "lat": 30.0444,
-                        "lng": 31.2357
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request not found"
-          }
-        }
-      }
-    },
-    "/donor/urgent-requests/{requestId}/accept": {
-      "post": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Accept an urgent donation request",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "requestId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "example": "69fe540565ff7785a031314f"
-          }
-        ],
-        "requestBody": {
-          "required": false,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "quantity": {
-                    "type": "number",
-                    "example": 1
-                  }
-                }
-              },
-              "example": {
-                "quantity": 1
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Response submitted successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Response submitted successfully",
-                  "data": {
-                    "_id": "66f100000000000000000010",
-                    "donorId": "66f100000000000000000002",
-                    "requestId": "66f100000000000000000020",
-                    "quantity": 1,
-                    "status": "pending"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/donor/urgent-requests/{requestId}/decline": {
-      "post": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Decline an urgent donation request",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "requestId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "example": "69fe540565ff7785a031314f"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Urgent request declined successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Urgent request declined successfully"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request not found"
-          }
-        }
-      }
-    },
     "/requests/nearby": {
       "get": {
         "tags": [
           "Donor"
         ],
         "summary": "Get nearby requests around the caller's coordinates",
-        "description": "Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.\nThis endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.\nCurrent controller behavior filters requests by status (`pending` and `accepted`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.\nThis endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.\nCurrent controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.\nWhen called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.\n\n**Migration Note**: This endpoint replaces the deprecated endpoints:\n- `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`\n- `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -3681,7 +3472,7 @@
                 "critical"
               ]
             },
-            "description": "Filter by urgency",
+            "description": "Filter requests by urgency level.\n- Use `urgency=critical` or `urgency=high` to retrieve urgent requests.\n- This parameter replaces the deprecated `/donor/urgent-requests` endpoints.\n- If not specified, returns requests of all urgency levels.",
             "example": "critical"
           },
           {
@@ -3930,7 +3721,7 @@
             "bearerAuth": []
           }
         ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.\n\nDonors with active donations (`pending` or `scheduled`) are blocked by the centralized eligibility service and receive a validation error instead of a request response.",
         "responses": {
           "200": {
             "description": "Example response",
@@ -3998,6 +3789,64 @@
                 }
               }
             }
+          },
+          "400": {
+            "description": "Request cannot be accepted or donor is not eligible"
+          },
+          "403": {
+            "description": "Donor role required or access denied"
+          },
+          "404": {
+            "description": "Request or donor not found"
+          }
+        }
+      }
+    },
+    "/requests/{id}/reject": {
+      "post": {
+        "tags": [
+          "Hospital"
+        ],
+        "summary": "Reject an accepted request donation",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "description": "Rejects the accepted donation linked to a request.\nThe backend clears `acceptedDonationId`, restores donor eligibility for matching, cancels any linked active appointments, and reopens the request when the lifecycle allows it.\nFor hospital callers this is the main rejection flow after a donor has already accepted a request.",
+        "responses": {
+          "200": {
+            "description": "Request rejected successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Request rejected successfully",
+                  "data": {
+                    "request": {
+                      "_id": "69fe540565ff7785a031314f",
+                      "status": "pending",
+                      "acceptedBy": null,
+                      "acceptedDonationId": null,
+                      "acceptedAt": null
+                    },
+                    "donation": {
+                      "_id": "69fe540565ff7785a0313157",
+                      "status": "rejected"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Request has no accepted donation to reject or rejection is not allowed from the current state"
+          },
+          "403": {
+            "description": "Role not allowed or unauthorized access to this request"
+          },
+          "404": {
+            "description": "Request not found"
           }
         }
       }
@@ -6234,72 +6083,43 @@
         ],
         "responses": {
           "200": {
-            "description": "Donor statistics including donation count by type",
+            "description": "Donor statistics including response counts and completed donations",
             "content": {
               "application/json": {
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "donorId": {
-                      "type": "string"
-                    },
-                    "fullName": {
-                      "type": "string"
-                    },
-                    "email": {
-                      "type": "string"
-                    },
-                    "bloodType": {
-                      "type": "string"
-                    },
-                    "pointsBalance": {
+                    "totalResponses": {
                       "type": "number"
                     },
-                    "totalPointsEarned": {
+                    "responseCount": {
                       "type": "number"
                     },
                     "totalDonations": {
                       "type": "number"
                     },
-                    "donationsByType": {
-                      "type": "object",
-                      "properties": {
-                        "blood": {
-                          "type": "number"
-                        },
-                        "plasma": {
-                          "type": "number"
-                        },
-                        "platelets": {
-                          "type": "number"
-                        }
-                      }
+                    "completedDonations": {
+                      "type": "number"
                     },
-                    "lastDonationDate": {
-                      "type": "string",
-                      "format": "date-time"
+                    "pendingDonations": {
+                      "type": "number"
                     },
-                    "joinDate": {
-                      "type": "string",
-                      "format": "date-time"
+                    "scheduledDonations": {
+                      "type": "number"
+                    },
+                    "totalUnitsDonated": {
+                      "type": "number"
                     }
                   }
                 },
                 "example": {
-                  "donorId": "69f3df915f42685cbbbcbb18",
-                  "fullName": "Aya Hassan",
-                  "email": "aya.hassan@lifelink.demo",
-                  "bloodType": "O+",
-                  "pointsBalance": 2340,
-                  "totalPointsEarned": 2600,
+                  "totalResponses": 11,
+                  "responseCount": 11,
                   "totalDonations": 8,
-                  "donationsByType": {
-                    "blood": 6,
-                    "plasma": 1,
-                    "platelets": 1
-                  },
-                  "lastDonationDate": "2026-05-08T12:00:00.000Z",
-                  "joinDate": "2026-05-08T12:00:00.000Z"
+                  "completedDonations": 8,
+                  "pendingDonations": 2,
+                  "scheduledDonations": 1,
+                  "totalUnitsDonated": 10
                 }
               }
             }
@@ -6343,9 +6163,56 @@
         ],
         "responses": {
           "200": {
-            "description": "Top donors leaderboard",
+            "description": "Top donors leaderboard ranked by points balance within the requested window",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "period": {
+                      "type": "string"
+                    },
+                    "count": {
+                      "type": "integer"
+                    },
+                    "leaderboard": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "rank": {
+                            "type": "integer"
+                          },
+                          "_id": {
+                            "type": "string"
+                          },
+                          "fullName": {
+                            "type": "string"
+                          },
+                          "email": {
+                            "type": "string"
+                          },
+                          "bloodType": {
+                            "type": "string"
+                          },
+                          "lastDonationDate": {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          "pointsBalance": {
+                            "type": "number"
+                          },
+                          "lifetimePointsEarned": {
+                            "type": "number"
+                          },
+                          "tier": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
                 "example": {
                   "success": true,
                   "data": {
@@ -6359,6 +6226,8 @@
                         "email": "aya.hassan@lifelink.demo",
                         "bloodType": "O+",
                         "pointsBalance": 2340,
+                        "lifetimePointsEarned": 2840,
+                        "tier": "gold",
                         "lastDonationDate": "2026-05-10T12:30:00.000Z"
                       },
                       {
@@ -6368,6 +6237,8 @@
                         "email": "mina.adel@lifelink.demo",
                         "bloodType": "A-",
                         "pointsBalance": 1880,
+                        "lifetimePointsEarned": 1880,
+                        "tier": "silver",
                         "lastDonationDate": "2026-05-08T09:00:00.000Z"
                       }
                     ]
@@ -7446,7 +7317,7 @@
           "Hospital"
         ],
         "summary": "Create a hospital donation request",
-        "description": "Creates a blood, plasma, or platelets donation request for the authenticated hospital. Emergency requests may set `isEmergency: true` and omit `urgency`.",
+        "description": "Creates a blood, plasma, platelets, or double red cells donation request for the authenticated hospital.\nThe server derives the hospital identity and location from the authenticated user.\nEmergency requests may set `isEmergency: true` and omit `urgency`; the controller will persist them as critical blood requests.",
         "security": [
           {
             "bearerAuth": []
@@ -7468,8 +7339,23 @@
                     "enum": [
                       "blood",
                       "plasma",
-                      "platelets"
+                      "platelets",
+                      "double_red_cells"
                     ]
+                  },
+                  "bloodType": {
+                    "type": "string",
+                    "enum": [
+                      "A+",
+                      "A-",
+                      "B+",
+                      "B-",
+                      "AB+",
+                      "AB-",
+                      "O+",
+                      "O-"
+                    ],
+                    "description": "Single blood type accepted by the validator; normalizes to the internal array field"
                   },
                   "bloodTypes": {
                     "type": "array",
@@ -7487,18 +7373,7 @@
                         "O-"
                       ]
                     },
-                    "description": "One or more compatible blood types"
-                  },
-                  "organType": {
-                    "type": "string",
-                    "enum": [
-                      "kidney",
-                      "liver",
-                      "heart",
-                      "lung",
-                      "pancreas",
-                      "cornea"
-                    ]
+                    "description": "Optional blood-type array accepted for backwards compatibility"
                   },
                   "urgency": {
                     "type": "string",
@@ -7546,10 +7421,7 @@
               },
               "example": {
                 "type": "blood",
-                "bloodTypes": [
-                  "O+",
-                  "B-"
-                ],
+                "bloodType": "O+",
                 "urgency": "critical",
                 "requiredBy": "2026-05-12T10:00:00.000Z",
                 "quantity": 3,
@@ -7615,7 +7487,7 @@
           "Hospital"
         ],
         "summary": "Create an emergency hospital request",
-        "description": "Backwards-compatible alias for `POST /hospital/request`.",
+        "description": "Backwards-compatible alias for `POST /hospital/request`.\n\nThis emergency shortcut only accepts the fields used by the emergency UI: `bloodType`, `unitsNeeded`, and `patientDetails`.\nThe server derives the authenticated hospital identity, sets `isEmergency` to `true`, and stores the request as a critical blood request with a computed `requiredBy` value.",
         "security": [
           {
             "bearerAuth": []
@@ -7628,104 +7500,79 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "type",
-                  "requiredBy"
+                  "bloodType",
+                  "unitsNeeded",
+                  "patientDetails"
                 ],
                 "properties": {
-                  "type": {
+                  "bloodType": {
                     "type": "string",
                     "enum": [
-                      "blood",
-                      "plasma",
-                      "platelets"
-                    ]
-                  },
-                  "bloodTypes": {
-                    "type": "array",
-                    "minItems": 1,
-                    "items": {
-                      "type": "string",
-                      "enum": [
-                        "A+",
-                        "A-",
-                        "B+",
-                        "B-",
-                        "AB+",
-                        "AB-",
-                        "O+",
-                        "O-"
-                      ]
-                    },
-                    "description": "One or more compatible blood types"
-                  },
-                  "organType": {
-                    "type": "string",
-                    "enum": [
-                      "kidney",
-                      "liver",
-                      "heart",
-                      "lung",
-                      "pancreas",
-                      "cornea"
-                    ]
-                  },
-                  "urgency": {
-                    "type": "string",
-                    "enum": [
-                      "low",
-                      "medium",
-                      "high",
-                      "critical"
-                    ]
-                  },
-                  "requiredBy": {
-                    "type": "string",
-                    "format": "date-time"
+                      "A+",
+                      "A-",
+                      "B+",
+                      "B-",
+                      "AB+",
+                      "AB-",
+                      "O+",
+                      "O-"
+                    ],
+                    "description": "Single requested blood type used by the emergency UI"
                   },
                   "unitsNeeded": {
-                    "type": "number",
-                    "minimum": 1
-                  },
-                  "patientType": {
-                    "type": "string"
-                  },
-                  "contactNumber": {
-                    "type": "string"
-                  },
-                  "isEmergency": {
-                    "type": "boolean"
-                  },
-                  "notes": {
-                    "type": "string"
+                    "type": "integer",
+                    "minimum": 1,
+                    "description": "Number of units needed"
                   },
                   "patientDetails": {
-                    "type": "string"
+                    "type": "string",
+                    "description": "Free-text patient details shown to the donor"
                   }
                 }
               },
               "example": {
-                "type": "blood",
-                "bloodTypes": [
-                  "O+",
-                  "B-"
-                ],
-                "urgency": "critical",
-                "requiredBy": "2026-05-12T10:00:00.000Z",
-                "unitsNeeded": 3,
-                "patientType": "adult",
-                "contactNumber": "01099998888",
-                "isEmergency": true,
-                "patientDetails": "Emergency surgery support"
+                "bloodType": "O+",
+                "unitsNeeded": 2,
+                "patientDetails": "Patient requires urgent blood transfusion"
               }
             }
           }
         },
         "responses": {
           "201": {
-            "description": "Donation request created successfully"
+            "description": "Donation request created successfully",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Donation request created successfully",
+                  "data": {
+                    "_id": "66f300000000000000000001",
+                    "hospitalId": {
+                      "_id": "66f100000000000000000001",
+                      "fullName": "Cairo Care Operations",
+                      "hospitalName": "Cairo Care Hospital"
+                    },
+                    "hospitalContact": "1044444444",
+                    "contactNumber": "1044444444",
+                    "type": "blood",
+                    "bloodType": [
+                      "O+"
+                    ],
+                    "urgency": "critical",
+                    "requiredBy": "2026-05-12T10:00:00.000Z",
+                    "quantity": 2,
+                    "unitsNeeded": 2,
+                    "patientType": "Patient requires urgent blood transfusion",
+                    "isEmergency": true,
+                    "notes": "Patient requires urgent blood transfusion"
+                  }
+                }
+              }
+            }
           },
           "400": {
-            "description": "Invalid request payload"
+            "description": "Invalid request payload or unexpected field in emergency request body"
           },
           "401": {
             "description": "Missing or invalid JWT"
@@ -8895,7 +8742,7 @@
           "Hospital"
         ],
         "summary": "Confirm a verified donation and award points",
-        "description": "Confirms a verified appointment after medical validation and triggers point award based on donation type.\nLegacy `donationId` completion is still supported for older callers.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
+        "description": "Confirms a verified appointment after medical validation and triggers point award based on donation type.\nThe controller reuses an existing `pending` or `scheduled` donation when one exists for the appointment/request pair, otherwise it creates the donation inside the transaction and then completes it.\nLegacy `donationId` completion is still supported for older callers.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.",
         "security": [
           {
             "bearerAuth": []
@@ -8907,36 +8754,57 @@
             "application/json": {
               "schema": {
                 "type": "object",
-                "required": null,
-                "properties": {
-                  "appointmentId": {
-                    "type": "string",
-                    "description": "Appointment ObjectId to confirm after QR verification and checklist completion"
-                  },
-                  "donationId": {
-                    "type": "string",
-                    "description": "Legacy Donation ObjectId to complete"
-                  },
-                  "hemoglobinLevel": {
-                    "type": "number",
-                    "description": "Measured hemoglobin value in g/dL"
-                  },
-                  "weight": {
-                    "type": "number",
-                    "description": "Donor weight in kg at the donation site"
-                  },
-                  "unitsCollected": {
-                    "type": "integer",
-                    "enum": [
-                      1,
-                      2
+                "oneOf": [
+                  {
+                    "required": [
+                      "appointmentId"
                     ],
-                    "description": "Number of units collected during the donation"
+                    "properties": {
+                      "appointmentId": {
+                        "type": "string",
+                        "description": "Appointment ObjectId to confirm after QR verification and checklist completion"
+                      },
+                      "hemoglobinLevel": {
+                        "type": "number",
+                        "description": "Measured hemoglobin value in g/dL"
+                      },
+                      "weight": {
+                        "type": "number",
+                        "description": "Donor weight in kg at the donation site"
+                      },
+                      "unitsCollected": {
+                        "type": "integer",
+                        "enum": [
+                          1,
+                          2
+                        ],
+                        "description": "Number of units collected during the donation"
+                      },
+                      "notes": {
+                        "type": "string"
+                      }
+                    }
                   },
-                  "notes": {
-                    "type": "string"
+                  {
+                    "required": [
+                      "donationId"
+                    ],
+                    "properties": {
+                      "donationId": {
+                        "type": "string",
+                        "description": "Legacy Donation ObjectId to complete"
+                      },
+                      "completedDate": {
+                        "type": "string",
+                        "format": "date-time",
+                        "description": "Optional completion timestamp for the legacy path"
+                      },
+                      "notes": {
+                        "type": "string"
+                      }
+                    }
                   }
-                }
+                ]
               },
               "example": {
                 "appointmentId": "69fe540565ff7785a031315c",
@@ -8981,8 +8849,14 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid donation completion payload or validation failure"
+          },
           "404": {
-            "description": "Donation not found"
+            "description": "Donation, appointment, or donor not found"
+          },
+          "409": {
+            "description": "Donation has already been confirmed for this appointment"
           }
         }
       }

@@ -481,6 +481,35 @@ describe('shared nearby matching engine', () => {
     expect(results).toHaveLength(0);
   });
 
+  it('excludes donors with an active temporary deferral', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      temporaryDeferralUntil: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    });
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
+  it('excludes donors with a travel deferral', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({
+      bloodType: 'O+',
+      travelHistory: [
+        {
+          country: 'India',
+          returnDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+        },
+      ],
+    });
+    await createRequest(hospital._id, { bloodType: 'O+', status: 'pending' });
+
+    const results = await findCompatibleRequests(donor._id);
+    expect(results).toHaveLength(0);
+  });
+
   it('excludes fulfilled, cancelled, and expired requests', async () => {
     const hospital = await createHospital();
     const donor = await createDonor({ bloodType: 'O+' });

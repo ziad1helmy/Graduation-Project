@@ -96,6 +96,8 @@ describe('Donor Routes Integration', () => {
   it('GET /donor/matches returns compatible donors for requests', async () => {
     await clearDatabase();
     const donor = await createDonor();
+    const hospital = await createHospital();
+    await createRequest(hospital._id, { bloodType: donor.bloodType, status: 'pending' });
 
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
 
@@ -106,6 +108,20 @@ describe('Donor Routes Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data).toHaveProperty('matches');
+    expect(Array.isArray(response.body.data.matches)).toBe(true);
+    expect(response.body.data.matches.length).toBeGreaterThan(0);
+
+    const match = response.body.data.matches[0];
+    expect(match).toHaveProperty('request');
+    expect(match).toHaveProperty('score');
+    expect(match).toHaveProperty('locationScore');
+    expect(match).toHaveProperty('compatibility');
+    expect(match.compatibility).toHaveProperty('bloodTypeMatch');
+    expect(match.compatibility).toHaveProperty('eligible');
+    expect(match.compatibility).toHaveProperty('distanceKm');
+    expect(match.request).toHaveProperty('_id');
+    expect(match.request).toHaveProperty('bloodType');
+    expect(match.request).toHaveProperty('unitsNeeded');
   });
 
   it('GET /donor/donations returns donation history', async () => {

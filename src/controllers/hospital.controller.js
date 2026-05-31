@@ -19,6 +19,7 @@ import {
   validateFindDonorsQuery,
   validateBookAppointmentBody,
   validateCreateRequestBody,
+  validateCreateEmergencyRequestBody,
 } from '../validation/hospital.validation.js';
 import { normalizeBloodTypeList } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
@@ -61,6 +62,8 @@ const parseBooleanQuery = (value, defaultValue) => {
   if (['false', '0', 'no'].includes(normalized)) return false;
   return null;
 };
+
+const EMERGENCY_REQUEST_REQUIRED_BY_MS = 24 * 60 * 60 * 1000;
 
 const toLocation = (coordinates) => {
   const lat = Number(coordinates?.lat ?? coordinates?.latitude);
@@ -614,35 +617,14 @@ export const updateProfile = async (req, res, next) => {
 };
 
 // Create a donation request
-export const createRequest = async (req, res, next) => {
+const createRequestFromHospital = async (req, res, next, { emergencyOnly = false } = {}) => {
   try {
-    const {
-      type,
-      bloodType,
-      bloodTypes,
-      organType,
-      urgency,
-      requiredBy,
-      quantity,
-      unitsNeeded,
-      patientType,
-      contactNumber,
-      isEmergency,
-      notes,
-      patientDetails,
-    } = req.body;
-
-    const validation = validateCreateRequestBody(req.body);
+    const validation = emergencyOnly
+      ? validateCreateEmergencyRequestBody(req.body)
+      : validateCreateRequestBody(req.body);
     if (!validation.valid) {
       return response.error(res, 400, validation.errors[0]);
     }
-
-    const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
-    const normalizedBloodTypes = validation.bloodTypes?.length > 0
-      ? validation.bloodTypes
-      : normalizeBloodTypeList(bloodTypeInput);
-
-    const requiredByDate = new Date(requiredBy);
 
     const hospital = await Hospital.findById(req.user.userId).select('contactNumber location fullName hospitalName');
     if (!hospital) {
@@ -653,43 +635,81 @@ export const createRequest = async (req, res, next) => {
       return response.error(res, 400, 'Hospital contact number is required before creating a request');
     }
 
-    const resolvedUnits = Number(unitsNeeded ?? quantity ?? 1);
-    const resolvedUrgency = isEmergency === true ? 'critical' : urgency;
+    const locationLatitude = hospital?.location?.coordinates?.lat;
+    const locationLongitude = hospital?.location?.coordinates?.lng;
 
-    const requestData = {
-      hospitalId: req.user.userId,
-      hospitalContact: hospital.contactNumber,
-      contactNumber: contactNumber || hospital.contactNumber,
-      type,
-      urgency: resolvedUrgency,
-      requiredBy: requiredByDate,
-      quantity: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
-      unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
-      patientType: patientType || null,
-      isEmergency: isEmergency === true || resolvedUrgency === 'critical',
-      notes: notes || patientDetails || '',
-    };
+    const requestData = emergencyOnly
+      ? {
+          hospitalId: req.user.userId,
+          hospitalContact: hospital.contactNumber,
+          contactNumber: hospital.contactNumber,
+          type: 'blood',
+          urgency: 'critical',
+          requiredBy: new Date(Date.now() + EMERGENCY_REQUEST_REQUIRED_BY_MS),
+          quantity: validation.unitsNeeded,
+          unitsNeeded: validation.unitsNeeded,
+          patientType: validation.patientDetails,
+          isEmergency: true,
+          notes: validation.patientDetails,
+          bloodType: validation.bloodTypes,
+        }
+      : (() => {
+          const {
+            type,
+            bloodType,
+            bloodTypes,
+            urgency,
+            requiredBy,
+            quantity,
+            unitsNeeded,
+            patientType,
+            contactNumber,
+            isEmergency,
+            notes,
+            patientDetails,
+          } = req.body;
+
+          const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
+          const normalizedBloodTypes = validation.bloodTypes?.length > 0
+            ? validation.bloodTypes
+            : normalizeBloodTypeList(bloodTypeInput);
+
+          const requiredByDate = new Date(requiredBy);
+          const resolvedUnits = Number(unitsNeeded ?? quantity ?? 1);
+          const resolvedUrgency = isEmergency === true ? 'critical' : urgency;
+
+          return {
+            hospitalId: req.user.userId,
+            hospitalContact: hospital.contactNumber,
+            contactNumber: contactNumber || hospital.contactNumber,
+            type,
+            urgency: resolvedUrgency,
+            requiredBy: requiredByDate,
+            quantity: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
+            unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
+            patientType: patientType || null,
+            isEmergency: isEmergency === true || resolvedUrgency === 'critical',
+            notes: notes || patientDetails || '',
+            ...(normalizedBloodTypes.length > 0 ? { bloodType: normalizedBloodTypes } : {}),
+          };
+        })();
 
     // Snapshot hospital location and display name at time of request
     requestData.locationHospital = {
-      latitude: hospital?.location?.coordinates?.lat,
-      longitude: hospital?.location?.coordinates?.lng,
+      latitude: locationLatitude,
+      longitude: locationLongitude,
     };
     requestData.hospitalLocation = {
-      lat: hospital?.location?.coordinates?.lat,
-      lng: hospital?.location?.coordinates?.lng,
+      lat: locationLatitude,
+      lng: locationLongitude,
     };
-    if (Number.isFinite(hospital?.location?.coordinates?.lat) && Number.isFinite(hospital?.location?.coordinates?.lng)) {
+    if (Number.isFinite(locationLatitude) && Number.isFinite(locationLongitude)) {
       requestData.hospitalLocationGeo = {
         type: 'Point',
-        coordinates: [hospital.location.coordinates.lng, hospital.location.coordinates.lat],
+        coordinates: [locationLongitude, locationLatitude],
       };
     }
     requestData.hospitalName = hospital?.hospitalName || hospital?.fullName;
-
-    if (normalizedBloodTypes.length > 0) {
-      requestData.bloodType = normalizedBloodTypes;
-    }
 
 
     const session = await mongoose.startSession();
@@ -771,6 +791,10 @@ export const createRequest = async (req, res, next) => {
     next(error);
   }
 };
+
+export const createRequest = async (req, res, next) => createRequestFromHospital(req, res, next, { emergencyOnly: false });
+
+export const createEmergencyRequest = async (req, res, next) => createRequestFromHospital(req, res, next, { emergencyOnly: true });
 
 // Get hospital's requests — supports ?page=1&limit=10
 export const getRequests = async (req, res, next) => {
@@ -855,6 +879,11 @@ export const updateRequest = async (req, res, next) => {
     // Verify hospital ownership
     if (request.hospitalId.toString() !== req.user.userId.toString()) {
       return response.error(res, 403, 'Unauthorized access to this request');
+    }
+
+    // No-op: if the request is already in the desired state, return success.
+    if (request.status === status) {
+      return response.success(res, 200, 'Request status updated successfully', request);
     }
 
     // Guard: validate transition through the centralized state machine.

@@ -1,17 +1,26 @@
-openapi: 3.0.0
+﻿openapi: 3.0.0
 info:
   title: LifeLink API
   version: 1.0.0
   description: |-
     OpenAPI documentation for the LifeLink donation platform API. All routes are mounted at root paths. For realistic data and examples, run `npm run seed-demo` and use the seeded demo credentials, QR tokens, and printed IDs.
 
-    **⚠️  Migration Notice (Effective June 1, 2026)**
+    Current lifecycle rules reflected by the backend implementation:
+    - Request states: `pending` -> `accepted` -> `in-progress` -> `completed`, with `cancelled` and `expired` as terminal states.
+    - Donation states: `pending` -> `scheduled` -> `completed`, with `cancelled` and `rejected` as terminal states.
+    - Appointment states: `pending` -> `confirmed` -> `completed`, with `cancelled` as the terminal cancellation state.
+    - Rejecting a donation clears the request's `acceptedDonationId`, restores the request to `pending` when the request-flow allows it, cancels linked appointments, and restores matching visibility.
+    - A request can only be completed when a completed donation exists for the same `requestId`.
+    - Donors with active donations (`pending` or `scheduled`) cannot respond to requests, book new appointments, or receive donor match results.
+    - Matching is centralized and applies blood compatibility, ABO/Rh compatibility, participation preference, donation cooldown rules, temporary deferrals, travel deferrals, and active-donation blocking before a match is returned.
+
+    **âš ï¸  Migration Notice (Effective June 1, 2026)**
 
     The following endpoints have been removed and consolidated into `/requests/nearby`:
-    - `GET /donor/urgent-requests` → Use `GET /requests/nearby?urgency=critical`
-    - `GET /donor/urgent-requests/{requestId}` → Use `GET /requests/{requestId}`
-    - `POST /donor/urgent-requests/{requestId}/accept` → Use `POST /requests/{requestId}/accept`
-    - `POST /donor/urgent-requests/{requestId}/decline` → No longer supported (non-response indicates non-interest)
+    - `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`
+    - `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`
+    - `POST /donor/urgent-requests/{requestId}/accept` â†’ Use `POST /requests/{requestId}/accept`
+    - `POST /donor/urgent-requests/{requestId}/decline` â†’ No longer supported (non-response indicates non-interest)
 
     See the `urgency` parameter in `/requests/nearby` for filtering by urgency level. For detailed migration instructions, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md).
 servers:
@@ -129,8 +138,7 @@ components:
         email:
           type: string
           format: email
-          description: Donor email address. Changing this will trigger a verification
-            status reset.
+          description: Donor email address. Changing this will trigger a verification status reset.
           example: aya.hassan@example.com
         dateOfBirth:
           type: string
@@ -139,7 +147,7 @@ components:
           example: 1995-05-15
         phoneNumber:
           type: string
-          pattern: '^[0-9]{11}$'
+          pattern: ^[0-9]{11}$
           description: Donor phone number (must be exactly 11 digits)
           example: "01011111111"
         gender:
@@ -1300,7 +1308,7 @@ paths:
                         hospitalId: 69f3df915f42685cbbbcbb1b
                       createdAt: 2026-05-11T09:00:00.000Z
                     - id: 69fe540565ff7785a0313157
-                      title: 200 Points Earned — Blood Donation
+                      title: 200 Points Earned â€” Blood Donation
                       description: Points awarded for completed blood donation.
                       type: reward
                       action: earned_points
@@ -1572,7 +1580,7 @@ paths:
       summary: Update donor participation preference
       description: |
         Allows a donor to opt in or out of donor matching.
-        This updates **participation preference only** — it does NOT affect
+        This updates **participation preference only** â€” it does NOT affect
         medical eligibility, which is computed dynamically from donation history,
         deferral state, and health fields.
 
@@ -1666,6 +1674,7 @@ paths:
         Books an appointment for an authenticated donor at a hospital.
 
         **Important notes:**
+        - Donors with an active donation (`pending` or `scheduled`) cannot book a new appointment
         - Donors can only have ONE active appointment per hospital
         - Concurrent booking attempts are handled atomically to prevent duplicates
         - Appointment date must be in the future and within hospital's scheduling window
@@ -1738,7 +1747,7 @@ paths:
         "401":
           description: Missing or invalid JWT
         "403":
-          description: Role not allowed
+          description: Role not allowed or donor has an active donation in progress
         "404":
           description: Hospital, donor, or request not found
         "409":
@@ -2137,12 +2146,12 @@ paths:
       summary: Validate if a donor can donate for a given hospital and date
       description: |-
         Checks donation eligibility based on:
+        - Active donation blocking (`pending` or `scheduled` donations are not eligible)
         - Type-specific cooldown period (blood: 56d, plasma: 14d, platelets: 7d)
         - Minimum age (17 years old)
         - Hemoglobin level (minimum 12.5 g/dL)
         - Travel deferrals
         - Temporary medical deferrals
-
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       security:
@@ -2202,6 +2211,7 @@ paths:
                 data:
                   canDonate: true
                   reason: null
+                  nextEligibleDate: null
         "400":
           description: Missing required fields
         "401":
@@ -2354,8 +2364,9 @@ paths:
         - Donor
       summary: List donation requests matched to the authenticated donor
       description: |-
-        Returns requests produced by the shared matching engine in `src/services/matching.service.js` (`findCompatibleRequests`).
-        This is the donor-facing endpoint that already uses the same blood-type, availability, eligibility, and location-aware matching logic referenced by hospital emergency flows.
+        Returns requests produced by the centralized matching engine in `src/services/matching.service.js` (`findCompatibleRequests`).
+        Matching applies blood compatibility, ABO/Rh compatibility, participation preference, active donation blocking, donation cooldowns, temporary deferrals, travel deferrals, and location distance before a request is returned.
+        Donors with active donations (`pending` or `scheduled`) receive an empty match list.
 
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
@@ -2379,6 +2390,155 @@ paths:
           description: Matching requests retrieved successfully
           content:
             application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    required:
+                      - matches
+                      - pagination
+                    properties:
+                      matches:
+                        type: array
+                        description: Matched requests returned in descending score order.
+                        items:
+                          type: object
+                          required:
+                            - request
+                            - score
+                            - locationScore
+                            - compatibility
+                          properties:
+                            score:
+                              type: number
+                              format: float
+                              description: Ranking score used to order the match results.
+                            locationScore:
+                              type: number
+                              format: float
+                              description: Location component used in the final ranking score.
+                            compatibility:
+                              type: object
+                              required:
+                                - bloodTypeMatch
+                                - eligible
+                                - distanceKm
+                              properties:
+                                bloodTypeMatch:
+                                  type: boolean
+                                eligible:
+                                  type: boolean
+                                distanceKm:
+                                  type: number
+                                  format: float
+                                  nullable: true
+                                  description: Calculated donor-to-request distance in kilometers.
+                            request:
+                              type: object
+                              description: Populated request document returned by the matching service.
+                              additionalProperties: true
+                              required:
+                                - _id
+                                - type
+                                - bloodType
+                                - urgency
+                                - status
+                                - isEmergency
+                                - unitsNeeded
+                                - requiredBy
+                                - createdAt
+                              properties:
+                                _id:
+                                  type: string
+                                type:
+                                  type: string
+                                  enum:
+                                    - blood
+                                    - plasma
+                                    - platelets
+                                    - double_red_cells
+                                bloodType:
+                                  type: array
+                                  items:
+                                    type: string
+                                urgency:
+                                  type: string
+                                  enum:
+                                    - low
+                                    - medium
+                                    - high
+                                    - critical
+                                status:
+                                  type: string
+                                isEmergency:
+                                  type: boolean
+                                unitsNeeded:
+                                  type: number
+                                quantity:
+                                  type: number
+                                requiredBy:
+                                  type: string
+                                  format: date-time
+                                hospitalName:
+                                  type: string
+                                  nullable: true
+                                hospitalContact:
+                                  type: string
+                                  nullable: true
+                                createdAt:
+                                  type: string
+                                  format: date-time
+                                locationHospital:
+                                  type: object
+                                  nullable: true
+                                  properties:
+                                    latitude:
+                                      type: number
+                                      format: float
+                                    longitude:
+                                      type: number
+                                      format: float
+                                hospital:
+                                  type: object
+                                  properties:
+                                    id:
+                                      type: string
+                                      nullable: true
+                                    name:
+                                      type: string
+                                      nullable: true
+                                    contactNumber:
+                                      type: string
+                                      nullable: true
+                                    address:
+                                      type: string
+                                      nullable: true
+                                    latitude:
+                                      type: number
+                                      format: float
+                                      nullable: true
+                                    longitude:
+                                      type: number
+                                      format: float
+                                      nullable: true
+                      pagination:
+                        type: object
+                        properties:
+                          page:
+                            type: integer
+                          limit:
+                            type: integer
+                          total:
+                            type: integer
               example:
                 success: true
                 message: Matching requests retrieved successfully
@@ -2389,10 +2549,12 @@ paths:
                       compatibility:
                         bloodTypeMatch: true
                         eligible: true
+                        distanceKm: 2.4
                       request:
                         _id: 69fe540565ff7785a031314f
                         type: blood
-                        bloodType: O+
+                        bloodType:
+                          - O+
                         urgency: critical
                         status: pending
                         isEmergency: true
@@ -2401,7 +2563,15 @@ paths:
                         requiredBy: 2026-05-20T00:00:00.000Z
                         hospitalName: Cairo Care Hospital
                         hospitalContact: "1044444444"
+                        createdAt: 2026-05-16T08:15:00.000Z
                         locationHospital:
+                          latitude: 30.0511
+                          longitude: 31.2435
+                        hospital:
+                          id: 69f3df915f42685cbbbcbb1b
+                          name: Cairo Care Hospital
+                          contactNumber: "1044444444"
+                          address: Cairo, Egypt
                           latitude: 30.0511
                           longitude: 31.2435
                   pagination:
@@ -2412,6 +2582,8 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Role not allowed
+        "404":
+          description: Donor not found
   /donor/respond/{requestId}:
     post:
       tags:
@@ -2471,11 +2643,12 @@ paths:
       description: |-
         Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.
         This endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.
-        Current controller behavior filters requests by status (`pending` and `accepted`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.
+        Current controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.
+        When called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.
 
         **Migration Note**: This endpoint replaces the deprecated endpoints:
-        - `GET /donor/urgent-requests` → Use `GET /requests/nearby?urgency=critical`
-        - `GET /donor/urgent-requests/{requestId}` → Use `GET /requests/{requestId}`
+        - `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`
+        - `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       security:
@@ -2718,9 +2891,10 @@ paths:
       summary: Accept a request as a donor
       security:
         - bearerAuth: []
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+      description: |-
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
+
+        Donors with active donations (`pending` or `scheduled`) are blocked by the centralized eligibility service and receive a validation error instead of a request response.
       responses:
         "200":
           description: Example response
@@ -2777,6 +2951,48 @@ paths:
                     requestId: 69fe540565ff7785a031314f
                     quantity: 3
                     status: pending
+        "400":
+          description: Request cannot be accepted or donor is not eligible
+        "403":
+          description: Donor role required or access denied
+        "404":
+          description: Request or donor not found
+      
+  /requests/{id}/reject:
+    post:
+      tags:
+        - Hospital
+      summary: Reject an accepted request donation
+      security:
+        - bearerAuth: []
+      description: |-
+        Rejects the accepted donation linked to a request.
+        The backend clears `acceptedDonationId`, restores donor eligibility for matching, cancels any linked active appointments, and reopens the request when the lifecycle allows it.
+        For hospital callers this is the main rejection flow after a donor has already accepted a request.
+      responses:
+        "200":
+          description: Request rejected successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Request rejected successfully
+                data:
+                  request:
+                    _id: 69fe540565ff7785a031314f
+                    status: pending
+                    acceptedBy: null
+                    acceptedDonationId: null
+                    acceptedAt: null
+                  donation:
+                    _id: 69fe540565ff7785a0313157
+                    status: rejected
+        "400":
+          description: Request has no accepted donation to reject or rejection is not allowed from the current state
+        "403":
+          description: Role not allowed or unauthorized access to this request
+        "404":
+          description: Request not found
   /requests/{id}/cancel:
     post:
       tags:
@@ -4363,55 +4579,34 @@ paths:
         - bearerAuth: []
       responses:
         "200":
-          description: Donor statistics including donation count by type
+          description: Donor statistics including response counts and completed donations
           content:
             application/json:
               schema:
                 type: object
                 properties:
-                  donorId:
-                    type: string
-                  fullName:
-                    type: string
-                  email:
-                    type: string
-                  bloodType:
-                    type: string
-                  pointsBalance:
+                  totalResponses:
                     type: number
-                  totalPointsEarned:
+                  responseCount:
                     type: number
                   totalDonations:
                     type: number
-                  donationsByType:
-                    type: object
-                    properties:
-                      blood:
-                        type: number
-                      plasma:
-                        type: number
-                      platelets:
-                        type: number
-                  lastDonationDate:
-                    type: string
-                    format: date-time
-                  joinDate:
-                    type: string
-                    format: date-time
+                  completedDonations:
+                    type: number
+                  pendingDonations:
+                    type: number
+                  scheduledDonations:
+                    type: number
+                  totalUnitsDonated:
+                    type: number
               example:
-                donorId: 69f3df915f42685cbbbcbb18
-                fullName: Aya Hassan
-                email: aya.hassan@lifelink.demo
-                bloodType: O+
-                pointsBalance: 2340
-                totalPointsEarned: 2600
+                totalResponses: 11
+                responseCount: 11
                 totalDonations: 8
-                donationsByType:
-                  blood: 6
-                  plasma: 1
-                  platelets: 1
-                lastDonationDate: 2026-05-08T12:00:00.000Z
-                joinDate: 2026-05-08T12:00:00.000Z
+                completedDonations: 8
+                pendingDonations: 2
+                scheduledDonations: 1
+                totalUnitsDonated: 10
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -4439,9 +4634,40 @@ paths:
           example: 30
       responses:
         "200":
-          description: Top donors leaderboard
+          description: Top donors leaderboard ranked by points balance within the requested window
           content:
             application/json:
+              schema:
+                type: object
+                properties:
+                  period:
+                    type: string
+                  count:
+                    type: integer
+                  leaderboard:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        rank:
+                          type: integer
+                        _id:
+                          type: string
+                        fullName:
+                          type: string
+                        email:
+                          type: string
+                        bloodType:
+                          type: string
+                        lastDonationDate:
+                          type: string
+                          format: date-time
+                        pointsBalance:
+                          type: number
+                        lifetimePointsEarned:
+                          type: number
+                        tier:
+                          type: string
               example:
                 success: true
                 data:
@@ -4454,6 +4680,8 @@ paths:
                       email: aya.hassan@lifelink.demo
                       bloodType: O+
                       pointsBalance: 2340
+                      lifetimePointsEarned: 2840
+                      tier: gold
                       lastDonationDate: 2026-05-10T12:30:00.000Z
                     - rank: 2
                       _id: 69f3df915f42685cbbbcbb19
@@ -4461,6 +4689,8 @@ paths:
                       email: mina.adel@lifelink.demo
                       bloodType: A-
                       pointsBalance: 1880
+                      lifetimePointsEarned: 1880
+                      tier: silver
                       lastDonationDate: 2026-05-08T09:00:00.000Z
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
@@ -5256,9 +5486,10 @@ paths:
       tags:
         - Hospital
       summary: Create a hospital donation request
-      description: "Creates a blood, plasma, or platelets donation request for the authenticated
-        hospital. Emergency requests may set `isEmergency: true` and omit
-        `urgency`."
+      description: |-
+        Creates a blood, plasma, platelets, or double red cells donation request for the authenticated hospital.
+        The server derives the hospital identity and location from the authenticated user.
+        Emergency requests may set `isEmergency: true` and omit `urgency`; the controller will persist them as critical blood requests.
       security:
         - bearerAuth: []
       requestBody:
@@ -5277,6 +5508,19 @@ paths:
                     - blood
                     - plasma
                     - platelets
+                    - double_red_cells
+                bloodType:
+                  type: string
+                  enum:
+                    - A+
+                    - A-
+                    - B+
+                    - B-
+                    - AB+
+                    - AB-
+                    - O+
+                    - O-
+                  description: Single blood type accepted by the validator; normalizes to the internal array field
                 bloodTypes:
                   type: array
                   minItems: 1
@@ -5291,16 +5535,7 @@ paths:
                       - AB-
                       - O+
                       - O-
-                  description: One or more compatible blood types
-                organType:
-                  type: string
-                  enum:
-                    - kidney
-                    - liver
-                    - heart
-                    - lung
-                    - pancreas
-                    - cornea
+                  description: Optional blood-type array accepted for backwards compatibility
                 urgency:
                   type: string
                   enum:
@@ -5335,9 +5570,7 @@ paths:
                   example: Need compatible donors urgently
             example:
               type: blood
-              bloodTypes:
-                - O+
-                - B-
+              bloodType: O+
               urgency: critical
               requiredBy: 2026-05-12T10:00:00.000Z
               quantity: 3
@@ -5384,7 +5617,11 @@ paths:
       tags:
         - Hospital
       summary: Create an emergency hospital request
-      description: Backwards-compatible alias for `POST /hospital/request`.
+      description: |-
+        Backwards-compatible alias for `POST /hospital/request`.
+
+        This emergency shortcut only accepts the fields used by the emergency UI: `bloodType`, `unitsNeeded`, and `patientDetails`.
+        The server derives the authenticated hospital identity, sets `isEmergency` to `true`, and stores the request as a critical blood request with a computed `requiredBy` value.
       security:
         - bearerAuth: []
       requestBody:
@@ -5394,79 +5631,61 @@ paths:
             schema:
               type: object
               required:
-                - type
-                - requiredBy
+                - bloodType
+                - unitsNeeded
+                - patientDetails
               properties:
-                type:
+                bloodType:
                   type: string
                   enum:
-                    - blood
-                    - plasma
-                    - platelets
-                bloodTypes:
-                  type: array
-                  minItems: 1
-                  items:
-                    type: string
-                    enum:
-                      - A+
-                      - A-
-                      - B+
-                      - B-
-                      - AB+
-                      - AB-
-                      - O+
-                      - O-
-                  description: One or more compatible blood types
-                organType:
-                  type: string
-                  enum:
-                    - kidney
-                    - liver
-                    - heart
-                    - lung
-                    - pancreas
-                    - cornea
-                urgency:
-                  type: string
-                  enum:
-                    - low
-                    - medium
-                    - high
-                    - critical
-                requiredBy:
-                  type: string
-                  format: date-time
+                    - A+
+                    - A-
+                    - B+
+                    - B-
+                    - AB+
+                    - AB-
+                    - O+
+                    - O-
+                  description: Single requested blood type used by the emergency UI
                 unitsNeeded:
-                  type: number
+                  type: integer
                   minimum: 1
-                patientType:
-                  type: string
-                contactNumber:
-                  type: string
-                isEmergency:
-                  type: boolean
-                notes:
-                  type: string
+                  description: Number of units needed
                 patientDetails:
                   type: string
+                  description: Free-text patient details shown to the donor
             example:
-              type: blood
-              bloodTypes:
-                - O+
-                - B-
-              urgency: critical
-              requiredBy: 2026-05-12T10:00:00.000Z
-              unitsNeeded: 3
-              patientType: adult
-              contactNumber: "01099998888"
-              isEmergency: true
-              patientDetails: Emergency surgery support
+              bloodType: O+
+              unitsNeeded: 2
+              patientDetails: Patient requires urgent blood transfusion
       responses:
         "201":
           description: Donation request created successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation request created successfully
+                data:
+                  _id: 66f300000000000000000001
+                  hospitalId:
+                    _id: 66f100000000000000000001
+                    fullName: Cairo Care Operations
+                    hospitalName: Cairo Care Hospital
+                  hospitalContact: "1044444444"
+                  contactNumber: "1044444444"
+                  type: blood
+                  bloodType:
+                    - O+
+                  urgency: critical
+                  requiredBy: 2026-05-12T10:00:00.000Z
+                  quantity: 2
+                  unitsNeeded: 2
+                  patientType: Patient requires urgent blood transfusion
+                  isEmergency: true
+                  notes: Patient requires urgent blood transfusion
         "400":
-          description: Invalid request payload
+          description: Invalid request payload or unexpected field in emergency request body
         "401":
           description: Missing or invalid JWT
         "403":
@@ -6265,6 +6484,7 @@ paths:
       summary: Confirm a verified donation and award points
       description: |-
         Confirms a verified appointment after medical validation and triggers point award based on donation type.
+        The controller reuses an existing `pending` or `scheduled` donation when one exists for the appointment/request pair, otherwise it creates the donation inside the transaction and then completes it.
         Legacy `donationId` completion is still supported for older callers.
 
 
@@ -6277,27 +6497,37 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-              properties:
-                appointmentId:
-                  type: string
-                  description: Appointment ObjectId to confirm after QR verification and checklist
-                    completion
-                donationId:
-                  type: string
-                  description: Legacy Donation ObjectId to complete
-                hemoglobinLevel:
-                  type: number
-                  description: Measured hemoglobin value in g/dL
-                weight:
-                  type: number
-                  description: Donor weight in kg at the donation site
-                unitsCollected:
-                  type: integer
-                  enum: [ 1, 2 ]
-                  description: Number of units collected during the donation
-                notes:
-                  type: string
+              oneOf:
+                - required:
+                    - appointmentId
+                  properties:
+                    appointmentId:
+                      type: string
+                      description: Appointment ObjectId to confirm after QR verification and checklist completion
+                    hemoglobinLevel:
+                      type: number
+                      description: Measured hemoglobin value in g/dL
+                    weight:
+                      type: number
+                      description: Donor weight in kg at the donation site
+                    unitsCollected:
+                      type: integer
+                      enum: [ 1, 2 ]
+                      description: Number of units collected during the donation
+                    notes:
+                      type: string
+                - required:
+                    - donationId
+                  properties:
+                    donationId:
+                      type: string
+                      description: Legacy Donation ObjectId to complete
+                    completedDate:
+                      type: string
+                      format: date-time
+                      description: Optional completion timestamp for the legacy path
+                    notes:
+                      type: string
             example:
               appointmentId: 69fe540565ff7785a031315c
               hemoglobinLevel: 14.8
@@ -6330,8 +6560,12 @@ paths:
                     verificationStatus: completed
                     donationType: Whole Blood
                   pointsEarned: 100
+        "400":
+          description: Invalid donation completion payload or validation failure
         "404":
-          description: Donation not found
+          description: Donation, appointment, or donor not found
+        "409":
+          description: Donation has already been confirmed for this appointment
   /appointments/verify-qr:
     post:
       tags:

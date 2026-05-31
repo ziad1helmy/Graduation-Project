@@ -15,6 +15,7 @@ This is the canonical documentation hub for LifeLink. All documents listed here 
 | [DATA_MODELS.md](DATA_MODELS.md) | MongoDB schema reference (all 25 models) |
 | [NOTIFICATION_SYSTEM.md](NOTIFICATION_SYSTEM.md) | FCM + in-app notification architecture |
 | [MATCHING_ENGINE.md](MATCHING_ENGINE.md) | Blood-type compatibility + geo-proximity matching |
+| [DONOR_MATCHES_DEEP_AUDIT.md](DONOR_MATCHES_DEEP_AUDIT.md) | Live audit of GET /donor/matches matching, distance, ranking, and payload shape |
 | [REWARDS_SYSTEM.md](REWARDS_SYSTEM.md) | Points, tiers, badges, and redemption |
 | [ELIGIBILITY_RULES.md](ELIGIBILITY_RULES.md) | Donor eligibility rules engine |
 | [ADMIN_SYSTEM.md](ADMIN_SYSTEM.md) | Admin panel capabilities, role permissions, audit log |
