@@ -262,3 +262,70 @@
 | i18n | 20% |
 | Webhooks | 5% |
 | **Overall** | **~80%** |
+
+---
+
+## Phase 1A Implementation — Status Snapshot
+
+- Phase 1A: Completed — transactional donor accept (`respondToRequest`) implemented.
+- Tests: All unit and integration tests passed (675 tests across 58 files). The concurrency integration test `concurrent-respond.integration.test.js` verifies that only one donor can accept a given `Request` under concurrent attempts.
+- Remaining immediate work: Phase 1B — Notification Outbox Worker (process `NotificationOutbox` entries and deliver hospital/donor notifications asynchronously).
+
+### Completed
+- Transactional conditional accept flow implemented (Donation creation + Request conditional update + NotificationOutbox write inside a single transaction).
+- Concurrency test added and executed; no orphan donations observed in tested scenarios.
+
+### In Progress
+- Migration script to dedupe existing active donations and prepare DB for creating the unique partial index.
+- Staging validation on a MongoDB replica-set to confirm transaction behavior under production-like conditions.
+
+### Remaining
+- Implement and deploy the outbox worker (Phase 1B).
+- Run migration in staging, create the unique partial index (donorId + requestId partial index excluding cancelled/rejected), and validate before prod rollout.
+- Controlled rollout: enable Phase1A behind a feature flag, deploy worker, flip flag, monitor metrics.
+
+### Known Risks
+- Hospitals will not receive immediate notifications until the outbox worker is deployed — this is an intentional design change for Phase 1A to guarantee transactional integrity.
+- Applying the unique partial index without deduplication will fail; migration must run first.
+- Transactions require a MongoDB replica-set; CI/staging must mirror this to prevent surprises during production rollout.
+
+## Phase 1B Implementation — Notification Outbox Worker
+
+- Status: Implemented and tested (integration tests pass).
+- Scope: `src/workers/notificationOutbox.worker.js` — claims `NotificationOutbox` entries, processes `type: 'request'` and `type: 'match'`, delegates delivery to the existing `notification.service`, and updates outbox status (`pending` → `sent` / `failed`).
+- Retry handling: entries increment `attempts` on claim; failed attempts set `status` back to `pending` (retryable) until a configurable max attempts threshold (default 5), after which `status` becomes `failed`.
+- Idempotency / duplicate prevention: worker claims entries atomically via `findOneAndUpdate` (status `pending` → `ready`) so a single worker instance processes each entry; notification creation is delegated to `notification.service`, and the outbox is marked `sent` only after successful creation.
+
+Verification (integration test results)
+
+- Test: `tests/integration/notificationOutbox.integration.test.js` (2 tests)
+	- `processes match outbox entries and creates hospital notification` — PASS
+	- `processes request outbox entries and creates donor notifications` — PASS
+
+Run summary
+- Test Files: 1 passed (1)
+- Tests: 2 passed (2)
+
+End-to-end flow validated
+
+Donor Accept → Outbox Entry Created → Worker Processes Entry → Hospital Notification Created → Notification Delivered
+
+Notes / Next steps
+- Deploy worker as a separate process or as a background job runner; ensure claim semantics or single runner per partition to avoid duplicates.
+- Instrument outbox `failed` entries and add alerting/visibility for operational monitoring.
+
+Phase 2 Verification (live run)
+- **Result**: Completed a scripted live API sequence exercising request → match → donor notification → acceptance → appointment → QR verification → donation completion → rewards.
+- **Findings**: All business-flow steps passed; rewards and analytics updated as expected.
+- **Minor Issue**: An asynchronous badge-check task attempted DB operations after the script disconnected the DB, producing "Client must be connected before running operations" in logs. This is non-fatal in the live run but indicates badge processing runs inline/async without lifecycle coordination.
+- **Recommendation**: Ensure badge/reward post-processing is executed by a background worker or awaited before process shutdown to avoid transient DB errors.
+
+Fixes applied (final stabilization)
+- **Issue found**: Asynchronous badge processing (`checkAndUpdateBadges`) was invoked fire-and-forget from `onDonationCompleted`, allowing badge DB work to continue after the app disconnected the DB. This produced "Client must be connected before running operations" during shutdown.
+- **Fix applied**: Converted the badge check to an awaited call inside `onDonationCompleted` so badge DB work completes before the donation completion flow returns. See `src/services/reward.service.js` (replaced fire-and-forget with `await checkAndUpdateBadges(donorId)` guarded by try/catch).
+- **Issue found**: Outbox worker could run during shutdown and attempt DB operations after disconnect because the worker interval wasn't cleared before `disconnectDB()`.
+- **Fix applied**: Stop the outbox interval during shutdown and introduce a short grace period before disconnecting DB. See `src/server.js` (clearInterval(outboxInterval) and await small delay before disconnect).
+
+Verification result
+- Re-ran full end-to-end live API sequence (hospital request → match → donor accept → appointment → QR verify → donation complete). No errors observed; donation completed, points awarded, badges unlocked, and analytics updated. Activity logs show `badge_unlocked` events and no "Client must be connected" errors after the fixes.
+

@@ -10,6 +10,7 @@ import * as donationService from '../services/donation.service.js';
 import * as notificationService from '../services/notification.service.js';
 import * as activityService from '../services/activity.service.js';
 import * as eligibilityService from '../services/eligibility.service.js';
+import NotificationOutbox from '../models/NotificationOutbox.model.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import * as rewardService from '../services/reward.service.js';
 import { formatActivityForTimeline } from '../utils/activity.formatter.js';
@@ -230,115 +231,158 @@ export const getMatches = async (req, res, next) => {
 
 // Respond to a request (create a donation)
 export const respondToRequest = async (req, res, next) => {
+  const { requestId } = req.params;
+  const { quantity } = req.body;
+  const donorId = req.user.userId;
+
   try {
-    const { requestId } = req.params;
-    const { quantity } = req.body;
+    const donor = await Donor.findById(donorId);
+    if (!donor) return response.error(res, 404, 'Donor not found');
 
-    const request = await Request.findById(requestId);
-    if (!request) {
-      return response.error(res, 404, 'Request not found');
-    }
-
-    const donor = await Donor.findById(req.user.userId);
-    if (!donor) {
-      return response.error(res, 404, 'Donor not found');
-    }
-
-    if (request.status !== 'pending') {
-      return response.error(res, 400, 'This request is no longer accepting responses');
-    }
-
+    const session = await mongoose.startSession();
+    let createdDonation = null;
     try {
-      validateTransition('request', request.status, 'accepted');
-    } catch (err) {
-      return response.error(res, 400, err.message);
+      await session.withTransaction(async () => {
+        // Re-fetch request in-session
+        const request = await Request.findById(requestId).session(session);
+        if (!request) {
+          const err = new Error('Request not found');
+          err.statusCode = 404;
+          throw err;
+        }
+
+        if (request.status !== 'pending') {
+          const err = new Error('This request is no longer accepting responses');
+          err.statusCode = 400;
+          throw err;
+        }
+
+        try {
+          validateTransition('request', request.status, 'accepted');
+        } catch (err) {
+          err.statusCode = 400;
+          throw err;
+        }
+
+        // Check if donor already responded (in-session)
+        const existingDonation = await Donation.findOne({
+          donorId,
+          requestId,
+          status: { $nin: ['cancelled', 'rejected'] },
+        }).session(session);
+
+        if (existingDonation) {
+          const err = new Error('You have already responded to this request');
+          err.statusCode = 400;
+          throw err;
+        }
+
+        // Validate eligibility
+        const isEligible = await donationService.validateEligibility(donor, request);
+        if (!isEligible.eligible) {
+          const err = new Error(isEligible.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
+          err.statusCode = 400;
+          throw err;
+        }
+
+        // Create donation in-session
+        const [donation] = await Donation.create([
+          {
+            donorId,
+            requestId,
+            quantity: quantity || 1,
+            status: 'pending',
+          },
+        ], { session });
+        createdDonation = donation;
+
+        // Atomically update request only if still pending
+        const updatedRequest = await Request.findOneAndUpdate(
+          { _id: requestId, status: 'pending' },
+          {
+            $set: {
+              status: 'accepted',
+              acceptedBy: donorId,
+              acceptedByName: donor.fullName || null,
+              acceptedByPhoneNumber: donor.phoneNumber || null,
+              acceptedByBloodType: donor.bloodType || null,
+              acceptedAt: new Date(),
+              acceptedDonationId: donation._id,
+            },
+          },
+          { session, returnDocument: 'after' },
+        );
+
+        if (!updatedRequest) {
+          const err = new Error('Request was accepted by another donor');
+          err.statusCode = 409;
+          throw err;
+        }
+
+        // Validate orphan state inside transaction
+        validateOrphanState('request', updatedRequest, { donation });
+
+        // Create NotificationOutbox entry for match notifications
+        await NotificationOutbox.create([
+          {
+            requestId: updatedRequest._id,
+            userId: updatedRequest.hospitalId,
+            donorIds: [donorId],
+            type: 'match',
+            status: 'pending',
+          },
+        ], { session });
+      });
+    } finally {
+      session.endSession();
     }
 
-    // Check if donor already responded
-    const existingDonation = await Donation.findOne({
-      donorId: req.user.userId,
-      requestId,
-      status: { $nin: ['cancelled', 'rejected'] },
-    });
+    // Log activity after successful commit (fire-and-forget)
+    const requestObj = await Request.findById(requestId).lean();
+    const isUrgent = ['high', 'critical'].includes(requestObj?.urgency);
+    const activityPayload = isUrgent
+      ? {
+          type: 'emergency_response',
+          action: 'ACCEPT_REQUEST',
+          title: 'Urgent Request Accepted',
+          description: `Accepted urgent ${requestObj.type} request with ${requestObj.urgency} urgency`,
+          referenceId: createdDonation._id.toString(),
+          referenceType: 'Donation',
+          metadata: {
+            requestType: requestObj.type,
+            urgency: requestObj.urgency,
+            quantity: quantity || 1,
+            requestId,
+            acceptedAt: new Date(),
+          },
+        }
+      : {
+          type: 'donation',
+          action: 'accepted_request',
+          title: 'Request Accepted',
+          description: `Accepted ${requestObj?.type} request`,
+          referenceId: createdDonation._id.toString(),
+          referenceType: 'Donation',
+          metadata: {
+            requestType: requestObj?.type,
+            urgency: requestObj?.urgency || 'normal',
+            quantity: quantity || 1,
+            requestId,
+            acceptedAt: new Date(),
+          },
+        };
 
-    if (existingDonation) {
-      return response.error(res, 400, 'You have already responded to this request');
-    }
-
-    // Validate eligibility
-    const isEligible = await donationService.validateEligibility(donor, request);
-    if (!isEligible.eligible) {
-      return response.error(res, 400, isEligible.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
-    }
-
-    // Create donation
-    const donation = await Donation.create({
-      donorId: req.user.userId,
-      requestId,
-      quantity: quantity || 1,
-      status: 'pending',
-    });
-
-    request.status = 'accepted';
-    request.acceptedBy = req.user.userId;
-    request.acceptedByName = donor.fullName || null;
-    request.acceptedByPhoneNumber = donor.phoneNumber || null;
-    request.acceptedByBloodType = donor.bloodType || null;
-    request.acceptedAt = new Date();
-    request.acceptedDonationId = donation._id;
-    await request.save();
-
-    try {
-      validateOrphanState('request', request, { donation });
-    } catch (err) {
-      await Donation.findByIdAndDelete(donation._id);
-      return response.error(res, 400, err.message);
-    }
-
-    // Log activity based on request urgency (fire-and-forget)
-    const isUrgent = ['high', 'critical'].includes(request.urgency);
-    const activityPayload = isUrgent ? {
-      type: 'emergency_response',
-      action: 'ACCEPT_REQUEST',
-      title: 'Urgent Request Accepted',
-      description: `Accepted urgent ${request.type} request with ${request.urgency} urgency`,
-      referenceId: donation._id.toString(),
-      referenceType: 'Donation',
-      metadata: {
-        requestType: request.type,
-        urgency: request.urgency,
-        quantity: quantity || 1,
-        requestId: requestId,
-        acceptedAt: new Date()
-      }
-    } : {
-      type: 'donation',
-      action: 'accepted_request',
-      title: 'Request Accepted',
-      description: `Accepted ${request.type} request`,
-      referenceId: donation._id.toString(),
-      referenceType: 'Donation',
-      metadata: {
-        requestType: request.type,
-        urgency: request.urgency || 'normal',
-        quantity: quantity || 1,
-        requestId: requestId,
-        acceptedAt: new Date()
-      }
-    };
-    
-    activityService.logActivity(req.user.userId, activityPayload).catch((error) => {
+    activityService.logActivity(donorId, activityPayload).catch((error) => {
       console.error('Activity log error:', error.message);
     });
 
-    // Notify hospital
-    await notificationService.notifyMatch(request.hospitalId, donation, request);
-
-    response.success(res, 201, 'Response submitted successfully', donation);
+    // Response (donation created)
+    response.success(res, 201, 'Response submitted successfully', createdDonation);
   } catch (error) {
-    if (error.name === 'ValidationError') {
-      return response.error(res, 400, error.message);
-    }
+    if (error.name === 'ValidationError') return response.error(res, 400, error.message);
+    if (error.statusCode === 404) return response.error(res, 404, error.message);
+    if (error.statusCode === 400) return response.error(res, 400, error.message);
+    if (error.statusCode === 409) return response.error(res, 409, error.message);
     next(error);
   }
 };

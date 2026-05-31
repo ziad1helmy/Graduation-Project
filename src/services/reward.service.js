@@ -299,10 +299,14 @@ export const onDonationCompleted = async (donorId, donationId, isEmergency = fal
       await awardPoints(donorId, rewardsConfig.points.emergencyResponse, 'EMERGENCY_RESPONSE', 'Emergency Response Bonus', `emergency_${donationId}`, rewardsConfig);
     }
 
-    // Check badges (fire-and-forget — never blocks the main flow)
-    checkAndUpdateBadges(donorId).catch((e) => logger.error('Badge check error', {
-      message: e.message,
-    }));
+    // Check badges — await to ensure DB work completes before caller continues.
+    // This prevents background badge DB ops from running after the app initiates a shutdown
+    // (small change from fire-and-forget to a safe awaited call).
+    try {
+      await checkAndUpdateBadges(donorId);
+    } catch (e) {
+      logger.error('Badge check error', { message: e.message });
+    }
   } catch (err) {
     // Reward errors must NEVER break the donation flow
     logger.error('Reward donation completion error', {

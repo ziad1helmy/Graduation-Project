@@ -2626,6 +2626,8 @@ paths:
                   status: pending
         "400":
           description: Invalid request or eligibility check failed
+        "409":
+          description: Request already accepted or donor has already responded
         "401":
           description: Missing or invalid JWT
         "403":
