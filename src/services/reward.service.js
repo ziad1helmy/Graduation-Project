@@ -120,22 +120,31 @@ const isMongoDuplicateKeyError = (err) => {
  * Award points to a donor atomically.
  * Handles tier promotion detection and bonus points.
  * Returns { account, transaction, newBadges }
+ * CRITICAL FIX: Move dedup check inside transaction to eliminate race window
  */
 const awardPoints = async (donorId, amount, type, description, referenceId = null, rewardsConfig = null) => {
   const normalizedReferenceId = referenceId ? String(referenceId) : null;
   const config = rewardsConfig || await getRewardsConfig();
-
-  // Deduplication: don't award the same reference twice
-  if (normalizedReferenceId) {
-    const existing = await PointsTransaction.findOne({ donorId, referenceId: normalizedReferenceId, transactionType: type });
-    if (existing) return null; // already awarded
-  }
 
   const session = await mongoose.startSession();
   let result = null;
 
   try {
     await session.withTransaction(async () => {
+      // CRITICAL FIX: Move dedup check INSIDE transaction for atomicity
+      // This eliminates the race window where concurrent requests both pass the check
+      if (normalizedReferenceId) {
+        const existing = await PointsTransaction.findOne(
+          { donorId, referenceId: normalizedReferenceId, transactionType: type },
+          null,
+          { session } // Check within transaction for consistency
+        );
+        if (existing) {
+          // Already awarded, skip silently within transaction
+          return null;
+        }
+      }
+
       const account = await DonorPoints.findOneAndUpdate(
         { donorId },
         {
@@ -175,8 +184,15 @@ const awardPoints = async (donorId, amount, type, description, referenceId = nul
       };
     });
   } catch (err) {
-    // Final dedup protection under concurrency.
+    // Final dedup protection under concurrency (catch-based fallback)
+    // If unique constraint violation occurs on PointsTransaction, it means
+    // another concurrent request created the same transaction
     if (normalizedReferenceId && isMongoDuplicateKeyError(err)) {
+      logger.debug('Points already awarded (caught via constraint)', {
+        donorId: donorId.toString(),
+        referenceId: normalizedReferenceId,
+        type,
+      });
       return null;
     }
     throw err;

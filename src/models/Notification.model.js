@@ -68,6 +68,14 @@ const notificationSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.Mixed,
       default: null,
     },
+
+    // Idempotency key for deduplication (prevents duplicate notifications on retry)
+    // Format: requestId-userId-notificationType-relatedId
+    idempotencyKey: {
+      type: String,
+      default: null,
+      index: true,
+    },
   },
   {
     timestamps: true,
@@ -79,6 +87,18 @@ notificationSchema.index({ read: 1 });
 notificationSchema.index({ userId: 1, read: 1 });
 notificationSchema.index({ userId: 1, createdAt: -1 });
 notificationSchema.index({ relatedId: 1, relatedType: 1 });
+
+// CRITICAL: Deduplication constraint - prevents duplicate notifications for same event
+// Only enforced when idempotencyKey is a non-null string (same pattern as PointsTransaction)
+notificationSchema.index(
+  { idempotencyKey: 1 },
+  {
+    unique: true,
+    sparse: true,
+    partialFilterExpression: { idempotencyKey: { $type: 'string' } },
+  }
+);
+
 // Auto-delete notifications older than 90 days to prevent unbounded growth
 notificationSchema.index({ createdAt: 1 }, { expireAfterSeconds: 90 * 24 * 60 * 60 });
 

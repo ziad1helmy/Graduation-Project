@@ -864,78 +864,101 @@ export const rescheduleAppointment = async (appointmentId, donorId, updateInput,
       throw new Error('The linked request is no longer active');
     }
 
-    const previousAppointmentDate = appointment.appointmentDate;
-    const previousDonationType = appointment.donationType || null;
-
-    appointment.appointmentDate = apptDate;
-    appointment.donationType = normalizedDonationType;
-    if (appointment.status !== 'pending') {
-      validateTransition('appointment', appointment.status, 'pending');
-      appointment.status = 'pending';
-    }
-    appointment.verificationStatus = 'pending';
-    appointment.qrToken = crypto.randomBytes(32).toString('hex');
-    appointment.qrExpiresAt = getQrExpiryDate(apptDate);
-    appointment.qrScannedAt = null;
-    appointment.verificationSessionId = null;
-    appointment.verificationStartedAt = null;
-    appointment.verificationVerifiedAt = null;
-    appointment.verificationRejectedAt = null;
-    appointment.verificationRejectedReason = null;
-    appointment.verificationChecklist = {
-      idVerified: false,
-      questionnaireCompleted: false,
-      consentSigned: false,
-      completedAt: null,
-    };
-    appointment.rescheduleCount = Number(appointment.rescheduleCount || 0) + 1;
-    appointment.rescheduleHistory = Array.isArray(appointment.rescheduleHistory) ? appointment.rescheduleHistory : [];
-    appointment.rescheduleHistory.push({
-      previousAppointmentDate,
-      newAppointmentDate: apptDate,
-      previousDonationType,
-      newDonationType: normalizedDonationType,
-      reason,
-      rescheduledAt: new Date(),
-      rescheduledBy: donorId,
-    });
-
-    syncDonorSnapshot(appointment, donor);
-    await appointment.save();
-
-    if (donation) {
-      donation.scheduledDate = apptDate;
-      await donation.save();
-    }
+    // CRITICAL FIX: Wrap reschedule count increment in transaction for atomicity
+    // Ensures concurrent reschedules don't bypass the maxReschedules limit
+    const session = await mongoose.startSession();
+    let updatedAppointment = null;
 
     try {
-      validateOrphanState('appointment', appointment, { donation });
-      if (donation) {
-        validateOrphanState('donation', donation, { appointment });
-      }
-    } catch (err) {
-      throw new Error(err.message);
+      await session.withTransaction(async () => {
+        // Re-fetch appointment within transaction to get latest count
+        const appointmentInTx = await Appointment.findById(appointmentId).session(session);
+        if (!appointmentInTx) throw new Error('Appointment not found');
+
+        // Re-check max reschedules within transaction
+        const hospitalSettings = await getHospitalSettings(toObjectIdString(appointmentInTx.hospitalId));
+        const maxReschedules = Number(hospitalSettings.maxReschedules ?? DEFAULT_MAX_RESCHEDULES);
+        if (appointmentInTx.rescheduleCount >= maxReschedules) {
+          throw new Error('This appointment has reached the maximum number of reschedules');
+        }
+
+        const previousAppointmentDate = appointmentInTx.appointmentDate;
+        const previousDonationType = appointmentInTx.donationType || null;
+
+        appointmentInTx.appointmentDate = apptDate;
+        appointmentInTx.donationType = normalizedDonationType;
+        if (appointmentInTx.status !== 'pending') {
+          validateTransition('appointment', appointmentInTx.status, 'pending');
+          appointmentInTx.status = 'pending';
+        }
+        appointmentInTx.verificationStatus = 'pending';
+        appointmentInTx.qrToken = crypto.randomBytes(32).toString('hex');
+        appointmentInTx.qrExpiresAt = getQrExpiryDate(apptDate);
+        appointmentInTx.qrScannedAt = null;
+        appointmentInTx.verificationSessionId = null;
+        appointmentInTx.verificationStartedAt = null;
+        appointmentInTx.verificationVerifiedAt = null;
+        appointmentInTx.verificationRejectedAt = null;
+        appointmentInTx.verificationRejectedReason = null;
+        appointmentInTx.verificationChecklist = {
+          idVerified: false,
+          questionnaireCompleted: false,
+          consentSigned: false,
+          completedAt: null,
+        };
+        // CRITICAL: Atomic increment of reschedule count within transaction
+        appointmentInTx.rescheduleCount = Number(appointmentInTx.rescheduleCount || 0) + 1;
+        appointmentInTx.rescheduleHistory = Array.isArray(appointmentInTx.rescheduleHistory) ? appointmentInTx.rescheduleHistory : [];
+        appointmentInTx.rescheduleHistory.push({
+          previousAppointmentDate,
+          newAppointmentDate: apptDate,
+          previousDonationType,
+          newDonationType: normalizedDonationType,
+          reason,
+          rescheduledAt: new Date(),
+          rescheduledBy: donorId,
+        });
+
+        syncDonorSnapshot(appointmentInTx, donor);
+        updatedAppointment = await appointmentInTx.save({ session });
+
+        if (donation) {
+          donation.scheduledDate = apptDate;
+          await donation.save({ session });
+        }
+
+        try {
+          validateOrphanState('appointment', updatedAppointment, { donation });
+          if (donation) {
+            validateOrphanState('donation', donation, { appointment: updatedAppointment });
+          }
+        } catch (err) {
+          throw new Error(err.message);
+        }
+      });
+    } finally {
+      session.endSession();
     }
 
-    await appointment.populate(appointmentPopulateOptions);
+    await updatedAppointment.populate(appointmentPopulateOptions);
 
     void notifyAppointmentReschedule({
-      appointment,
-      previousAppointmentDate,
+      appointment: updatedAppointment,
+      previousAppointmentDate: updatedAppointment.rescheduleHistory[updatedAppointment.rescheduleHistory.length - 1]?.previousAppointmentDate,
       reason,
     }).catch((err) => logger.error('Appointment reschedule notification error', {
       message: err?.message,
-      appointmentId: appointment._id?.toString?.(),
+      appointmentId: updatedAppointment._id?.toString?.(),
     }));
 
     void logAppointmentRescheduleActivity({
-      appointment,
-      previousAppointmentDate,
-      previousDonationType,
+      appointment: updatedAppointment,
+      previousAppointmentDate: updatedAppointment.rescheduleHistory[updatedAppointment.rescheduleHistory.length - 1]?.previousAppointmentDate,
+      previousDonationType: updatedAppointment.rescheduleHistory[updatedAppointment.rescheduleHistory.length - 1]?.previousDonationType,
       reason,
     }).catch(() => {});
 
-    return toAppointmentResponse(appointment);
+    return toAppointmentResponse(updatedAppointment);
   } catch (error) {
     throw error;
   }

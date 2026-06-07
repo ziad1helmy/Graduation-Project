@@ -249,9 +249,36 @@ const normalizeRequestIfExpired = async (request) => {
 
   const requestExpired = request.requiredBy && new Date(request.requiredBy) <= new Date();
   if (requestExpired && request.status === 'pending') {
-    validateTransition('request', request.status, 'expired');
-    request.status = 'expired';
-    await request.save({ validateBeforeSave: false });
+    // CRITICAL FIX: Wrap status transition in transaction to prevent race
+    // where concurrent checks both see status='pending' and race to update
+    const session = await mongoose.startSession();
+    try {
+      await session.withTransaction(async () => {
+        // Re-fetch within transaction to get latest state
+        const currentRequest = await Request.findById(request._id).session(session);
+        if (!currentRequest) throw new Error('Request not found');
+
+        // Re-check expiry and status within transaction
+        const isExpired = currentRequest.requiredBy && new Date(currentRequest.requiredBy) <= new Date();
+        if (isExpired && currentRequest.status === 'pending') {
+          try {
+            validateTransition('request', currentRequest.status, 'expired');
+          } catch (err) {
+            throw new Error(err.message);
+          }
+
+          currentRequest.status = 'expired';
+          currentRequest.expiredAt = new Date();
+          await currentRequest.save({ session });
+          
+          // Update the original request object with new state
+          request.status = currentRequest.status;
+          request.expiredAt = currentRequest.expiredAt;
+        }
+      });
+    } finally {
+      session.endSession();
+    }
   }
 
   return request;

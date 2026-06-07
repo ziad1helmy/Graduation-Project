@@ -18,6 +18,7 @@ import { logger } from '../utils/logger.js';
 
 /**
  * Create and send a match notification to hospital (in-app + FCM push)
+ * CRITICAL FIX: Use idempotency key to prevent duplicate notifications on retry
  * @param {string} userId - Hospital user ID
  * @param {Object} donation - Donation document
  * @param {Object} request - Request document
@@ -34,15 +35,31 @@ export const notifyMatch = async (userId, donation, request) => {
       requestType: request.type,
     };
 
-    const notification = await Notification.create({
-      userId,
-      type: 'match',
-      title: notificationTitle,
-      message: notificationMessage,
-      relatedId: donation._id,
-      relatedType: 'Donation',
-      data: notificationData,
-    });
+    // CRITICAL FIX: Generate idempotency key to prevent duplicate notifications
+    // Format: match-donation-request ensures same event never creates duplicate
+    const idempotencyKey = `match-${donation._id}-${request._id}-${userId}`;
+
+    let notification = null;
+    try {
+      notification = await Notification.create({
+        userId,
+        type: 'match',
+        title: notificationTitle,
+        message: notificationMessage,
+        relatedId: donation._id,
+        relatedType: 'Donation',
+        data: notificationData,
+        idempotencyKey, // Unique constraint prevents duplicate
+      });
+    } catch (err) {
+      // CRITICAL FIX: Handle duplicate key error gracefully
+      // If notification already exists (duplicate on retry), fetch existing instead
+      if (err?.code === 11000 || (typeof err?.message === 'string' && err.message.includes('E11000'))) {
+        notification = await Notification.findOne({ idempotencyKey });
+      } else {
+        throw err;
+      }
+    }
 
     const hospital = await User.findById(userId).select('fcmTokens');
     if (hospital?.fcmTokens?.length > 0) {
