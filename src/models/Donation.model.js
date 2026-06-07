@@ -109,6 +109,23 @@ const donationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    
+    // INTEGRITY: Track appointment scheduling deadline
+    // Donation must have appointment scheduled within APPOINTMENT_SCHEDULING_DEADLINE_DAYS
+    // If deadline passes without appointment, donation auto-cancels via background job
+    appointmentScheduleDeadline: {
+      type: Date,
+      required: true,
+      index: true,
+      // Set to 14 days from now (can be customized per request urgency)
+      default: () => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    },
+
+    // Track if donation was auto-cancelled due to missing appointment
+    autoCompiledAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -128,6 +145,64 @@ donationSchema.index(
     partialFilterExpression: { appointmentId: { $type: 'objectId' } },
   }
 );
+
+// CRITICAL: Prevent duplicate donations from same donor for same request
+// Allows only ONE active (non-cancelled, non-rejected) donation per donor per request
+donationSchema.index(
+  { donorId: 1, requestId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: {
+      status: { $nin: ['cancelled', 'rejected'] },
+    },
+  }
+);
+
+/**
+ * INTEGRITY HOOK - Enforce appointment scheduling deadline
+ * 
+ * Validates that donations transitioning to 'scheduled' status have an appointment.
+ * Pending donations must have an appointment scheduled before appointmentScheduleDeadline.
+ */
+donationSchema.pre('save', async function() {
+  // If status is changing to 'scheduled', must have appointmentId
+  if (this.isModified('status') && this.status === 'scheduled' && !this.appointmentId) {
+    throw new Error('Appointment required to schedule donation');
+  }
+
+  // Check if donation is pending and past the deadline
+  if (
+    this.status === 'pending' &&
+    this.appointmentScheduleDeadline &&
+    new Date() > this.appointmentScheduleDeadline &&
+    !this.appointmentId
+  ) {
+    throw new Error('Appointment scheduling deadline passed - please reschedule');
+  }
+});
+
+/**
+ * INTEGRITY HOOK - Auto-cancel donations past scheduling deadline
+ * 
+ * Background job trigger: Find donations past appointmentScheduleDeadline
+ * and auto-cancel them if they lack an appointment.
+ * 
+ * Usage: Run periodically via background worker:
+ *   await Donation.updateMany(
+ *     {
+ *       status: 'pending',
+ *       appointmentId: null,
+ *       appointmentScheduleDeadline: { $lt: new Date() }
+ *     },
+ *     {
+ *       $set: { 
+ *         status: 'cancelled',
+ *         autoCompiledAt: new Date(),
+ *         notes: 'Auto-cancelled: Appointment not scheduled within deadline'
+ *       }
+ *     }
+ *   );
+ */
 
 const Donation = mongoose.model('Donation', donationSchema);
 
