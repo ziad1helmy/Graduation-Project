@@ -1,6 +1,6 @@
 # LifeLink Project Status — Implementation Audit
 
-> Forensic audit of the current implementation state. Last updated: May 2026.
+> Forensic audit of the current implementation state. Last updated: June 2026.
 
 ---
 
@@ -17,9 +17,16 @@
 | **Hospital System** | ✅ Complete |
 | **Appointment System** | ✅ Complete |
 | **Analytics** | ✅ Complete |
-| **Testing** | 🔶 Partial coverage |
+| **Hospital Request Flow** | ✅ Complete (accept, verify QR, confirm, expire, re-broadcast) |
+| **Request Escalation Worker** | ✅ Complete (arrival expiry + urgency-based rebroadcast) |
+| **Testing** | 🔶 Partial coverage (721 tests, 63 files) |
 | **DevOps** | ❌ Not started |
-| **Async Infrastructure** | ❌ Not started |
+#### Async Infrastructure
+- **Status**: Partial — notification outbox worker and request escalation worker implemented
+- **Scope**: `src/workers/notificationOutbox.worker.js` (outbox processing) and `src/workers/requestEscalation.worker.js` (arrival expiry + re-broadcast)
+- **Gap**: No Redis-based job queue (Bull/BullMQ) — workers use in-process `setInterval`
+- **Impact**: Medium — suitable for single-instance deployments; needs Bull/BullMQ for horizontal scaling
+- **Recommended fix**: Migrate to Bull/BullMQ with Redis for production multi-instance deployments
 | **i18n** | 🔶 en.json only |
 
 ---
@@ -58,6 +65,13 @@
 - [x] Hospital accepts/rejects matched donors via QR token
 - [x] QR token generated per request, scanned by hospital on donation day
 - [x] Request broadcast: admin can manually trigger match broadcast
+- [x] **Hospital Request flow**: donor accepts → QR generated on Donation → hospital verifies QR → hospital confirms → donation/request completed atomically
+- [x] **Arrival deadlines**: urgency-based windows (critical 1hr, emergency 2hr, high 4hr, medium 8hr, low 24hr)
+- [x] **No-arrival timeout**: donation expired, request reopened, QR invalidated, re-broadcast to compatible donors
+- [x] **Re-broadcast escalation worker**: background job processes arrival expirations and re-broadcasts pending requests based on urgency intervals
+- [x] **Donor accepted-request endpoints**: GET /requests/accepted, GET /requests/accepted/:id
+- [x] **Admin expire-arrival**: POST /requests/:id/expire-arrival (manual override for no-arrival timeout)
+- [x] **Confirm endpoint**: POST /requests/:id/confirm — hospital confirms donor arrival, re-checks eligibility, atomic completion
 
 #### Matching Engine
 - [x] Blood-type compatibility matrix (full universal compatibility rules)
@@ -216,7 +230,7 @@
 | Docker / docker-compose | No Dockerfile or compose file |
 | CI/CD pipeline | No GitHub Actions / GitLab CI config |
 | Redis integration | Rate limiting and caching are in-memory only |
-| Async job queue | No Bull/BullMQ — all processing is synchronous |
+| Async infrastructure | Outbox worker + escalation worker (in-process setInterval) |
 | Webhook handlers | Route registered but handler is a stub |
 | Arabic translations | `ar.json` locale file missing |
 | ML-based predictive matching | No ML model or feature |
@@ -237,6 +251,10 @@
 | No `2dsphere` index on Donor.location | Medium | `Donor.model.js` |
 | Duplicate `weight` field in Donor schema | Low | `Donor.model.js` |
 | `console.error` used instead of structured logger in some controllers | Low | `donor.controller.js`, `analytics.service.js` |
+| `console.log` statements in `bookAppointment` controller (removed in Phase 3B) | Low | `appointment.controller.js` (fixed) |
+| `completeDonation` controller was ~435 lines (extracted to service in Phase 3B) | Fixed | `donation-completion.service.js` |
+| Duplicate eligibility reason construction (extracted to shared helper in Phase 3B) | Fixed | `eligibility-reason.js` |
+| `qrExpires` vs `qrExpiresAt` field name inconsistency across models | Low | `Donation.model.js`, `Appointment.model.js` |
 | Missing `ar.json` locale | Low | `src/locales/` |
 | `getDonorStats` in analytics.service.js uses N+1 query (loop with `await Request.findById`) | Medium | `analytics.service.js:239` |
 | `service-account.json` path may be committed to repo | Critical | `config/service-account.json` |
@@ -251,6 +269,8 @@
 | Donor APIs | 95% |
 | Hospital APIs | 90% |
 | Request Management | 95% |
+| Hospital Request Flow | 95% (accept, confirm, expire, re-broadcast, QR on Donation) |
+| Request Escalation Worker | 90% (arrival expiry + re-broadcast; needs Bull/BullMQ for scale) |
 | Matching Engine | 80% (functional, not geo-optimized) |
 | Notification System | 75% (functional, not async) |
 | Rewards / Gamification | 95% |
@@ -261,7 +281,7 @@
 | DevOps / Infra | 5% |
 | i18n | 20% |
 | Webhooks | 5% |
-| **Overall** | **~80%** |
+| **Overall** | **~85%** |
 
 ---
 
@@ -328,4 +348,101 @@ Fixes applied (final stabilization)
 
 Verification result
 - Re-ran full end-to-end live API sequence (hospital request → match → donor accept → appointment → QR verify → donation complete). No errors observed; donation completed, points awarded, badges unlocked, and analytics updated. Activity logs show `badge_unlocked` events and no "Client must be connected" errors after the fixes.
+
+---
+
+## Phase 3 — Hospital Request Flow Redesign
+
+### Summary
+
+Redesigned the Hospital Request donation flow so that QR generation, donation creation, and confirmation happen without appointments. The Appointment flow remains completely unchanged. Added arrival deadlines, no-arrival timeout with re-broadcast, and a background escalation worker.
+
+### Key Changes
+
+| Component | Change |
+|-----------|--------|
+| `Request` model | Added `arrivalDeadline` field |
+| `Donation` model | Added `qrUsed`, `qrUsedAt`, `arrivalDeadline` fields |
+| `request-timeout.constants.js` | Added `reBroadcastIntervalMs` per urgency level |
+| State machine | Added `accepted→completed` for Request, `pending→completed` for Donation |
+| `request-lifecycle.service.js` | QR invalidation on reject/cancel/expire, clears `arrivalDeadline` on request reopen |
+| `request.controller.js` — `acceptRequest` | QR generated on Donation, arrivalDeadline set on both Donation and Request, minimal response payload |
+| `request.controller.js` — `verifyQr` | Looks up Donation by qrToken, validates not expired/used, marks qrUsed, returns donation+request details |
+| `request.controller.js` — `confirmRequest` | Hospital confirms donor → re-runs eligibility with `excludeDonationId` → if ineligible: rejects donation + reopens request + re-broadcasts → if eligible: atomic completion in transaction, updates lastDonationDate, fires rewards/activity/notifications. Guards: arrival deadline and QR expiry checks. |
+| `request.controller.js` — `cancelRequest` | Invalidates QR on donation, clears arrivalDeadline, minimal response |
+| `request.controller.js` — `expireArrival` | Admin endpoint for no-arrival timeout: expires donation, reopens request, invalidates QR, re-broadcasts |
+| `request.controller.js` — `getAcceptedRequests` | `GET /requests/accepted` — donor's accepted requests with deadline status |
+| `request.controller.js` — `getAcceptedRequestDetails` | `GET /requests/accepted/:id` — full details including QR, hospital info, eligibility status |
+| `request.routes.js` | Added all new routes in correct order (static before `:id` patterns) |
+| `requestEscalation.worker.js` | Background worker: arrival expiry processing, urgency-based re-broadcast, emergency re-broadcast |
+| `server.js` | Added escalation worker interval (configurable `ESCALATION_POLL_INTERVAL_MS`, default 60s) |
+
+### Urgency-Based Deadlines
+
+| Urgency | Arrival Window | Re-broadcast Interval |
+|---------|---------------|----------------------|
+| critical | 1 hour | 15 minutes |
+| emergency | 2 hours | 30 minutes |
+| high | 4 hours | 1 hour |
+| medium | 8 hours | 4 hours |
+| low | 24 hours | 12 hours |
+
+### Bug Fixes Applied
+
+1. **Double reward processing** in `confirmRequest` — `onDonationCompleted` was called twice. Removed duplicate call.
+2. **Missing guards** in `confirmRequest` — Added arrival deadline and QR expiry checks before allowing confirmation.
+3. **Race condition prevention** — `acceptRequest` uses MongoDB transaction with `session.withTransaction` and unique partial index on `{donorId, requestId}` with filter `{status: 'pending'}`.
+
+### Test Results
+
+- 721 tests pass across 63 test files
+- New tests: verify-qr donation-based flow, confirm flow, accepted endpoints, non-owner access denial, escalation worker (arrival expiry, re-broadcast, emergency re-broadcast)
+
+### Next Steps
+
+- Migrate escalation worker to Bull/BullMQ with Redis for production multi-instance deployments
+- Add monitoring/alerting for escalation worker failures
+- Consider WebSocket/SSE for real-time donor arrival updates
+- Add i18n support for Hospital Request flow notification messages
+
+---
+
+## Phase 3B — Appointment Flow Clean-Code-Guard Audit
+
+### Summary
+
+Forensic audit of the appointment/donation verification and completion flow (the path that doesn't go through the Hospital Request `/requests/:id/accept` endpoint). Found 13 issues; fixed 9, accepted 4 as documented tech debt.
+
+### Findings & Fixes
+
+| ID | Severity | Finding | Resolution |
+|----|----------|---------|------------|
+| A1 | Critical | `verifyQr` appointment path: race condition — two concurrent QR scans could both pass the pre-fetch eligibility check and then both succeed because `findOneAndUpdate` used `{ _id }` instead of the atomic `{ qrToken, qrScannedAt: null }` filter | Fixed: changed to atomic `findOneAndUpdate({ qrToken, qrScannedAt: null, status: { $in: ['pending', 'confirmed'] } })` matching the donation path pattern |
+| A2 | High | `confirmArrival` appointment path: `findByIdAndUpdate` with no status filter allows double-verification under concurrency | Fixed: changed to `findOneAndUpdate({ _id, verificationStatus: 'pending', qrScannedAt: { $ne: null } })` |
+| A3 | High | `confirmArrival` donation path: same double-verification race as A2 | Fixed: atomic `findOneAndUpdate` with status guard |
+| A4 | High | `rejectVerification` only supports appointments — no path to reject a Hospital Request donation | Fixed: added donation lookup branch with status guards + `rejectDonationLifecycle` call |
+| A5 | Medium | `resetVerification` only supports appointments — no path to reset a Hospital Request donation's verification | Fixed: added donation lookup branch with state machine validation |
+| A6 | Medium | `completeDonation` handler was ~435 lines (appointment + donation branches deeply nested) | Fixed: extracted into `donation-completion.service.js` with `completeAppointmentDonation` and `completeRequestDonation` functions |
+| A7 | Medium | Duplicate eligibility reason construction in `completeDonation` (appointment vs donation paths) | Fixed: extracted into `eligibility-reason.js` shared helper (`buildSafetyRejectionReason`, `isDonorIneligible`) |
+| A8 | Medium | `completeDonation` appointment path calls `rejectDonationLifecycle` with `donationStatus: 'rejected'` on ineligible donors | Verified safe — state machine allows `appointment.status='confirmed' → 'cancelled'` transition |
+| A9 | Medium | `qrExpires` (Donation model) vs `qrExpiresAt` (Appointment model) field name inconsistency | Documented with inline comment in Donation model; API responses normalize to `qrExpiresAt`. Renaming the DB field requires a migration — tracked as post-release tech debt |
+| A10 | Medium | `confirmArrival` donation path does not set `verificationSessionId` | Verified safe — `sessionId` is already set by `verifyQr`; `confirmArrival` only upgrades verification status. The `buildDonationVerificationPayload` picks up `verificationSessionId` from the populated document |
+| A11 | Low | `completeDonation` goes `accepted → in-progress → completed` while Hospital Request flow goes `accepted → completed` | Intentional — appointment flow has an intermediate `in-progress` state |
+| A12 | Low | `confirmArrival` donation path missing `validateOrphanState` call | Fixed: added `validateOrphanState('donation', updatedDonation)` after update |
+| A13 | Low | `console.log` debug statements left in `bookAppointment` | Fixed: removed |
+
+### Key Design Decisions
+
+- `rejectVerification` and `resetVerification` now accept either an appointment ID or donation ID via `body.appointmentId || body.donationId || params.appointmentId`. The existing `appointmentVerify.routes.js` route `/:appointmentId/reject` and `/:appointmentId/rescan` work for both flows — the param name is cosmetic.
+- `confirmArrival` already supported both appointment and donation IDs; no route change needed.
+- `verifyQr` remains QR-token-based for both flows; the appointment path now uses the same atomic pattern as the donation path.
+
+### Test Results
+
+- 721 tests pass across 63 test files (all existing tests pass after refactoring)
+
+### New Files
+
+- `src/services/donation-completion.service.js` — extracted `completeAppointmentDonation` and `completeRequestDonation` from `donation.controller.js`
+- `src/utils/eligibility-reason.js` — shared `buildSafetyRejectionReason` and `isDonorIneligible` helpers (formerly inline in controller)
 

@@ -20,8 +20,9 @@ import * as rewardService from '../../src/services/reward.service.js';
 setupTestDB();
 
 describe('Donation Service', () => {
-  beforeEach(() => {
+  beforeEach(async () => {
     vi.clearAllMocks();
+    await Donation.ensureIndexes();
   });
 
   it('validateEligibility returns matching service result', async () => {

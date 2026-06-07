@@ -275,19 +275,30 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
       return updatedDonation;
     }
 
-    const donation = await Donation.findByIdAndUpdate(donationId, updateData, {
-      returnDocument: 'after',
-      runValidators: true,
-    });
-
-    // If completed or cancelled, log activity (fire-and-forget)
+    let donation = null;
     if (status === 'completed') {
-      // Update lastDonationDate so the eligibility service can compute the
-      // cooldown period dynamically. isOptedIn (participation preference) is
-      // intentionally NOT touched — the donor's opt-in/out choice persists.
-      await Donor.findByIdAndUpdate(donation.donorId, {
-        lastDonationDate: new Date(),
-      });
+      const session = await mongoose.startSession();
+      try {
+        await session.withTransaction(async () => {
+          donation = await Donation.findByIdAndUpdate(donationId, updateData, {
+            returnDocument: 'after',
+            runValidators: true,
+            session,
+          });
+
+          if (!donation) {
+            throw new Error('Donation not found');
+          }
+
+          // Update lastDonationDate so the eligibility service can compute the
+          // cooldown period dynamically.
+          await Donor.findByIdAndUpdate(donation.donorId, {
+            lastDonationDate: new Date(),
+          }, { session });
+        });
+      } finally {
+        session.endSession();
+      }
 
       // Log completion activity
       await activityService
@@ -315,17 +326,27 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
           message: e.message,
         });
       }
-    } else if (status === 'rejected') {
+
+      return donation;
+    }
+
+    // For non-completed statuses (e.g. scheduled, rejected, cancelled without request/appointment link, etc)
+    const updatedDonation = await Donation.findByIdAndUpdate(donationId, updateData, {
+      returnDocument: 'after',
+      runValidators: true,
+    });
+
+    if (status === 'rejected') {
       await activityService
-        .logActivity(donation.donorId, {
+        .logActivity(updatedDonation.donorId, {
           type: 'donation',
           action: 'rejected_donation',
           title: ACTIVITY_TITLE_MAP.donation_cancelled,
-          description: `Donation rejected (${donation.quantity} unit(s))`,
-          referenceId: donation._id.toString(),
+          description: `Donation rejected (${updatedDonation.quantity} unit(s))`,
+          referenceId: updatedDonation._id.toString(),
           referenceType: 'Donation',
           metadata: {
-            quantity: donation.quantity,
+            quantity: updatedDonation.quantity,
             previousStatus: currentDonation.status,
             hospitalName: request?.hospitalName || request?.hospitalId?.hospitalName || request?.hospitalId?.fullName || null,
           },
@@ -334,15 +355,15 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
     } else if (status === 'cancelled') {
       // Log cancellation activity and await to make logging deterministic for tests
       await activityService
-        .logActivity(donation.donorId, {
+        .logActivity(updatedDonation.donorId, {
           type: 'donation',
           action: 'cancelled_donation',
           title: ACTIVITY_TITLE_MAP.donation_cancelled,
-          description: `Donation cancelled (${donation.quantity} unit(s))`,
-          referenceId: donation._id.toString(),
+          description: `Donation cancelled (${updatedDonation.quantity} unit(s))`,
+          referenceId: updatedDonation._id.toString(),
           referenceType: 'Donation',
           metadata: {
-            quantity: donation.quantity,
+            quantity: updatedDonation.quantity,
             previousStatus: currentDonation.status,
             hospitalName: request?.hospitalName || request?.hospitalId?.hospitalName || request?.hospitalId?.fullName || null,
           },
@@ -350,7 +371,7 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
         .catch((error) => logger.error('Activity log error', { message: error.message }));
     }
 
-    return donation;
+    return updatedDonation;
   } catch (error) {
     throw error;
   }

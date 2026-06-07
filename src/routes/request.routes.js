@@ -8,6 +8,9 @@ import * as requestController from '../controllers/request.controller.js';
 // Update openapi.yaml whenever you add, change, or remove an endpoint here.
 // Do NOT add inline @openapi JSDoc to this file.
 // ─────────────────────────────────────────────────────────────────────────────
+// IMPORTANT: Static paths (e.g., /accepted, /nearby, /verify-qr) MUST be
+// registered BEFORE parameterized paths (e.g., /:id) to avoid route shadowing.
+// ─────────────────────────────────────────────────────────────────────────────
 
 
 const router = Router();
@@ -16,6 +19,12 @@ router.use(authMiddleware);
 
 
 router.get('/nearby', requireRole('donor', 'hospital', 'admin', 'superadmin'), requestController.getNearbyRequests);
+
+
+router.get('/accepted', requireRole('donor'), requestController.getAcceptedRequests);
+
+
+router.get('/accepted/:id', requireRole('donor'), requestController.getAcceptedRequestDetails);
 
 
 router.get('/:id/google-maps', requestController.getRequestGoogleMaps);
@@ -33,15 +42,20 @@ router.post('/verify-qr', requireRole('hospital', 'admin', 'superadmin'), reques
 router.post('/:id/accept', requireRole('donor'), requestController.acceptRequest);
 
 
+router.post('/:id/confirm', requireRole('hospital', 'admin', 'superadmin'), requestController.confirmRequest);
+
+
 router.post('/:id/reject', requireRole('hospital', 'admin', 'superadmin'), requestController.rejectRequest);
 
 
 router.post('/:id/cancel', requestController.cancelRequest);
 
+
+router.post('/:id/expire-arrival', requireRole('admin', 'superadmin'), requestController.expireArrival);
+
 export default router;
 
 // ─── API CONTRACT ────────────────────────────────────────────────────────────
-// Swagger/OpenAPI documentation for this router lives in /openapi.yaml
-// Update openapi.yaml whenever you add, change, or remove an endpoint here.
-// Do NOT add inline @openapi JSDoc to this file.
+// IMPORTANT: Static paths MUST be registered BEFORE parameterized paths.
+// See top of file for full ordering constraints.
 // ─────────────────────────────────────────────────────────────────────────────

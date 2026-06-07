@@ -158,6 +158,13 @@ export const rejectDonationLifecycle = async ({
 
     if (donation) {
       donation.status = donationStatus;
+
+      // Invalidate QR on the donation when it is rejected, cancelled, or expired
+      if (['rejected', 'cancelled', 'expired', 'abandoned'].includes(donationStatus)) {
+        donation.qrUsed = true;
+        donation.qrUsedAt = now;
+      }
+
       await donation.save({ session: activeSession });
     }
 
@@ -169,50 +176,8 @@ export const rejectDonationLifecycle = async ({
       request.acceptedByBloodType = null;
       request.acceptedAt = null;
       request.acceptedDonationId = null;
+      request.arrivalDeadline = null;
       await request.save({ session: activeSession });
-
-      // Fix #1 and Fix #11: When a donation is rejected or cancelled and the
-      // request reverts to 'pending', restore the unit that was decremented
-      // when the donor originally accepted. Then re-broadcast to newly eligible
-      // donors so the blood need is not silently orphaned.
-      if (['rejected', 'cancelled'].includes(donationStatus) && requestStatus === 'pending') {
-        try {
-          await Request.updateOne({ _id: request._id }, { $inc: { quantity: 1 } }, { session: activeSession });
-          logger.info('Request quantity restored after donation cancellation/rejection', {
-            requestId: request._id,
-            donationStatus,
-          });
-        } catch (qErr) {
-          logger.error('Failed to restore request quantity after cancellation/rejection', {
-            requestId: String(request._id),
-            error: qErr.message,
-          });
-        }
-
-        // Async re-broadcast — fire-and-forget; never blocks the rejection response
-        Promise.resolve().then(async () => {
-          try {
-            const [matchingSvc, notificationSvc] = await Promise.all([
-              getMatchingService(),
-              getNotificationService(),
-            ]);
-            const compatibleDonors = await matchingSvc.findCompatibleDonors(request._id);
-            if (compatibleDonors.length > 0) {
-              const donorIds = compatibleDonors.map((d) => d.donor._id);
-              await notificationSvc.notifyRequest(donorIds, request);
-              logger.info('Re-broadcast triggered after donation cancellation/rejection', {
-                requestId: String(request._id),
-                donorsNotified: donorIds.length,
-              });
-            }
-          } catch (broadcastErr) {
-            logger.error('Re-broadcast failed after donation cancellation/rejection', {
-              requestId: String(request._id),
-              error: broadcastErr.message,
-            });
-          }
-        });
-      }
     }
 
     // Perform cross-entity orphan checking for request, donation and appointment

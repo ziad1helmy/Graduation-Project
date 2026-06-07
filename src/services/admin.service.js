@@ -3,8 +3,11 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import * as jwt from '../utils/jwt.js';
 import { logger } from '../utils/logger.js';
-import { canDonate } from './eligibility.service.js';
+import { sendEmailVerificationEmail } from '../utils/mailer.js';
+import { logAudit } from './audit.service.js';
+export { logAudit } from './audit.service.js';
 import AuditLog from '../models/AuditLog.model.js';
+import { canDonate } from './eligibility.service.js';
 import SystemSettings from '../models/SystemSettings.model.js';
 import User from '../models/User.model.js';
 import Donor from '../models/Donor.model.js';
@@ -24,28 +27,6 @@ import { env } from '../config/env.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 import { buildRequestPayload } from '../controllers/request.controller.js';
 import { validateTransition } from '../utils/state-machine.js';
-
-// ──────────────────────────────────────────────
-//  Audit Logging
-// ──────────────────────────────────────────────
-
-/**
- * Create an audit log entry.
- * @param {string} adminId - Admin who performed the action
- * @param {string} action  - Action identifier (e.g. 'user.verify')
- * @param {string} [targetType] - Entity type affected
- * @param {string} [targetId]   - Entity ID affected
- */
-export const logAudit = async (adminId, action, targetType = null, targetId = null) => {
-  try {
-    await AuditLog.create({ adminId, action, targetType, targetId });
-  } catch (error) {
-    // Audit logging should never break the main operation
-    logger.error('Audit log error', {
-      message: error.message,
-    });
-  }
-};
 
 /**
  * List audit logs with pagination and optional filters.
@@ -410,7 +391,7 @@ export const suspendUser = async (id, reason, adminId) => {
 
   // Prevent suspending admins/superadmins unless you are superadmin
   if (user.role === 'admin' || user.role === 'superadmin') {
-    throw new Error('Cannot suspend admin accounts');
+    throw Object.assign(new Error(ERR.ADMIN_CANNOT_SUSPEND), { statusCode: 403 });
   }
 
   user.isSuspended = true;
@@ -676,6 +657,67 @@ export const getAdminProfile = async (adminId) => {
   return admin;
 };
 
+const buildFieldDiff = (current, incoming, fields) => {
+  const diff = {};
+  for (const field of fields) {
+    if (incoming[field] !== undefined && String(incoming[field]) !== String(current[field])) {
+      diff[field] = { from: current[field], to: incoming[field] };
+    }
+  }
+  return diff;
+};
+
+export const updateAdminProfile = async (adminId, data) => {
+  const admin = await User.findOne({ _id: adminId, deletedAt: null, role: { $in: ['admin', 'superadmin'] } });
+  if (!admin) return null;
+
+  const emailChanged = data.email && data.email !== admin.email;
+  let verificationOtp;
+
+  if (emailChanged) {
+    const normalizedEmail = String(data.email).trim().toLowerCase();
+    const dup = await User.findOne({ email: normalizedEmail, _id: { $ne: adminId } });
+    if (dup) throw new Error('Email is already in use by another account');
+    admin.email = normalizedEmail;
+    admin.isEmailVerified = false;
+    admin.passwordChangedAt = new Date();
+    verificationOtp = admin.createEmailVerificationOtp();
+  }
+
+  const changedFields = buildFieldDiff(admin, data, ['fullName', 'email', 'phone', 'address']);
+  for (const field of Object.keys(changedFields)) {
+    admin[field] = data[field];
+  }
+
+  if (data.location) {
+    changedFields.location = { from: admin.location, to: data.location };
+    admin.location = {
+      ...admin.location,
+      ...data.location,
+      coordinates: data.location.coordinates
+        ? { ...admin.location?.coordinates, ...data.location.coordinates }
+        : admin.location?.coordinates,
+    };
+  }
+
+  await admin.save();
+
+  if (emailChanged) {
+    void sendEmailVerificationEmail({
+      to: admin.email,
+      fullName: admin.fullName,
+      otp: verificationOtp,
+    }).catch((err) => {
+      logger.warn('Admin profile email verification send failed', { email: admin.email, message: err?.message });
+    });
+  }
+
+  const auditChanges = Object.keys(changedFields).length > 0 ? changedFields : null;
+  await logAudit(adminId, 'admin.update_profile', 'User', adminId, auditChanges);
+
+  return { admin, emailChanged };
+};
+
 export const updateAdmin = async (id, data, adminId) => {
   const existing = await User.findOne({ _id: id, deletedAt: null });
   if (!existing) return null;
@@ -686,12 +728,13 @@ export const updateAdmin = async (id, data, adminId) => {
     if (dup) throw new Error('Email already registered');
   }
 
-  if (data.role && !['admin', 'superadmin'].includes(data.role)) {
-    throw new Error('Invalid admin role');
+  if (data.role !== undefined) {
+    throw new Error('Role changes are not supported via this endpoint');
   }
 
   const updateData = {};
-  const allowedFields = ['fullName', 'email', 'role', 'location', 'isEmailVerified', 'isSuspended'];
+  // Role changes are intentionally not supported through the general update path.
+  const allowedFields = ['fullName', 'email', 'location', 'isEmailVerified', 'isSuspended'];
   for (const field of allowedFields) {
     if (data[field] !== undefined) updateData[field] = data[field];
   }
@@ -726,6 +769,14 @@ export const deleteAdmin = async (id, adminId) => {
 
   await logAudit(adminId, 'user.delete_admin', 'User', id);
   return admin;
+};
+
+/**
+ * Emit an audit log entry for a badge configuration update.
+ * Thin wrapper so controllers don't call logAudit directly.
+ */
+export const logBadgeUpdate = async (adminId, badgeId, changes) => {
+  await logAudit(adminId, 'admin.update_badge', 'Badge', badgeId, changes);
 };
 
 const DEFAULT_ROLE_PERMISSIONS = [

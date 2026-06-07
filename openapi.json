@@ -3,7 +3,7 @@
   "info": {
     "title": "LifeLink API",
     "version": "1.0.0",
-    "description": "OpenAPI documentation for the LifeLink donation platform API. All routes are mounted at root paths. For realistic data and examples, run `npm run seed-demo` and use the seeded demo credentials, QR tokens, and printed IDs.\n\nCurrent lifecycle rules reflected by the backend implementation:\n- Request states: `pending` -> `accepted` -> `in-progress` -> `completed`, with `cancelled` and `expired` as terminal states.\n- Donation states: `pending` -> `scheduled` -> `completed`, with `cancelled` and `rejected` as terminal states.\n- Appointment states: `pending` -> `confirmed` -> `completed`, with `cancelled` as the terminal cancellation state.\n- Rejecting a donation clears the request's `acceptedDonationId`, restores the request to `pending` when the request-flow allows it, cancels linked appointments, and restores matching visibility.\n- A request can only be completed when a completed donation exists for the same `requestId`.\n- Donors with active donations (`pending` or `scheduled`) cannot respond to requests, book new appointments, or receive donor match results.\n- Matching is centralized and applies blood compatibility, ABO/Rh compatibility, participation preference, donation cooldown rules, temporary deferrals, travel deferrals, and active-donation blocking before a match is returned.\n\n**âš ï¸  Migration Notice (Effective June 1, 2026)**\n\nThe following endpoints have been removed and consolidated into `/requests/nearby`:\n- `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`\n- `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`\n- `POST /donor/urgent-requests/{requestId}/accept` â†’ Use `POST /requests/{requestId}/accept`\n- `POST /donor/urgent-requests/{requestId}/decline` â†’ No longer supported (non-response indicates non-interest)\n\nSee the `urgency` parameter in `/requests/nearby` for filtering by urgency level. For detailed migration instructions, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)."
+    "description": "OpenAPI documentation for the LifeLink donation platform API. All routes are mounted at root paths. For realistic data and examples, run `npm run seed-demo` and use the seeded demo credentials, QR tokens, and printed IDs.\n\nCurrent lifecycle rules reflected by the backend implementation:\n- Request states: `pending` -> `accepted` -> `in-progress` -> `completed`, with `cancelled` and `expired` as terminal states.\n- Donation states: `pending` -> `scheduled` -> `completed`, with `cancelled` and `rejected` as terminal states.\n- Appointment states: `pending` -> `confirmed` -> `completed`, with `cancelled` as the terminal cancellation state.\n- Rejecting a donation clears the request's `acceptedDonationId`, restores the request to `pending` when the request-flow allows it, cancels linked appointments, and restores matching visibility.\n- A request can only be completed when a completed donation exists for the same `requestId`.\n- Donors with active donations (`pending` or `scheduled`) cannot respond to requests, book new appointments, or receive donor match results.\n- Matching is centralized and applies blood compatibility, ABO/Rh compatibility, participation preference, donation cooldown rules, temporary deferrals, travel deferrals, and active-donation blocking before a match is returned.\n\n**âš ï¸  Migration Notice (Effective June 1, 2026)**\n\nThe following endpoints have been removed and consolidated into `/donor/requests`:\n- `GET /donor/urgent-requests` â†’ Use `GET /donor/requests?urgency=critical`\n- `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`\n- `POST /donor/urgent-requests/{requestId}/accept` â†’ Use `POST /requests/{requestId}/accept`\n- `POST /donor/urgent-requests/{requestId}/decline` â†’ No longer supported (non-response indicates non-interest)\n\nSee the `urgency` parameter in `/donor/requests` for filtering by urgency level. For detailed migration instructions, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md)."
   },
   "servers": [
     {
@@ -722,6 +722,69 @@
             "nullable": true
           }
         }
+      },
+      "DonorRespondRequest": {
+        "type": "object",
+        "properties": {
+          "quantity": {
+            "type": "number",
+            "description": "Number of units the donor agrees to donate. Defaults to 1 if omitted.",
+            "example": 1
+          }
+        }
+      },
+      "DonorRespondData": {
+        "type": "object",
+        "properties": {
+          "_id": {
+            "type": "string",
+            "example": "66f100000000000000000010"
+          },
+          "donorId": {
+            "type": "string",
+            "example": "66f100000000000000000002"
+          },
+          "requestId": {
+            "type": "string",
+            "example": "66f100000000000000000020"
+          },
+          "quantity": {
+            "type": "number",
+            "example": 1
+          },
+          "status": {
+            "type": "string",
+            "example": "pending"
+          },
+          "qrToken": {
+            "type": "string",
+            "example": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d"
+          },
+          "qrExpires": {
+            "type": "string",
+            "format": "date-time",
+            "example": "2026-05-20T12:00:00.000Z"
+          }
+        }
+      },
+      "DonorRespondSuccessResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiSuccessResponse"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "message": {
+                "type": "string",
+                "example": "Response submitted successfully"
+              },
+              "data": {
+                "$ref": "#/components/schemas/DonorRespondData"
+              }
+            }
+          }
+        ]
       },
       "ApiErrorResponse": {
         "allOf": [
@@ -2305,7 +2368,7 @@
           "Donor"
         ],
         "summary": "Book a donor appointment with a hospital",
-        "description": "Books an appointment for an authenticated donor at a hospital.\n\n**Important notes:**\n- Donors with an active donation (`pending` or `scheduled`) cannot book a new appointment\n- Donors can only have ONE active appointment per hospital\n- Concurrent booking attempts are handled atomically to prevent duplicates\n- Appointment date must be in the future and within hospital's scheduling window\n- Hospital must be verified and active to accept bookings\n",
+        "description": "Books an appointment for an authenticated donor at a hospital.\n\n**Important notes:**\n- Donors with an active donation (`pending` or `scheduled`) cannot book a new appointment\n- Donors can only have ONE active appointment per hospital\n- Concurrent booking attempts are handled atomically to prevent duplicates\n- Appointment date must be in the future and within hospital's scheduling window\n- Hospital must be verified and active to accept bookings\n- A QR token is generated for the booked appointment and returned in the response\n",
         "security": [
           {
             "bearerAuth": []
@@ -3147,34 +3210,19 @@
                       {
                         "id": "69fe540565ff7785a031314f",
                         "requestId": "69fe540565ff7785a031314f",
-                        "bloodType": "O+",
-                        "hospitalName": "Cairo Care Hospital",
+                        "posted": "2026-05-07T09:00:00.000Z",
                         "patientType": "Emergency surgery support",
                         "contactNumber": "1044444444",
                         "unitsNeeded": 3,
-                        "isEmergency": true,
-                        "createdAt": "2026-05-07T09:00:00.000Z",
-                        "status": "pending",
-                        "requestStatus": "pending",
-                        "urgency": "critical",
+                        "hospitalLatitude": 30.0511,
+                        "hospitalLongitude": 31.2435,
+                        "hospitalName": "Cairo Care Hospital",
                         "type": "blood",
-                        "requiredBy": "2026-05-11T10:00:00.000Z",
-                        "locationHospital": {
-                          "latitude": 30.0511,
-                          "longitude": 31.2435
-                        },
-                        "location": {
-                          "lat": 30.0511,
-                          "lng": 31.2435
-                        },
-                        "qrToken": "demo-request-qr-token",
-                        "qrCreatedAt": "2026-05-07T10:00:00.000Z",
-                        "qrExpiresAt": "2026-05-07T12:00:00.000Z",
-                        "hospital": {
-                          "id": "69f3df915f42685cbbbcbb1b",
-                          "name": "Cairo Care Hospital",
-                          "contactNumber": "1044444444"
-                        }
+                        "bloodType": [
+                          "O+"
+                        ],
+                        "urgency": "critical",
+                        "estimatedTime": "12 min"
                       }
                     ],
                     "pagination": {
@@ -3196,318 +3244,13 @@
         }
       }
     },
-    "/donor/matches": {
-      "get": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "List donation requests matched to the authenticated donor",
-        "description": "Returns requests produced by the centralized matching engine in `src/services/matching.service.js` (`findCompatibleRequests`).\nMatching applies blood compatibility, ABO/Rh compatibility, participation preference, active donation blocking, donation cooldowns, temporary deferrals, travel deferrals, and location distance before a request is returned.\nDonors with active donations (`pending` or `scheduled`) receive an empty match list.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "limit",
-            "schema": {
-              "type": "integer",
-              "example": 10
-            },
-            "example": 10
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "schema": {
-              "type": "integer",
-              "example": 1
-            },
-            "example": 1
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Matching requests retrieved successfully",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": [
-                    "success",
-                    "message",
-                    "data"
-                  ],
-                  "properties": {
-                    "success": {
-                      "type": "boolean"
-                    },
-                    "message": {
-                      "type": "string"
-                    },
-                    "data": {
-                      "type": "object",
-                      "required": [
-                        "matches",
-                        "pagination"
-                      ],
-                      "properties": {
-                        "matches": {
-                          "type": "array",
-                          "description": "Matched requests returned in descending score order.",
-                          "items": {
-                            "type": "object",
-                            "required": [
-                              "request",
-                              "score",
-                              "locationScore",
-                              "compatibility"
-                            ],
-                            "properties": {
-                              "score": {
-                                "type": "number",
-                                "format": "float",
-                                "description": "Ranking score used to order the match results."
-                              },
-                              "locationScore": {
-                                "type": "number",
-                                "format": "float",
-                                "description": "Location component used in the final ranking score."
-                              },
-                              "compatibility": {
-                                "type": "object",
-                                "required": [
-                                  "bloodTypeMatch",
-                                  "eligible",
-                                  "distanceKm"
-                                ],
-                                "properties": {
-                                  "bloodTypeMatch": {
-                                    "type": "boolean"
-                                  },
-                                  "eligible": {
-                                    "type": "boolean"
-                                  },
-                                  "distanceKm": {
-                                    "type": "number",
-                                    "format": "float",
-                                    "nullable": true,
-                                    "description": "Calculated donor-to-request distance in kilometers."
-                                  }
-                                }
-                              },
-                              "request": {
-                                "type": "object",
-                                "description": "Populated request document returned by the matching service.",
-                                "additionalProperties": true,
-                                "required": [
-                                  "_id",
-                                  "type",
-                                  "bloodType",
-                                  "urgency",
-                                  "status",
-                                  "isEmergency",
-                                  "unitsNeeded",
-                                  "requiredBy",
-                                  "createdAt"
-                                ],
-                                "properties": {
-                                  "_id": {
-                                    "type": "string"
-                                  },
-                                  "type": {
-                                    "type": "string",
-                                    "enum": [
-                                      "blood",
-                                      "plasma",
-                                      "platelets",
-                                      "double_red_cells"
-                                    ]
-                                  },
-                                  "bloodType": {
-                                    "type": "array",
-                                    "items": {
-                                      "type": "string"
-                                    }
-                                  },
-                                  "urgency": {
-                                    "type": "string",
-                                    "enum": [
-                                      "low",
-                                      "medium",
-                                      "high",
-                                      "critical"
-                                    ]
-                                  },
-                                  "status": {
-                                    "type": "string"
-                                  },
-                                  "isEmergency": {
-                                    "type": "boolean"
-                                  },
-                                  "unitsNeeded": {
-                                    "type": "number"
-                                  },
-                                  "quantity": {
-                                    "type": "number"
-                                  },
-                                  "requiredBy": {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  "hospitalName": {
-                                    "type": "string",
-                                    "nullable": true
-                                  },
-                                  "hospitalContact": {
-                                    "type": "string",
-                                    "nullable": true
-                                  },
-                                  "createdAt": {
-                                    "type": "string",
-                                    "format": "date-time"
-                                  },
-                                  "locationHospital": {
-                                    "type": "object",
-                                    "nullable": true,
-                                    "properties": {
-                                      "latitude": {
-                                        "type": "number",
-                                        "format": "float"
-                                      },
-                                      "longitude": {
-                                        "type": "number",
-                                        "format": "float"
-                                      }
-                                    }
-                                  },
-                                  "hospital": {
-                                    "type": "object",
-                                    "properties": {
-                                      "id": {
-                                        "type": "string",
-                                        "nullable": true
-                                      },
-                                      "name": {
-                                        "type": "string",
-                                        "nullable": true
-                                      },
-                                      "contactNumber": {
-                                        "type": "string",
-                                        "nullable": true
-                                      },
-                                      "address": {
-                                        "type": "string",
-                                        "nullable": true
-                                      },
-                                      "latitude": {
-                                        "type": "number",
-                                        "format": "float",
-                                        "nullable": true
-                                      },
-                                      "longitude": {
-                                        "type": "number",
-                                        "format": "float",
-                                        "nullable": true
-                                      }
-                                    }
-                                  }
-                                }
-                              }
-                            }
-                          }
-                        },
-                        "pagination": {
-                          "type": "object",
-                          "properties": {
-                            "page": {
-                              "type": "integer"
-                            },
-                            "limit": {
-                              "type": "integer"
-                            },
-                            "total": {
-                              "type": "integer"
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                },
-                "example": {
-                  "success": true,
-                  "message": "Matching requests retrieved successfully",
-                  "data": {
-                    "matches": [
-                      {
-                        "score": 96.8,
-                        "locationScore": 73.5,
-                        "compatibility": {
-                          "bloodTypeMatch": true,
-                          "eligible": true,
-                          "distanceKm": 2.4
-                        },
-                        "request": {
-                          "_id": "69fe540565ff7785a031314f",
-                          "type": "blood",
-                          "bloodType": [
-                            "O+"
-                          ],
-                          "urgency": "critical",
-                          "status": "pending",
-                          "isEmergency": true,
-                          "quantity": 3,
-                          "unitsNeeded": 3,
-                          "requiredBy": "2026-05-20T00:00:00.000Z",
-                          "hospitalName": "Cairo Care Hospital",
-                          "hospitalContact": "1044444444",
-                          "createdAt": "2026-05-16T08:15:00.000Z",
-                          "locationHospital": {
-                            "latitude": 30.0511,
-                            "longitude": 31.2435
-                          },
-                          "hospital": {
-                            "id": "69f3df915f42685cbbbcbb1b",
-                            "name": "Cairo Care Hospital",
-                            "contactNumber": "1044444444",
-                            "address": "Cairo, Egypt",
-                            "latitude": 30.0511,
-                            "longitude": 31.2435
-                          }
-                        }
-                      }
-                    ],
-                    "pagination": {
-                      "page": 1,
-                      "limit": 10,
-                      "total": 1
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "403": {
-            "description": "Role not allowed"
-          },
-          "404": {
-            "description": "Donor not found"
-          }
-        }
-      }
-    },
     "/donor/respond/{requestId}": {
       "post": {
         "tags": [
           "Donor"
         ],
         "summary": "Respond to a donation request",
+        "description": "Creates a pending donation response for the authenticated donor and issues a QR token for donation confirmation.",
         "security": [
           {
             "bearerAuth": []
@@ -3529,13 +3272,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "type": "object",
-                "properties": {
-                  "quantity": {
-                    "type": "number",
-                    "example": 1
-                  }
-                }
+                "$ref": "#/components/schemas/DonorRespondRequest"
               },
               "example": {
                 "quantity": 1
@@ -3545,9 +3282,12 @@
         },
         "responses": {
           "201": {
-            "description": "Response submitted successfully",
+            "description": "Response submitted successfully with a donation QR token",
             "content": {
               "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DonorRespondSuccessResponse"
+                },
                 "example": {
                   "success": true,
                   "message": "Response submitted successfully",
@@ -3556,7 +3296,9 @@
                     "donorId": "66f100000000000000000002",
                     "requestId": "66f100000000000000000020",
                     "quantity": 1,
-                    "status": "pending"
+                    "status": "pending",
+                    "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
+                    "qrExpires": "2026-05-20T12:00:00.000Z"
                   }
                 }
               }
@@ -3576,190 +3318,6 @@
           },
           "409": {
             "description": "Request already accepted or donor has already responded"
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
-      }
-    },
-    "/requests/nearby": {
-      "get": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Get nearby requests around the caller's coordinates",
-        "description": "Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.\nThis endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.\nCurrent controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.\nWhen called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.\n\n**Migration Note**: This endpoint replaces the deprecated endpoints:\n- `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`\n- `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`\n\nNote: donor callers receive a reduced request payload with distance fields omitted. Hospital/admin viewers continue to receive `distanceKm`, `distanceMeters`, `viewerLocation`, and `radiusKm` when a location is provided.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "query",
-            "name": "lat",
-            "schema": {
-              "type": "number"
-            },
-            "required": false,
-            "description": "Viewer latitude used to compute distance and map positioning",
-            "example": 30.0511
-          },
-          {
-            "in": "query",
-            "name": "lng",
-            "schema": {
-              "type": "number"
-            },
-            "required": false,
-            "description": "Viewer longitude used to compute distance and map positioning",
-            "example": 31.2435
-          },
-          {
-            "in": "query",
-            "name": "radius",
-            "schema": {
-              "type": "number"
-            },
-            "description": "Optional radius in kilometers. If omitted, the endpoint does not apply a radius filter.",
-            "example": 25
-          },
-          {
-            "in": "query",
-            "name": "type",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "blood"
-              ]
-            },
-            "description": "Filter by request type",
-            "example": "blood"
-          },
-          {
-            "in": "query",
-            "name": "bloodType",
-            "schema": {
-              "type": "string"
-            },
-            "description": "Filter by blood type (for blood/plasma/platelets)",
-            "example": "O+"
-          },
-          {
-            "in": "query",
-            "name": "urgency",
-            "schema": {
-              "type": "string",
-              "enum": [
-                "low",
-                "medium",
-                "high",
-                "critical"
-              ]
-            },
-            "description": "Filter requests by urgency level.\n- Use `urgency=critical` or `urgency=high` to retrieve urgent requests.\n- This parameter replaces the deprecated `/donor/urgent-requests` endpoints.\n- If not specified, returns requests of all urgency levels.",
-            "example": "critical"
-          },
-          {
-            "in": "query",
-            "name": "isEmergency",
-            "schema": {
-              "type": "boolean"
-            },
-            "description": "When true, only emergency requests are returned",
-            "example": true
-          },
-          {
-            "in": "query",
-            "name": "page",
-            "schema": {
-              "type": "integer",
-              "minimum": 1
-            },
-            "description": "Page number for paginated response",
-            "example": 1
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "schema": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 100
-            },
-            "description": "Number of results per page",
-            "example": 20
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Nearby requests retrieved successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Nearby requests retrieved successfully",
-                  "data": {
-                    "requests": [
-                      {
-                        "id": "69fe540565ff7785a031314f",
-                        "requestId": "69fe540565ff7785a031314f",
-                        "type": "blood",
-                        "bloodType": "O+",
-                        "hospitalName": "Cairo Care Hospital",
-                        "patientType": "Emergency surgery support",
-                        "contactNumber": "1044444444",
-                        "unitsNeeded": 3,
-                        "isEmergency": true,
-                        "createdAt": "2026-05-16T08:15:00.000Z",
-                        "status": "pending",
-                        "requestStatus": "pending",
-                        "urgency": "critical",
-                        "requiredBy": "2026-05-20T00:00:00.000Z",
-                        "locationHospital": {
-                          "latitude": 30.0511,
-                          "longitude": 31.2435
-                        },
-                        "location": {
-                          "lat": 30.0511,
-                          "lng": 31.2435
-                        },
-                        "hospital": {
-                          "id": "69f3df915f42685cbbbcbb1b",
-                          "name": "Cairo Care Hospital",
-                          "contactNumber": "1044444444",
-                          "address": "Cairo, Egypt",
-                          "latitude": 30.0511,
-                          "longitude": 31.2435
-                        },
-                        "distanceKm": 2.35,
-                        "distanceMeters": 2350,
-                        "distance": "2.35 km"
-                      }
-                    ],
-                    "pagination": {
-                      "page": 1,
-                      "limit": 20,
-                      "total": 1,
-                      "totalPages": 1
-                    },
-                    "viewerLocation": {
-                      "latitude": 30.0333,
-                      "longitude": 31.2333
-                    },
-                    "radiusKm": 25
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid geolocation or pagination query"
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "403": {
-            "description": "Role not allowed"
           }
         }
       }
@@ -3808,229 +3366,195 @@
                     "status": "pending",
                     "requestStatus": "pending",
                     "urgency": "critical",
-                    "type": "blood",
-                    "requiredBy": "2026-05-18T16:00:00.000Z",
-                    "locationHospital": {
-                      "latitude": 30.0444,
-                      "longitude": 31.2357
-                    },
-                    "location": {
-                      "lat": 30.0444,
-                      "lng": 31.2357
-                    },
-                    "qrToken": null,
-                    "qrCreatedAt": null,
-                    "qrExpiresAt": null,
-                    "hospital": {
-                      "id": "69f3df915f42685cbbbcbb1b",
-                      "name": "Cairo Care Hospital",
-                      "contactNumber": "0223456789",
-                      "address": {
-                        "city": "Cairo",
-                        "governorate": "Cairo"
-                      },
-                      "latitude": 30.0444,
-                      "longitude": 31.2357
-                    },
-                    "distanceKm": 2.4,
-                    "distanceMeters": 2400,
-                    "distance": "2.40 km"
-                  }
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Request not found"
-          }
-        }
-      }
-    },
-    "/requests/{id}/google-maps": {
-      "get": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Get request location coordinates for navigation",
-        "security": null,
-        "description": "Resolves a request's stored hospital coordinates and returns raw latitude/longitude for client-side navigation.\n\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "description": "Request identifier",
-            "example": "69fe540565ff7785a031314f"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Request location retrieved successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Request location retrieved successfully",
-                  "data": {
-                    "requestId": "69fe540565ff7785a031314f",
-                    "location": {
-                      "lat": 30.0511,
-                      "lng": 31.2435
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid request id"
-          },
-          "404": {
-            "description": "Request not found or request location is not available"
-          }
-        }
-      }
-    },
-    "/requests/{id}/accept": {
-      "post": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Accept a request as a donor",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.\n\nDonors with active donations (`pending` or `scheduled`) are blocked by the centralized eligibility service and receive a validation error instead of a request response.",
-        "responses": {
-          "200": {
-            "description": "Example response",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Request accepted successfully",
-                  "data": {
-                    "request": {
-                      "id": "69fe540565ff7785a031314f",
-                      "requestId": "69fe540565ff7785a031314f",
-                      "bloodType": "O-",
-                      "hospitalName": "Cairo Care Hospital",
-                      "patientType": "blood",
-                      "contactNumber": "0223456789",
-                      "unitsNeeded": 3,
-                      "isEmergency": true,
-                      "createdAt": "2026-05-18T08:20:00.000Z",
-                      "status": "accepted",
-                      "requestStatus": "accepted",
-                      "urgency": "critical",
-                      "type": "blood",
-                      "requiredBy": "2026-05-18T16:00:00.000Z",
-                      "locationHospital": {
-                        "latitude": 30.0444,
-                        "longitude": 31.2357,
-                        "location": {
-                          "lat": 30.0444,
-                          "lng": 31.2357
+                    "/requests/nearby": {
+                      "get": {
+                        "tags": [
+                          "Donor"
+                        ],
+                        "summary": "Get nearby requests around the caller's coordinates",
+                        "description": "Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.\nThis endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.\nCurrent controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.\nWhen called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.\n\n**Migration Note**: This endpoint replaces the deprecated endpoints:\n- `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`\n- `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`\n\nNote: donor callers receive a reduced request payload with distance fields omitted. Hospital/admin viewers continue to receive `distanceKm`, `distanceMeters`, `viewerLocation`, and `radiusKm` when a location is provided.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+                        "security": [
+                          {
+                            "bearerAuth": []
+                          }
+                        ],
+                        "parameters": [
+                          {
+                            "in": "query",
+                            "name": "lat",
+                            "schema": {
+                              "type": "number"
+                            },
+                            "required": false,
+                            "description": "Viewer latitude used to compute distance and map positioning",
+                            "example": 30.0511
+                          },
+                          {
+                            "in": "query",
+                            "name": "lng",
+                            "schema": {
+                              "type": "number"
+                            },
+                            "required": false,
+                            "description": "Viewer longitude used to compute distance and map positioning",
+                            "example": 31.2435
+                          },
+                          {
+                            "in": "query",
+                            "name": "radius",
+                            "schema": {
+                              "type": "number"
+                            },
+                            "description": "Optional radius in kilometers. If omitted, the endpoint does not apply a radius filter.",
+                            "example": 25
+                          },
+                          {
+                            "in": "query",
+                            "name": "type",
+                            "schema": {
+                              "type": "string",
+                              "enum": [
+                                "blood"
+                              ]
+                            },
+                            "description": "Filter by request type",
+                            "example": "blood"
+                          },
+                          {
+                            "in": "query",
+                            "name": "bloodType",
+                            "schema": {
+                              "type": "string"
+                            },
+                            "description": "Filter by blood type (for blood/plasma/platelets)",
+                            "example": "O+"
+                          },
+                          {
+                            "in": "query",
+                            "name": "urgency",
+                            "schema": {
+                              "type": "string",
+                              "enum": [
+                                "low",
+                                "medium",
+                                "high",
+                                "critical"
+                              ]
+                            },
+                            "description": "Filter requests by urgency level.\n- Use `urgency=critical` or `urgency=high` to retrieve urgent requests.\n- This parameter replaces the deprecated `/donor/urgent-requests` endpoints.\n- If not specified, returns requests of all urgency levels.",
+                            "example": "critical"
+                          },
+                          {
+                            "in": "query",
+                            "name": "isEmergency",
+                            "schema": {
+                              "type": "boolean"
+                            },
+                            "description": "When true, only emergency requests are returned",
+                            "example": true
+                          },
+                          {
+                            "in": "query",
+                            "name": "page",
+                            "schema": {
+                              "type": "integer",
+                              "minimum": 1
+                            },
+                            "description": "Page number for paginated response",
+                            "example": 1
+                          },
+                          {
+                            "in": "query",
+                            "name": "limit",
+                            "schema": {
+                              "type": "integer",
+                              "minimum": 1,
+                              "maximum": 100
+                            },
+                            "description": "Number of results per page",
+                            "example": 20
+                          }
+                        ],
+                        "responses": {
+                          "200": {
+                            "description": "Nearby requests retrieved successfully",
+                            "content": {
+                              "application/json": {
+                                "example": {
+                                  "success": true,
+                                  "message": "Nearby requests retrieved successfully",
+                                  "data": {
+                                    "requests": [
+                                      {
+                                        "id": "69fe540565ff7785a031314f",
+                                        "requestId": "69fe540565ff7785a031314f",
+                                        "type": "blood",
+                                        "bloodType": [
+                                          "O+"
+                                        ],
+                                        "hospitalName": "Cairo Care Hospital",
+                                        "patientType": "Emergency surgery support",
+                                        "contactNumber": "1044444444",
+                                        "unitsNeeded": 3,
+                                        "isEmergency": true,
+                                        "createdAt": "2026-05-16T08:15:00.000Z",
+                                        "status": "pending",
+                                        "requestStatus": "pending",
+                                        "urgency": "critical",
+                                        "requiredBy": "2026-05-20T00:00:00.000Z",
+                                        "locationHospital": {
+                                          "latitude": 30.0511,
+                                          "longitude": 31.2435
+                                        },
+                                        "location": {
+                                          "lat": 30.0511,
+                                          "lng": 31.2435
+                                        },
+                                        "hospital": {
+                                          "id": "69f3df915f42685cbbbcbb1b",
+                                          "name": "Cairo Care Hospital",
+                                          "contactNumber": "1044444444",
+                                          "address": "Cairo, Egypt",
+                                          "latitude": 30.0511,
+                                          "longitude": 31.2435
+                                        },
+                                        "distanceKm": 2.35,
+                                        "distanceMeters": 2350,
+                                        "distance": "2.35 km"
+                                      }
+                                    ],
+                                    "pagination": {
+                                      "page": 1,
+                                      "limit": 20,
+                                      "total": 1,
+                                      "totalPages": 1
+                                    },
+                                    "viewerLocation": {
+                                      "latitude": 30.0333,
+                                      "longitude": 31.2333
+                                    },
+                                    "radiusKm": 25
+                                  }
+                                }
+                              }
+                            }
+                          },
+                          "400": {
+                            "description": "Invalid geolocation or pagination query"
+                          },
+                          "401": {
+                            "description": "Missing or invalid JWT"
+                          },
+                          "403": {
+                            "description": "Role not allowed"
+                          }
                         }
-                      },
-                      "qrToken": null,
-                      "qrCreatedAt": null,
-                      "qrExpiresAt": null,
-                      "hospital": {
-                        "id": "69f3df915f42685cbbbcbb1b",
-                        "name": "Cairo Care Hospital",
-                        "contactNumber": "0223456789",
-                        "address": {
-                          "city": "Cairo",
-                          "governorate": "Cairo"
-                        },
-                        "latitude": 30.0444,
-                        "longitude": 31.2357
-                      },
-                      "distanceKm": null,
-                      "distanceMeters": null,
-                      "distance": null
-                    },
-                    "donor": {
-                      "id": "69f3df915f42685cbbbcbb18",
-                      "name": "Aya Hassan",
-                      "phoneNumber": "01011111111",
-                      "bloodType": "O+"
-                    },
-                    "donation": {
-                      "_id": "69fe540565ff7785a0313157",
-                      "donorId": "69f3df915f42685cbbbcbb18",
-                      "requestId": "69fe540565ff7785a031314f",
-                      "quantity": 3,
-                      "status": "pending"
+                      }
                     }
                   }
                 }
               }
             }
-          },
-          "400": {
-            "description": "Request cannot be accepted or donor is not eligible"
-          },
-          "403": {
-            "description": "Donor role required or access denied"
-          },
-          "404": {
-            "description": "Request or donor not found"
-          }
-        }
-      }
-    },
-    "/requests/{id}/reject": {
-      "post": {
-        "tags": [
-          "Hospital"
-        ],
-        "summary": "Reject an accepted request donation",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "description": "Rejects the accepted donation linked to a request.\nThe backend clears `acceptedDonationId`, restores donor eligibility for matching, cancels any linked active appointments, and reopens the request when the lifecycle allows it.\nFor hospital callers this is the main rejection flow after a donor has already accepted a request.",
-        "responses": {
-          "200": {
-            "description": "Request rejected successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Request rejected successfully",
-                  "data": {
-                    "request": {
-                      "_id": "69fe540565ff7785a031314f",
-                      "status": "pending",
-                      "acceptedBy": null,
-                      "acceptedDonationId": null,
-                      "acceptedAt": null
-                    },
-                    "donation": {
-                      "_id": "69fe540565ff7785a0313157",
-                      "status": "rejected"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request has no accepted donation to reject or rejection is not allowed from the current state"
-          },
-          "403": {
-            "description": "Role not allowed or unauthorized access to this request"
-          },
-          "404": {
-            "description": "Request not found"
           }
         }
       }
@@ -6523,7 +6047,7 @@
                     "totalCancelled": 2,
                     "emergencyRequests": 3,
                     "totalDonations": 7,
-                    "uniqueDonorsResponded": 5
+                    "totalResponses": 7
                   }
                 }
               }
@@ -6570,7 +6094,7 @@
                     "totalCancelled": 1,
                     "emergencyRequests": 4,
                     "totalDonations": 9,
-                    "uniqueDonorsResponded": 6
+                    "totalResponses": 9
                   }
                 }
               }
@@ -8025,36 +7549,15 @@
                   "success": true,
                   "message": "Request details retrieved successfully",
                   "data": {
-                    "request": {
-                      "_id": "69fe540565ff7785a0313150",
-                      "type": "blood",
-                      "bloodType": [
-                        "A-",
-                        "O-"
-                      ],
-                      "urgency": "high",
-                      "status": "in-progress",
-                      "quantity": 2,
-                      "hospitalId": {
-                        "_id": "69f3df915f42685cbbbcbb1b",
-                        "hospitalName": "Cairo Care Hospital",
-                        "contactNumber": "0223456789"
-                      }
-                    },
-                    "donations": [
-                      {
-                        "_id": "69fe540565ff7785a0313157",
-                        "donorId": {
-                          "_id": "69f3df915f42685cbbbcbb18",
-                          "fullName": "Aya Hassan",
-                          "email": "aya.hassan@lifelink.demo",
-                          "bloodType": "O+"
-                        },
-                        "quantity": 1,
-                        "status": "pending"
-                      }
+                    "bloodTypes": [
+                      "A-",
+                      "O-"
                     ],
-                    "donationCount": 1
+                    "unitsNeeded": 2,
+                    "urgency": "high",
+                    "timeRemaining": "2d 4h remaining",
+                    "responded": 1,
+                    "confirmed": 0
                   }
                 }
               }
@@ -8130,11 +7633,14 @@
                   "success": true,
                   "message": "Request status updated successfully",
                   "data": {
-                    "_id": "69fe540565ff7785a0313150",
-                    "status": "completed",
-                    "bloodType": "A-",
+                    "bloodTypes": [
+                      "A-"
+                    ],
+                    "unitsNeeded": 2,
                     "urgency": "high",
-                    "updatedAt": "2026-05-18T09:40:00.000Z"
+                    "timeRemaining": "2d 4h remaining",
+                    "responded": 1,
+                    "confirmed": 0
                   }
                 }
               }
@@ -8199,57 +7705,6 @@
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
-      }
-    },
-    "/hospital/requests/{requestId}/close": {
-      "post": {
-        "tags": [
-          "Hospital"
-        ],
-        "summary": "Close a hospital request",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "requestId",
-            "required": true,
-            "schema": {
-              "type": "string"
-            },
-            "example": "69fe540565ff7785a0313150"
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Request closed successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Request closed successfully",
-                  "data": {
-                    "_id": "69fe540565ff7785a0313150",
-                    "status": "completed",
-                    "completedAt": "2026-05-18T09:50:00.000Z"
-                  }
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Request is already completed"
-          },
-          "403": {
-            "description": "Role not allowed or unauthorized access"
-          },
-          "404": {
-            "description": "Request not found"
-          }
-        }
       }
     },
     "/hospital/find-donors": {

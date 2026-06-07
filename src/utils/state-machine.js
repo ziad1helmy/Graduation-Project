@@ -23,13 +23,15 @@
  * ──────────────
  * pending     – open for donor responses
  * accepted    – a donor accepted; donation record created
- * in-progress – donation appointment confirmed / active
+ * in-progress – donation appointment confirmed / active (appointment flow)
  * completed   – donation completed; request fulfilled
  * cancelled   – withdrawn by hospital or donor who held the accepted slot
  * expired     – requiredBy date passed without fulfilment
  *
  * accepted → pending  : valid "reopen" after a rejection lifecycle
  *                       (hospital rejects the donation → request reverts to pending)
+ *                       OR no-arrival timeout (donor didn't arrive)
+ * accepted → completed: valid for Hospital Request flow (direct completion on hospital confirm)
  * in-progress → pending: valid when a scheduled donation is cancelled/rejected
  *                        mid-flow and the request is reopened for new responses
  *
@@ -39,7 +41,7 @@
  */
 export const REQUEST_TRANSITIONS = {
   pending: ['accepted', 'cancelled', 'expired'],
-  accepted: ['in-progress', 'pending', 'cancelled', 'expired'],
+  accepted: ['in-progress', 'pending', 'cancelled', 'expired', 'completed'],
   'in-progress': ['completed', 'pending', 'cancelled', 'expired'],
   completed: [],
   cancelled: [],
@@ -49,18 +51,23 @@ export const REQUEST_TRANSITIONS = {
 /**
  * Donation state machine.
  *
- * pending   – donor expressed intent; awaiting appointment
- * scheduled – appointment confirmed; donation in-flight
+ * pending   – donor expressed intent; awaiting appointment (appointment flow)
+ *           – donor accepted Hospital Request; QR generated; awaiting hospital scan/confirm
+ * scheduled – appointment confirmed; donation in-flight (appointment flow)
  * completed – blood collected; terminal
- * cancelled – withdrawn
+ * cancelled – withdrawn by donor
  * rejected  – hospital refused; terminal
+ * expired   – no-arrival timeout (Hospital Request flow); terminal
+ * abandoned – donor never followed through
  */
 export const DONATION_TRANSITIONS = {
-  pending: ['scheduled', 'cancelled', 'rejected'],
+  pending: ['scheduled', 'completed', 'cancelled', 'rejected', 'expired', 'abandoned'],
   scheduled: ['completed', 'cancelled', 'rejected'],
   completed: [],
   cancelled: [],
   rejected: [],
+  expired: [],
+  abandoned: [],
 };
 
 /**
@@ -88,7 +95,7 @@ const TRANSITION_MAPS = {
 
 const TERMINAL_STATES = {
   request: ['completed', 'cancelled', 'expired'],
-  donation: ['completed', 'cancelled', 'rejected'],
+  donation: ['completed', 'cancelled', 'rejected', 'expired', 'abandoned'],
   appointment: ['completed', 'cancelled'],
 };
 
@@ -196,8 +203,8 @@ export const validateOrphanState = (entityName, doc, related = {}) => {
   if (entityName === 'donation') {
     const { appointment } = related;
 
-    // Rule D1: A completed donation must have a completed appointment.
-    if (doc.status === 'completed') {
+    // Rule D1: A completed donation must have a completed appointment (unless it is a request-linked donation under Flow A).
+    if (doc.status === 'completed' && !doc.requestId) {
       if (!appointment) {
         throw new Error('[OrphanCheck] Completed donation has no linked appointment.');
       }
@@ -209,7 +216,7 @@ export const validateOrphanState = (entityName, doc, related = {}) => {
     }
 
     // Rule D2: A scheduled donation must have an appointmentId.
-    if (doc.status === 'scheduled' && !doc.appointmentId) {
+    if (doc.status === 'scheduled' && !doc.appointmentId && !doc.requestId) {
       throw new Error('[OrphanCheck] Scheduled donation is missing appointmentId.');
     }
   }

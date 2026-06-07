@@ -235,7 +235,7 @@ const assertAppointmentEligibility = async ({ donor, donationType, request = nul
   if (request) {
     const requestObject = request.toObject?.() || request;
     const eligibilityRequest = { ...requestObject, type: requestType };
-    const eligibility = await donationService.validateEligibility(donor, eligibilityRequest, { excludeDonationId });
+    const eligibility = await donationService.validateEligibility(donor, eligibilityRequest, { excludeDonationId, isAppointment: true });
     if (!eligibility.eligible) {
       throw new Error(eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
     }

@@ -48,10 +48,6 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
 
 export const bookAppointment = async (req, res, next) => {
   try {
-    console.log('BOOK_APPOINTMENT_START');
-    console.log('AUTH_USER:', req.user);
-    console.log('REQUEST_BODY:', req.body);
-
     const donorId = getDonorId(req);
     const { hospitalId, requestId, appointmentDate, date, time, notes, donationType } = req.body;
 
@@ -77,9 +73,6 @@ export const bookAppointment = async (req, res, next) => {
 
     return response.success(res, 201, 'Appointment booked', toAppointmentResponse(appointment));
   } catch (error) {
-    console.error('BOOK_APPOINTMENT_ERROR:', error);
-    console.error('STACK:', error?.stack);
-
     if (error.message === 'Hospital not found' || error.message === ELIGIBILITY_KEYS.DONOR_NOT_FOUND) {
       return response.error(res, 404, error.message);
     }

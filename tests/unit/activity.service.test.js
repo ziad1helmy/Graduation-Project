@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { setupTestDB } from '../helpers/db.js';
 import { createDonor, createRequest, createDonation } from '../helpers/factories.js';
 import mongoose from 'mongoose';
@@ -6,6 +6,10 @@ import Activity from '../../src/models/Activity.model.js';
 import * as activityService from '../../src/services/activity.service.js';
 
 setupTestDB();
+
+beforeAll(async () => {
+  await Activity.ensureIndexes();
+});
 
 describe('Activity Service', () => {
   describe('logActivity()', () => {

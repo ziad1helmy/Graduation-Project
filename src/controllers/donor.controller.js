@@ -19,6 +19,7 @@ import { buildRequestPayload, buildDonorRequestSummary } from './request.control
 import { formatBloodTypeLabel, normalizeBloodTypeList } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { validateOrphanState, validateTransition } from '../utils/state-machine.js';
+import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
 
 const DONATION_QR_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -359,14 +360,22 @@ export const respondToRequest = async (req, res, next) => {
         }
 
         // Create donation in-session and issue a donation QR for donor confirmation.
-        const donationQr = createDonationQrPayload();
+        const urgencyKey = request.isEmergency ? 'emergency' : (request.urgency || 'medium');
+        const timeouts = URGENCY_TIMEOUTS[urgencyKey] || URGENCY_TIMEOUTS.medium;
+        const arrivalWindowMs = timeouts.arrivalWindowMs;
+        const now = new Date();
+        const qrExpires = new Date(now.getTime() + arrivalWindowMs);
+        const qrToken = crypto.randomBytes(32).toString('hex');
+
         const [donation] = await Donation.create([
           {
             donorId,
             requestId,
             quantity: quantity || 1,
             status: 'pending',
-            ...donationQr,
+            qrToken,
+            qrExpires,
+            arrivalDeadline: qrExpires,
           },
         ], { session });
         createdDonation = donation;

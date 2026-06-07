@@ -819,7 +819,6 @@ These structures are derived strictly from the backend controllers, services, da
     "totalResponses": 15,
     "totalDonations": 15,
     "completedDonations": 12,
-    "uniqueDonorsResponded": 8,
     "confirmedDonorCount": 6,
     "overdueCount": 0,
     "dueSoonCount": 2,
@@ -980,72 +979,12 @@ These structures are derived strictly from the backend controllers, services, da
   "success": true,
   "message": "Request details retrieved successfully",
   "data": {
-    "request": {
-      "_id": "60d5ec49f0322c2c20e28f60",
-      "hospitalId": {
-        "_id": "60d5ec49f0322c2c20e28f3a",
-        "fullName": "Al-Amal Hospital",
-        "hospitalName": "Al-Amal Hospital",
-        "address": {
-          "city": "Cairo",
-          "governorate": "Cairo",
-          "street": "123 Nile Street"
-        },
-        "contactNumber": "+20123456789"
-      },
-      "type": "blood",
-      "status": "pending",
-      "urgency": "normal",
-      "requiredBy": "2026-06-10T12:00:00.000Z",
-      "quantity": 2,
-      "unitsNeeded": 2,
-      "patientType": "Cancer Patient",
-      "isEmergency": false,
-      "notes": "Chemotherapy support",
-      "bloodType": ["O+"],
-      "locationHospital": {
-        "latitude": 30.0444,
-        "longitude": 31.2357
-      },
-      "hospitalLocation": {
-        "lat": 30.0444,
-        "lng": 31.2357
-      },
-      "hospitalLocationGeo": {
-        "type": "Point",
-        "coordinates": [31.2357, 30.0444]
-      },
-      "hospitalName": "Al-Amal Hospital",
-      "createdAt": "2026-06-05T12:00:00.000Z",
-      "updatedAt": "2026-06-05T12:00:00.000Z"
-    },
-    "donations": [
-      {
-        "_id": "60d5ec49f0322c2c20e28f70",
-        "donorId": {
-          "_id": "60d5ec49f0322c2c20e28f36",
-          "fullName": "Ziad Abdelghany",
-          "email": "ziad@example.com",
-          "phoneNumber": "01234567890",
-          "location": {
-            "city": "Cairo",
-            "governorate": "Cairo",
-            "coordinates": {
-              "lat": 30.0444,
-              "lng": 31.2357
-            }
-          },
-          "bloodType": "A+"
-        },
-        "requestId": "60d5ec49f0322c2c20e28f60",
-        "status": "pending",
-        "quantity": 1,
-        "createdAt": "2026-06-06T10:00:00.000Z",
-        "updatedAt": "2026-06-06T10:00:00.000Z"
-      }
-    ],
-    "responseCount": 1,
-    "donationCount": 1
+    "bloodTypes": ["O+"],
+    "unitsNeeded": 2,
+    "urgency": "normal",
+    "timeRemaining": "2d 4h remaining",
+    "responded": 1,
+    "confirmed": 0
   }
 }
 ```
@@ -1061,33 +1000,12 @@ These structures are derived strictly from the backend controllers, services, da
   "success": true,
   "message": "Request status updated successfully",
   "data": {
-    "_id": "60d5ec49f0322c2c20e28f60",
-    "hospitalId": "60d5ec49f0322c2c20e28f3a",
-    "type": "blood",
-    "status": "in-progress",
-    "urgency": "normal",
-    "requiredBy": "2026-06-10T12:00:00.000Z",
-    "quantity": 2,
+    "bloodTypes": ["O+"],
     "unitsNeeded": 2,
-    "patientType": "Cancer Patient",
-    "isEmergency": false,
-    "notes": "Chemotherapy support",
-    "bloodType": ["O+"],
-    "locationHospital": {
-      "latitude": 30.0444,
-      "longitude": 31.2357
-    },
-    "hospitalLocation": {
-      "lat": 30.0444,
-      "lng": 31.2357
-    },
-    "hospitalLocationGeo": {
-      "type": "Point",
-      "coordinates": [31.2357, 30.0444]
-    },
-    "hospitalName": "Al-Amal Hospital",
-    "createdAt": "2026-06-05T12:00:00.000Z",
-    "updatedAt": "2026-06-07T00:56:18.000Z"
+    "urgency": "normal",
+    "timeRemaining": "2d 4h remaining",
+    "responded": 1,
+    "confirmed": 0
   }
 }
 ```
@@ -1306,7 +1224,6 @@ These structures are derived strictly from the backend controllers, services, da
     "totalResponses": 15,
     "totalDonations": 15,
     "completedDonations": 12,
-    "uniqueDonorsResponded": 8,
     "confirmedDonorCount": 6,
     "overdueCount": 0,
     "dueSoonCount": 2,

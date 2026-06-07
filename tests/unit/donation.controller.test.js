@@ -306,6 +306,48 @@ describe('verification checklist flow', () => {
     expect(updated.verificationChecklist.completedAt).toBeTruthy();
   });
 
+  it('blocks confirmation of arrival if the donor is ineligible', async () => {
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const qrToken = crypto.randomBytes(32).toString('hex');
+
+    const appointment = await Appointment.create({
+      donorId: donor._id,
+      hospitalId: hospital._id,
+      appointmentDate: new Date(Date.now() + 48 * 3600 * 1000),
+      status: 'confirmed',
+      qrToken,
+    });
+
+    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, makeRes(), vi.fn());
+
+    // Mock canDonate to return ineligible
+    eligibilityService.canDonate.mockResolvedValueOnce({
+      eligible: false,
+      reason: 'Donor cooldown period is active',
+    });
+
+    const res = makeRes();
+    await donationController.confirmArrival(
+      {
+        user: { userId: hospital._id },
+        body: {
+          appointmentId: appointment._id.toString(),
+          checklist: {
+            idVerified: true,
+            questionnaireCompleted: true,
+            consentSigned: true,
+          },
+        },
+      },
+      res,
+      vi.fn()
+    );
+
+    expect(res.status).toHaveBeenCalledWith(403);
+    expect(res.json.mock.calls[0][0].message).toBe('Donor cooldown period is active');
+  });
+
   it('rejects and then allows a safe reset', async () => {
     const donor = await createDonor();
     const hospital = await createHospital();

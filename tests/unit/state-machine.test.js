@@ -94,6 +94,10 @@ describe('validateTransition – valid transitions', () => {
     expect(() => validateTransition('request', 'accepted', 'cancelled')).not.toThrow();
   });
 
+  it('request: accepted → completed (Hospital Request flow direct completion)', () => {
+    expect(() => validateTransition('request', 'accepted', 'completed')).not.toThrow();
+  });
+
   it('request: in-progress → completed', () => {
     expect(() => validateTransition('request', 'in-progress', 'completed')).not.toThrow();
   });
@@ -172,8 +176,8 @@ describe('validateTransition – invalid / blocked transitions', () => {
     expect(() => validateTransition('request', 'pending', 'pending')).toThrow(/cannot transition from/);
   });
 
-  it('donation: pending → completed (must be scheduled first)', () => {
-    expect(() => validateTransition('donation', 'pending', 'completed')).toThrow(/not allowed/);
+  it('donation: pending → completed (Hospital Request flow allows direct completion)', () => {
+    expect(() => validateTransition('donation', 'pending', 'completed')).not.toThrow();
   });
 
   it('donation: same state → same state', () => {

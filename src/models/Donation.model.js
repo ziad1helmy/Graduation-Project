@@ -39,8 +39,8 @@ const donationSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['pending', 'scheduled', 'completed', 'cancelled', 'rejected'],
-        message: 'Status must be pending, scheduled, completed, cancelled, or rejected',
+        values: ['pending', 'scheduled', 'completed', 'cancelled', 'rejected', 'expired', 'abandoned'],
+        message: 'Status must be pending, scheduled, completed, cancelled, rejected, expired, or abandoned',
       },
       default: 'pending',
     },
@@ -105,6 +105,10 @@ const donationSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    // NOTE: The field name is `qrExpires` (not `qrExpiresAt`) for the Donation model.
+    // The Appointment model uses `qrExpiresAt`. All API response payloads normalize
+    // this to `qrExpiresAt` via `donation.qrExpires`. A future migration should
+    // rename this field to `qrExpiresAt` for consistency.
     qrExpires: {
       type: Date,
       default: null,
@@ -126,6 +130,68 @@ const donationSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+
+    // Verification fields mirrored from Appointment schema for Flow A
+    qrScannedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'rejected', 'completed'],
+      default: null,
+    },
+    verificationSessionId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    verificationStartedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationRejectedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationRejectedReason: {
+      type: String,
+      default: null,
+    },
+    verificationChecklist: {
+      idVerified: {
+        type: Boolean,
+        default: false,
+      },
+      questionnaireCompleted: {
+        type: Boolean,
+        default: false,
+      },
+      consentSigned: {
+        type: Boolean,
+        default: false,
+      },
+      completedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+    arrivalDeadline: {
+      type: Date,
+      default: null,
+    },
+    qrUsed: {
+      type: Boolean,
+      default: false,
+    },
+    qrUsedAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,
@@ -138,6 +204,7 @@ donationSchema.index({ requestId: 1 });
 donationSchema.index({ status: 1 });
 donationSchema.index({ donorId: 1, status: 1 });
 donationSchema.index({ requestId: 1, status: 1 });
+donationSchema.index({ arrivalDeadline: 1 });
 donationSchema.index(
   { appointmentId: 1 },
   {
@@ -152,9 +219,7 @@ donationSchema.index(
   { donorId: 1, requestId: 1 },
   {
     unique: true,
-    partialFilterExpression: {
-      status: { $nin: ['cancelled', 'rejected'] },
-    },
+    partialFilterExpression: { status: 'pending' },
   }
 );
 
@@ -165,12 +230,17 @@ donationSchema.index(
  * Pending donations must have an appointment scheduled before appointmentScheduleDeadline.
  */
 donationSchema.pre('save', async function() {
+  // Request-linked donations skip appointment scheduling deadline checks
+  if (this.requestId) {
+    return;
+  }
+
   // If status is changing to 'scheduled', must have appointmentId
   if (this.isModified('status') && this.status === 'scheduled' && !this.appointmentId) {
     throw new Error('Appointment required to schedule donation');
   }
 
-  // Check if donation is pending and past the deadline
+  // Check if donation is pending and past the deadline (only for voluntary/Flow B donations)
   if (
     this.status === 'pending' &&
     this.appointmentScheduleDeadline &&

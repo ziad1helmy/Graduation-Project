@@ -6,6 +6,7 @@ import { seedRewardData } from './services/reward.service.js';
 import { initializeDefaultConfig } from './services/rewardsConfig.service.js';
 import { logger } from './utils/logger.js';
 import outboxWorker from './workers/notificationOutbox.worker.js';
+import requestEscalationWorker from './workers/requestEscalation.worker.js';
 
 validateEnv();
 await connectDB();
@@ -50,6 +51,30 @@ const startOutboxWorker = (intervalMs = 5000) => {
 // Start worker by default in non-test environments. For production, consider running a separate worker process.
 startOutboxWorker(parseInt(process.env.OUTBOX_POLL_INTERVAL_MS, 10) || 5000);
 
+// Start the request escalation worker: handles arrival expirations and re-broadcasts.
+let escalationInterval = null;
+const startEscalationWorker = (intervalMs = 60000) => {
+  if (process.env.NODE_ENV === 'test') return;
+  if (escalationInterval) return;
+  escalationInterval = setInterval(async () => {
+    try {
+      const result = await requestEscalationWorker.runIteration();
+      const hasActivity =
+        (result.arrivalExpirations?.expired || 0) > 0 ||
+        (result.reBroadcasts?.reBroadcast || 0) > 0 ||
+        (result.emergencyReBroadcasts?.reBroadcast || 0) > 0;
+      if (hasActivity) {
+        logger.info('Escalation worker iteration completed', { result });
+      }
+    } catch (err) {
+      logger.warn('Escalation worker iteration failed', { message: err.message });
+    }
+  }, intervalMs);
+  logger.info('Request Escalation worker started', { intervalMs });
+};
+
+startEscalationWorker(parseInt(process.env.ESCALATION_POLL_INTERVAL_MS, 10) || 60000);
+
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
     logger.error('Port already in use', {
@@ -83,11 +108,15 @@ const shutdown = async (signal) => {
   forceExitTimer.unref();
 
   server.close(async (serverError) => {
-  // Stop background workers (outbox) to prevent them from issuing DB ops during shutdown
+  // Stop background workers (outbox + escalation) to prevent them from issuing DB ops during shutdown
   try {
     if (outboxInterval) {
       clearInterval(outboxInterval);
       outboxInterval = null;
+    }
+    if (escalationInterval) {
+      clearInterval(escalationInterval);
+      escalationInterval = null;
     }
     // Small grace period for any in-flight worker iteration to complete
     await new Promise((resolve) => setTimeout(resolve, 500));

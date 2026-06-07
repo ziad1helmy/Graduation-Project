@@ -80,7 +80,7 @@ describe('Request Details Integration', () => {
     expect(detailResponse.body.data.qrToken).toBe(response.body.data.qrToken);
   });
 
-  it('POST /requests/verify-qr validates a generated token', async () => {
+  it('POST /requests/verify-qr validates a donation QR token after donor accepts', async () => {
     await clearDatabase();
     const hospital = await createHospital();
     const donor = await createDonor();
@@ -92,21 +92,41 @@ describe('Request Details Integration', () => {
     });
 
     const hospitalToken = signToken({ userId: hospital._id.toString(), role: hospital.role });
-    const generateResponse = await request(app)
-      .post(`/requests/${urgentRequest._id}/generate-qr`)
-      .set('Authorization', `Bearer ${hospitalToken}`)
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    // Donor accepts the request — creates donation with QR
+    const acceptResponse = await request(app)
+      .post(`/requests/${urgentRequest._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
       .send({});
 
+    expect(acceptResponse.status).toBe(200);
+    expect(acceptResponse.body.data.qrToken).toBeDefined();
+
+    const qrToken = acceptResponse.body.data.qrToken;
+
+    // Hospital verifies the QR token
     const verifyResponse = await request(app)
       .post('/requests/verify-qr')
       .set('Authorization', `Bearer ${hospitalToken}`)
-      .send({ qrToken: generateResponse.body.data.qrToken });
+      .send({ qrToken });
 
     expect(verifyResponse.status).toBe(200);
     expect(verifyResponse.body.success).toBe(true);
     expect(verifyResponse.body.data.valid).toBe(true);
     expect(verifyResponse.body.data.requestId).toBe(urgentRequest._id.toString());
+    expect(verifyResponse.body.data.donationId).toBeDefined();
     expect(verifyResponse.body.data.hospitalName).toContain('Test Hospital');
+
+    // Second scan should fail — QR already used
+    const secondVerify = await request(app)
+      .post('/requests/verify-qr')
+      .set('Authorization', `Bearer ${hospitalToken}`)
+      .send({ qrToken });
+
+    expect(secondVerify.status).toBe(200);
+    expect(secondVerify.body.data.valid).toBe(false);
+    expect(secondVerify.body.data.message).toContain('already been used');
   });
 
   it('GET /requests/nearby filters by radius and sorts by distance', async () => {
@@ -188,7 +208,7 @@ describe('Request Details Integration', () => {
     expect(typeof response.body.data.requests[0].distanceKm).toBe('number');
   });
 
-  it('POST /requests/:id/accept and /cancel manage request status', async () => {
+  it('POST /requests/:id/accept creates donation with QR and /cancel manages request status', async () => {
     await clearDatabase();
     const donor = await createDonor();
     const hospital = await createHospital();
@@ -207,8 +227,23 @@ describe('Request Details Integration', () => {
       .send({});
 
     expect(acceptResponse.status).toBe(200);
-    expect(acceptResponse.body.data.request.status).toBe('accepted');
-    expect(acceptResponse.body.data.donor.id).toBe(donor._id.toString());
+    expect(acceptResponse.body.data.status).toBe('accepted');
+    expect(acceptResponse.body.data.requestId).toBe(urgentRequest._id.toString());
+    expect(acceptResponse.body.data.donationId).toBeDefined();
+    expect(acceptResponse.body.data.qrToken).toBeDefined();
+    expect(acceptResponse.body.data.qrExpiresAt).toBeDefined();
+    expect(acceptResponse.body.data.acceptedAt).toBeDefined();
+
+    // Verify the stored request state
+    const storedRequest = await Request.findById(urgentRequest._id);
+    expect(storedRequest.status).toBe('accepted');
+    expect(storedRequest.acceptedBy.toString()).toBe(donor._id.toString());
+
+    // Verify the stored donation has QR
+    const storedDonation = await Donation.findOne({ requestId: urgentRequest._id, donorId: donor._id });
+    expect(storedDonation).toBeDefined();
+    expect(storedDonation.qrToken).toBe(acceptResponse.body.data.qrToken);
+    expect(storedDonation.arrivalDeadline).toBeDefined();
 
     const cancelResponse = await request(app)
       .post(`/requests/${urgentRequest._id}/cancel`)
@@ -216,7 +251,8 @@ describe('Request Details Integration', () => {
       .send({});
 
     expect(cancelResponse.status).toBe(200);
-    expect(cancelResponse.body.data.request.status).toBe('cancelled');
+    expect(cancelResponse.body.data.status).toBe('cancelled');
+    expect(cancelResponse.body.data.requestId).toBe(urgentRequest._id.toString());
 
     const stored = await Request.findById(urgentRequest._id);
     expect(stored.status).toBe('cancelled');
@@ -258,5 +294,154 @@ describe('Request Details Integration', () => {
       orphanSpy.mockRestore();
       vi.restoreAllMocks();
     }
+  });
+
+  it('POST /requests/:id/confirm completes donation and request after eligibility check', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const urgentRequest = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      contactNumber: hospital.contactNumber,
+      isEmergency: true,
+      urgency: 'critical',
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+    const hospitalToken = signToken({ userId: hospital._id.toString(), role: hospital.role });
+
+    // Donor accepts the request
+    const acceptResponse = await request(app)
+      .post(`/requests/${urgentRequest._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    expect(acceptResponse.status).toBe(200);
+
+    // Hospital confirms the donation
+    const confirmResponse = await request(app)
+      .post(`/requests/${urgentRequest._id}/confirm`)
+      .set('Authorization', `Bearer ${hospitalToken}`)
+      .send({});
+
+    expect(confirmResponse.status).toBe(200);
+    expect(confirmResponse.body.data.status).toBe('completed');
+
+    const storedRequest = await Request.findById(urgentRequest._id);
+    expect(storedRequest.status).toBe('completed');
+
+    const storedDonation = await Donation.findOne({ requestId: urgentRequest._id, donorId: donor._id });
+    expect(storedDonation.status).toBe('completed');
+  });
+
+  it('GET /requests/accepted returns donor accepted requests', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const urgentRequest = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      contactNumber: hospital.contactNumber,
+      isEmergency: true,
+      urgency: 'critical',
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    // Donor accepts the request
+    const acceptResponse = await request(app)
+      .post(`/requests/${urgentRequest._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    expect(acceptResponse.status).toBe(200);
+
+    // Get accepted requests
+    const acceptedResponse = await request(app)
+      .get('/requests/accepted')
+      .set('Authorization', `Bearer ${donorToken}`);
+
+    expect(acceptedResponse.status).toBe(200);
+    expect(acceptedResponse.body.success).toBe(true);
+    expect(Array.isArray(acceptedResponse.body.data.requests)).toBe(true);
+    expect(acceptedResponse.body.data.requests.length).toBeGreaterThanOrEqual(1);
+
+    const found = acceptedResponse.body.data.requests.find(
+      (r) => r.requestId === urgentRequest._id.toString()
+    );
+    expect(found).toBeDefined();
+    expect(found.status).toBe('accepted');
+    expect(found.donationId).toBeDefined();
+    expect(found.qrToken).toBeUndefined(); // Not returned in list view
+    expect(found.hospitalName).toContain('Test Hospital');
+  });
+
+  it('GET /requests/accepted/:id returns full accepted request details', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const urgentRequest = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      contactNumber: hospital.contactNumber,
+      isEmergency: true,
+      urgency: 'critical',
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    // Donor accepts the request
+    const acceptResponse = await request(app)
+      .post(`/requests/${urgentRequest._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    expect(acceptResponse.status).toBe(200);
+
+    // Get single accepted request details
+    const detailsResponse = await request(app)
+      .get(`/requests/accepted/${urgentRequest._id}`)
+      .set('Authorization', `Bearer ${donorToken}`);
+
+    expect(detailsResponse.status).toBe(200);
+    expect(detailsResponse.body.success).toBe(true);
+    expect(detailsResponse.body.data.requestId).toBe(urgentRequest._id.toString());
+    expect(detailsResponse.body.data.donationId).toBeDefined();
+    expect(detailsResponse.body.data.qrToken).toBeDefined();
+    expect(detailsResponse.body.data.qrExpiresAt).toBeDefined();
+    expect(detailsResponse.body.data.arrivalDeadline).toBeDefined();
+    expect(detailsResponse.body.data.acceptedAt).toBeDefined();
+    expect(detailsResponse.body.data.request).toBeDefined();
+    expect(detailsResponse.body.data.request.bloodType).toBeDefined();
+    expect(detailsResponse.body.data.hospital).toBeDefined();
+    expect(detailsResponse.body.data.hospital.hospitalName).toContain('Test Hospital');
+    expect(detailsResponse.body.data.isEligible).toBe(true);
+  });
+
+  it('GET /requests/accepted/:id rejects access by non-owner donor', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const otherDonor = await createDonor({ email: 'other@test.com' });
+    const hospital = await createHospital();
+    const urgentRequest = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      contactNumber: hospital.contactNumber,
+      isEmergency: true,
+      urgency: 'critical',
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    // Donor accepts the request
+    await request(app)
+      .post(`/requests/${urgentRequest._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    // Other donor tries to access
+    const otherToken = signToken({ userId: otherDonor._id.toString(), role: otherDonor.role });
+    const detailsResponse = await request(app)
+      .get(`/requests/accepted/${urgentRequest._id}`)
+      .set('Authorization', `Bearer ${otherToken}`);
+
+    expect(detailsResponse.status).toBe(403);
   });
 });

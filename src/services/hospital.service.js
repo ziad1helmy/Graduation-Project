@@ -1,7 +1,7 @@
 import crypto from 'crypto';
 import Hospital from '../models/Hospital.model.js';
 import User from '../models/User.model.js';
-import { logAudit } from './admin.service.js';
+import { logAudit } from './audit.service.js';
 
 const allowedBloodTypes = ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'];
 
