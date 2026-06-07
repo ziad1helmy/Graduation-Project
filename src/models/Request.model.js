@@ -209,6 +209,13 @@ const requestSchema = new mongoose.Schema(
       ref: 'Donation',
       default: null,
     },
+    // Fix #7 (MEDIUM): Tracks the last time an admin broadcast this request.
+    // Used to enforce a cooldown period between repeat broadcasts.
+    // Sparse field — not present on older documents until first broadcast.
+    lastBroadcastAt: {
+      type: Date,
+      default: null,
+    },
   },
   {
     timestamps: true,

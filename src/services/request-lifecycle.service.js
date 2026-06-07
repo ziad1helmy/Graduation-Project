@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import Donation from '../models/Donation.model.js';
 import Appointment from '../models/Appointment.model.js';
 import Request from '../models/Request.model.js';
@@ -7,35 +8,61 @@ import { ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
 import { logger } from '../utils/logger.js';
 import { validateTransition, validateOrphanState } from '../utils/state-machine.js';
 
+// Lazily imported to avoid circular dependencies at module load time.
+// notification.service → matching.service → eligibility.service → ... none imports request-lifecycle
+const getNotificationService = async () => import('./notification.service.js');
+const getMatchingService = async () => import('./matching.service.js');
+
 const ACTIVE_DONATION_STATUSES = ['pending', 'scheduled'];
 const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
 
 const toObjectIdString = (value) => value?.toString?.() || String(value || '');
 
-const getDonationCandidate = async ({ donationId = null, requestId = null, donorId = null, appointmentId = null } = {}) => {
+const runInSession = async (session, executor) => {
+  if (session) {
+    return executor(session);
+  }
+
+  const createdSession = await mongoose.startSession();
+  try {
+    let result;
+    await createdSession.withTransaction(async () => {
+      result = await executor(createdSession);
+    });
+    return result;
+  } finally {
+    createdSession.endSession();
+  }
+};
+
+const getDonationCandidate = async ({ donationId = null, requestId = null, donorId = null, appointmentId = null, session = null } = {}) => {
   if (donationId) {
-    return Donation.findById(donationId);
+    return session ? Donation.findById(donationId).session(session) : Donation.findById(donationId);
   }
 
   if (appointmentId) {
-    const donation = await Donation.findOne({ appointmentId });
+    const donation = session
+      ? await Donation.findOne({ appointmentId }).session(session)
+      : await Donation.findOne({ appointmentId });
     if (donation) return donation;
   }
 
   if (requestId && donorId) {
-    const donation = await Donation.findOne({
+    const query = {
       requestId,
       donorId,
       status: { $in: ACTIVE_DONATION_STATUSES },
-    });
+    };
+    const donation = session ? await Donation.findOne(query).session(session) : await Donation.findOne(query);
     if (donation) return donation;
   }
 
   if (requestId) {
-    const donation = await Donation.findOne({
+    const query = {
       requestId,
       status: { $in: ACTIVE_DONATION_STATUSES },
-    });
+    };
+    const donation = session ? await Donation.findOne(query).session(session) : await Donation.findOne(query);
     if (donation) return donation;
   }
 
@@ -51,155 +78,202 @@ export const rejectDonationLifecycle = async ({
   rejectedBy = null,
   requestStatus = 'pending',
   donationStatus = 'rejected',
+  session = null,
 } = {}) => {
-  const donation = await getDonationCandidate({ donationId, requestId, donorId, appointmentId });
+  return runInSession(session, async (activeSession) => {
+    const donation = await getDonationCandidate({ donationId, requestId, donorId, appointmentId, session: activeSession });
 
-  // Guard: if donation exists and status is changing, validate transition through the state machine.
-  if (donation && donation.status !== donationStatus) {
-    try {
-      validateTransition('donation', donation.status, donationStatus);
-    } catch (err) {
-      throw new Error(err.message);
-    }
-  }
-
-  const request = requestId
-    ? await Request.findById(requestId)
-    : (donation && donation.requestId)
-      ? await Request.findById(donation.requestId)
-      : null;
-
-  // Guard: if request exists and status is changing, validate transition through the state machine.
-  if (request && request.status !== requestStatus) {
-    try {
-      validateTransition('request', request.status, requestStatus);
-    } catch (err) {
-      throw new Error(err.message);
-    }
-  }
-
-  const now = new Date();
-  const donorObjectId = donation ? (donation.donorId?._id || donation.donorId) : donorId;
-  const donorRecipientId = donorObjectId ? toObjectIdString(donorObjectId) : null;
-  const previousDonationStatus = donation?.status || null;
-
-  // Cancel the specific appointment (by ID) or all active appointments for the request
-  const appointmentQuery = appointmentId
-    ? { _id: appointmentId, status: { $in: ACTIVE_APPOINTMENT_STATUSES } }
-    : request
-      ? { requestId: request._id, status: { $in: ACTIVE_APPOINTMENT_STATUSES } }
-      : null;
-
-  let cancelledAppointment = null;
-  if (appointmentQuery) {
-    const appointmentsToCancel = await Appointment.find(appointmentQuery);
-    for (const appt of appointmentsToCancel) {
-      if (appt.status !== 'cancelled') {
-        validateTransition('appointment', appt.status, 'cancelled');
+    // Guard: if donation exists and status is changing, validate transition through the state machine.
+    if (donation && donation.status !== donationStatus) {
+      try {
+        validateTransition('donation', donation.status, donationStatus);
+      } catch (err) {
+        throw new Error(err.message);
       }
     }
 
-    // For single appointment cancellation, we load it first to cancel/assert
-    if (appointmentId) {
-      cancelledAppointment = await Appointment.findByIdAndUpdate(
-        appointmentId,
-        {
-          $set: {
-            status: 'cancelled',
-            cancelledAt: now,
-            notes: reason || (donationStatus === 'cancelled' ? 'Donation cancelled' : 'Donation rejected by hospital'),
-          },
-        },
-        { returnDocument: 'after' }
-      );
-    } else {
-      await Appointment.updateMany(
-        appointmentQuery,
-        {
-          $set: {
-            status: 'cancelled',
-            cancelledAt: now,
-            notes: reason || (donationStatus === 'cancelled' ? 'Donation cancelled' : 'Donation rejected by hospital'),
-          },
-        }
-      );
+    const request = requestId
+      ? await Request.findById(requestId).session(activeSession)
+      : (donation && donation.requestId)
+        ? await Request.findById(donation.requestId).session(activeSession)
+        : null;
+
+    // Guard: if request exists and status is changing, validate transition through the state machine.
+    if (request && request.status !== requestStatus) {
+      try {
+        validateTransition('request', request.status, requestStatus);
+      } catch (err) {
+        throw new Error(err.message);
+      }
     }
-  }
 
-  if (donation) {
-    donation.status = donationStatus;
-    await donation.save();
-  }
+    const now = new Date();
+    const donorObjectId = donation ? (donation.donorId?._id || donation.donorId) : donorId;
+    const donorRecipientId = donorObjectId ? toObjectIdString(donorObjectId) : null;
+    const previousDonationStatus = donation?.status || null;
 
-  if (request) {
-    request.status = requestStatus;
-    request.acceptedBy = null;
-    request.acceptedByName = null;
-    request.acceptedByPhoneNumber = null;
-    request.acceptedByBloodType = null;
-    request.acceptedAt = null;
-    request.acceptedDonationId = null;
-    await request.save();
-  }
+    // Cancel the specific appointment (by ID) or all active appointments for the request
+    const appointmentQuery = appointmentId
+      ? { _id: appointmentId, status: { $in: ACTIVE_APPOINTMENT_STATUSES } }
+      : request
+        ? { requestId: request._id, status: { $in: ACTIVE_APPOINTMENT_STATUSES } }
+        : null;
 
-  // Perform cross-entity orphan checking for request, donation and appointment
-  if (donation) {
-    validateOrphanState('donation', donation, { appointment: cancelledAppointment });
-  }
-  if (cancelledAppointment) {
-    validateOrphanState('appointment', cancelledAppointment, { donation });
-  }
-  if (request) {
-    validateOrphanState('request', request, { donation });
-  }
+    let cancelledAppointment = null;
+    if (appointmentQuery) {
+      const appointmentsToCancel = await Appointment.find(appointmentQuery).session(activeSession);
+      for (const appt of appointmentsToCancel) {
+        if (appt.status !== 'cancelled') {
+          validateTransition('appointment', appt.status, 'cancelled');
+        }
+      }
 
-  if (donorRecipientId && request) {
-    Notification.create({
-      userId: donorRecipientId,
-      type: 'request',
-      title: donationStatus === 'cancelled' ? 'Request cancelled' : 'Request rejected',
-      message: reason || (donationStatus === 'cancelled'
-        ? 'Your accepted donation request was cancelled.'
-        : 'Your accepted donation request was rejected by the hospital.'),
-      relatedId: request._id,
-      relatedType: 'Request',
-      data: {
-        requestId: request._id,
-        donationId: donation ? donation._id : null,
-        requestStatus: request.status,
-        donationStatus: donation ? donation.status : null,
-        reason: reason || null,
-        rejectedBy: rejectedBy ? toObjectIdString(rejectedBy) : null,
-      },
-    }).catch((error) => logger.error('Request rejection notification error', { message: error.message }));
-  }
+      // For single appointment cancellation, we load it first to cancel/assert
+      if (appointmentId) {
+        cancelledAppointment = await Appointment.findByIdAndUpdate(
+          appointmentId,
+          {
+            $set: {
+              status: 'cancelled',
+              cancelledAt: now,
+              notes: reason || (donationStatus === 'cancelled' ? 'Donation cancelled' : 'Donation rejected by hospital'),
+            },
+          },
+          { returnDocument: 'after', session: activeSession }
+        );
+      } else {
+        await Appointment.updateMany(
+          appointmentQuery,
+          {
+            $set: {
+              status: 'cancelled',
+              cancelledAt: now,
+              notes: reason || (donationStatus === 'cancelled' ? 'Donation cancelled' : 'Donation rejected by hospital'),
+            },
+          },
+          { session: activeSession }
+        );
+      }
+    }
 
-  if (donorRecipientId && donation) {
-    activityService.logActivity(donorRecipientId, {
-      type: 'donation',
-      action: donationStatus === 'cancelled' ? 'cancelled_donation' : 'rejected_donation',
-      title: ACTIVITY_TITLE_MAP.donation_cancelled,
-      description: reason || (donationStatus === 'cancelled'
-        ? `Donation cancelled (${donation.quantity} unit(s))`
-        : 'Donation request rejected by hospital'),
-      referenceId: donation._id.toString(),
-      referenceType: 'Donation',
-      metadata: {
-          quantity: donation?.quantity || 1,
-        requestId: request ? request._id.toString() : null,
-        donationId: donation._id.toString(),
-        previousStatus: previousDonationStatus,
-        requestStatus: request ? request.status : null,
-        donationStatus: donation.status,
-        reason: reason || null,
-        rejectedBy: rejectedBy ? toObjectIdString(rejectedBy) : null,
-      },
-    }).catch((error) => logger.error('Request rejection activity error', { message: error.message }));
-  }
+    if (donation) {
+      donation.status = donationStatus;
+      await donation.save({ session: activeSession });
+    }
 
-  return {
-    request,
-    donation,
-    cancelledAt: now,
-  };
+    if (request) {
+      request.status = requestStatus;
+      request.acceptedBy = null;
+      request.acceptedByName = null;
+      request.acceptedByPhoneNumber = null;
+      request.acceptedByBloodType = null;
+      request.acceptedAt = null;
+      request.acceptedDonationId = null;
+      await request.save({ session: activeSession });
+
+      // Fix #1 and Fix #11: When a donation is rejected or cancelled and the
+      // request reverts to 'pending', restore the unit that was decremented
+      // when the donor originally accepted. Then re-broadcast to newly eligible
+      // donors so the blood need is not silently orphaned.
+      if (['rejected', 'cancelled'].includes(donationStatus) && requestStatus === 'pending') {
+        try {
+          await Request.updateOne({ _id: request._id }, { $inc: { quantity: 1 } }, { session: activeSession });
+          logger.info('Request quantity restored after donation cancellation/rejection', {
+            requestId: request._id,
+            donationStatus,
+          });
+        } catch (qErr) {
+          logger.error('Failed to restore request quantity after cancellation/rejection', {
+            requestId: String(request._id),
+            error: qErr.message,
+          });
+        }
+
+        // Async re-broadcast — fire-and-forget; never blocks the rejection response
+        Promise.resolve().then(async () => {
+          try {
+            const [matchingSvc, notificationSvc] = await Promise.all([
+              getMatchingService(),
+              getNotificationService(),
+            ]);
+            const compatibleDonors = await matchingSvc.findCompatibleDonors(request._id);
+            if (compatibleDonors.length > 0) {
+              const donorIds = compatibleDonors.map((d) => d.donor._id);
+              await notificationSvc.notifyRequest(donorIds, request);
+              logger.info('Re-broadcast triggered after donation cancellation/rejection', {
+                requestId: String(request._id),
+                donorsNotified: donorIds.length,
+              });
+            }
+          } catch (broadcastErr) {
+            logger.error('Re-broadcast failed after donation cancellation/rejection', {
+              requestId: String(request._id),
+              error: broadcastErr.message,
+            });
+          }
+        });
+      }
+    }
+
+    // Perform cross-entity orphan checking for request, donation and appointment
+    if (donation) {
+      validateOrphanState('donation', donation, { appointment: cancelledAppointment });
+    }
+    if (cancelledAppointment) {
+      validateOrphanState('appointment', cancelledAppointment, { donation });
+    }
+    if (request) {
+      validateOrphanState('request', request, { donation });
+    }
+
+    if (donorRecipientId && request) {
+      await Notification.create([{
+        userId: donorRecipientId,
+        type: 'request',
+        title: donationStatus === 'cancelled' ? 'Request cancelled' : 'Request rejected',
+        message: reason || (donationStatus === 'cancelled'
+          ? 'Your accepted donation request was cancelled.'
+          : 'Your accepted donation request was rejected by the hospital.'),
+        relatedId: request._id,
+        relatedType: 'Request',
+        data: {
+          requestId: request._id,
+          donationId: donation ? donation._id : null,
+          requestStatus: request.status,
+          donationStatus: donation ? donation.status : null,
+          reason: reason || null,
+          rejectedBy: rejectedBy ? toObjectIdString(rejectedBy) : null,
+        },
+      }], { session: activeSession }).catch((error) => logger.error('Request rejection notification error', { message: error.message }));
+    }
+
+    if (donorRecipientId && donation) {
+      activityService.logActivity(donorRecipientId, {
+        type: 'donation',
+        action: donationStatus === 'cancelled' ? 'cancelled_donation' : 'rejected_donation',
+        title: ACTIVITY_TITLE_MAP.donation_cancelled,
+        description: reason || (donationStatus === 'cancelled'
+          ? `Donation cancelled (${donation.quantity} unit(s))`
+          : 'Donation request rejected by hospital'),
+        referenceId: donation._id.toString(),
+        referenceType: 'Donation',
+        metadata: {
+            quantity: donation?.quantity || 1,
+          requestId: request ? request._id.toString() : null,
+          donationId: donation._id.toString(),
+          previousStatus: previousDonationStatus,
+          requestStatus: request ? request.status : null,
+          donationStatus: donation.status,
+          reason: reason || null,
+          rejectedBy: rejectedBy ? toObjectIdString(rejectedBy) : null,
+        },
+      }).catch((error) => logger.error('Request rejection activity error', { message: error.message }));
+    }
+
+    return {
+      request,
+      donation,
+      cancelledAt: now,
+    };
+  });
 };

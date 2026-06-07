@@ -388,18 +388,6 @@
                 "example": 40
               }
             }
-          },
-          "createdAt": {
-            "type": "string",
-            "format": "date-time",
-            "readOnly": true,
-            "example": "2026-01-15T09:00:00.000Z"
-          },
-          "updatedAt": {
-            "type": "string",
-            "format": "date-time",
-            "readOnly": true,
-            "example": "2026-05-18T09:05:00.000Z"
           }
         }
       },
@@ -2473,31 +2461,25 @@
                   "success": true,
                   "message": "Available slots retrieved successfully",
                   "data": {
+                    "date": "2026-05-12",
+                    "hospitalId": "69f3df915f42685cbbbcbb1b",
+                    "remainingCapacity": 12,
+                    "maxCapacity": 20,
+                    "slotsPerHour": 4,
                     "timeSlots": [
                       {
                         "time": "08:00",
-                        "remainingCapacity": 2,
-                        "maxCapacity": 4,
                         "available": true
                       },
                       {
                         "time": "09:00",
-                        "remainingCapacity": 0,
-                        "maxCapacity": 4,
                         "available": false
                       },
                       {
                         "time": "10:00",
-                        "remainingCapacity": 3,
-                        "maxCapacity": 4,
                         "available": true
                       }
-                    ],
-                    "hospitalId": "69f3df915f42685cbbbcbb1b",
-                    "date": "2026-05-12T00:00:00.000Z",
-                    "slotsPerHour": 4,
-                    "openingTime": "08:00",
-                    "closingTime": "19:00"
+                    ]
                   }
                 }
               }
@@ -2527,6 +2509,15 @@
         "parameters": [
           {
             "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "example": 1
+          },
+          {
+            "in": "query",
             "name": "limit",
             "schema": {
               "type": "integer",
@@ -2547,42 +2538,62 @@
                     "appointments": [
                       {
                         "_id": "69fe540565ff7785a031315c",
-                        "donorId": {
-                          "_id": "69f3df915f42685cbbbcbb18",
-                          "fullName": "Aya Hassan",
-                          "phoneNumber": "01011111111",
-                          "bloodType": "O+",
-                          "email": "aya.hassan@lifelink.demo"
-                        },
-                        "donorDetails": {
-                          "fullName": "Aya Hassan",
-                          "phoneNumber": "01011111111",
-                          "bloodType": "O+",
-                          "email": "aya.hassan@lifelink.demo"
-                        },
+                        "appointmentId": "69fe540565ff7785a031315c",
+                        "appointmentDate": "2026-05-12T10:00:00.000Z",
+                        "appointmentTime": "10:00 AM",
+                        "appointmentDay": "2026-05-12",
+                        "status": "pending",
+                        "donationType": "Whole Blood",
                         "hospitalId": {
                           "_id": "69f3df915f42685cbbbcbb1b",
                           "hospitalName": "Cairo Care Hospital",
-                          "fullName": "Cairo Care Operations",
                           "address": {
                             "city": "Cairo",
                             "governorate": "Cairo"
                           }
                         },
+                        "hospital": {
+                          "hospitalId": "69f3df915f42685cbbbcbb1b",
+                          "id": "69f3df915f42685cbbbcbb1b",
+                          "name": "Cairo Care Hospital",
+                          "hospitalName": "Cairo Care Hospital"
+                        },
                         "requestId": "69fe540565ff7785a031314f",
-                        "appointmentDate": "2026-05-12T10:00:00.000Z",
-                        "status": "pending",
                         "notes": "Donation follow-up appointment",
                         "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
                         "qrExpiresAt": "2026-05-13T10:00:00.000Z",
-                        "donationType": "Whole Blood"
+                        "donor": {
+                          "donorId": "69f3df915f42685cbbbcbb18",
+                          "firstName": "Aya",
+                          "lastName": "Hassan",
+                          "fullName": "Aya Hassan",
+                          "email": "aya.hassan@lifelink.demo",
+                          "phoneNumber": "01011111111",
+                          "bloodType": "O+",
+                          "gender": "female",
+                          "dateOfBirth": "1995-01-15T00:00:00.000Z"
+                        },
+                        "appointment": {
+                          "appointmentId": "69fe540565ff7785a031315c",
+                          "donationType": "Whole Blood",
+                          "appointmentDate": "2026-05-12T10:00:00.000Z",
+                          "appointmentTime": "10:00 AM",
+                          "status": "pending",
+                          "hospitalId": "69f3df915f42685cbbbcbb1b",
+                          "hospitalName": "Cairo Care Hospital"
+                        },
+                        "rescheduleHistory": [],
+                        "verificationChecklist": [],
+                        "createdAt": "2026-05-08T09:00:00.000Z",
+                        "updatedAt": "2026-05-08T09:00:00.000Z"
                       }
                     ],
                     "total": 1,
                     "meta": {
                       "page": 1,
                       "limit": 10,
-                      "total": 1
+                      "total": 1,
+                      "totalPages": 1
                     }
                   }
                 }
@@ -2631,35 +2642,54 @@
                   "message": "Appointment retrieved",
                   "data": {
                     "_id": "69fe540565ff7785a031315c",
-                    "donorId": {
-                      "_id": "69f3df915f42685cbbbcbb18",
-                      "fullName": "Aya Hassan",
-                      "phoneNumber": "01011111111",
-                      "bloodType": "O+",
-                      "email": "aya.hassan@lifelink.demo"
-                    },
-                    "donorDetails": {
-                      "fullName": "Aya Hassan",
-                      "phoneNumber": "01011111111",
-                      "bloodType": "O+",
-                      "email": "aya.hassan@lifelink.demo"
-                    },
+                    "appointmentId": "69fe540565ff7785a031315c",
+                    "appointmentDate": "2026-05-12T10:00:00.000Z",
+                    "appointmentTime": "10:00 AM",
+                    "appointmentDay": "2026-05-12",
+                    "status": "pending",
+                    "donationType": "Whole Blood",
                     "hospitalId": {
                       "_id": "69f3df915f42685cbbbcbb1b",
                       "hospitalName": "Cairo Care Hospital",
-                      "fullName": "Cairo Care Operations",
                       "address": {
                         "city": "Cairo",
                         "governorate": "Cairo"
                       }
                     },
+                    "hospital": {
+                      "hospitalId": "69f3df915f42685cbbbcbb1b",
+                      "id": "69f3df915f42685cbbbcbb1b",
+                      "name": "Cairo Care Hospital",
+                      "hospitalName": "Cairo Care Hospital"
+                    },
                     "requestId": "69fe540565ff7785a031314f",
-                    "appointmentDate": "2026-05-12T10:00:00.000Z",
-                    "status": "pending",
                     "notes": "Donation follow-up appointment",
                     "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
                     "qrExpiresAt": "2026-05-13T10:00:00.000Z",
-                    "donationType": "Whole Blood"
+                    "donor": {
+                      "donorId": "69f3df915f42685cbbbcbb18",
+                      "firstName": "Aya",
+                      "lastName": "Hassan",
+                      "fullName": "Aya Hassan",
+                      "email": "aya.hassan@lifelink.demo",
+                      "phoneNumber": "01011111111",
+                      "bloodType": "O+",
+                      "gender": "female",
+                      "dateOfBirth": "1995-01-15T00:00:00.000Z"
+                    },
+                    "appointment": {
+                      "appointmentId": "69fe540565ff7785a031315c",
+                      "donationType": "Whole Blood",
+                      "appointmentDate": "2026-05-12T10:00:00.000Z",
+                      "appointmentTime": "10:00 AM",
+                      "status": "pending",
+                      "hospitalId": "69f3df915f42685cbbbcbb1b",
+                      "hospitalName": "Cairo Care Hospital"
+                    },
+                    "rescheduleHistory": [],
+                    "verificationChecklist": [],
+                    "createdAt": "2026-05-08T09:00:00.000Z",
+                    "updatedAt": "2026-05-08T09:00:00.000Z"
                   }
                 }
               }
@@ -2797,7 +2827,9 @@
                         "reason": "Travel conflict",
                         "rescheduledAt": "2026-05-10T09:30:00.000Z"
                       }
-                    ]
+                    ],
+                    "createdAt": "2026-05-08T09:00:00.000Z",
+                    "updatedAt": "2026-05-08T09:00:00.000Z"
                   }
                 }
               }
@@ -3041,75 +3073,6 @@
         }
       }
     },
-    "/donations/my-appointments": {
-      "get": {
-        "tags": [
-          "Donor"
-        ],
-        "summary": "Get donor appointments",
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Appointments fetched successfully",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Appointments fetched",
-                  "data": {
-                    "appointments": [
-                      {
-                        "_id": "69fe540565ff7785a031315c",
-                        "donorId": {
-                          "_id": "69f3df915f42685cbbbcbb18",
-                          "fullName": "Aya Hassan",
-                          "phoneNumber": "01011111111",
-                          "bloodType": "O+",
-                          "email": "aya.hassan@lifelink.demo"
-                        },
-                        "donorDetails": {
-                          "fullName": "Aya Hassan",
-                          "phoneNumber": "01011111111",
-                          "bloodType": "O+",
-                          "email": "aya.hassan@lifelink.demo"
-                        },
-                        "hospitalId": {
-                          "_id": "69f3df915f42685cbbbcbb1b",
-                          "hospitalName": "Cairo Care Hospital",
-                          "fullName": "Cairo Care Operations"
-                        },
-                        "appointmentDate": "2026-05-12T10:00:00.000Z",
-                        "status": "pending",
-                        "notes": "Donation follow-up appointment",
-                        "qrToken": "8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d",
-                        "donationType": "Whole Blood"
-                      }
-                    ],
-                    "total": 1,
-                    "meta": {
-                      "page": 1,
-                      "limit": 10,
-                      "total": 1
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "Missing or invalid JWT"
-          },
-          "403": {
-            "description": "Role not allowed"
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
-      }
-    },
     "/donor/requests": {
       "get": {
         "tags": [
@@ -3270,6 +3233,210 @@
             "description": "Matching requests retrieved successfully",
             "content": {
               "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "success",
+                    "message",
+                    "data"
+                  ],
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "message": {
+                      "type": "string"
+                    },
+                    "data": {
+                      "type": "object",
+                      "required": [
+                        "matches",
+                        "pagination"
+                      ],
+                      "properties": {
+                        "matches": {
+                          "type": "array",
+                          "description": "Matched requests returned in descending score order.",
+                          "items": {
+                            "type": "object",
+                            "required": [
+                              "request",
+                              "score",
+                              "locationScore",
+                              "compatibility"
+                            ],
+                            "properties": {
+                              "score": {
+                                "type": "number",
+                                "format": "float",
+                                "description": "Ranking score used to order the match results."
+                              },
+                              "locationScore": {
+                                "type": "number",
+                                "format": "float",
+                                "description": "Location component used in the final ranking score."
+                              },
+                              "compatibility": {
+                                "type": "object",
+                                "required": [
+                                  "bloodTypeMatch",
+                                  "eligible",
+                                  "distanceKm"
+                                ],
+                                "properties": {
+                                  "bloodTypeMatch": {
+                                    "type": "boolean"
+                                  },
+                                  "eligible": {
+                                    "type": "boolean"
+                                  },
+                                  "distanceKm": {
+                                    "type": "number",
+                                    "format": "float",
+                                    "nullable": true,
+                                    "description": "Calculated donor-to-request distance in kilometers."
+                                  }
+                                }
+                              },
+                              "request": {
+                                "type": "object",
+                                "description": "Populated request document returned by the matching service.",
+                                "additionalProperties": true,
+                                "required": [
+                                  "_id",
+                                  "type",
+                                  "bloodType",
+                                  "urgency",
+                                  "status",
+                                  "isEmergency",
+                                  "unitsNeeded",
+                                  "requiredBy",
+                                  "createdAt"
+                                ],
+                                "properties": {
+                                  "_id": {
+                                    "type": "string"
+                                  },
+                                  "type": {
+                                    "type": "string",
+                                    "enum": [
+                                      "blood",
+                                      "plasma",
+                                      "platelets",
+                                      "double_red_cells"
+                                    ]
+                                  },
+                                  "bloodType": {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    }
+                                  },
+                                  "urgency": {
+                                    "type": "string",
+                                    "enum": [
+                                      "low",
+                                      "medium",
+                                      "high",
+                                      "critical"
+                                    ]
+                                  },
+                                  "status": {
+                                    "type": "string"
+                                  },
+                                  "isEmergency": {
+                                    "type": "boolean"
+                                  },
+                                  "unitsNeeded": {
+                                    "type": "number"
+                                  },
+                                  "quantity": {
+                                    "type": "number"
+                                  },
+                                  "requiredBy": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "hospitalName": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "hospitalContact": {
+                                    "type": "string",
+                                    "nullable": true
+                                  },
+                                  "createdAt": {
+                                    "type": "string",
+                                    "format": "date-time"
+                                  },
+                                  "locationHospital": {
+                                    "type": "object",
+                                    "nullable": true,
+                                    "properties": {
+                                      "latitude": {
+                                        "type": "number",
+                                        "format": "float"
+                                      },
+                                      "longitude": {
+                                        "type": "number",
+                                        "format": "float"
+                                      }
+                                    }
+                                  },
+                                  "hospital": {
+                                    "type": "object",
+                                    "properties": {
+                                      "id": {
+                                        "type": "string",
+                                        "nullable": true
+                                      },
+                                      "name": {
+                                        "type": "string",
+                                        "nullable": true
+                                      },
+                                      "contactNumber": {
+                                        "type": "string",
+                                        "nullable": true
+                                      },
+                                      "address": {
+                                        "type": "string",
+                                        "nullable": true
+                                      },
+                                      "latitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                      },
+                                      "longitude": {
+                                        "type": "number",
+                                        "format": "float",
+                                        "nullable": true
+                                      }
+                                    }
+                                  }
+                                }
+                              }
+                            }
+                          }
+                        },
+                        "pagination": {
+                          "type": "object",
+                          "properties": {
+                            "page": {
+                              "type": "integer"
+                            },
+                            "limit": {
+                              "type": "integer"
+                            },
+                            "total": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                },
                 "example": {
                   "success": true,
                   "message": "Matching requests retrieved successfully",
@@ -3286,7 +3453,9 @@
                         "request": {
                           "_id": "69fe540565ff7785a031314f",
                           "type": "blood",
-                          "bloodType": "O+",
+                          "bloodType": [
+                            "O+"
+                          ],
                           "urgency": "critical",
                           "status": "pending",
                           "isEmergency": true,
@@ -3295,7 +3464,16 @@
                           "requiredBy": "2026-05-20T00:00:00.000Z",
                           "hospitalName": "Cairo Care Hospital",
                           "hospitalContact": "1044444444",
+                          "createdAt": "2026-05-16T08:15:00.000Z",
                           "locationHospital": {
+                            "latitude": 30.0511,
+                            "longitude": 31.2435
+                          },
+                          "hospital": {
+                            "id": "69f3df915f42685cbbbcbb1b",
+                            "name": "Cairo Care Hospital",
+                            "contactNumber": "1044444444",
+                            "address": "Cairo, Egypt",
                             "latitude": 30.0511,
                             "longitude": 31.2435
                           }
@@ -3317,6 +3495,9 @@
           },
           "403": {
             "description": "Role not allowed"
+          },
+          "404": {
+            "description": "Donor not found"
           }
         }
       }
@@ -3392,6 +3573,9 @@
           },
           "404": {
             "description": "Request or donor not found"
+          },
+          "409": {
+            "description": "Request already accepted or donor has already responded"
           }
         },
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example."
@@ -3403,7 +3587,7 @@
           "Donor"
         ],
         "summary": "Get nearby requests around the caller's coordinates",
-        "description": "Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.\nThis endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.\nCurrent controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.\nWhen called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.\n\n**Migration Note**: This endpoint replaces the deprecated endpoints:\n- `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`\n- `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
+        "description": "Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.\nThis endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.\nCurrent controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.\nWhen called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.\n\n**Migration Note**: This endpoint replaces the deprecated endpoints:\n- `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`\n- `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`\n\nNote: donor callers receive a reduced request payload with distance fields omitted. Hospital/admin viewers continue to receive `distanceKm`, `distanceMeters`, `viewerLocation`, and `radiusKm` when a location is provided.\n\nDemo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.",
         "security": [
           {
             "bearerAuth": []
@@ -5731,7 +5915,8 @@
       "get": {
         "summary": "List notifications for authenticated user",
         "tags": [
-          "Donor"
+          "Donor",
+          "Hospital"
         ],
         "security": [
           {
@@ -5810,7 +5995,8 @@
       "delete": {
         "summary": "Delete all notifications for authenticated user",
         "tags": [
-          "Donor"
+          "Donor",
+          "Hospital"
         ],
         "security": [
           {
@@ -5863,9 +6049,10 @@
     },
     "/notifications/read-all": {
       "patch": {
-        "summary": "Mark all notifications as read",
+        "summary": "Mark all hospital notifications as read",
         "tags": [
-          "Donor"
+          "Donor",
+          "Hospital"
         ],
         "security": [
           {
@@ -5895,7 +6082,8 @@
       "patch": {
         "summary": "Mark one notification as read",
         "tags": [
-          "Donor"
+          "Donor",
+          "Hospital"
         ],
         "security": [
           {
@@ -5952,7 +6140,8 @@
       "get": {
         "summary": "Get one notification",
         "tags": [
-          "Donor"
+          "Donor",
+          "Hospital"
         ],
         "security": [
           {
@@ -6013,7 +6202,8 @@
       "delete": {
         "summary": "Delete one notification",
         "tags": [
-          "Donor"
+          "Donor",
+          "Hospital"
         ],
         "security": [
           {
@@ -8432,9 +8622,9 @@
         "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
       }
     },
-    "/hospital/notifications": {
+    "/hospital/appointments": {
       "get": {
-        "summary": "List notifications for the authenticated hospital user",
+        "summary": "List upcoming appointments for the authenticated hospital",
         "tags": [
           "Hospital"
         ],
@@ -8444,6 +8634,14 @@
           }
         ],
         "parameters": [
+          {
+            "in": "query",
+            "name": "page",
+            "schema": {
+              "type": "integer",
+              "default": 1
+            }
+          },
           {
             "in": "query",
             "name": "limit",
@@ -8454,154 +8652,31 @@
           },
           {
             "in": "query",
-            "name": "read",
+            "name": "status",
             "schema": {
-              "type": "boolean"
-            }
-          },
-          {
-            "in": "query",
-            "name": "type",
-            "schema": {
-              "type": "string"
+              "type": "string",
+              "description": "Filter by appointment status (pending, confirmed, completed, cancelled)"
             }
           }
         ],
         "responses": {
           "200": {
-            "description": "Notifications list"
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete all notifications for the authenticated hospital user",
-        "tags": [
-          "Hospital"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "All notifications deleted successfully"
-          }
-        }
-      },
-      "/hospital/appointments": {
-        "get": {
-          "summary": "List upcoming appointments for the authenticated hospital",
-          "tags": [
-            "Hospital"
-          ],
-          "security": [
-            {
-              "bearerAuth": []
-            }
-          ],
-          "parameters": [
-            {
-              "in": "query",
-              "name": "page",
-              "schema": {
-                "type": "integer",
-                "default": 1
-              }
-            },
-            {
-              "in": "query",
-              "name": "limit",
-              "schema": {
-                "type": "integer",
-                "default": 20
-              }
-            },
-            {
-              "in": "query",
-              "name": "status",
-              "schema": {
-                "type": "string",
-                "description": "Filter by appointment status (pending, confirmed, completed, cancelled)"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Appointments list",
-              "content": {
-                "application/json": {
-                  "example": {
-                    "success": true,
-                    "data": {
-                      "appointments": [
-                        {
-                          "_id": "69fe540565ff7785a031315c",
-                          "donorDetails": {
-                            "fullName": "Jane Doe",
-                            "phoneNumber": 201234567890,
-                            "bloodType": "O+"
-                          }
+            "description": "Appointments list",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "data": {
+                    "appointments": [
+                      {
+                        "_id": "69fe540565ff7785a031315c",
+                        "donorDetails": {
+                          "fullName": "Jane Doe",
+                          "phoneNumber": 201234567890,
+                          "bloodType": "O+"
                         }
-                      ]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      },
-      "/hospital/appointments/{appointmentId}": {
-        "get": {
-          "summary": "Get a single appointment details for the authenticated hospital",
-          "tags": [
-            "Hospital"
-          ],
-          "security": [
-            {
-              "bearerAuth": []
-            }
-          ],
-          "parameters": [
-            {
-              "in": "path",
-              "name": "appointmentId",
-              "required": true,
-              "schema": {
-                "type": "string"
-              }
-            }
-          ],
-          "responses": {
-            "200": {
-              "description": "Appointment details",
-              "content": {
-                "application/json": {
-                  "example": {
-                    "success": true,
-                    "message": "Appointment retrieved successfully",
-                    "data": {
-                      "appointmentId": "69fe540565ff7785a031315c",
-                      "appointmentDate": "2026-06-01T09:00:00.000Z",
-                      "status": "confirmed",
-                      "donorId": "66f100000000000000000002",
-                      "hospitalId": "69f3df915f42685cbbbcbb10",
-                      "requestId": "69fe540565ff7785a0313151",
-                      "donorDetails": {
-                        "fullName": "Jane Doe",
-                        "phoneNumber": 201234567890,
-                        "bloodType": "O+",
-                        "email": "jane@example.com"
-                      },
-                      "donor": {
-                        "donorId": "66f100000000000000000002",
-                        "fullName": "Jane Doe",
-                        "email": "jane.doe@example.com",
-                        "phoneNumber": 201234567890,
-                        "bloodType": "O+"
                       }
-                    }
+                    ]
                   }
                 }
               }
@@ -8610,81 +8685,9 @@
         }
       }
     },
-    "/hospital/notifications/read-all": {
-      "patch": {
-        "summary": "Mark all hospital notifications as read",
-        "tags": [
-          "Hospital"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "All notifications marked as read"
-          }
-        }
-      }
-    },
-    "/hospital/notifications/{id}/read": {
-      "patch": {
-        "summary": "Mark one hospital notification as read",
-        "tags": [
-          "Hospital"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Notification marked as read"
-          }
-        }
-      },
-      "put": {
-        "summary": "Mark one hospital notification as read (PUT alias)",
-        "tags": [
-          "Hospital"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Notification marked as read"
-          }
-        }
-      }
-    },
-    "/hospital/notifications/{id}": {
+    "/hospital/appointments/{appointmentId}": {
       "get": {
-        "summary": "Get one hospital notification",
+        "summary": "Get a single appointment details for the authenticated hospital",
         "tags": [
           "Hospital"
         ],
@@ -8696,7 +8699,7 @@
         "parameters": [
           {
             "in": "path",
-            "name": "id",
+            "name": "appointmentId",
             "required": true,
             "schema": {
               "type": "string"
@@ -8705,33 +8708,36 @@
         ],
         "responses": {
           "200": {
-            "description": "Notification retrieved successfully"
-          }
-        }
-      },
-      "delete": {
-        "summary": "Delete one hospital notification",
-        "tags": [
-          "Hospital"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "parameters": [
-          {
-            "in": "path",
-            "name": "id",
-            "required": true,
-            "schema": {
-              "type": "string"
+            "description": "Appointment details",
+            "content": {
+              "application/json": {
+                "example": {
+                  "success": true,
+                  "message": "Appointment retrieved successfully",
+                  "data": {
+                    "appointmentId": "69fe540565ff7785a031315c",
+                    "appointmentDate": "2026-06-01T09:00:00.000Z",
+                    "status": "confirmed",
+                    "donorId": "66f100000000000000000002",
+                    "hospitalId": "69f3df915f42685cbbbcbb10",
+                    "requestId": "69fe540565ff7785a0313151",
+                    "donorDetails": {
+                      "fullName": "Jane Doe",
+                      "phoneNumber": 201234567890,
+                      "bloodType": "O+",
+                      "email": "jane@example.com"
+                    },
+                    "donor": {
+                      "donorId": "66f100000000000000000002",
+                      "fullName": "Jane Doe",
+                      "email": "jane.doe@example.com",
+                      "phoneNumber": 201234567890,
+                      "bloodType": "O+"
+                    }
+                  }
+                }
+              }
             }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Notification deleted successfully"
           }
         }
       }
@@ -9766,53 +9772,6 @@
                           "status": "shortage"
                         }
                       ]
-                    }
-                  }
-                }
-              }
-            }
-          }
-        },
-        "description": "Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible."
-      }
-    },
-    "/admin/analytics/dashboard": {
-      "get": {
-        "summary": "Dashboard summary with key metrics",
-        "tags": [
-          "Admin"
-        ],
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Dashboard summary",
-            "content": {
-              "application/json": {
-                "example": {
-                  "success": true,
-                  "message": "Dashboard summary",
-                  "data": {
-                    "users": {
-                      "total": 290,
-                      "donors": 236,
-                      "hospitals": 42
-                    },
-                    "requests": {
-                      "active": 21,
-                      "critical": 5
-                    },
-                    "donations": {
-                      "pending": 15,
-                      "completed": 439
-                    },
-                    "alerts": {
-                      "unverifiedUsers": 6,
-                      "suspendedUsers": 4,
-                      "criticalRequests": 5
                     }
                   }
                 }

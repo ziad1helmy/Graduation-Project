@@ -138,7 +138,16 @@ export const notifyRequest = async (donorIds, request) => {
     );
 
     try {
-      // Directly send FCM notifications for each donor — await to ensure delivery attempted
+      // Fix #3 (HIGH): Urgency-aware FCM retry strategy.
+      // low/medium → 3 retries (200 ms base) — best-effort acceptable
+      // high/critical → 5 retries (500 ms base) — escalating backoff; final
+      //   failure emits a CRITICAL_NOTIFICATION_FAILURE structured log for
+      //   alerting dashboards / on-call tooling.
+      const isHighUrgency = ['high', 'critical'].includes(request.urgency);
+      const retryConfig = isHighUrgency
+        ? { attempts: 5, baseDelayMs: 500 }
+        : { attempts: 3, baseDelayMs: 200 };
+
       for (let i = 0; i < matchedDonors.length; i += 1) {
         const donor = matchedDonors[i].donor;
         const notification = notifications[i];
@@ -161,12 +170,21 @@ export const notifyRequest = async (donorIds, request) => {
         if (!tokens.length) continue;
 
         try {
-          await (sendToMultipleWithRetry || sendToMultiple)(tokens, content.title, content.body, data, options, {
-            attempts: 3,
-            baseDelayMs: 200,
-          });
+          await (sendToMultipleWithRetry || sendToMultiple)(tokens, content.title, content.body, data, options, retryConfig);
         } catch (err) {
-          logger.error('Emergency push failed', { message: err.message });
+          if (isHighUrgency) {
+            // Structured alert — searchable by monitoring tools
+            logger.error('CRITICAL_NOTIFICATION_FAILURE', {
+              event: 'CRITICAL_NOTIFICATION_FAILURE',
+              requestId: String(request._id),
+              urgency: request.urgency,
+              donorId: String(donor._id),
+              totalDonorsTargeted: matchedDonors.length,
+              error: err.message,
+            });
+          } else {
+            logger.error('Emergency push failed', { message: err.message });
+          }
         }
       }
     } catch (err) {
@@ -309,13 +327,13 @@ export const getUnreadNotifications = async (userId) => {
  */
 export const getUserNotifications = async (userId, options = {}) => {
   try {
-    const { offset = 0, limit = 10, read = null, type = null } = options;
+    const { offset = 0, limit = 10, read = null, type = null, projection = null } = options;
 
     const filter = { userId };
     if (read !== null) filter.read = read;
     if (type) filter.type = type;
 
-    const notifications = await Notification.find(filter)
+    const notifications = await Notification.find(filter, projection)
       .skip(parseInt(offset))
       .limit(parseInt(limit))
       .sort({ createdAt: -1 });

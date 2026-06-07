@@ -237,7 +237,7 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
 
       // Log completion activity (fire-and-forget)
       if (updatedDonation) {
-        activityService
+        await activityService
           .logActivity(updatedDonation.donorId, {
             type: 'donation',
             action: 'completed_donation',

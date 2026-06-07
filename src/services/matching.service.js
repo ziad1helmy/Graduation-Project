@@ -21,6 +21,14 @@ const DEFAULT_MATCHING_DISTANCE_KM = (() => {
   return Number.isFinite(configuredDistance) && configuredDistance > 0 ? configuredDistance : 30;
 })();
 
+// Fix #4 (HIGH): Emergency requests (high/critical urgency) use a wider radius
+// so more donors are reachable in time-sensitive situations.
+// Override via EMERGENCY_MATCHING_DISTANCE_KM env variable (default: 60 km).
+const EMERGENCY_MATCHING_DISTANCE_KM = (() => {
+  const configured = Number(env.EMERGENCY_MATCHING_DISTANCE_KM);
+  return Number.isFinite(configured) && configured > 0 ? configured : 60;
+})();
+
 const ACTIVE_REQUEST_STATUSES = ['pending', 'in-progress'];
 const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
 
@@ -320,12 +328,35 @@ export const findCompatibleDonors = async (requestId) => {
     throw new Error(ELIGIBILITY_KEYS.REQUEST_NOT_FOUND);
   }
 
+  // Fix #4 (HIGH): Use a wider matching radius for high/critical urgency requests
+  // so more donors are reachable in time-sensitive situations.
+  const radiusKm = ['high', 'critical'].includes(request.urgency)
+    ? EMERGENCY_MATCHING_DISTANCE_KM
+    : DEFAULT_MATCHING_DISTANCE_KM;
+
   // Pre-filter by participation preference + blood type at DB level.
   // Medical eligibility and hard distance filtering are evaluated dynamically below.
   const donorQuery = { isOptedIn: true, isSuspended: { $ne: true } };
   const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
   if (requestBloodTypes.length > 0) {
     donorQuery.bloodType = { $in: getCompatibleDonorTypesForRequest(requestBloodTypes) };
+  }
+
+  // Pre-filter using geospatial $nearSphere if feature flag is active
+  const hospitalLocation = request.hospitalId?.location;
+  const hospitalCoords = hospitalLocation?.coordinates;
+  const hasHospitalCoords = hospitalCoords && Number.isFinite(hospitalCoords.lat) && Number.isFinite(hospitalCoords.lng);
+
+  if (process.env.ENABLE_GEOSPATIAL_INDEX === 'true' && hasHospitalCoords) {
+    donorQuery['location.coordinates'] = {
+      $nearSphere: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [Number(hospitalCoords.lat), Number(hospitalCoords.lng)],
+        },
+        $maxDistance: radiusKm * 1000,
+      },
+    };
   }
 
   const donors = await Donor.find(donorQuery).limit(500);
@@ -347,7 +378,6 @@ export const findCompatibleDonors = async (requestId) => {
   const respondedDonorIds = new Set(existingDonations.map((d) => d.donorId.toString()));
   const activeDonationDonorIds = new Set(activeDonations.map((d) => d.donorId.toString()));
 
-  const hospitalLocation = request.hospitalId?.location;
   const compatibleDonors = [];
 
   for (const donor of donors) {
@@ -358,7 +388,7 @@ export const findCompatibleDonors = async (requestId) => {
       continue;
     }
 
-    const match = await evaluateMatch(donor, request);
+    const match = await evaluateMatch(donor, request, { radiusKm });
     if (!match.matched) {
       continue;
     }
@@ -405,6 +435,22 @@ export const searchCompatibleDonors = async ({
     donorQuery.bloodType = { $in: getCompatibleDonorTypesForRequest(normalizedSearchBloodTypes) };
   }
 
+  const normalizedRadiusKm = Number.isFinite(radiusKm) ? radiusKm : DEFAULT_MATCHING_DISTANCE_KM;
+  const geoPoint = toGeoPoint(location);
+  const searchHasLocation = Boolean(geoPoint);
+
+  if (process.env.ENABLE_GEOSPATIAL_INDEX === 'true' && searchHasLocation) {
+    donorQuery['location.coordinates'] = {
+      $nearSphere: {
+        $geometry: {
+          type: 'Point',
+          coordinates: [Number(geoPoint.latitude), Number(geoPoint.longitude)],
+        },
+        $maxDistance: normalizedRadiusKm * 1000,
+      },
+    };
+  }
+
   const donors = await Donor.find(donorQuery).limit(500);
   const activeDonations = await Donation.find({
     donorId: { $in: donors.map((donor) => donor._id) },
@@ -414,9 +460,6 @@ export const searchCompatibleDonors = async ({
 
   const searchRequest = normalizedSearchBloodTypes.length > 0 ? { type: 'blood', bloodType: normalizedSearchBloodTypes } : { type: 'search' };
   const compatibleDonors = [];
-  const normalizedRadiusKm = Number.isFinite(radiusKm) ? radiusKm : DEFAULT_MATCHING_DISTANCE_KM;
-  const geoPoint = toGeoPoint(location);
-  const searchHasLocation = Boolean(geoPoint);
 
   for (const donor of donors) {
     if (activeDonationDonorIds.has(donor._id.toString())) {
@@ -525,7 +568,8 @@ export const findCompatibleRequests = async (donorId, { radiusKm = DEFAULT_MATCH
   }
 
   const donorLocation = getDonorLocationPoint(donor);
-  const { geoQuery, radiusKm: normalizedRadiusKm } = buildRequestGeoQuery(donorLocation, radiusKm);
+  const maxQueryRadius = Math.max(radiusKm, EMERGENCY_MATCHING_DISTANCE_KM);
+  const { geoQuery, radiusKm: normalizedRadiusKm } = buildRequestGeoQuery(donorLocation, maxQueryRadius);
   const requestQuery = geoQuery
     ? Request.find({ ...buildRequestQuery(filters), ...geoQuery })
     : Request.find(buildRequestQuery(filters));
@@ -562,7 +606,11 @@ export const findCompatibleRequests = async (donorId, { radiusKm = DEFAULT_MATCH
     const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
     if (respondedRequestIds.has(request._id.toString())) continue;
 
-    const match = await evaluateMatch(donor, request, { radiusKm: normalizedRadiusKm });
+    const maxDist = ['high', 'critical'].includes(request.urgency)
+      ? EMERGENCY_MATCHING_DISTANCE_KM
+      : radiusKm;
+
+    const match = await evaluateMatch(donor, request, { radiusKm: maxDist });
     if (!match.matched) continue;
 
     // Calculate compatibility score
@@ -641,6 +689,7 @@ export const getMatchingAnalysis = async (donorId, requestId) => {
 
 export {
   DEFAULT_MATCHING_DISTANCE_KM,
+  EMERGENCY_MATCHING_DISTANCE_KM,
   extractDonorLocation,
   extractRequestLocation,
 };

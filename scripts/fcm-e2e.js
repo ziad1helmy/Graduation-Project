@@ -21,10 +21,19 @@ async function main() {
   let token = loginData && loginData.data && loginData.data.accessToken;
   if (!token) {
     console.log(`Attempting to register test user ${TEST_EMAIL}...`);
-    const signupRes = await fetch(`${BASE_URL}/auth/register`, {
+    const signupRes = await fetch(`${BASE_URL}/auth/signup`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-test-mode': 'true' },
-      body: JSON.stringify({ fullName: 'Test Donor', email: TEST_EMAIL, password: TEST_PASSWORD, role: 'donor', phoneNumber: '0100000000', dateOfBirth: '1990-01-01' })
+      body: JSON.stringify({
+        fullName: 'Test Donor',
+        email: TEST_EMAIL,
+        password: TEST_PASSWORD,
+        confirmPassword: TEST_PASSWORD,
+        role: 'donor',
+        phoneNumber: '01000000000',
+        bloodType: 'O+',
+        dateOfBirth: '1990-01-01'
+      })
     });
     const signupData = await signupRes.json().catch(() => ({}));
     console.log('Signup response status:', signupRes.status, 'body:', signupData);
@@ -33,10 +42,10 @@ async function main() {
     const verificationToken = signupData?.data?.verificationToken || signupData?.verificationToken || signupData?.data?.verification_token;
     if (verificationToken) {
       console.log('Auto-verifying email with token from signup response...');
-      const verifyRes = await fetch(`${BASE_URL}/auth/verify-email-token`, {
+      const verifyRes = await fetch(`${BASE_URL}/auth/verify-email-otp`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-test-mode': 'true' },
-        body: JSON.stringify({ token: verificationToken })
+        body: JSON.stringify({ email: TEST_EMAIL, otp: verificationToken })
       });
       const verifyData = await verifyRes.json().catch(() => ({}));
       console.log('Verify email status:', verifyRes.status, 'body:', verifyData);

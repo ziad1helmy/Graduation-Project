@@ -12,7 +12,7 @@
 The LifeLink Flutter application includes a complete, end-to-end **Appointment Scheduling** module that allows donors to schedule new donation appointments and reschedule existing ones. Both workflows are supported by backend appointment management APIs.
 
 > [!IMPORTANT]
-> Flutter integration is pending — backend endpoints are ready: `POST /donations/book-appointment`, `PATCH /donations/book-appointment/:appointmentId`, `GET /donations/book-appointment/available-slots`, `GET /donations/my-appointments`.
+> Flutter integration is pending — backend endpoints are ready: `POST /donations/book-appointment`, `PATCH /donations/book-appointment/:appointmentId`, `GET /donations/book-appointment/available-slots`, `GET /donations/book-appointment/my-appointments`.
 
 ---
 
@@ -168,7 +168,7 @@ The donor starts from their appointment list or dashboard and selects an upcomin
 - Only `pending` or `confirmed` appointments can be rescheduled (completed/cancelled ones are read-only).
 
 **Backend Integration:**
-- `GET /donations/my-appointments` — Lists all donor appointments.
+- `GET /donations/book-appointment/my-appointments` — Lists all donor appointments.
 - `GET /donations/book-appointment/:appointmentId` — Fetches full details of a specific appointment.
 
 ---
@@ -266,7 +266,7 @@ The following backend endpoints power the scheduling workflows:
 |--------|----------|-------------|
 | `GET` | `/donations/book-appointment/available-slots` | Fetch open time slots for a hospital on a date |
 | `POST` | `/donations/book-appointment` | Create a new appointment (Schedule flow) |
-| `GET` | `/donations/my-appointments` | List all donor appointments |
+| `GET` | `/donations/book-appointment/my-appointments` | List all donor appointments |
 | `GET` | `/donations/book-appointment/:id` | Fetch a single appointment by ID |
 | `PATCH` | `/donations/book-appointment/:appointmentId` | Update an existing appointment (Reschedule flow) |
 | `DELETE` | `/donations/book-appointment/:appointmentId` | Cancel an appointment |
@@ -325,7 +325,7 @@ Flutter App (Dart)
 │                                                  (receives qrToken in response)
 │
 └── Reschedule Donation Flow
-    ├── Appointment List  ──────────────────────→ GET /donations/my-appointments
+        ├── Appointment List  ──────────────────────→ GET /donations/book-appointment/my-appointments
     ├── Appointment Detail  ────────────────────→ GET /donations/book-appointment/:id
     ├── Date & Time Picker  ────────────────────→ GET /donations/book-appointment/available-slots
     ├── Review Updated Details  ────────────────→ [local state, no API call]
@@ -393,7 +393,7 @@ Backend API support is in place for appointment creation, availability lookup, d
 | | Schedule Donation | Reschedule Donation |
 |---|---|---|
 | **Steps** | 4-step wizard + confirmation | 3-step flow + confirmation |
-| **API calls** | `GET /donations/book-appointment/available-slots`, `GET /donor/profile`, `POST /donations/book-appointment` | `GET /donations/my-appointments`, `GET /donations/book-appointment/available-slots`, `PATCH /donations/book-appointment/:appointmentId` |
+| **API calls** | `GET /donations/book-appointment/available-slots`, `GET /donor/profile`, `POST /donations/book-appointment` | `GET /donations/book-appointment/my-appointments`, `GET /donations/book-appointment/available-slots`, `PATCH /donations/book-appointment/:appointmentId` |
 | **QR Code** | ✅ Generated on creation | ✅ Regenerated on update |
 | **Form Validation** | ✅ All steps | ✅ Date/time step |
 | **Pre-filled data** | ✅ Profile auto-fill on Step 3 | ✅ Current appointment pre-selected |

@@ -50,6 +50,10 @@ router.get('/rewards/config', adminController.getRewardsConfig);
 
 router.put('/rewards/config', adminController.updateRewardsConfig);
 
+// Badges Management
+router.get('/badges', adminController.getBadges);
+router.patch('/badges/:id', adminController.updateBadge);
+
 // ──────────────────────────────────────────────
 //  Audit Logs
 // ──────────────────────────────────────────────
@@ -185,8 +189,6 @@ router.post('/requests/:id/broadcast', adminController.broadcastRequest);
 //  Analytics
 // ──────────────────────────────────────────────
 
-
-router.get('/analytics/dashboard', adminController.getDashboard);
 
 
 router.get('/analytics/donations', adminController.getDonationTrends);

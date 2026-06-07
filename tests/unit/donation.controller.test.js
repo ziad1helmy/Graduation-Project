@@ -7,6 +7,7 @@ import Appointment from '../../src/models/Appointment.model.js';
 import Donation from '../../src/models/Donation.model.js';
 import Request from '../../src/models/Request.model.js';
 import * as eligibilityService from '../../src/services/eligibility.service.js';
+import * as activityService from '../../src/services/activity.service.js';
 
 vi.mock('../../src/services/reward.service.js', () => ({
   onDonationCompleted: vi.fn().mockResolvedValue(null),
@@ -460,5 +461,55 @@ describe('completeDonation', () => {
 
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json.mock.calls[0][0].data.status).toBe('completed');
+  });
+
+  it('succeeds even if activity logging fails, and logs the failure', async () => {
+    const logger = (await import('../../src/utils/logger.js')).logger;
+
+    // Spy on logger.error
+    const loggerErrorSpy = vi.spyOn(logger, 'error').mockImplementation(() => {});
+
+    const donor = await createDonor({ hemoglobinLevel: 15, weight: 70 });
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, { bloodType: donor.bloodType, status: 'in-progress' });
+    const appointment = await createVerifiedAppointment({ donor, hospital, request, donationType: 'Whole Blood' });
+
+    // Mock logActivity to reject for the next call in completeDonation
+    activityService.logActivity.mockRejectedValueOnce(new Error('Activity database timeout'));
+
+    const res = makeRes();
+    await donationController.completeDonation(
+      {
+        user: { userId: hospital._id },
+        body: {
+          appointmentId: appointment._id.toString(),
+          hemoglobinLevel: 14.8,
+          weight: 71,
+          unitsCollected: 1,
+          notes: 'Stable vitals',
+        },
+      },
+      res,
+      vi.fn()
+    );
+
+    // Wait for the asynchronous catch handler of activityService.logActivity to execute
+    await new Promise((resolve) => setTimeout(resolve, 200));
+
+    expect(res.status).toHaveBeenCalledWith(200);
+    expect(res.json.mock.calls[0][0].data.pointsEarned).toBe(100);
+
+    // Assert logger.error was called with the failure event
+    expect(loggerErrorSpy).toHaveBeenCalledWith(
+      'DONATION_COMPLETION_ACTIVITY_LOG_FAILED',
+      expect.objectContaining({
+        event: 'DONATION_COMPLETION_ACTIVITY_LOG_FAILED',
+        donorId: donor._id.toString(),
+        error: 'Activity database timeout',
+      })
+    );
+
+    // Restore mocks
+    loggerErrorSpy.mockRestore();
   });
 });

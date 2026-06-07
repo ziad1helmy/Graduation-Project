@@ -909,17 +909,27 @@ export const updateRequest = async (req, res, next) => {
 
     // runValidators is intentionally omitted: past requiredBy date would fail
     // validation on legitimate status updates (e.g. marking an old request completed)
-    const updatedRequest = await Request.findByIdAndUpdate(
-      requestId,
-      { status },
-      { returnDocument: 'after' }
-    );
+    const session = await mongoose.startSession();
+    let updatedRequest;
+    const cancelledAt = new Date();
+    try {
+      await session.withTransaction(async () => {
+        updatedRequest = await Request.findByIdAndUpdate(
+          requestId,
+          { status },
+          { returnDocument: 'after', session }
+        );
 
-    if (['completed', 'cancelled', 'expired'].includes(status)) {
-      await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
-        cancelledAt: new Date(),
-        notes: `Appointment cancelled because request was marked as ${status}`,
+        if (['completed', 'cancelled', 'expired'].includes(status)) {
+          await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
+            cancelledAt,
+            notes: `Appointment cancelled because request was marked as ${status}`,
+            session,
+          });
+        }
       });
+    } finally {
+      session.endSession();
     }
 
     response.success(res, 200, 'Request status updated successfully', updatedRequest);
@@ -959,15 +969,24 @@ export const closeRequest = async (req, res, next) => {
     }
 
     const completedAt = new Date();
-    const updatedRequest = await Request.findByIdAndUpdate(
-      requestId,
-      { status: 'completed', completedAt },
-      { returnDocument: 'after' }
-    );
-    await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
-      cancelledAt: completedAt,
-      notes: 'Appointment cancelled because the linked request was completed',
-    });
+    const session = await mongoose.startSession();
+    let updatedRequest;
+    try {
+      await session.withTransaction(async () => {
+        updatedRequest = await Request.findByIdAndUpdate(
+          requestId,
+          { status: 'completed', completedAt },
+          { returnDocument: 'after', session }
+        );
+        await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
+          cancelledAt: completedAt,
+          notes: 'Appointment cancelled because the linked request was completed',
+          session,
+        });
+      });
+    } finally {
+      session.endSession();
+    }
 
     return response.success(res, 200, 'Request closed successfully', updatedRequest);
   } catch (error) {
@@ -1027,15 +1046,16 @@ export const deleteRequest = async (req, res, next) => {
           },
           { session }
         );
+
+        await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
+          cancelledAt,
+          notes: 'Appointment cancelled because the linked request was cancelled',
+          session,
+        });
       });
     } finally {
       session.endSession();
     }
-
-    await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
-      cancelledAt,
-      notes: 'Appointment cancelled because the linked request was cancelled',
-    });
 
     request.status = 'cancelled';
     request.cancelledAt = cancelledAt;

@@ -161,7 +161,11 @@ const userSchema = new Schema(
 // Indexes for efficient queries
 userSchema.index({ role: 1 });
 userSchema.index({ deletedAt: 1 });
-userSchema.index({ 'location.coordinates.lat': 1, 'location.coordinates.lng': 1 });
+if (process.env.ENABLE_GEOSPATIAL_INDEX === 'true') {
+  userSchema.index({ 'location.coordinates': '2dsphere' }, { sparse: true });
+} else {
+  userSchema.index({ 'location.coordinates.lat': 1, 'location.coordinates.lng': 1 });
+}
 
 userSchema.pre('save', async function () {
   const hookStartedAt = process.hrtime.bigint();

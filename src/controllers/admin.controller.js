@@ -2,6 +2,7 @@ import response from '../utils/response.js';
 import mongoose from 'mongoose';
 import { ERR } from '../utils/errorCodes.js';
 import User from '../models/User.model.js';
+import Badge from '../models/Badge.model.js';
 import InboundEmail from '../models/InboundEmail.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as analyticsService from '../services/analytics.service.js';
@@ -780,6 +781,14 @@ export const broadcastRequest = async (req, res, next) => {
     }
     return response.success(res, 200, 'Broadcast sent', result);
   } catch (error) {
+    // Fix #7 (MEDIUM): Return 429 with nextAllowedAt when the broadcast
+    // cooldown window has not elapsed since the last broadcast.
+    if (error.code === 'BROADCAST_COOLDOWN_ACTIVE') {
+      return response.error(res, 429, 'Broadcast cooldown active. Try again later.', {
+        code: 'BROADCAST_COOLDOWN_ACTIVE',
+        nextAllowedAt: error.nextAllowedAt,
+      });
+    }
     next(error);
   }
 };
@@ -976,6 +985,67 @@ export const replySupportMessage = async (req, res, next) => {
     }
 
     return response.success(res, 200, 'Support reply saved successfully', { ticket });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ──────────────────────────────────────────────
+//  Badges Management
+// ──────────────────────────────────────────────
+
+/** GET /admin/badges */
+export const getBadges = async (req, res, next) => {
+  try {
+    const badges = await Badge.find().sort({ sortOrder: 1 });
+    return response.success(res, 200, 'Badges retrieved successfully', { badges });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/** PATCH /admin/badges/:id */
+export const updateBadge = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return response.error(res, 400, 'Invalid badge ID');
+    }
+
+    const { unlockThreshold, pointsReward, bonusPoints } = req.body;
+    const update = {};
+
+    if (unlockThreshold !== undefined) {
+      if (typeof unlockThreshold !== 'number' || unlockThreshold < 1) {
+        return response.error(res, 400, 'unlockThreshold must be a number greater than or equal to 1');
+      }
+      update.unlockThreshold = unlockThreshold;
+    }
+
+    // Support both pointsReward (model name) and bonusPoints (plan name)
+    const pointsVal = pointsReward !== undefined ? pointsReward : bonusPoints;
+    if (pointsVal !== undefined) {
+      if (typeof pointsVal !== 'number' || pointsVal < 0) {
+        return response.error(res, 400, 'pointsReward/bonusPoints must be a non-negative number');
+      }
+      update.pointsReward = pointsVal;
+    }
+
+    if (Object.keys(update).length === 0) {
+      return response.error(res, 400, 'At least one field to update is required');
+    }
+
+    const badge = await Badge.findByIdAndUpdate(
+      id,
+      { $set: update },
+      { new: true, runValidators: true }
+    );
+
+    if (!badge) {
+      return response.error(res, 404, 'Badge not found');
+    }
+
+    return response.success(res, 200, 'Badge updated successfully', { badge });
   } catch (error) {
     next(error);
   }

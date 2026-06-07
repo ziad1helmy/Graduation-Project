@@ -5,6 +5,8 @@ import { setupTestDB, clearDatabase } from '../helpers/db.js';
 import { createDonor, createHospital, createRequest, createAdmin, createDonation } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
 import Appointment from '../../src/models/Appointment.model.js';
+import Donation from '../../src/models/Donation.model.js';
+import Request from '../../src/models/Request.model.js';
 
 vi.mock('../../src/services/activity.service.js', () => ({ logActivity: vi.fn().mockResolvedValue(null) }));
 
@@ -77,6 +79,18 @@ describe('Appointment Routes Integration', () => {
     expect(createResponse.body.data.donationType).toBe(donationType);
 
     const appointmentId = createResponse.body.data._id;
+    const savedAppointment = await Appointment.findById(appointmentId);
+
+    expect(savedAppointment).toBeTruthy();
+    expect(savedAppointment.donorId.toString()).toBe(donor._id.toString());
+    expect(savedAppointment.requestId.toString()).toBe(request2._id.toString());
+    expect(savedAppointment.hospitalId.toString()).toBe(hospital._id.toString());
+    expect(new Date(savedAppointment.appointmentDate).toISOString()).toBe(futureDate.toISOString());
+
+    const linkedDonation = await Donation.findOne({ appointmentId });
+    expect(linkedDonation).toBeTruthy();
+    expect(linkedDonation.donorId.toString()).toBe(donor._id.toString());
+    expect(linkedDonation.requestId.toString()).toBe(request2._id.toString());
 
     const updateResponse = await request(app)
       .patch(`/appointments/${appointmentId}`)
@@ -335,8 +349,7 @@ describe('Appointment Routes Integration', () => {
     expect(response.body.success).toBe(true);
     expect(Array.isArray(response.body.data.appointments)).toBe(true);
     expect(response.body.data.appointments.length).toBeGreaterThan(0);
-    expect(response.body.data.appointments[0].donorId).toBeDefined();
-    expect(response.body.data.appointments[0].donorDetails).toBeDefined();
+    expect(response.body.data.appointments[0].donorId).toBeUndefined();
   });
 
   it('GET /donations/book-appointment/my-appointments requires authentication', async () => {
@@ -373,6 +386,48 @@ describe('Appointment Routes Integration', () => {
 
     const updated = await Appointment.findById(appointment._id);
     expect(updated.status).toBe('cancelled');
+  });
+
+  it('DELETE /donations/book-appointment/:appointmentId rolls back if linked donation save fails', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const request2 = await createRequest(hospital._id, { status: 'accepted' });
+    const appointment = await Appointment.create({
+      donorId: donor._id,
+      hospitalId: hospital._id,
+      requestId: request2._id,
+      appointmentDate: makeFutureAppointmentDate(),
+      status: 'confirmed',
+      donationType: 'Whole Blood',
+      qrToken: `cancel-rollback-${Date.now()}`,
+    });
+    await Donation.create({
+      donorId: donor._id,
+      requestId: request2._id,
+      appointmentId: appointment._id,
+      status: 'scheduled',
+      quantity: 1,
+    });
+
+    const saveSpy = vi.spyOn(Donation.prototype, 'save').mockRejectedValueOnce(new Error('transaction failed'));
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .delete(`/donations/book-appointment/${appointment._id}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    saveSpy.mockRestore();
+
+    expect(response.status).toBeGreaterThanOrEqual(500);
+
+    const storedAppointment = await Appointment.findById(appointment._id);
+    const storedDonation = await Donation.findOne({ appointmentId: appointment._id });
+    const storedRequest = await Request.findById(request2._id);
+
+    expect(storedAppointment.status).toBe('confirmed');
+    expect(storedDonation.status).toBe('scheduled');
+    expect(storedRequest.status).toBe('accepted');
   });
 
   it('DELETE /donations/book-appointment/:appointmentId requires authentication', async () => {

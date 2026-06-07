@@ -32,6 +32,9 @@ const getEnv = () => ({
 
   // JWT
   JWT_SECRET: process.env.JWT_SECRET,
+  // Fix #12 (HIGH): In non-production, fall back to JWT_SECRET only when
+  // JWT_REFRESH_SECRET is not explicitly set. In production, validateEnv()
+  // enforces that it must be set explicitly.
   JWT_REFRESH_SECRET:
     process.env.JWT_REFRESH_SECRET || (process.env.NODE_ENV === 'production' ? undefined : process.env.JWT_SECRET),
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
@@ -68,6 +71,9 @@ const getEnv = () => ({
 
   // Matching
   MATCHING_DISTANCE_KM: process.env.MATCHING_DISTANCE_KM || '30',
+  // Fix #4 (HIGH): Wider radius for high/critical urgency emergency requests.
+  // Override via EMERGENCY_MATCHING_DISTANCE_KM env var (default: 60 km).
+  EMERGENCY_MATCHING_DISTANCE_KM: process.env.EMERGENCY_MATCHING_DISTANCE_KM || '60',
 });
 
 const required = ['MONGO_URI', 'JWT_SECRET'];
@@ -78,6 +84,9 @@ function validateEnv() {
   const missing = required.filter((key) => !env[key]);
 
   if (env.IS_PRODUCTION) {
+    // Fix #12 (HIGH): JWT_REFRESH_SECRET is mandatory in production.
+    // Using the same secret for both access and refresh tokens reduces
+    // token isolation and is a security risk.
     if (!env.JWT_REFRESH_SECRET) {
       missing.push('JWT_REFRESH_SECRET');
     }

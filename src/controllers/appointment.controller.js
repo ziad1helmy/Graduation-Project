@@ -2,7 +2,7 @@ import response from '../utils/response.js';
 import * as appointmentService from '../services/appointment.service.js';
 import ERR from '../utils/errorCodes.js';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
-import { toAppointmentResponse, appointmentPopulateOptions } from '../utils/appointment.dto.js';
+import { toAppointmentResponse, appointmentPopulateOptions, donorAppointmentPopulateOptions, toAvailableSlotsResponse } from '../utils/appointment.dto.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 
 const getDonorId = (req) => req?.user?.userId || req?.user?._id;
@@ -138,9 +138,16 @@ export const getMyAppointments = async (req, res, next) => {
     const donorId = getDonorId(req);
     const { page, limit } = req.query;
 
-    const result = await appointmentService.getMyAppointments(donorId, { page, limit });
+    // Keep createdAt, updatedAt, verificationChecklist and rescheduleHistory for Flutter compatibility
+    const projection = req.user?.role === 'donor'
+      ? '-__v -donorId -notes -requestId -qrExpiresAt -verificationStatus -rescheduleCount -donorDetails'
+      : null;
 
-    return response.success(res, 200, 'Appointments fetched', result);
+    const result = await appointmentService.getMyAppointments(donorId, { page, limit }, projection, { role: req.user?.role });
+
+    return response.success(res, 200, 'Appointments fetched', {
+      ...result,
+    });
   } catch (error) {
     next(error);
   }
@@ -157,7 +164,7 @@ export const getAvailableSlots = async (req, res, next) => {
     const slots = await appointmentService.getAvailableSlots(hospitalId, date, {
       excludeAppointmentId: excludeAppointmentId || undefined,
     });
-    return response.success(res, 200, 'Available slots retrieved successfully', slots);
+    return response.success(res, 200, 'Available slots retrieved successfully', toAvailableSlotsResponse(slots, { role: req.user?.role }));
   } catch (error) {
     if (error.message === 'Invalid hospital id' || error.message === 'Invalid date') {
       return response.error(res, 400, error.message);
@@ -197,8 +204,8 @@ export const getAppointmentById = async (req, res, next) => {
     const appointment = await appointmentService.getAppointmentById(appointmentId, donorId);
 
     // Populate for HTTP response then apply DTO transformation.
-    await appointment.populate(appointmentPopulateOptions);
-    return response.success(res, 200, 'Appointment retrieved', toAppointmentResponse(appointment));
+    await appointment.populate(req.user?.role === 'donor' ? donorAppointmentPopulateOptions : appointmentPopulateOptions);
+    return response.success(res, 200, 'Appointment retrieved', toAppointmentResponse(appointment, { role: req.user?.role }));
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
@@ -225,7 +232,7 @@ export const rescheduleAppointment = async (req, res, next) => {
       reason: rescheduleReason,
     });
 
-    return response.success(res, 200, 'Appointment rescheduled', toAppointmentResponse(appointment));
+    return response.success(res, 200, 'Appointment rescheduled', toAppointmentResponse(appointment, { role: req.user?.role }));
   } catch (error) {
     if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');

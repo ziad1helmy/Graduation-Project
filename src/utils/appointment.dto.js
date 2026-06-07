@@ -23,6 +23,10 @@ export const appointmentPopulateOptions = [
   { path: 'requestId', select: REQUEST_DETAILS_SELECT },
 ];
 
+export const donorAppointmentPopulateOptions = [
+  { path: 'hospitalId', select: 'fullName hospitalName address' },
+];
+
 const toPlainObject = (value) => {
   if (!value) return value;
   return value.toObject ? value.toObject() : value;
@@ -104,6 +108,16 @@ const buildHospitalDetails = (source) => {
     address: source.address ?? null,
     contactNumber: source.contactNumber ?? null,
     location: source.location ?? null,
+  };
+};
+
+const buildDonorHospitalReference = (source) => {
+  if (!source || typeof source !== 'object') return source || null;
+
+  return {
+    _id: source._id || source.hospitalId || null,
+    hospitalName: source.hospitalName || source.name || source.fullName || null,
+    address: source.address || null,
   };
 };
 
@@ -195,11 +209,38 @@ export const buildAppointmentConfirmationResponse = (appointment) => {
   };
 };
 
-export const toAppointmentResponse = (appointment) => {
+export const toAppointmentResponse = (appointment, options = {}) => {
   if (!appointment) return appointment;
 
+  const isDonorAudience = options?.role === 'donor' || options?.audience === 'donor';
   const src = toPlainObject(appointment);
   const confirmation = buildAppointmentConfirmationResponse(src)?.data;
+
+  if (isDonorAudience) {
+    return {
+      _id: src._id,
+      appointmentId: src._id,
+      appointmentDate: src.appointmentDate || null,
+      appointmentTime: confirmation?.appointmentTime || formatAppointmentTime(src.appointmentDate),
+      status: src.status || null,
+      donationType: confirmation?.donationType || src.donationType || null,
+      hospitalId: buildDonorHospitalReference(src.hospitalId),
+      hospital: confirmation?.hospital
+        ? {
+            hospitalId: confirmation.hospital.hospitalId,
+            id: confirmation.hospital.id,
+            name: confirmation.hospital.name,
+            hospitalName: confirmation.hospital.hospitalName,
+          }
+        : null,
+      appointment: confirmation?.appointment || null,
+      donor: confirmation?.donor || null,
+      rescheduleHistory: confirmation?.rescheduleHistory || [],
+      verificationChecklist: confirmation?.verificationChecklist || null,
+      createdAt: src.createdAt || null,
+      updatedAt: src.updatedAt || null,
+    };
+  }
 
   const sanitized = {
     _id: src._id,
@@ -245,4 +286,32 @@ export const toAppointmentResponse = (appointment) => {
   };
 
   return sanitized;
+};
+
+export const toAvailableSlotsResponse = (slotsData, options = {}) => {
+  if (!slotsData) return null;
+
+  const src = toPlainObject(slotsData);
+  const isDonorAudience = options?.role === 'donor' || options?.audience === 'donor';
+  const mapSlot = (slotData) => {
+    const slot = toPlainObject(slotData);
+    if (!isDonorAudience) return slot;
+    return {
+      time: slot.time,
+      available: slot.available,
+    };
+  };
+
+  if (!isDonorAudience) return src;
+
+  // Preserve capacity and metadata fields for donor responses so Flutter can rely on them.
+  return {
+    ...(src.date ? { date: src.date } : {}),
+    ...(src.hospitalId ? { hospitalId: src.hospitalId } : {}),
+    ...(Number.isFinite(src.remainingCapacity) ? { remainingCapacity: src.remainingCapacity } : {}),
+    ...(Number.isFinite(src.maxCapacity) ? { maxCapacity: src.maxCapacity } : {}),
+    ...(src.slotsPerHour ? { slotsPerHour: src.slotsPerHour } : {}),
+    ...(Array.isArray(src.slots) ? { slots: src.slots.map(mapSlot) } : {}),
+    ...(Array.isArray(src.timeSlots) ? { timeSlots: src.timeSlots.map(mapSlot) } : {}),
+  };
 };

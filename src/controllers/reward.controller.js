@@ -2,6 +2,7 @@ import response from '../utils/response.js';
 import * as rewardService from '../services/reward.service.js';
 import { parsePagination } from '../utils/pagination.js';
 
+
 // ── Donor endpoints ──────────────────────────
 
 export const getPoints = async (req, res, next) => {
@@ -81,7 +82,11 @@ export const getPointsHistory = async (req, res, next) => {
 
 export const getRewards = async (req, res, next) => {
   try {
-    const data = await rewardService.getRewardsCatalog(req.query);
+    // Exclude internal management fields for donor requests; admins receive full catalog.
+    const projection = req.user?.role === 'donor'
+      ? '-__v -createdAt -updatedAt -status -dailyLimit -monthlyLimit -redemptionCount'
+      : null;
+    const data = await rewardService.getRewardsCatalog(req.query, projection);
     response.success(res, 200, 'Rewards retrieved successfully', data);
   } catch (err) { next(err); }
 };

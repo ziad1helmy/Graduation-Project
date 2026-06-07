@@ -40,7 +40,6 @@
     '/donations/book-appointment/{appointmentId}': 'Appointments & Bookings',
     '/donations/types': 'Appointments & Bookings',
     '/donations/validate': 'Appointments & Bookings',
-    '/donations/my-appointments': 'Appointments & Bookings',
 
     '/donor/requests': 'Urgent Requests & Responses',
     '/donor/matches': 'Urgent Requests & Responses',
@@ -138,7 +137,6 @@
     '/admin/statistics': 'Dashboard & Statistics',
     '/admin/blood-inventory-summary': 'Dashboard & Statistics',
     '/admin/alerts': 'Dashboard & Statistics',
-    '/admin/analytics/dashboard': 'Dashboard & Statistics',
     '/admin/analytics/donations': 'Dashboard & Statistics',
     '/admin/analytics/blood-types': 'Dashboard & Statistics',
     '/admin/analytics/top-donors': 'Dashboard & Statistics',

@@ -1,7 +1,6 @@
 import { Router } from 'express';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import requireRole from '../middlewares/role.middleware.js';
-import * as appointmentController from '../controllers/appointment.controller.js';
 import * as donationController from '../controllers/donation.controller.js';
 
 // ─── API CONTRACT ────────────────────────────────────────────────────────────
@@ -20,7 +19,5 @@ router.use(authMiddleware);
 router.post('/validate', requireRole('donor'), donationController.validateDonationEligibility);
 
 router.post('/complete', requireRole('hospital', 'admin', 'superadmin'), donationController.completeDonation);
-
-router.get('/my-appointments', requireRole('donor'), appointmentController.getMyAppointments);
 
 export default router;

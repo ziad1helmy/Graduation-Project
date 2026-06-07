@@ -1,10 +1,12 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
 import { setupTestDB, clearDatabase } from '../helpers/db.js';
 import { createDonor, createHospital, createRequest } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
 import Request from '../../src/models/Request.model.js';
+import Donation from '../../src/models/Donation.model.js';
+import * as stateMachine from '../../src/utils/state-machine.js';
 
 describe('Request Details Integration', () => {
   setupTestDB();
@@ -42,6 +44,7 @@ describe('Request Details Integration', () => {
     expect(response.body.data.isEmergency).toBe(true);
     expect(response.body.data.location).toEqual({ lat: 30.0511, lng: 31.2435 });
     expect(response.body.data.distanceKm).toBeDefined();
+    expect(typeof response.body.data.distanceKm).toBe('number');
   });
 
   it('POST /requests/:id/generate-qr stores a secure token and image', async () => {
@@ -182,6 +185,7 @@ describe('Request Details Integration', () => {
     expect(response.body.data.requests.length).toBe(1);
     expect(response.body.data.requests[0].requestId).toBe(nearRequest._id.toString());
     expect(response.body.data.requests[0].distanceKm).toBeDefined();
+    expect(typeof response.body.data.requests[0].distanceKm).toBe('number');
   });
 
   it('POST /requests/:id/accept and /cancel manage request status', async () => {
@@ -216,5 +220,43 @@ describe('Request Details Integration', () => {
 
     const stored = await Request.findById(urgentRequest._id);
     expect(stored.status).toBe('cancelled');
+  });
+
+  it('POST /requests/:id/accept rolls back when orphan validation fails', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const urgentRequest = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      contactNumber: hospital.contactNumber,
+      isEmergency: true,
+      urgency: 'critical',
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+    const orphanSpy = vi.spyOn(stateMachine, 'validateOrphanState').mockImplementation(() => {
+      throw new Error('Injected orphan validation failure');
+    });
+
+    try {
+      const acceptResponse = await request(app)
+        .post(`/requests/${urgentRequest._id}/accept`)
+        .set('Authorization', `Bearer ${donorToken}`)
+        .send({});
+
+      expect(acceptResponse.status).toBe(500);
+
+      const storedRequest = await Request.findById(urgentRequest._id);
+      const storedDonation = await Donation.findOne({ requestId: urgentRequest._id, donorId: donor._id });
+
+      expect(storedRequest.status).toBe('pending');
+      expect(storedRequest.acceptedBy).toBeNull();
+      expect(storedRequest.acceptedDonationId).toBeNull();
+      expect(storedDonation).toBeNull();
+      expect(await Donation.countDocuments({ requestId: urgentRequest._id })).toBe(0);
+    } finally {
+      orphanSpy.mockRestore();
+      vi.restoreAllMocks();
+    }
   });
 });

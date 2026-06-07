@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import mongoose from 'mongoose';
 import response from '../utils/response.js';
+import { logger } from '../utils/logger.js';
 import Appointment from '../models/Appointment.model.js';
 import Donation from '../models/Donation.model.js';
 import Donor from '../models/Donor.model.js';
@@ -382,6 +383,10 @@ export const completeDonation = async (req, res, next) => {
 
       await rewardService.onDonationCompleted(donor._id, donation._id, request?.urgency === 'critical');
 
+      // Rationale: Activity logging is intentionally best-effort and run outside the
+      // main Mongoose transaction. A failure to log to the User timeline should NOT
+      // roll back a successful clinical blood donation completion in the hospital.
+      // We log errors as structured events for monitoring and dashboard alerting.
       activityService.logActivity(donor._id, {
         type: 'donation',
         action: 'completed_donation',
@@ -396,7 +401,14 @@ export const completeDonation = async (req, res, next) => {
           weight: medicalValidation.weight,
           unitsCollected: medicalValidation.unitsCollected,
         },
-      }).catch(() => {});
+      }).catch((error) => {
+        logger.error('DONATION_COMPLETION_ACTIVITY_LOG_FAILED', {
+          event: 'DONATION_COMPLETION_ACTIVITY_LOG_FAILED',
+          donorId: donor._id.toString(),
+          donationId: donation._id.toString(),
+          error: error.message,
+        });
+      });
 
       const pointsEarned = getAppointmentPoints(appointment.donationType);
 
@@ -742,26 +754,36 @@ export const rejectVerification = async (req, res, next) => {
     }
 
     const now = new Date();
-    const updatedAppointment = await Appointment.findByIdAndUpdate(
-      appointment._id,
-      {
-        $set: {
-          verificationStatus: 'rejected',
-          verificationRejectedAt: now,
-          verificationRejectedReason: reason || 'Verification rejected by hospital',
-        },
-      },
-      { returnDocument: 'after' }
-    );
+    const session = await mongoose.startSession();
+    let updatedAppointment;
+    let rejection;
+    try {
+      await session.withTransaction(async () => {
+        updatedAppointment = await Appointment.findByIdAndUpdate(
+          appointment._id,
+          {
+            $set: {
+              verificationStatus: 'rejected',
+              verificationRejectedAt: now,
+              verificationRejectedReason: reason || 'Verification rejected by hospital',
+            },
+          },
+          { returnDocument: 'after', session }
+        );
 
-    const rejection = await rejectDonationLifecycle({
-      appointmentId: updatedAppointment._id,
-      requestId: updatedAppointment.requestId?._id || updatedAppointment.requestId,
-      donorId: updatedAppointment.donorId?._id || updatedAppointment.donorId,
-      reason: reason || 'Verification rejected by hospital',
-      rejectedBy: req.user.userId,
-      requestStatus: 'pending',
-    });
+        rejection = await rejectDonationLifecycle({
+          appointmentId: updatedAppointment._id,
+          requestId: updatedAppointment.requestId?._id || updatedAppointment.requestId,
+          donorId: updatedAppointment.donorId?._id || updatedAppointment.donorId,
+          reason: reason || 'Verification rejected by hospital',
+          rejectedBy: req.user.userId,
+          requestStatus: 'pending',
+          session,
+        });
+      });
+    } finally {
+      session.endSession();
+    }
 
     return response.success(res, 200, 'Verification rejected successfully', {
       appointmentId: updatedAppointment._id,

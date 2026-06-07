@@ -17,6 +17,7 @@ import HospitalSettings from '../models/HospitalSettings.model.js';
 import SupportMessage from '../models/SupportMessage.model.js';
 import RolePermission from '../models/RolePermission.model.js';
 import * as hospitalService from './hospital.service.js';
+import * as appointmentService from './appointment.service.js';
 import { sendToMultiple } from '../utils/fcm.js';
 import { ERR } from '../utils/errorCodes.js';
 import { env } from '../config/env.js';
@@ -1162,18 +1163,43 @@ export const fulfillRequest = async (id, adminId) => {
  * Cancel a request.
  */
 export const cancelRequest = async (id, reason, adminId) => {
-  const request = await Request.findById(id);
-  if (!request) return null;
+  const session = await mongoose.startSession();
+  let request = null;
+  const cancelledAt = new Date();
+  try {
+    await session.withTransaction(async () => {
+      request = await Request.findById(id).session(session);
+      if (!request) return;
 
-  if (request.status === 'cancelled') {
-    throw new Error('Request is already cancelled');
+      if (request.status === 'cancelled') {
+        throw new Error('Request is already cancelled');
+      }
+
+      validateTransition('request', request.status, 'cancelled', { isAdminOverride: true });
+
+      const activeDonations = await Donation.find({ requestId: request._id, status: { $in: ['pending', 'scheduled'] } }).session(session);
+      for (const donation of activeDonations) {
+        validateTransition('donation', donation.status, 'cancelled');
+        donation.status = 'cancelled';
+        await donation.save({ session });
+      }
+
+      request.status = 'cancelled';
+      request.cancelledAt = cancelledAt;
+      if (reason) request.notes = (request.notes ? request.notes + '\n' : '') + `[Admin cancelled]: ${reason}`;
+      await request.save({ validateBeforeSave: false, session });
+
+      await appointmentService.cancelActiveAppointmentsForRequest(request._id, {
+        cancelledAt,
+        notes: 'Appointment cancelled because the linked request was cancelled',
+        session,
+      });
+    });
+  } finally {
+    session.endSession();
   }
 
-  validateTransition('request', request.status, 'cancelled', { isAdminOverride: true });
-
-  request.status = 'cancelled';
-  if (reason) request.notes = (request.notes ? request.notes + '\n' : '') + `[Admin cancelled]: ${reason}`;
-  await request.save({ validateBeforeSave: false });
+  if (!request) return null;
 
   await logAudit(adminId, 'request.cancel', 'Request', id);
   return request;
@@ -1187,6 +1213,21 @@ export const broadcastRequest = async (id, adminId) => {
   const request = await Request.findById(id)
     .populate('hospitalId', 'fullName hospitalName location');
   if (!request) return null;
+
+  // Fix #7 (MEDIUM): Prevent duplicate broadcasts within a configurable cooldown window.
+  // Default: 60 minutes. Override via BROADCAST_COOLDOWN_MS env variable.
+  const BROADCAST_COOLDOWN_MS = parseInt(process.env.BROADCAST_COOLDOWN_MS || '', 10) || 60 * 60 * 1000;
+  if (request.lastBroadcastAt) {
+    const elapsed = Date.now() - new Date(request.lastBroadcastAt).getTime();
+    if (elapsed < BROADCAST_COOLDOWN_MS) {
+      const nextAllowedAt = new Date(new Date(request.lastBroadcastAt).getTime() + BROADCAST_COOLDOWN_MS);
+      const err = new Error('BROADCAST_COOLDOWN_ACTIVE');
+      err.code = 'BROADCAST_COOLDOWN_ACTIVE';
+      err.nextAllowedAt = nextAllowedAt;
+      err.statusCode = 429;
+      throw err;
+    }
+  }
 
   // Build donor query: available, verified, not suspended, matching blood type
   const donorQuery = {
@@ -1253,6 +1294,9 @@ export const broadcastRequest = async (id, adminId) => {
       { channelId: 'emergency_requests', priority: 'high', sound: 'default' }
     ).catch((err) => logger.error('FCM broadcast push failed', { message: err.message }));
   }
+
+  // Stamp lastBroadcastAt to enforce cooldown on next call
+  await Request.updateOne({ _id: request._id }, { $set: { lastBroadcastAt: new Date() } });
 
   await logAudit(adminId, 'request.broadcast', 'Request', id);
 

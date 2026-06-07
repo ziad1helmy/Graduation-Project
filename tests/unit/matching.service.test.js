@@ -1,9 +1,15 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeAll, afterAll, afterEach } from 'vitest';
 import ELIGIBILITY_KEYS from '../../src/utils/eligibility-keys.js';
-import { setupTestDB } from '../helpers/db.js';
+import { setupTestDB, connect, clearDatabase, closeDatabase } from '../helpers/db.js';
 import { buildDonor, createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
 import * as matchingService from '../../src/services/matching.service.js';
-import { searchCompatibleDonors, findCompatibleRequests, findNearbyRequests } from '../../src/services/matching.service.js';
+import {
+  searchCompatibleDonors,
+  findCompatibleRequests,
+  findNearbyRequests,
+  isBloodTypeCompatible,
+  findCompatibleDonors,
+} from '../../src/services/matching.service.js';
 import Appointment from '../../src/models/Appointment.model.js';
 
 vi.mock('../../src/utils/geo.js', () => ({
@@ -102,14 +108,7 @@ describe('Matching Service — DB-backed flows', () => {
  * - NEW: separation of participation preference vs medical eligibility
  */
 
-import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest';
-import { connect, clearDatabase, closeDatabase } from '../helpers/db.js';
-import { createDonor, createHospital, createRequest, createDonation } from '../helpers/factories.js';
-import {
-  isBloodTypeCompatible,
-  findCompatibleDonors,
-  findCompatibleRequests,
-} from '../../src/services/matching.service.js';
+// Duplicate imports cleaned up for syntax validity
 
 beforeAll(async () => {
   await connect();
@@ -635,4 +634,169 @@ describe('shared nearby matching engine', () => {
     expect(nearbyRequestIds).toContain(request._id.toString());
     expect(matchRequestIds).toContain(request._id.toString());
   });
+
+  it('includes high/critical requests within emergency radius (60km) but excludes normal requests at same distance', async () => {
+    // Donor at lat: 30.0, lng: 31.0
+    const donor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0, lng: 31.0 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    // Hospital A at lat: 30.4054, lng: 31.0 (approx 0.4054 * 111 = 45km away)
+    const hospital = await createHospital({
+      location: {
+        city: 'Test City',
+        governorate: 'Test Gov',
+        coordinates: { lat: 30.4054, lng: 31.0 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    // Normal request at 45km (urgency: medium) -> should be excluded
+    const normalRequest = await createRequest(hospital._id, {
+      bloodType: 'O+',
+      urgency: 'medium',
+      status: 'pending',
+      locationHospital: {
+        latitude: hospital.location.coordinates.lat,
+        longitude: hospital.location.coordinates.lng,
+      },
+      hospitalLocation: {
+        lat: hospital.location.coordinates.lat,
+        lng: hospital.location.coordinates.lng,
+      },
+      hospitalLocationGeo: {
+        type: 'Point',
+        coordinates: [hospital.location.coordinates.lng, hospital.location.coordinates.lat],
+      },
+    });
+
+    // Critical request at 45km (urgency: critical) -> should be included
+    const criticalRequest = await createRequest(hospital._id, {
+      bloodType: 'O+',
+      urgency: 'critical',
+      status: 'pending',
+      locationHospital: {
+        latitude: hospital.location.coordinates.lat,
+        longitude: hospital.location.coordinates.lng,
+      },
+      hospitalLocation: {
+        lat: hospital.location.coordinates.lat,
+        lng: hospital.location.coordinates.lng,
+      },
+      hospitalLocationGeo: {
+        type: 'Point',
+        coordinates: [hospital.location.coordinates.lng, hospital.location.coordinates.lat],
+      },
+    });
+
+    const results = await findCompatibleRequests(donor._id, { radiusKm: 30 });
+    const requestIds = results.map((entry) => entry.request._id.toString());
+
+    expect(requestIds).toContain(criticalRequest._id.toString());
+    expect(requestIds).not.toContain(normalRequest._id.toString());
+  });
 });
+
+describe('Geospatial Index matching with ENABLE_GEOSPATIAL_INDEX', () => {
+  let originalEnableGeospatialIndex;
+
+  beforeAll(async () => {
+    originalEnableGeospatialIndex = process.env.ENABLE_GEOSPATIAL_INDEX;
+    process.env.ENABLE_GEOSPATIAL_INDEX = 'true';
+    
+    // Ensure the 2dsphere index is created in the test database
+    const Donor = (await import('../../src/models/Donor.model.js')).default;
+    try {
+      await Donor.collection.createIndex({ 'location.coordinates': '2dsphere' }, { sparse: true });
+    } catch (err) {
+      console.warn('Could not create 2dsphere index in test:', err.message);
+    }
+  });
+
+  afterAll(() => {
+    process.env.ENABLE_GEOSPATIAL_INDEX = originalEnableGeospatialIndex;
+  });
+
+  it('findCompatibleDonors uses geospatial pre-filtering when ENABLE_GEOSPATIAL_INDEX is true', async () => {
+    const hospital = await createHospital({
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0444, lng: 31.2357 },
+        lastUpdated: new Date(),
+      },
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+' });
+
+    // Inside 60km (Nasr City, ~10km)
+    const nearbyDonor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Nasr City',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0637, lng: 31.3303 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    // Outside 60km (Alexandria, ~200km)
+    const farDonor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Alexandria',
+        governorate: 'Alexandria',
+        coordinates: { lat: 31.2001, lng: 29.9187 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const results = await findCompatibleDonors(request._id);
+    const donorIds = results.map((r) => r.donor._id.toString());
+
+    expect(donorIds).toContain(nearbyDonor._id.toString());
+    expect(donorIds).not.toContain(farDonor._id.toString());
+  });
+
+  it('searchCompatibleDonors uses geospatial pre-filtering when ENABLE_GEOSPATIAL_INDEX is true', async () => {
+    const location = { lat: 30.0444, lng: 31.2357 };
+
+    // Inside 5km (Downtown, ~1km)
+    const nearbyDonor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0450, lng: 31.2360 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    // Outside 5km (Maadi, ~15km)
+    const farDonor = await createDonor({
+      bloodType: 'O+',
+      location: {
+        city: 'Maadi',
+        governorate: 'Cairo',
+        coordinates: { lat: 29.9602, lng: 31.2569 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const results = await searchCompatibleDonors({
+      bloodType: 'O+',
+      location,
+      radiusKm: 5,
+    });
+
+    const donorIds = results.map((r) => r.donor._id.toString());
+    expect(donorIds).toContain(nearbyDonor._id.toString());
+    expect(donorIds).not.toContain(farDonor._id.toString());
+  });
+});
+

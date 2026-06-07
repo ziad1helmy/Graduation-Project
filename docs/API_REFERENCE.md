@@ -174,7 +174,7 @@
 |--------|------|------|-------------|
 | POST | `/donations/book-appointment` | Donor | Create a new appointment |
 | PATCH | `/donations/book-appointment/:appointmentId` | Donor | Reschedule an existing appointment |
-| GET | `/donations/my-appointments` | Donor | List donor's appointments |
+| GET | `/donations/book-appointment/my-appointments` | Donor | List donor's appointments |
 | DELETE | `/donations/book-appointment/:appointmentId` | Donor | Cancel an appointment |
 
 ---

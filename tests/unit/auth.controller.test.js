@@ -102,7 +102,6 @@ describe('Auth Controller', () => {
       expect(res.status).toHaveBeenCalledWith(200);
       const data = res.json.mock.calls[0][0].data;
       expect(data.access_token).toBe('access_token');
-      expect(data.user_id).toBe(userId);
     });
 
     it('returns 403 when user account is suspended', async () => {
@@ -180,7 +179,7 @@ describe('Auth Controller', () => {
       await authController.refreshToken(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json.mock.calls[0][0].data.access_token).toBe('new_access_token');
+      expect(res.json.mock.calls[0][0].data.accessToken).toBe('new_access_token');
     });
   });
 

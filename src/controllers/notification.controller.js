@@ -3,6 +3,7 @@ import response from '../utils/response.js';
 import * as notificationService from '../services/notification.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 
+
 const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
 
 export const getNotifications = async (req, res, next) => {
@@ -11,11 +12,14 @@ export const getNotifications = async (req, res, next) => {
     const { offset, limit, page } = parsePagination(req.query, 20);
 
     const readFilter = read === undefined ? null : String(read).toLowerCase() === 'true';
+    // For donor responses keep relatedId, relatedType and updatedAt available for Flutter compatibility
+    const projection = req.user?.role === 'donor' ? '-__v' : null;
     const result = await notificationService.getUserNotifications(req.user.userId, {
       offset,
       limit,
       read: readFilter,
       type: type || null,
+      projection,
     });
 
     const unread = await notificationService.getUnreadNotifications(req.user.userId);
@@ -50,9 +54,7 @@ export const markNotificationRead = async (req, res, next) => {
 export const markAllNotificationsRead = async (req, res, next) => {
   try {
     const result = await notificationService.markMultipleAsRead(req.user.userId);
-    return response.success(res, 200, 'All notifications marked as read', {
-      modifiedCount: result.modifiedCount || 0,
-    });
+    return response.success(res, 200, 'All notifications marked as read', { modifiedCount: result.modifiedCount || 0 });
   } catch (error) {
     next(error);
   }
@@ -61,9 +63,7 @@ export const markAllNotificationsRead = async (req, res, next) => {
 export const deleteAllNotifications = async (req, res, next) => {
   try {
     const result = await notificationService.clearAllNotifications(req.user.userId);
-    return response.success(res, 200, 'All notifications deleted successfully', {
-      deletedCount: result.deletedCount || 0,
-    });
+    return response.success(res, 200, 'All notifications deleted successfully', { deletedCount: result.deletedCount || 0 });
   } catch (error) {
     next(error);
   }

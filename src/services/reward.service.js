@@ -522,7 +522,7 @@ export const getDonorBadges = async (donorId) => {
 //  Rewards catalog & redemption
 // ──────────────────────────────────────────────
 
-export const getRewardsCatalog = async (filters = {}) => {
+export const getRewardsCatalog = async (filters = {}, projection = null) => {
   const { category, status = 'ACTIVE', sort_by = 'COST_ASC' } = filters;
 
   const query = {};
@@ -531,7 +531,7 @@ export const getRewardsCatalog = async (filters = {}) => {
 
   const sortMap = { COST_ASC: { pointsCost: 1 }, COST_DESC: { pointsCost: -1 }, POPULARITY: { redemptionCount: -1 } };
 
-  const rewards = await RewardCatalog.find(query).sort(sortMap[sort_by] || { pointsCost: 1 });
+  const rewards = await RewardCatalog.find(query, projection).sort(sortMap[sort_by] || { pointsCost: 1 });
 
   return {
     rewards: rewards.map((r) => ({ ...r.toObject(), available: r.status === 'ACTIVE' })),

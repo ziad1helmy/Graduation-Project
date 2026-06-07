@@ -25,6 +25,7 @@ import { signToken } from '../../src/utils/jwt.js';
 import Notification from '../../src/models/Notification.model.js';
 import Request from '../../src/models/Request.model.js';
 import Donation from '../../src/models/Donation.model.js';
+import Appointment from '../../src/models/Appointment.model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: mint a valid access token for a hospital user
@@ -710,14 +711,22 @@ describe('DELETE /hospital/requests/:requestId', () => {
     expect(res.body.data.request.cancelledAt).toBeTruthy();
   });
 
-  it('rolls back donation cancellation if request update fails inside the transaction', async () => {
+  it('rolls back request, donation, and appointment cancellation if appointment update fails inside the transaction', async () => {
     const hospital = await createHospital();
     const donor = await createDonor();
     const token = tokenFor(hospital);
     const req = await createRequest(hospital._id, { status: 'pending' });
     const donation = await createDonation(donor._id, req._id, { status: 'pending' });
+    const appointment = await Appointment.create({
+      donorId: donor._id,
+      hospitalId: hospital._id,
+      requestId: req._id,
+      appointmentDate: new Date(Date.now() + 48 * 60 * 60 * 1000),
+      status: 'confirmed',
+      qrToken: `hospital-rollback-${Date.now()}`,
+    });
 
-    const updateSpy = vi.spyOn(Request, 'findByIdAndUpdate').mockRejectedValueOnce(new Error('transaction failed'));
+    const updateSpy = vi.spyOn(Appointment, 'updateMany').mockRejectedValueOnce(new Error('transaction failed'));
 
     const res = await request(app)
       .delete(`/hospital/requests/${req._id}`)
@@ -729,9 +738,11 @@ describe('DELETE /hospital/requests/:requestId', () => {
 
     const storedRequest = await Request.findById(req._id);
     const storedDonation = await Donation.findById(donation._id);
+    const storedAppointment = await Appointment.findById(appointment._id);
 
     expect(storedRequest.status).toBe('pending');
     expect(storedDonation.status).toBe('pending');
+    expect(storedAppointment.status).toBe('confirmed');
   });
 
   it('returns 404 for a non-existent request', async () => {
@@ -859,7 +870,7 @@ describe('Notification preferences', () => {
     expect(res.status).toBe(200);
   });
 
-  it('GET /hospital/notifications returns hospital notifications', async () => {
+  it('GET /notifications returns hospital notifications', async () => {
     const hospital = await createHospital();
     await Notification.create({
       userId: hospital._id,
@@ -871,7 +882,7 @@ describe('Notification preferences', () => {
     });
 
     const res = await request(app)
-      .get('/hospital/notifications')
+      .get('/notifications')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`);
 
     expect(res.status).toBe(200);

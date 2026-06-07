@@ -9,10 +9,11 @@ import Notification from '../models/Notification.model.js';
 import * as donationService from './donation.service.js';
 import * as eligibilityService from './eligibility.service.js';
 import * as activityService from './activity.service.js';
+import { rejectDonationLifecycle } from './request-lifecycle.service.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { paginationMeta } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
-import { appointmentPopulateOptions, toAppointmentResponse } from '../utils/appointment.dto.js';
+import { appointmentPopulateOptions, donorAppointmentPopulateOptions, toAppointmentResponse } from '../utils/appointment.dto.js';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import Donation from '../models/Donation.model.js';
@@ -373,6 +374,23 @@ const buildAppointmentTimeLabel = (dateValue) => {
   return label || 'selected time';
 };
 
+const runInSession = async (session, executor) => {
+  if (session) {
+    return executor(session);
+  }
+
+  const createdSession = await mongoose.startSession();
+  try {
+    let result;
+    await createdSession.withTransaction(async () => {
+      result = await executor(createdSession);
+    });
+    return result;
+  } finally {
+    createdSession.endSession();
+  }
+};
+
 const notifyAppointmentReschedule = async ({ appointment, previousAppointmentDate, reason }) => {
   const hospitalId = toObjectIdString(appointment.hospitalId);
   const donorId = toObjectIdString(appointment.donorId);
@@ -455,34 +473,39 @@ export const cancelActiveAppointmentsForRequest = async (requestId, options = {}
     throw new Error('Invalid request id');
   }
 
-  const now = options.cancelledAt instanceof Date ? options.cancelledAt : new Date();
-  const update = {
-    status: 'cancelled',
-    cancelledAt: now,
-  };
+  const { session = null } = options;
 
-  if (options.notes) {
-    update.notes = options.notes;
-  }
+  return runInSession(session, async (activeSession) => {
+    const now = options.cancelledAt instanceof Date ? options.cancelledAt : new Date();
+    const update = {
+      status: 'cancelled',
+      cancelledAt: now,
+    };
 
-  const appointmentsToCancel = await Appointment.find({
-    requestId,
-    status: { $in: ACTIVE_APPOINTMENT_STATUSES },
-  });
+    if (options.notes) {
+      update.notes = options.notes;
+    }
 
-  for (const appt of appointmentsToCancel) {
-    validateTransition('appointment', appt.status, 'cancelled');
-  }
-
-  const result = await Appointment.updateMany(
-    {
+    const appointmentsToCancel = await Appointment.find({
       requestId,
       status: { $in: ACTIVE_APPOINTMENT_STATUSES },
-    },
-    { $set: update }
-  );
+    }).session(activeSession);
 
-  return result;
+    for (const appt of appointmentsToCancel) {
+      validateTransition('appointment', appt.status, 'cancelled');
+    }
+
+    const result = await Appointment.updateMany(
+      {
+        requestId,
+        status: { $in: ACTIVE_APPOINTMENT_STATUSES },
+      },
+      { $set: update },
+      { session: activeSession }
+    );
+
+    return result;
+  });
 };
 
 const assertRescheduleAvailability = async ({ appointment, appointmentDate, donationType }) => {
@@ -629,57 +652,58 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
       qrExpiresAt: getQrExpiryDate(apptDate),
     };
 
-    const appointment = await Appointment.create(payload);
-
-    // Create/link a scheduled donation record for the appointment
+    const session = await mongoose.startSession();
+    let appointment;
     let donation;
-    if (requestId) {
-      // Find the pending donation created when the donor responded to the request
-      donation = await Donation.findOne({ donorId, requestId, status: 'pending' });
-      if (donation) {
-        validateTransition('donation', donation.status, 'scheduled');
-        donation.status = 'scheduled';
-        donation.appointmentId = appointment._id;
-        donation.scheduledDate = apptDate;
-        await donation.save();
-      } else {
-        // Fallback: create a scheduled donation if it wasn't created yet
-        donation = await Donation.create({
-          donorId,
-          requestId,
-          appointmentId: appointment._id,
-          status: 'scheduled',
-          scheduledDate: apptDate,
-          quantity: 1,
-        });
-      }
 
-      if (request.status === 'accepted') {
-        validateTransition('request', request.status, 'in-progress');
-        request.status = 'in-progress';
-        await request.save();
-      }
-    } else {
-      // General appointment: create a scheduled donation
-      donation = await Donation.create({
-        donorId,
-        appointmentId: appointment._id,
-        status: 'scheduled',
-        scheduledDate: apptDate,
-        quantity: 1,
-      });
-    }
-
-    // Call orphan validation to assert integrity
     try {
-      validateOrphanState('appointment', appointment, { donation });
-      validateOrphanState('donation', donation, { appointment });
-    } catch (err) {
-      await Appointment.findByIdAndDelete(appointment._id);
-      if (donation) {
-        await Donation.findByIdAndDelete(donation._id);
-      }
-      throw err;
+      await session.withTransaction(async () => {
+        [appointment] = await Appointment.create([payload], { session });
+
+        // Create/link a scheduled donation record for the appointment.
+        if (requestId) {
+          // Find the pending donation created when the donor responded to the request.
+          donation = await Donation.findOne({ donorId, requestId, status: 'pending' }).session(session);
+          if (donation) {
+            validateTransition('donation', donation.status, 'scheduled');
+            donation.status = 'scheduled';
+            donation.appointmentId = appointment._id;
+            donation.scheduledDate = apptDate;
+            await donation.save({ session });
+          } else {
+            // Fallback: create a scheduled donation if it wasn't created yet.
+            [donation] = await Donation.create([{
+              donorId,
+              requestId,
+              appointmentId: appointment._id,
+              status: 'scheduled',
+              scheduledDate: apptDate,
+              quantity: 1,
+            }], { session });
+          }
+
+          if (request.status === 'accepted') {
+            validateTransition('request', request.status, 'in-progress');
+            request.status = 'in-progress';
+            await request.save({ session });
+          }
+        } else {
+          // General appointment: create a scheduled donation.
+          [donation] = await Donation.create([{
+            donorId,
+            appointmentId: appointment._id,
+            status: 'scheduled',
+            scheduledDate: apptDate,
+            quantity: 1,
+          }], { session });
+        }
+
+        // Validate the relationship before committing the transaction.
+        validateOrphanState('appointment', appointment, { donation });
+        validateOrphanState('donation', donation, { appointment });
+      });
+    } finally {
+      session.endSession();
     }
 
     await appointment.populate(appointmentPopulateOptions);
@@ -705,15 +729,16 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
   }
 };
 
-export const getMyAppointments = async (donorId, filters = {}) => {
+export const getMyAppointments = async (donorId, filters = {}, projection = null, options = {}) => {
   try {
     const { page = 1, limit = 10 } = filters;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
     const filter = { donorId };
 
-    const appointments = await Appointment.find(filter)
-      .populate(appointmentPopulateOptions)
+    const populateOptions = options.role === 'donor' ? donorAppointmentPopulateOptions : appointmentPopulateOptions;
+    const appointments = await Appointment.find(filter, projection)
+      .populate(populateOptions)
       .skip(offset)
       .limit(parseInt(limit))
       .sort({ appointmentDate: -1 });
@@ -721,7 +746,7 @@ export const getMyAppointments = async (donorId, filters = {}) => {
     const total = await Appointment.countDocuments(filter);
 
     return {
-      appointments: appointments.map(toAppointmentResponse),
+      appointments: appointments.map((appointment) => toAppointmentResponse(appointment, { role: options.role })),
       total,
       meta: paginationMeta(total, page, limit),
     };
@@ -751,30 +776,18 @@ export const cancelAppointment = async (appointmentId, donorId) => {
       throw new Error(`Cancellation must be at least ${cancellationAllowedHours} hours in advance`);
     }
 
-    appointment.status = 'cancelled';
-    appointment.cancelledAt = new Date();
-    await appointment.save();
+    // Call the centralized lifecycle service to transition states of donation, appointment, and request.
+    // Setting requestStatus to 'pending' triggers the recovery of request quantity and matching/re-broadcast.
+    await rejectDonationLifecycle({
+      appointmentId: appointment._id,
+      donorId,
+      donationStatus: 'cancelled',
+      requestStatus: 'pending',
+      reason: 'Donor cancelled appointment',
+    });
 
-    // Find and cancel the linked Donation
-    const donation = await Donation.findOne({ appointmentId: appointment._id });
-    if (donation && ['pending', 'scheduled'].includes(donation.status)) {
-      validateTransition('donation', donation.status, 'cancelled');
-      donation.status = 'cancelled';
-      await donation.save();
-    }
-
-    try {
-      validateOrphanState('appointment', appointment, { donation });
-      if (donation) {
-        validateOrphanState('donation', donation, { appointment });
-      }
-    } catch (err) {
-      throw new Error(err.message);
-    }
-
-    await appointment.populate(appointmentPopulateOptions);
-
-    return toAppointmentResponse(appointment);
+    const updatedAppointment = await Appointment.findById(appointment._id).populate(appointmentPopulateOptions);
+    return toAppointmentResponse(updatedAppointment);
   } catch (error) {
     throw error;
   }

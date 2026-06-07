@@ -439,6 +439,7 @@ export const register = async (data, trace = {}) => {
       accessToken: authPayload.accessToken,
       refreshToken: authPayload.refreshToken,
       verificationEmail,
+      verificationOtp,
     };
 };
 
@@ -471,8 +472,8 @@ export const loginAdmin = async (data) => {
 export const login = loginUser;
 
 // Get user by ID
-export const getMe = async (userId) => {
-  const user = await User.findById(userId).select('-password');
+export const getMe = async (userId, projection = null) => {
+  const user = await User.findById(userId).select(projection || '-password');
   if (!user) throw new Error('User not found');
   return user;
 };

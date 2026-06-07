@@ -1,3 +1,4 @@
+import crypto from 'crypto';
 import response from '../utils/response.js';
 import mongoose from 'mongoose';
 import Donor from '../models/Donor.model.js';
@@ -14,10 +15,20 @@ import NotificationOutbox from '../models/NotificationOutbox.model.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import * as rewardService from '../services/reward.service.js';
 import { formatActivityForTimeline } from '../utils/activity.formatter.js';
-import { buildRequestPayload } from './request.controller.js';
+import { buildRequestPayload, buildDonorRequestSummary } from './request.controller.js';
 import { formatBloodTypeLabel, normalizeBloodTypeList } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { validateOrphanState, validateTransition } from '../utils/state-machine.js';
+
+const DONATION_QR_TTL_MS = 2 * 60 * 60 * 1000;
+
+const createDonationQrPayload = () => {
+  const now = new Date();
+  return {
+    qrToken: crypto.randomBytes(32).toString('hex'),
+    qrExpires: new Date(now.getTime() + DONATION_QR_TTL_MS),
+  };
+};
 
 /**
  * Donor Controller - Handles donor-specific operations
@@ -28,7 +39,12 @@ export const getProfile = async (req, res, next) => {
   try {
     const donorId = req.user.userId;
     const [donor, donationStats, pointsSummary, badges] = await Promise.all([
-      Donor.findById(donorId).select('-password'),
+      Donor.findById(donorId).select(
+        '-password -__v -createdAt -updatedAt -fullNameNormalized ' +
+        '-emailVerifiedAt -isSuspended -suspendedAt -suspendedReason -deletedAt ' +
+        '-fcmTokens -travelHistory -hemoglobinLevel -isBanned -isVerified -isOptedIn ' +
+        '-lastDonationDate -__t -location.lastUpdated'
+      ),
       donationService.getDonorStats(donorId),
       rewardService.getPointsSummary(donorId),
       rewardService.getDonorBadges(donorId),
@@ -56,15 +72,14 @@ export const getProfile = async (req, res, next) => {
 
     const badgeProgress = { currentBadge, nextBadge, progressPercentage };
 
+    const donorObj = donor.toObject ? donor.toObject() : { ...donor };
+
     response.success(res, 200, 'Donor profile retrieved successfully', {
-      ...donor.toObject(),
+      ...donorObj,
       verificationStatus: donor.isEmailVerified ? 'verified' : 'unverified',
       age,
       weight: donor.weight ?? null,
       stats,
-      currentBadge,
-      nextBadge,
-      progressPercentage,
       badgeProgress,
     });
   } catch (error) {
@@ -181,9 +196,38 @@ export const getRequests = async (req, res, next) => {
       });
     }
 
+    // Fix #5 (HIGH): Donors without a location cannot be matched to any
+    // request. Return a clear 422 with LOCATION_REQUIRED so the mobile
+    // app can route the donor to the location-update screen.
+    const donorCoords = donor?.location?.coordinates;
+    const hasLocation = donorCoords && (
+      (Number.isFinite(donorCoords.lat) && Number.isFinite(donorCoords.lng)) ||
+      (Number.isFinite(donorCoords.latitude) && Number.isFinite(donorCoords.longitude))
+    );
+    if (!hasLocation) {
+      return response.error(res, 422, 'Please set your location to see blood requests.', {
+        code: 'LOCATION_REQUIRED',
+      });
+    }
+
+    // Fix #6 (HIGH): active appointment guard returns a structured reason
+    // instead of a bare empty array so the UI can show a helpful message.
+    const activeAppointments = await Appointment.find({
+      donorId: donor._id,
+      status: { $in: ['pending', 'confirmed'] },
+    });
+    if (activeAppointments.length > 0) {
+      return response.success(res, 200, 'Requests retrieved successfully', {
+        requests: [],
+        pagination: paginationMeta(0, page, limit),
+        reason: 'ACTIVE_APPOINTMENT_EXISTS',
+        message: 'You have an active appointment. Complete or cancel it to see new requests.',
+      });
+    }
+
     const matchedRequests = await matchingService.findCompatibleRequests(donor._id);
     const paginatedRequests = matchedRequests.slice(offset, offset + limit).map(({ request, score, locationScore, compatibility }) => ({
-      ...buildRequestPayload(request),
+      ...buildDonorRequestSummary(request),
       score,
       locationScore,
       compatibility,
@@ -217,8 +261,37 @@ export const getMatches = async (req, res, next) => {
       });
     }
 
+    // Fix #5 (HIGH): Enforce location before running match query
+    const donorCoords = donor?.location?.coordinates;
+    const hasLocation = donorCoords && (
+      (Number.isFinite(donorCoords.lat) && Number.isFinite(donorCoords.lng)) ||
+      (Number.isFinite(donorCoords.latitude) && Number.isFinite(donorCoords.longitude))
+    );
+    if (!hasLocation) {
+      return response.error(res, 422, 'Please set your location to see blood requests.', {
+        code: 'LOCATION_REQUIRED',
+      });
+    }
+
+    // Fix #6 (HIGH): surface reason when active appointment blocks results
+    const activeAppointmentsMatches = await Appointment.find({
+      donorId: donor._id,
+      status: { $in: ['pending', 'confirmed'] },
+    });
+    if (activeAppointmentsMatches.length > 0) {
+      return response.success(res, 200, 'Matching requests retrieved successfully', {
+        matches: [],
+        pagination: paginationMeta(0, page, limit),
+        reason: 'ACTIVE_APPOINTMENT_EXISTS',
+        message: 'You have an active appointment. Complete or cancel it to see new requests.',
+      });
+    }
+
     const matches = await matchingService.findCompatibleRequests(donor._id);
-    const paginatedMatches = matches.slice(offset, offset + limit);
+    const paginatedMatches = matches.slice(offset, offset + limit).map((match) => ({
+      ...match,
+      request: buildDonorRequestSummary(match.request),
+    }));
 
     response.success(res, 200, 'Matching requests retrieved successfully', {
       matches: paginatedMatches,
@@ -285,13 +358,15 @@ export const respondToRequest = async (req, res, next) => {
           throw err;
         }
 
-        // Create donation in-session
+        // Create donation in-session and issue a donation QR for donor confirmation.
+        const donationQr = createDonationQrPayload();
         const [donation] = await Donation.create([
           {
             donorId,
             requestId,
             quantity: quantity || 1,
             status: 'pending',
+            ...donationQr,
           },
         ], { session });
         createdDonation = donation;
@@ -416,7 +491,7 @@ export const getDonationHistory = async (req, res, next) => {
           as: 'pointsTx',
         }},
         { $addFields: { pointsEarned: { $ifNull: [{ $arrayElemAt: ['$pointsTx.pointsAmount', 0] }, 0] } }},
-        { $project: { pointsTx: 0 } },
+        { $project: { pointsTx: 0, __v: 0 } },
       ]),
       Donation.countDocuments(filter),
     ]);

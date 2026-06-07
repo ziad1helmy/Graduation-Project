@@ -4,6 +4,7 @@ import * as activityService from '../services/activity.service.js';
 import { logger } from '../utils/logger.js';
 import { formatActivityForTimeline, ACTIVITY_TYPES } from '../utils/activity.formatter.js';
 
+
 /**
  * Activity Controller
  *
@@ -77,14 +78,17 @@ export const getTimeline = async (req, res, next) => {
       }
     }
 
-    // Call service with pagination only.
+    // Exclude __v always; also exclude createdAt for donor viewers (not needed by Flutter).
+    const projection = req.user?.role === 'donor' ? '-__v -createdAt' : '-__v';
     const result = await activityService.getUserTimeline(userId, {
       page,
       limit,
-    });
+    }, projection);
+
+    const formattedActivities = result.activities.map(formatActivityForTimeline);
 
     response.success(res, 200, 'Activity timeline retrieved successfully', {
-      activities: result.activities.map(formatActivityForTimeline),
+      activities: formattedActivities,
       pagination: result.pagination,
     });
   } catch (error) {

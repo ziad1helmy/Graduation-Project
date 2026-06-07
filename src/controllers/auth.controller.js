@@ -3,6 +3,7 @@ import response from '../utils/response.js';
 import { ERR } from '../utils/errorCodes.js';
 import { logger } from '../utils/logger.js';
 import { validateChangePassword } from '../validation/auth.validation.js';
+import { buildValidateTokenResponse } from '../utils/auth.dto.js';
 
 // Controller for auth routes
 
@@ -121,15 +122,31 @@ export const register = async (req, res, next) => {
       Number.isFinite(result.user.location.coordinates.lng)
     );
 
-    response.success(res, 201, 'User registered successfully', {
-      user: result.user,
+    // Build a safe user object without internal/sensitive fields.
+    const rawUser = result.user.toObject ? result.user.toObject() : { ...result.user };
+    const {
+      password: _pw, __v, createdAt, updatedAt, fullNameNormalized, deletedAt,
+      emailVerifiedAt, isSuspended, suspendedAt, suspendedReason, fcmTokens,
+      phone, address, __t, hemoglobinLevel, temporaryDeferralUntil,
+      lastDeferralReason, travelHistory, isOptedIn, isBanned, isVerified, ...safeUser
+    } = rawUser;
+    // Strip location.lastUpdated if present
+    if (safeUser.location) { delete safeUser.location.lastUpdated; }
+
+    const responseData = {
+      user: safeUser,
       tokens: {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
       },
       locationRequired,
-      ...(result.verificationEmail ? { verificationEmail: result.verificationEmail } : {}),
-    });
+    };
+
+    if (process.env.NODE_ENV !== 'production') {
+      responseData.verificationToken = result.verificationOtp;
+    }
+
+    response.success(res, 201, 'User registered successfully', responseData);
   } catch (error) {
     // Treat validation/business errors as 400; unexpected errors go to middleware
     if (error.message?.startsWith('Validation failed') || !error.statusCode) {
@@ -169,15 +186,24 @@ export const loginUser = async (req, res, next) => {
     }
 
     const result = await authService.loginUser(payload);
+    const { verified, ...cleanResult } = result;
+    // Add compatibility aliases expected by Flutter while keeping existing fields.
+    const aliases = {};
+    if (result.user) {
+      const u = result.user;
+      aliases.userId = u._id || u.id || null;
+      aliases.user_id = aliases.userId;
+      aliases.userRole = u.role || null;
+      aliases.user_role = aliases.userRole;
+      aliases.userName = u.fullName || u.full_name || null;
+      aliases.user_name = aliases.userName;
+    }
 
-    const user = result.user || {};
     return response.success(res, 200, 'Login successful', {
-      ...result,
+      ...cleanResult,
+      ...aliases,
       access_token: result.accessToken,
       refresh_token: result.refreshToken,
-      user_id: user._id,
-      user_role: user.role,
-      user_name: user.fullName,
     });
   } catch (error) {
     // 403 for suspension, 401 for invalid/unverified/unauthorized, 400 for everything else
@@ -217,8 +243,15 @@ export const loginAdmin = async (req, res, next) => {
     }
 
     const result = await authService.loginAdmin(payload);
-
-    return response.success(res, 200, 'Admin login successful', result);
+    const { verified, ...cleanResult } = result;
+    // Keep `admin` for backward compatibility and also expose `user` alias for Flutter
+    const adminObj = result.admin || null;
+    return response.success(res, 200, 'Admin login successful', {
+      ...cleanResult,
+      access_token: result.accessToken,
+      refresh_token: result.refreshToken,
+      user: adminObj,
+    });
   } catch (error) {
     if (error.message === ERR.AUTH_ACCOUNT_SUSPENDED) {
       return response.error(res, 403, error.message);
@@ -313,10 +346,16 @@ export const logout = async (req, res, next) => {
 export const refreshToken = async (req, res, next) => {
   try {
     const result = await authService.refreshToken(req.body.refreshToken || req.body.refresh_token);
-    response.success(res, 200, 'Token refreshed', {
-      ...result,
-      access_token: result.accessToken,
-    });
+    // Return standard envelope with nested `data`, and also expose top-level aliases for Flutter compatibility
+    const body = {
+      success: true,
+      message: 'Token refreshed',
+      data: result,
+    };
+    if (result?.accessToken) body.accessToken = result.accessToken;
+    if (result?.refreshToken) body.refreshToken = result.refreshToken;
+
+    return res.status(200).json(body);
   } catch (error) {
     return response.error(res, 401, error.message);
   }
@@ -383,11 +422,18 @@ export const changePassword = async (req, res, next) => {
   }
 };
 
-// Get current user
 export const getMe = async (req, res, next) => {
   try {
-    const user = await authService.getMe(req.user.userId);
-    response.success(res, 200, 'User retrieved', user);
+    const projection = req.user?.role === 'donor'
+      ? '-password -__v -createdAt -updatedAt -fullNameNormalized -deletedAt ' +
+        '-emailVerifiedAt -isSuspended -suspendedAt -suspendedReason -fcmTokens ' +
+        '-phone -address -__t -hemoglobinLevel -temporaryDeferralUntil ' +
+        '-lastDeferralReason -travelHistory -isOptedIn -isBanned -isVerified'
+      : '-password';
+    const user = await authService.getMe(req.user.userId, projection);
+    const userObj = user.toObject ? user.toObject() : { ...user };
+    if (req.user?.role === 'donor' && userObj.location) { delete userObj.location.lastUpdated; }
+    response.success(res, 200, 'User retrieved', userObj);
   } catch (error) {
     next(error);
   }
@@ -434,13 +480,7 @@ export const removeFcmToken = async (req, res, next) => {
 // Validate the current access token and return session basics for Flutter splash flow.
 export const validateToken = async (req, res, next) => {
   try {
-    return response.success(res, 200, 'Token is valid', {
-      is_valid: true,
-      user_role: req.user.role,
-      user_id: req.user.userId,
-      role: req.user.role,
-      userId: req.user.userId,
-    });
+    return response.success(res, 200, 'Token is valid', buildValidateTokenResponse(req.user));
   } catch (error) {
     next(error);
   }

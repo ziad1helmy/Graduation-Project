@@ -127,7 +127,12 @@ describe('getDashboard', () => {
 // =============================================================================
 describe('getRequests / getMatches', () => {
   it('getRequests returns only matched requests via matching service', async () => {
-    const donor = await createDonor({ bloodType: 'O+', isOptedIn: true });
+    // Must set location so the donor passes the Fix #5 location guard
+    const donor = await createDonor({
+      bloodType: 'O+',
+      isOptedIn: true,
+      location: { coordinates: { lat: 30.0444, lng: 31.2357 }, governorate: 'Cairo' },
+    });
     const hospital = await createHospital();
     const request = await createRequest(hospital._id, { bloodType: 'O+' });
 
@@ -148,6 +153,17 @@ describe('getRequests / getMatches', () => {
     expect(data.requests).toHaveLength(1);
     expect(data.requests[0].requestId).toBe(request._id.toString());
     expect(matchingService.findCompatibleRequests).toHaveBeenCalledWith(donor._id);
+  });
+
+  it('getRequests returns 422 LOCATION_REQUIRED for donor without location', async () => {
+    const donor = await createDonor({
+      bloodType: 'O+',
+      isOptedIn: true,
+      location: { city: 'Cairo', governorate: 'Cairo', coordinates: {} },
+    });
+    const res = makeRes();
+    await donorController.getRequests({ user: { userId: donor._id }, query: {} }, res, vi.fn());
+    expect(res.status).toHaveBeenCalledWith(422);
   });
 
   it('getMatches hides results for opted-out donors', async () => {

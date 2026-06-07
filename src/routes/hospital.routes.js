@@ -64,6 +64,7 @@ router.put('/notifications/:id/read', notificationController.markNotificationRea
 router.get('/notifications/:id', notificationController.getNotificationById);
 router.delete('/notifications/:id', notificationController.deleteNotificationById);
 
+
 // Extended compatibility features
 router.get('/blood-bank-settings', hospitalController.getBloodBankSettings);
 router.put('/blood-bank-settings', hospitalController.updateBloodBankSettings);

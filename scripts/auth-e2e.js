@@ -99,11 +99,12 @@ async function main() {
   const signup = await callApiWith429Retry('/auth/signup', {
     method: 'POST',
     body: {
-      fullName: 'E2E Donor',
+      fullName: 'Eee Donor',
       email: testEmail,
       password: TEST_PASSWORD,
+      confirmPassword: TEST_PASSWORD,
       role: 'donor',
-      phoneNumber: '1234567890',
+      phoneNumber: '01234567890',
       dateOfBirth: '1990-05-15',
       gender: 'female',
       bloodType: 'O+',
@@ -114,7 +115,7 @@ async function main() {
     },
   });
   expectStatus(signup, 201, 'Signup');
-  const signupRefreshToken = signup?.data?.data?.refreshToken;
+  const signupRefreshToken = signup?.data?.data?.tokens?.refreshToken;
   const autoVerificationToken = signup?.data?.data?.verificationToken || '';
   if (!signupRefreshToken) {
     throw new Error('Signup did not return refreshToken');
@@ -191,8 +192,8 @@ async function main() {
 
   console.log('\n7) Verify email token');
   const verifyToken = await callApiWith429Retry(
-    '/auth/verify-email-token',
-    { method: 'POST', body: { token: token } },
+    '/auth/verify-email-otp',
+    { method: 'POST', body: { email: testEmail, otp: token } },
     'verify email token'
   );
   expectStatus(verifyToken, 200, 'Verify email token');

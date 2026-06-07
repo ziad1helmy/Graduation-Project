@@ -1,11 +1,9 @@
-// Notification delivery uses direct FCM sends; background worker removed
 import app from './app.js';
 import { env, validateEnv } from './config/env.js';
 import { connectDB, disconnectDB } from './config/db.js';
 import { seedDefaultSettings } from './services/admin.service.js';
 import { seedRewardData } from './services/reward.service.js';
 import { initializeDefaultConfig } from './services/rewardsConfig.service.js';
-// Notification delivery now uses direct FCM with retry wrapper; outbox worker disabled
 import { logger } from './utils/logger.js';
 import outboxWorker from './workers/notificationOutbox.worker.js';
 

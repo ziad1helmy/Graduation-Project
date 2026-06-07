@@ -7,32 +7,66 @@
  * - Phase 8: Code cleanup and documentation
  */
 
-import chai from 'chai';
+import { describe, it, beforeAll, afterAll } from 'vitest';
+import * as chai from 'chai';
 import request from 'supertest';
 import app from '../../src/app.js';
-import { seedDemoDonors, seedDemoRequests } from '../../scripts/seed-demo.js';
+import { createDonor, createHospital, createRequest } from '../helpers/factories.js';
+import { connect, closeDatabase } from '../helpers/db.js';
+import { signToken } from '../../src/utils/jwt.js';
+import Request from '../../src/models/Request.model.js';
+import Donor from '../../src/models/Donor.model.js';
 
 const { expect } = chai;
 
 describe('Phase 9 QA Tests - Refactor Verification', function() {
-  this.timeout(5000);
-
   let accessToken;
-  let donorId;
-  let donorInCooldown;
-  let hospitalId;
   let requestId;
 
-  before(async function() {
-    // Seed demo data
-    const seedResult = await seedDemoDonors();
-    const requestResult = await seedDemoRequests();
-    
-    donorId = seedResult.donors[0]._id.toString();
-    donorInCooldown = seedResult.donors.find(d => d.lastDonationDate && Date.now() - d.lastDonationDate < 56 * 24 * 60 * 60 * 1000)?._id.toString();
-    hospitalId = requestResult.requests[0].hospitalId.toString();
-    requestId = requestResult.requests[0]._id.toString();
-    accessToken = seedResult.tokens[0];
+  beforeAll(async function() {
+    await connect();
+
+    // Ensure geospatial indexes are fully built in MongoDB Memory Server
+    await Promise.all([
+      Request.ensureIndexes(),
+      Donor.ensureIndexes()
+    ]);
+
+    // Create an eligible donor
+    const donor = await createDonor({
+      bloodType: 'O+',
+      isOptedIn: true,
+      isEmailVerified: true,
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0, lng: 31.0 },
+      }
+    });
+
+    // Create a hospital
+    const hospital = await createHospital({
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.01, lng: 31.01 },
+      }
+    });
+
+    // Create an emergency request compatible with donor
+    const reqObj = await createRequest(hospital._id, {
+      bloodType: ['O+'],
+      urgency: 'critical',
+      status: 'pending',
+      hospitalLocation: { lat: 30.01, lng: 31.01 },
+    });
+
+    requestId = reqObj._id.toString();
+    accessToken = signToken({ userId: donor._id.toString(), role: donor.role });
+  });
+
+  afterAll(async function() {
+    await closeDatabase();
   });
 
   describe('Phase 6: Eligibility Filtering in getNearbyRequests', function() {
@@ -45,27 +79,20 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
 
       expect(response.status).to.equal(200);
       expect(response.body.data.requests).to.be.an('array');
-      
-      // All returned requests should be eligible
-      // (This is implicit - if they're returned, they passed eligibility check)
       expect(response.body.data.requests.length).to.be.greaterThanOrEqual(0);
     });
 
     it('should filter out requests when donor is in cooldown', async function() {
-      // This test verifies eligibility filtering is working
-      // Create a donor who is in cooldown and verify they see fewer requests
       const response = await request(app)
         .get('/requests/nearby')
         .query({ lat: 30.0, lng: 31.0, radius: 50 })
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).to.equal(200);
-      // Should have valid request list (may be empty if all filtered)
       expect(response.body.data).to.have.property('requests');
     });
 
     it('should work for opted-out donors (return empty list)', async function() {
-      // Opted-out donors should see empty results
       const response = await request(app)
         .get('/requests/nearby')
         .query({ lat: 30.0, lng: 31.0, radius: 50 })
@@ -105,7 +132,6 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
       expect(response.status).to.equal(200);
       expect(response.body.data.requests).to.be.an('array');
       
-      // All returned requests should have critical urgency
       if (response.body.data.requests.length > 0) {
         response.body.data.requests.forEach(req => {
           expect(req.urgency).to.equal('critical');
@@ -180,7 +206,6 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
         .post(`/requests/${requestId}/accept`)
         .set('Authorization', `Bearer ${accessToken}`);
 
-      // Will be 200 or 400 depending on eligibility, but not 404
       expect([200, 400, 409]).to.include(response.status);
     });
 
@@ -202,8 +227,6 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
   describe('Emergency Notifications', function() {
     
     it('should not include decline action in emergency notification actions', async function() {
-      // This is implicit - emergency-notification.js has decline removed
-      // But we can verify by checking that critical requests are created
       const response = await request(app)
         .get('/requests/nearby')
         .query({ 
@@ -214,8 +237,6 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).to.equal(200);
-      // If emergency requests exist, they should not have decline endpoints in notification
-      // This is verified by code review, not API test
     });
   });
 
@@ -226,7 +247,6 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
         .post(`/requests/${requestId}/accept`)
         .set('Authorization', `Bearer ${accessToken}`);
 
-      // Should not return 404 (route exists)
       expect(response.status).to.not.equal(404);
     });
 
@@ -236,7 +256,6 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
         .set('Authorization', `Bearer ${accessToken}`)
         .send({ quantity: 1 });
 
-      // Should not return 404 (route exists)
       expect(response.status).to.not.equal(404);
     });
   });

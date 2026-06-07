@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import request from 'supertest';
 import app from '../../src/app.js';
 import { setupTestDB, clearDatabase } from '../helpers/db.js';
@@ -92,6 +92,9 @@ describe('Request rejection lifecycle', () => {
 
     const followUpDate = new Date();
     followUpDate.setDate(followUpDate.getDate() + 2);
+    while (followUpDate.getDay() === 0) {
+      followUpDate.setDate(followUpDate.getDate() + 1);
+    }
     followUpDate.setHours(10, 0, 0, 0);
 
     const bookedAppointment = await appointmentService.bookAppointment(
@@ -105,5 +108,59 @@ describe('Request rejection lifecycle', () => {
 
     expect(bookedAppointment).toBeTruthy();
     expect(bookedAppointment.status).toBe('pending');
+  });
+
+  it('rolls back request rejection when linked donation save fails inside the transaction', async () => {
+    await clearDatabase();
+    await Request.collection.createIndex({ hospitalLocationGeo: '2dsphere' });
+
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const requestRecord = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      contactNumber: hospital.contactNumber,
+      isEmergency: true,
+      urgency: 'critical',
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+    const hospitalToken = signToken({ userId: hospital._id.toString(), role: hospital.role });
+
+    const acceptResponse = await request(app)
+      .post(`/requests/${requestRecord._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    expect(acceptResponse.status).toBe(200);
+
+    const appointmentDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    const appointment = await Appointment.create({
+      donorId: donor._id,
+      hospitalId: hospital._id,
+      requestId: requestRecord._id,
+      appointmentDate,
+      status: 'confirmed',
+      donationType: 'Whole Blood',
+      qrToken: 'reject-flow-rollback-token',
+    });
+
+    const saveSpy = vi.spyOn(Donation.prototype, 'save').mockRejectedValueOnce(new Error('transaction failed'));
+
+    const rejectResponse = await request(app)
+      .post(`/requests/${requestRecord._id}/reject`)
+      .set('Authorization', `Bearer ${hospitalToken}`)
+      .send({ reason: 'Medical mismatch' });
+
+    saveSpy.mockRestore();
+
+    expect(rejectResponse.status).toBeGreaterThanOrEqual(500);
+
+    const storedRequest = await Request.findById(requestRecord._id);
+    const storedDonation = await Donation.findOne({ requestId: requestRecord._id, donorId: donor._id });
+    const storedAppointment = await Appointment.findById(appointment._id);
+
+    expect(storedRequest.status).toBe('accepted');
+    expect(storedDonation.status).toBe('pending');
+    expect(storedAppointment.status).toBe('confirmed');
   });
 });

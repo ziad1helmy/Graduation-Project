@@ -106,13 +106,24 @@ export const logActivity = async (userId, payload) => {
 
     return activity;
   } catch (error) {
-    // Log the error but don't throw — this is a non-critical side effect
-    logger.error('Activity log error', {
+    // Fix #2 (HIGH): Emit a structured, filterable alert event so log
+    // aggregators / alerting rules can detect audit trail gaps by searching
+    // for event='ACTIVITY_LOG_FAILURE'. Previously only a generic error was logged.
+    logger.error('ACTIVITY_LOG_FAILURE', {
+      event: 'ACTIVITY_LOG_FAILURE',
       userId: String(userId),
       type: payload?.type,
       action: payload?.action,
+      referenceId: payload?.referenceId ? String(payload.referenceId) : null,
       error: error.message,
     });
+
+    // When the caller flags this log as critical (e.g. donation completion,
+    // points awarding), re-throw so the caller can decide to roll back or alert.
+    if (payload?.critical === true) {
+      throw error;
+    }
+
     return null;
   }
 };
@@ -144,7 +155,7 @@ export const logActivity = async (userId, payload) => {
  * console.log(result.activities); // [{ type, action, title, ... }, ...]
  * console.log(result.pagination); // { total: 42, page: 1, ... }
  */
-export const getUserTimeline = async (userId, filters = {}) => {
+export const getUserTimeline = async (userId, filters = {}, projection = null) => {
   try {
     const page = Math.max(parseInt(filters.page) || 1, 1);
     const limit = Math.min(Math.max(parseInt(filters.limit) || 20, 1), 100);
@@ -161,11 +172,10 @@ export const getUserTimeline = async (userId, filters = {}) => {
     const total = await Activity.countDocuments(query);
 
     // Fetch paginated results — newest first
-    const activities = await Activity.find(query)
+    const activities = await Activity.find(query, projection || '-__v')
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
-      .select('-__v') // Exclude Mongoose version field
       .lean(); // Return plain objects (faster)
 
     // Enrich activities with hospitalName when metadata lacks it.
