@@ -70,41 +70,42 @@ export const logActivity = async (userId, payload) => {
 
     const normalizedReferenceId = payload.referenceId ? String(payload.referenceId) : null;
 
-    // Deduplication: check if this exact activity already exists
-    if (normalizedReferenceId) {
-      const existing = await Activity.findOne({
+    // CRITICAL FIX: Make deduplication atomic with creation
+    // Rely on unique constraint instead of pre-check, so concurrent creates are atomic
+    try {
+      const activity = await Activity.create({
         userId,
+        type: payload.type,
+        action: payload.action,
+        title: payload.title,
+        description: payload.description,
+        referenceId: normalizedReferenceId,
+        referenceType: payload.referenceType || null,
+        metadata: payload.metadata || {},
+        icon: payload.icon || null,
+      });
+
+      logger.info('Activity logged', {
+        userId: userId.toString(),
+        type: payload.type,
         action: payload.action,
         referenceId: normalizedReferenceId,
       });
 
-      if (existing) {
-        // Activity already logged for this event — skip silently
-        return null;
+      return activity;
+    } catch (err) {
+      // CRITICAL FIX: Handle duplicate key error gracefully
+      // If activity already exists (duplicate on retry), return null indicating deduplication
+      if ((err?.code === 11000 || (typeof err?.message === 'string' && err.message.includes('E11000'))) && normalizedReferenceId) {
+        logger.debug('Activity already exists (deduped)', {
+          userId: userId.toString(),
+          action: payload.action,
+          referenceId: normalizedReferenceId,
+        });
+        return null; // Already recorded, silently skip
       }
+      throw err;
     }
-
-    // Create the activity
-    const activity = await Activity.create({
-      userId,
-      type: payload.type,
-      action: payload.action,
-      title: payload.title,
-      description: payload.description,
-      referenceId: normalizedReferenceId,
-      referenceType: payload.referenceType || null,
-      metadata: payload.metadata || {},
-      icon: payload.icon || null,
-    });
-
-    logger.info('Activity logged', {
-      userId: userId.toString(),
-      type: payload.type,
-      action: payload.action,
-      referenceId: normalizedReferenceId,
-    });
-
-    return activity;
   } catch (error) {
     // Fix #2 (HIGH): Emit a structured, filterable alert event so log
     // aggregators / alerting rules can detect audit trail gaps by searching

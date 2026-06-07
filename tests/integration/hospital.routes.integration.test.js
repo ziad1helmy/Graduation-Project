@@ -611,17 +611,30 @@ describe('GET /hospital/requests', () => {
 });
 
 describe('GET /hospital/requests/:requestId', () => {
-  it('returns request details for an owned request', async () => {
+  it('returns request details for an owned request with restricted keys', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
-    const req = await createRequest(hospital._id);
+    const req = await createRequest(hospital._id, {
+      requiredBy: new Date(Date.now() + 48 * 60 * 60 * 1000 + 10000),
+      unitsNeeded: 3,
+      urgency: 'high',
+    });
 
     const res = await request(app)
       .get(`/hospital/requests/${req._id}`)
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(200);
-    expect(res.body.data.request?._id?.toString() ?? res.body.data.request?.id).toBe(req._id.toString());
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.bloodType).toBeUndefined();
+    expect(res.body.data).toHaveProperty('bloodTypes');
+    expect(res.body.data.unitsNeeded).toBe(3);
+    expect(res.body.data.urgency).toBe('high');
+    expect(res.body.data.timeRemaining).toContain('2d');
+    expect(res.body.data.responded).toBe(0);
+    expect(res.body.data.confirmed).toBe(0);
+    expect(res.body.data.request).toBeUndefined();
+    expect(res.body.data.donations).toBeUndefined();
   });
 
   it('returns 404 for a non-existent request', async () => {
@@ -653,10 +666,16 @@ describe('GET /hospital/requests/:requestId', () => {
 // REQUEST STATUS UPDATE
 // ═════════════════════════════════════════════════════════════════════════════
 describe('PUT /hospital/requests/:requestId', () => {
-  it('updates request status to in-progress', async () => {
+  it('updates request status to in-progress and returns restricted response keys', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
-    const req = await createRequest(hospital._id, { status: 'accepted', acceptedDonationId: new mongoose.Types.ObjectId() });
+    const req = await createRequest(hospital._id, {
+      status: 'accepted',
+      acceptedDonationId: new mongoose.Types.ObjectId(),
+      requiredBy: new Date(Date.now() + 48 * 60 * 60 * 1000 + 10000),
+      unitsNeeded: 3,
+      urgency: 'high',
+    });
 
     const res = await request(app)
       .put(`/hospital/requests/${req._id}`)
@@ -664,6 +683,16 @@ describe('PUT /hospital/requests/:requestId', () => {
       .send({ status: 'in-progress' });
 
     expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.bloodType).toBeUndefined();
+    expect(res.body.data).toHaveProperty('bloodTypes');
+    expect(res.body.data.unitsNeeded).toBe(3);
+    expect(res.body.data.urgency).toBe('high');
+    expect(res.body.data.timeRemaining).toContain('2d');
+    expect(res.body.data.responded).toBe(0);
+    expect(res.body.data.confirmed).toBe(0);
+    expect(res.body.data.request).toBeUndefined();
+    expect(res.body.data.status).toBeUndefined();
   });
 
   it('rejects an invalid status value', async () => {
@@ -754,25 +783,6 @@ describe('DELETE /hospital/requests/:requestId', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(res.status).toBe(404);
-  });
-});
-
-// ═════════════════════════════════════════════════════════════════════════════
-// REQUEST CLOSE FLOW
-// ═════════════════════════════════════════════════════════════════════════════
-describe('POST /hospital/requests/:requestId/close', () => {
-  it('closes an owned in-progress request', async () => {
-    const hospital = await createHospital();
-    const token = tokenFor(hospital);
-    const req = await createRequest(hospital._id, { status: 'in-progress' });
-
-    const res = await request(app)
-      .post(`/hospital/requests/${req._id}/close`)
-      .set('Authorization', `Bearer ${token}`);
-
-    // Accepting 200 or 400 — close may have business rules (e.g. requires active donations)
-    // The key check is it does NOT return 401 or 403
-    expect([200, 400, 404]).toContain(res.status);
   });
 });
 
@@ -891,14 +901,66 @@ describe('Notification preferences', () => {
 });
 
 // ═════════════════════════════════════════════════════════════════════════════
-// REPORTS
+// REPORTS & DASHBOARD
 // ═════════════════════════════════════════════════════════════════════════════
-describe('GET /hospital/reports/monthly', () => {
-  it('returns monthly report for authenticated hospital', async () => {
+describe('Hospital Dashboard & Reports', () => {
+  it('GET /hospital/reports/monthly returns correct data and totalResponses instead of uniqueDonorsResponded', async () => {
     const hospital = await createHospital();
+    const donor = await createDonor();
+    
+    // Create request and donation in the target month (June 2026)
+    const req = await createRequest(hospital._id, {
+      createdAt: new Date('2026-06-05T10:00:00.000Z'),
+      urgency: 'high',
+      status: 'pending',
+    });
+    await createDonation(donor._id, req._id, {
+      createdAt: new Date('2026-06-05T12:00:00.000Z'),
+    });
+
     const res = await request(app)
-      .get('/hospital/reports/monthly?month=2026-04')
+      .get('/hospital/reports/monthly?month=2026-06')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`);
+
     expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.totalRequests).toBe(1);
+    expect(res.body.data.totalResponses).toBe(1);
+    expect(res.body.data.uniqueDonorsResponded).toBeUndefined();
+  });
+
+  it('GET /hospital/dashboard returns correct data and totalResponses instead of uniqueDonorsResponded', async () => {
+    const hospital = await createHospital();
+    const donor1 = await createDonor();
+    const donor2 = await createDonor();
+    
+    // Create requests and donations in June 2026
+    const req1 = await createRequest(hospital._id, {
+      createdAt: new Date('2026-06-10T10:00:00.000Z'),
+      urgency: 'critical',
+      status: 'pending',
+    });
+    const req2 = await createRequest(hospital._id, {
+      createdAt: new Date('2026-06-12T10:00:00.000Z'),
+      urgency: 'high',
+      status: 'pending',
+    });
+
+    await createDonation(donor1._id, req1._id, {
+      createdAt: new Date('2026-06-10T12:00:00.000Z'),
+    });
+    await createDonation(donor2._id, req2._id, {
+      createdAt: new Date('2026-06-12T12:00:00.000Z'),
+    });
+
+    const res = await request(app)
+      .get('/hospital/dashboard?month=2026-06')
+      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.totalRequests).toBe(2);
+    expect(res.body.data.totalResponses).toBe(2);
+    expect(res.body.data.uniqueDonorsResponded).toBeUndefined();
   });
 });

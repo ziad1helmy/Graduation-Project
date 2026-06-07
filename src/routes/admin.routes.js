@@ -22,6 +22,7 @@ router.use(authMiddleware, requireRole('admin', 'superadmin'));
 
 
 router.get('/profile', adminController.getAdminProfile);
+router.patch('/profile', adminController.updateAdminProfile);
 
 // ──────────────────────────────────────────────
 //  System Management
@@ -152,6 +153,8 @@ router.patch('/users/:id/verify', adminController.verifyUser);
 router.patch('/users/:id/unverify', adminController.unverifyUser);
 
 
+// Note: service layer enforces that admins/superadmins cannot be
+// suspended by regular admins. See admin.service.js suspendUser().
 router.patch('/users/:id/suspend', adminController.suspendUser);
 
 

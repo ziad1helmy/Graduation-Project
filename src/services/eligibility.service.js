@@ -202,6 +202,27 @@ const evaluateHemoglobinRule = (donor) => {
 };
 
 export const canDonate = async (donor, options = {}) => {
+  if (!donor || donor.deletedAt) {
+    return {
+      eligible: false,
+      reason: 'Donor account is deleted or inactive',
+    };
+  }
+
+  if (donor.isSuspended) {
+    return {
+      eligible: false,
+      reason: 'Donor account is suspended',
+    };
+  }
+
+  if (donor.healthHistory?.chronicConditions && donor.healthHistory.chronicConditions.length > 0) {
+    return {
+      eligible: false,
+      reason: 'Donor has chronic medical conditions',
+    };
+  }
+
   if (await hasActiveDonationInProgress(donor, options)) {
     return {
       eligible: false,

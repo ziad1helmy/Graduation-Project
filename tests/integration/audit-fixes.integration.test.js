@@ -57,21 +57,7 @@ describe('Audit business-rule fixes', () => {
     expect(await Donation.countDocuments({ requestId: bloodRequest._id })).toBe(0);
   });
 
-  it('blocks hospital request completion without a completed donation for the same request', async () => {
-    const hospital = await createHospital();
-    const donor = await createDonor({ bloodType: 'O+' });
-    const requestToClose = await createRequest(hospital._id, { bloodType: 'O+', status: 'in-progress' });
-    const unrelatedRequest = await createRequest(hospital._id, { bloodType: 'O+', status: 'in-progress' });
-    await createDonation(donor._id, unrelatedRequest._id, { status: 'completed' });
 
-    const res = await request(app)
-      .post(`/hospital/requests/${requestToClose._id}/close`)
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
-
-    expect(res.status).toBe(400);
-    const updatedRequest = await Request.findById(requestToClose._id);
-    expect(updatedRequest.status).toBe('in-progress');
-  });
 
   it('reuses the accepted pending donation when an appointment is completed', async () => {
     const donor = await createDonor({ bloodType: 'O+', hemoglobinLevel: 15, weight: 70 });

@@ -216,6 +216,22 @@ const requestSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    escalationLevel: {
+      type: Number,
+      default: 1,
+    },
+    acceptanceDeadline: {
+      type: Date,
+      default: null,
+    },
+    arrivalDeadline: {
+      type: Date,
+      default: null,
+    },
+    manualInterventionFlag: {
+      type: Boolean,
+      default: false,
+    },
   },
   {
     timestamps: true,
@@ -229,6 +245,7 @@ requestSchema.index({ hospitalId: 1, status: 1 });
 requestSchema.index({ urgency: 1, status: 1 });
 requestSchema.index({ acceptedBy: 1, status: 1 });
 requestSchema.index({ hospitalLocationGeo: '2dsphere' });
+requestSchema.index({ arrivalDeadline: 1 });
 
 requestSchema.pre('init', function normalizeHydratedRequest(doc) {
   if (doc && doc.bloodType !== undefined) {

@@ -39,8 +39,8 @@ const donationSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['pending', 'scheduled', 'completed', 'cancelled', 'rejected'],
-        message: 'Status must be pending, scheduled, completed, cancelled, or rejected',
+        values: ['pending', 'scheduled', 'completed', 'cancelled', 'rejected', 'expired', 'abandoned'],
+        message: 'Status must be pending, scheduled, completed, cancelled, rejected, expired, or abandoned',
       },
       default: 'pending',
     },
@@ -105,7 +105,90 @@ const donationSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
+    // NOTE: The field name is `qrExpires` (not `qrExpiresAt`) for the Donation model.
+    // The Appointment model uses `qrExpiresAt`. All API response payloads normalize
+    // this to `qrExpiresAt` via `donation.qrExpires`. A future migration should
+    // rename this field to `qrExpiresAt` for consistency.
     qrExpires: {
+      type: Date,
+      default: null,
+    },
+    
+    // INTEGRITY: Track appointment scheduling deadline
+    // Donation must have appointment scheduled within APPOINTMENT_SCHEDULING_DEADLINE_DAYS
+    // If deadline passes without appointment, donation auto-cancels via background job
+    appointmentScheduleDeadline: {
+      type: Date,
+      required: true,
+      index: true,
+      // Set to 14 days from now (can be customized per request urgency)
+      default: () => new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+    },
+
+    // Track if donation was auto-cancelled due to missing appointment
+    autoCompiledAt: {
+      type: Date,
+      default: null,
+    },
+
+    // Verification fields mirrored from Appointment schema for Flow A
+    qrScannedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationStatus: {
+      type: String,
+      enum: ['pending', 'verified', 'rejected', 'completed'],
+      default: null,
+    },
+    verificationSessionId: {
+      type: String,
+      default: null,
+      index: true,
+    },
+    verificationStartedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationVerifiedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationRejectedAt: {
+      type: Date,
+      default: null,
+    },
+    verificationRejectedReason: {
+      type: String,
+      default: null,
+    },
+    verificationChecklist: {
+      idVerified: {
+        type: Boolean,
+        default: false,
+      },
+      questionnaireCompleted: {
+        type: Boolean,
+        default: false,
+      },
+      consentSigned: {
+        type: Boolean,
+        default: false,
+      },
+      completedAt: {
+        type: Date,
+        default: null,
+      },
+    },
+    arrivalDeadline: {
+      type: Date,
+      default: null,
+    },
+    qrUsed: {
+      type: Boolean,
+      default: false,
+    },
+    qrUsedAt: {
       type: Date,
       default: null,
     },
@@ -121,6 +204,7 @@ donationSchema.index({ requestId: 1 });
 donationSchema.index({ status: 1 });
 donationSchema.index({ donorId: 1, status: 1 });
 donationSchema.index({ requestId: 1, status: 1 });
+donationSchema.index({ arrivalDeadline: 1 });
 donationSchema.index(
   { appointmentId: 1 },
   {
@@ -128,6 +212,67 @@ donationSchema.index(
     partialFilterExpression: { appointmentId: { $type: 'objectId' } },
   }
 );
+
+// CRITICAL: Prevent duplicate donations from same donor for same request
+// Allows only ONE active (non-cancelled, non-rejected) donation per donor per request
+donationSchema.index(
+  { donorId: 1, requestId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: 'pending' },
+  }
+);
+
+/**
+ * INTEGRITY HOOK - Enforce appointment scheduling deadline
+ * 
+ * Validates that donations transitioning to 'scheduled' status have an appointment.
+ * Pending donations must have an appointment scheduled before appointmentScheduleDeadline.
+ */
+donationSchema.pre('save', async function() {
+  // Request-linked donations skip appointment scheduling deadline checks
+  if (this.requestId) {
+    return;
+  }
+
+  // If status is changing to 'scheduled', must have appointmentId
+  if (this.isModified('status') && this.status === 'scheduled' && !this.appointmentId) {
+    throw new Error('Appointment required to schedule donation');
+  }
+
+  // Check if donation is pending and past the deadline (only for voluntary/Flow B donations)
+  if (
+    this.status === 'pending' &&
+    this.appointmentScheduleDeadline &&
+    new Date() > this.appointmentScheduleDeadline &&
+    !this.appointmentId
+  ) {
+    throw new Error('Appointment scheduling deadline passed - please reschedule');
+  }
+});
+
+/**
+ * INTEGRITY HOOK - Auto-cancel donations past scheduling deadline
+ * 
+ * Background job trigger: Find donations past appointmentScheduleDeadline
+ * and auto-cancel them if they lack an appointment.
+ * 
+ * Usage: Run periodically via background worker:
+ *   await Donation.updateMany(
+ *     {
+ *       status: 'pending',
+ *       appointmentId: null,
+ *       appointmentScheduleDeadline: { $lt: new Date() }
+ *     },
+ *     {
+ *       $set: { 
+ *         status: 'cancelled',
+ *         autoCompiledAt: new Date(),
+ *         notes: 'Auto-cancelled: Appointment not scheduled within deadline'
+ *       }
+ *     }
+ *   );
+ */
 
 const Donation = mongoose.model('Donation', donationSchema);
 

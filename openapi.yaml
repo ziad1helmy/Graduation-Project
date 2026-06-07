@@ -7,12 +7,16 @@ info:
 
     Current lifecycle rules reflected by the backend implementation:
     - Request states: `pending` -> `accepted` -> `in-progress` -> `completed`, with `cancelled` and `expired` as terminal states.
-    - Donation states: `pending` -> `scheduled` -> `completed`, with `cancelled` and `rejected` as terminal states.
+      - Hospital Request flow adds: `accepted` -> `completed` (direct, on hospital confirm) and `accepted` -> `pending` (revert on reject/cancel/no-arrival).
+    - Donation states: `pending` -> `scheduled` -> `completed`, with `cancelled`, `rejected`, `expired`, and `abandoned` as terminal states.
+      - Hospital Request flow adds: `pending` -> `completed` (direct, on hospital confirm) and `pending` -> `expired` (donor no-arrival timeout).
     - Appointment states: `pending` -> `confirmed` -> `completed`, with `cancelled` as the terminal cancellation state.
     - Rejecting a donation clears the request's `acceptedDonationId`, restores the request to `pending` when the request-flow allows it, cancels linked appointments, and restores matching visibility.
     - A request can only be completed when a completed donation exists for the same `requestId`.
     - Donors with active donations (`pending` or `scheduled`) cannot respond to requests, book new appointments, or receive donor match results.
     - Matching is centralized and applies blood compatibility, ABO/Rh compatibility, participation preference, donation cooldown rules, temporary deferrals, travel deferrals, and active-donation blocking before a match is returned.
+    - **Hospital Request flow**: donor accepts -> QR generated on Donation -> hospital verifies QR -> hospital confirms -> donation/request completed atomically. If donor doesn't arrive before arrival deadline, the escalation worker expires the donation and re-opens the request for re-broadcast.
+    - **Arrival deadlines and re-broadcast** are urgency-based: critical (1hr/15min), emergency (2hr/30min), high (4hr/1hr), medium (8hr/4hr), low (24hr/12hr).
 
     **âš ï¸  Migration Notice (Effective June 1, 2026)**
 
@@ -4376,7 +4380,7 @@ paths:
                   totalCancelled: 2
                   emergencyRequests: 3
                   totalDonations: 7
-                  uniqueDonorsResponded: 5
+                  totalResponses: 7
   /hospital/reports/monthly:
     get:
       tags:
@@ -4407,7 +4411,7 @@ paths:
                   totalCancelled: 1
                   emergencyRequests: 4
                   totalDonations: 9
-                  uniqueDonorsResponded: 6
+                  totalResponses: 9
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -5490,29 +5494,14 @@ paths:
                 success: true
                 message: Request details retrieved successfully
                 data:
-                  request:
-                    _id: 69fe540565ff7785a0313150
-                    type: blood
-                    bloodType:
-                      - A-
-                      - O-
-                    urgency: high
-                    status: in-progress
-                    quantity: 2
-                    hospitalId:
-                      _id: 69f3df915f42685cbbbcbb1b
-                      hospitalName: Cairo Care Hospital
-                      contactNumber: "0223456789"
-                  donations:
-                    - _id: 69fe540565ff7785a0313157
-                      donorId:
-                        _id: 69f3df915f42685cbbbcbb18
-                        fullName: Aya Hassan
-                        email: aya.hassan@lifelink.demo
-                        bloodType: O+
-                      quantity: 1
-                      status: pending
-                  donationCount: 1
+                  bloodTypes:
+                    - A-
+                    - O-
+                  unitsNeeded: 2
+                  urgency: high
+                  timeRemaining: 2d 4h remaining
+                  responded: 1
+                  confirmed: 0
         "401":
           description: Missing or invalid JWT
         "403":
@@ -5563,11 +5552,13 @@ paths:
                 success: true
                 message: Request status updated successfully
                 data:
-                  _id: 69fe540565ff7785a0313150
-                  status: completed
-                  bloodType: A-
+                  bloodTypes:
+                    - A-
+                  unitsNeeded: 2
                   urgency: high
-                  updatedAt: 2026-05-18T09:40:00.000Z
+                  timeRemaining: 2d 4h remaining
+                  responded: 1
+                  confirmed: 0
         "400":
           description: Invalid status payload
         "401":
@@ -5609,38 +5600,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /hospital/requests/{requestId}/close:
-    post:
-      tags:
-        - Hospital
-      summary: Close a hospital request
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: requestId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a0313150
-      responses:
-        "200":
-          description: Request closed successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Request closed successfully
-                data:
-                  _id: 69fe540565ff7785a0313150
-                  status: completed
-                  completedAt: 2026-05-18T09:50:00.000Z
-        "400":
-          description: Request is already completed
-        "403":
-          description: Role not allowed or unauthorized access
-        "404":
-          description: Request not found
   /hospital/find-donors:
     get:
       tags:
@@ -6346,6 +6305,280 @@ paths:
                   qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
                   qrCreatedAt: 2026-05-18T09:45:00.000Z
                   qrExpiresAt: 2026-05-18T11:45:00.000Z
+  /requests/{id}/accept:
+    post:
+      tags:
+        - Donor
+      summary: Donor accepts a hospital request (Hospital Request flow)
+      security:
+        - bearerAuth: []
+      description: |-
+        A donor accepts a pending hospital request. Creates a Donation record with a QR token
+        and sets the request status to `accepted`. The QR token is used by the hospital to
+        verify the donor's arrival on-site.
+
+        The arrival deadline and QR expiration are determined by the request's urgency level:
+        - critical: 3 hours arrival, 15 minute re-broadcast interval
+        - emergency: 6 hours arrival, 30 minute re-broadcast interval
+        - high: 12 hours arrival, 1 hour re-broadcast interval
+        - medium: 24 hours (1 day) arrival, 4 hour re-broadcast interval
+        - low: 48 hours (2 days) arrival, 12 hour re-broadcast interval
+
+        Eligibility is enforced: blood compatibility, cooldown, opted-in, not suspended/deferred,
+        email verified, no active donation, no prior response to this request.
+
+        On success, the donor receives:
+        - An in-app Notification with hospital name, blood type, arrival deadline, and QR token
+        - An FCM push notification (title: "Proceed to Hospital", body with hospital name and deadline)
+
+        Only donors can accept requests.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Request identifier
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Request accepted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Request accepted successfully
+                data:
+                  requestId: 69fe540565ff7785a031314f
+                  donationId: 69fe540565ff7785a031314a
+                  status: accepted
+                  qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
+                  qrExpiresAt: 2026-05-18T11:45:00.000Z
+                  acceptedAt: 2026-05-18T09:45:00.000Z
+                  arrivalDeadline: 2026-05-18T11:45:00.000Z
+        "400":
+          description: Invalid request id, request not pending, or donor not eligible
+        "403":
+          description: Non-donor role attempted to accept
+        "404":
+          description: Request not found
+  /requests/{id}/confirm:
+    post:
+      tags:
+        - Hospital
+      summary: Hospital confirms donor arrival (Hospital Request flow)
+      security:
+        - bearerAuth: []
+      description: |-
+        Hospital confirms a donor's arrival after scanning the QR code. Re-runs eligibility
+        checks (excluding the current donation). If the donor is still eligible, the donation
+        and request are atomically completed, the donor's `lastDonationDate` is updated, and
+        rewards are processed. If the donor is no longer eligible, the donation is rejected,
+        the request reverts to `pending`, and compatible donors are re-notified.
+
+        Only hospital, admin, or superadmin roles can confirm. The request must be in
+        `accepted` or `in-progress` status. The arrival deadline and QR expiry must not have passed.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Request identifier
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Donation confirmed and completed successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation confirmed and completed successfully
+                data:
+                  requestId: 69fe540565ff7785a031314f
+                  donationId: 69fe540565ff7785a031314a
+                  status: completed
+        "400":
+          description: Request not in accepted/in-progress status, no donor, donor ineligible, or arrival deadline expired
+        "403":
+          description: Non-hospital/non-admin role attempted to confirm
+        "404":
+          description: Request not found
+  /requests/accepted:
+    get:
+      tags:
+        - Donor
+      summary: List donor's accepted requests (Hospital Request flow)
+      security:
+        - bearerAuth: []
+      description: |-
+        Returns a paginated list of requests the authenticated donor has accepted
+        (status `accepted` or `in-progress`). Includes arrival deadline status,
+        QR expiry status, hospital information, and urgency.
+
+        Only donors can access this endpoint.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Results per page
+          example: 20
+      responses:
+        "200":
+          description: Accepted requests retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Accepted requests retrieved successfully
+                data:
+                  requests:
+                    - requestId: 69fe540565ff7785a031314f
+                      donationId: 69fe540565ff7785a031314a
+                      status: accepted
+                      donationStatus: pending
+                      acceptedAt: 2026-05-18T09:45:00.000Z
+                      arrivalDeadline: 2026-05-18T10:45:00.000Z
+                      qrExpiresAt: 2026-05-18T10:45:00.000Z
+                      qrExpired: false
+                      arrivalDeadlinePassed: false
+                      bloodType:
+                        - O+
+                      bloodTypeLabel: O Positive
+                      urgency: critical
+                      unitsNeeded: 3
+                      patientType: Emergency surgery support
+                      isEmergency: true
+                      hospitalName: Cairo Care Hospital
+                      contactNumber: "1044444444"
+                      hospitalId: 69f3df915f42685cbbbcbb1b
+                      hospitalAddress:
+                        city: Cairo
+                        governorate: Cairo
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 1
+                    totalPages: 1
+        "403":
+          description: Non-donor role attempted to access
+  /requests/accepted/{id}:
+    get:
+      tags:
+        - Donor
+      summary: Get full details of a donor's accepted request (Hospital Request flow)
+      security:
+        - bearerAuth: []
+      description: |-
+        Returns full details of a specific request the donor has accepted, including the
+        QR token, arrival deadline, eligibility status, and hospital contact information.
+
+        Only the donor who accepted the request can view these details.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Request identifier
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Accepted request details retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Accepted request details retrieved successfully
+                data:
+                  requestId: 69fe540565ff7785a031314f
+                  donationId: 69fe540565ff7785a031314a
+                  status: accepted
+                  donationStatus: pending
+                  acceptedAt: 2026-05-18T09:45:00.000Z
+                  arrivalDeadline: 2026-05-18T10:45:00.000Z
+                  qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
+                  qrExpiresAt: 2026-05-18T10:45:00.000Z
+                  qrUsed: false
+                  qrUsedAt: null
+                  qrExpired: false
+                  arrivalDeadlinePassed: false
+                  isEligible: true
+                  request:
+                    bloodType:
+                      - O+
+                    bloodTypeLabel: O Positive
+                    type: blood
+                    unitsNeeded: 3
+                    urgency: critical
+                    patientType: Emergency surgery support
+                    notes: null
+                    isEmergency: true
+                    requiredBy: 2026-05-20T00:00:00.000Z
+                    createdAt: 2026-05-18T08:20:00.000Z
+                  hospital:
+                    id: 69f3df915f42685cbbbcbb1b
+                    hospitalName: Cairo Care Hospital
+                    phoneNumber: "1044444444"
+                    address:
+                      city: Cairo
+                      governorate: Cairo
+                    location:
+                      latitude: 30.0511
+                      longitude: 31.2435
+        "403":
+          description: Donor did not accept this request
+        "404":
+          description: Request not found or no active donation
+  /requests/{id}/expire-arrival:
+    post:
+      tags:
+        - Admin
+      summary: Expire a donor's arrival deadline (admin manual override)
+      security:
+        - bearerAuth: []
+      description: |-
+        Admin endpoint to manually expire a donor's arrival deadline. Marks the donation
+        as `expired`, reverts the request to `pending`, invalidates the QR token, and
+        re-broadcasts to compatible donors. This is also processed automatically by the
+        request escalation worker when an arrival deadline passes.
+
+        Only admin and superadmin roles can invoke this endpoint. The request must be in
+        `accepted` status and the arrival deadline must have already passed.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Request identifier
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Donation expired and request reopened for other donors
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation expired and request reopened for other donors
+                data:
+                  requestId: 69fe540565ff7785a031314f
+                  status: pending
+        "400":
+          description: Request not in accepted status or arrival deadline not yet passed
+        "403":
+          description: Non-admin role attempted to expire
+        "404":
+          description: Request not found
   /admin/system/health:
     get:
       summary: System health check
@@ -7346,6 +7579,93 @@ paths:
                     updatedAt: 2026-05-18T08:30:00.000Z
         "401":
           description: Missing or invalid JWT token
+    patch:
+      tags:
+        - Admin
+      summary: Update the authenticated admin profile
+      security:
+        - bearerAuth: []
+      description: |-
+        Allows an admin or superadmin to update their own profile. Updatable fields:
+        `fullName`, `email`, `phone`, `address`, `location`.
+
+        Changing email will reset `isEmailVerified` to false. The `role`, `isSuspended`,
+        `isEmailVerified` fields cannot be changed through this endpoint (use
+        `PUT /admin/admins/:id` for admin management).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                  example: Noura Hassan
+                email:
+                  type: string
+                  format: email
+                  example: admin@lifelink.demo
+                phone:
+                  type: string
+                  example: "01122223333"
+                address:
+                  type: string
+                  example: 15 Al Tahrir Street, Cairo
+                location:
+                  type: object
+                  properties:
+                    city:
+                      type: string
+                      example: Cairo
+                    governorate:
+                      type: string
+                      example: Cairo
+                    coordinates:
+                      type: object
+                      properties:
+                        lat:
+                          type: number
+                          example: 30.0444
+                        lng:
+                          type: number
+                          example: 31.2357
+      responses:
+        "200":
+          description: Admin profile updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Admin profile updated successfully
+                data:
+                  admin:
+                    _id: 66f200000000000000000001
+                    fullName: Noura Hassan
+                    email: noura.new@lifelink.demo
+                    role: admin
+                    phone: "01122223333"
+                    address: 15 Al Tahrir Street, Cairo
+                    location:
+                      city: Cairo
+                      governorate: Cairo
+                      coordinates:
+                        lat: 30.0444
+                        lng: 31.2357
+                    isEmailVerified: false
+                    isSuspended: false
+                    createdAt: 2026-01-10T08:30:00.000Z
+                    updatedAt: 2026-06-08T10:00:00.000Z
+        "400":
+          description: Validation error
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Not an admin or superadmin
+        "404":
+          description: Admin profile not found
+        "409":
+          description: Email already in use by another account
   /admin/users:
     get:
       summary: List all users with filters and pagination

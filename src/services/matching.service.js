@@ -298,20 +298,75 @@ export const isBloodTypeCompatible = (donorBloodType, requestBloodType) => {
  * @returns {Object} - {eligible: boolean, reason: string}
  */
 export const checkEligibility = async (donor, request, options = {}) => {
-  const donorEligibility = await canDonate(donor, { persistTravelDeferral: false, donationType: request?.type, ...options });
-  if (!donorEligibility.eligible) {
-    return donorEligibility;
+  // 1. Donor account active
+  if (!donor || donor.deletedAt) {
+    return { eligible: false, reason: 'Donor account is deleted or inactive' };
+  }
+  if (donor.role && donor.role !== 'donor') {
+    return { eligible: false, reason: 'Invalid donor role' };
   }
 
+  // 2. Not suspended
+  if (donor.isSuspended) {
+    return { eligible: false, reason: 'Donor account is suspended' };
+  }
+
+  // 3. Donor availability status (only if matching / displaying / accepting requests)
+  if (!options.allowOptedOut && donor.isOptedIn === false) {
+    return { eligible: false, reason: ELIGIBILITY_KEYS.DONOR_OPTED_OUT_OF_MATCHING };
+  }
+
+  // 4. Any existing medical restrictions
+  if (donor.healthHistory?.chronicConditions && donor.healthHistory.chronicConditions.length > 0) {
+    return { eligible: false, reason: 'Donor has chronic medical conditions' };
+  }
+
+  // 5. Blood type compatibility
   if (!donor.bloodType) {
     return { eligible: false, reason: ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE };
   }
-
-  if (normalizeBloodTypeList(request?.bloodType).length > 0 && !isBloodTypeCompatible(donor.bloodType, request.bloodType)) {
+  const requestBloodTypes = normalizeBloodTypeList(request?.bloodType);
+  if (requestBloodTypes.length > 0 && !isBloodTypeCompatible(donor.bloodType, requestBloodTypes)) {
     return {
       eligible: false,
       reason: ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE,
     };
+  }
+
+  // 6. Eligibility rules & Cooldown period completed & Not deferred
+  const donorEligibility = await canDonate(donor, {
+    persistTravelDeferral: false,
+    donationType: request?.type || 'blood',
+    ...options
+  });
+  if (!donorEligibility.eligible) {
+    return donorEligibility;
+  }
+
+  // 7. Within request radius/distance limits
+  const donorLocation = extractDonorLocation(donor);
+  const requestLocation = extractRequestLocation(request);
+  if (donorLocation && requestLocation) {
+    const distanceKm = geoUtil.calculateDistance(donorLocation, requestLocation);
+    const maxDist = ['high', 'critical'].includes(request.urgency)
+      ? EMERGENCY_MATCHING_DISTANCE_KM
+      : DEFAULT_MATCHING_DISTANCE_KM;
+    const radiusKm = request.escalationLevel === 3 ? maxDist * 2.0 : maxDist;
+    if (!Number.isFinite(distanceKm) || distanceKm > radiusKm) {
+      return { eligible: false, reason: ELIGIBILITY_KEYS.OUTSIDE_MATCHING_RADIUS };
+    }
+  }
+
+  // 8. Donor has not already rejected or completed this request
+  if (request?._id && !options.isAppointment) {
+    const hasPriorDonation = await Donation.exists({
+      donorId: donor._id,
+      requestId: request._id,
+      status: { $in: ['completed', 'rejected', 'expired'] }
+    });
+    if (hasPriorDonation) {
+      return { eligible: false, reason: 'Donor has already completed or rejected this request' };
+    }
   }
 
   return { eligible: true, reason: ELIGIBILITY_KEYS.DONOR_ELIGIBLE };
@@ -330,9 +385,14 @@ export const findCompatibleDonors = async (requestId) => {
 
   // Fix #4 (HIGH): Use a wider matching radius for high/critical urgency requests
   // so more donors are reachable in time-sensitive situations.
-  const radiusKm = ['high', 'critical'].includes(request.urgency)
+  let radiusKm = ['high', 'critical'].includes(request.urgency)
     ? EMERGENCY_MATCHING_DISTANCE_KM
     : DEFAULT_MATCHING_DISTANCE_KM;
+
+  // Expand radius if escalationLevel is 3 (Attempt 3: Expanded donor pool)
+  if (request.escalationLevel === 3) {
+    radiusKm = radiusKm * 2.0;
+  }
 
   // Pre-filter by participation preference + blood type at DB level.
   // Medical eligibility and hard distance filtering are evaluated dynamically below.
@@ -367,7 +427,7 @@ export const findCompatibleDonors = async (requestId) => {
     Donation.find({
       donorId: { $in: donorIds },
       requestId,
-      status: { $nin: ['cancelled', 'rejected'] },
+      status: { $in: ['completed', 'rejected', 'expired'] },
     }).select('donorId'),
     Donation.find({
       donorId: { $in: donorIds },
@@ -586,7 +646,7 @@ export const findCompatibleRequests = async (donorId, { radiusKm = DEFAULT_MATCH
     Donation.find({
       donorId,
       requestId: { $in: requestIds },
-      status: { $nin: ['cancelled', 'rejected'] },
+      status: { $in: ['completed', 'rejected'] },
     }).select('requestId'),
     Appointment.find({
       donorId,

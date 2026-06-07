@@ -1,4 +1,5 @@
 import RewardsConfig, { DEFAULT_REWARDS_CONFIG, REWARDS_CONFIG_KEY } from '../models/RewardsConfig.model.js';
+import { logAudit } from './audit.service.js';
 
 let cachedRewardsConfig = null;
 
@@ -87,6 +88,11 @@ export const updateRewardsConfig = async (updates = {}, updatedBy = null) => {
   );
 
   cachedRewardsConfig = toPlainConfig(config);
+
+  if (updatedBy) {
+    await logAudit(updatedBy, 'admin.update_rewards_config', 'System', config._id, sanitizedConfig);
+  }
+
   return cloneConfig(cachedRewardsConfig);
 };
 

@@ -37,6 +37,48 @@ export const getAdminProfile = async (req, res, next) => {
   }
 };
 
+export const updateAdminProfile = async (req, res, next) => {
+  try {
+    const { fullName, email, phone, address, location } = req.body;
+
+    const result = await adminService.updateAdminProfile(req.user._id, {
+      fullName,
+      email,
+      phone,
+      address,
+      location,
+    });
+
+    if (!result || !result.admin) {
+      return response.error(res, 404, 'Admin profile not found');
+    }
+
+    const { admin, emailChanged } = result;
+    const adminObj = admin.toObject();
+    delete adminObj.password;
+
+    const payload = { admin: adminObj };
+    if (emailChanged) {
+      payload.note = 'Email changed — check your inbox to re-verify your address';
+    }
+
+    return response.success(res, 200, 'Admin profile updated successfully', payload);
+  } catch (error) {
+    if (error.message === 'Email is already in use by another account') {
+      return response.error(res, 409, error.message);
+    }
+    if (error?.name === 'ValidationError') {
+      const details = Object.values(error.errors || {}).map((item) => item.message);
+      return response.error(res, 400, details[0] || error.message, details);
+    }
+    if (error?.code === 11000) {
+      const field = Object.keys(error.keyPattern || {})[0];
+      return response.error(res, 409, field ? `Duplicate ${field}` : error.message);
+    }
+    next(error);
+  }
+};
+
 export const getProfile = getAdminProfile;
 
 /** GET /admin/system/health */
@@ -1044,6 +1086,8 @@ export const updateBadge = async (req, res, next) => {
     if (!badge) {
       return response.error(res, 404, 'Badge not found');
     }
+
+    await adminService.logBadgeUpdate(req.user?._id, badge._id, update);
 
     return response.success(res, 200, 'Badge updated successfully', { badge });
   } catch (error) {

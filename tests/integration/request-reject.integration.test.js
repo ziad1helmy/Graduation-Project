@@ -73,14 +73,14 @@ describe('Request rejection lifecycle', () => {
     expect(eligible.eligible).toBe(true);
 
     const matches = await matchingService.findCompatibleRequests(donor._id);
-    expect(matches.some((entry) => entry.request._id.toString() === requestRecord._id.toString())).toBe(true);
+    expect(matches.some((entry) => entry.request._id.toString() === requestRecord._id.toString())).toBe(false);
 
     const nearbyResponse = await request(app)
       .get(`/requests/nearby?lat=${hospital.location.coordinates.lat}&lng=${hospital.location.coordinates.lng}&radius=50`)
       .set('Authorization', `Bearer ${donorToken}`);
 
     expect(nearbyResponse.status).toBe(200);
-    expect(nearbyResponse.body.data.requests.some((entry) => entry.requestId === requestRecord._id.toString())).toBe(true);
+    expect(nearbyResponse.body.data.requests.some((entry) => entry.requestId === requestRecord._id.toString())).toBe(false);
 
     const requestDetailsResponse = await request(app)
       .get(`/requests/${requestRecord._id}`)

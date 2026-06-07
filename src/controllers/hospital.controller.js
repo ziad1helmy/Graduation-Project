@@ -825,6 +825,36 @@ export const getRequests = async (req, res, next) => {
   }
 };
 
+const formatRequestDetailResponse = (request, donations) => {
+  const responded = donations.length;
+  const confirmed = donations.filter(d => ['scheduled', 'completed'].includes(d.status)).length;
+  const diffMs = new Date(request.requiredBy).getTime() - Date.now();
+  let timeRemaining = 'Expired';
+  if (diffMs > 0) {
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+    if (diffDays > 0) {
+      const remainingHours = diffHours % 24;
+      timeRemaining = `${diffDays}d ${remainingHours}h remaining`;
+    } else if (diffHours > 0) {
+      const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      timeRemaining = `${diffHours}h ${diffMins}m remaining`;
+    } else {
+      const diffMins = Math.floor(diffMs / (1000 * 60));
+      timeRemaining = `${diffMins}m remaining`;
+    }
+  }
+
+  return {
+    bloodTypes: request.bloodType,
+    unitsNeeded: request.unitsNeeded,
+    urgency: request.urgency,
+    timeRemaining,
+    responded,
+    confirmed,
+  };
+};
+
 // Get specific request details
 export const getRequestDetails = async (req, res, next) => {
   try {
@@ -850,12 +880,8 @@ export const getRequestDetails = async (req, res, next) => {
       'fullName email phoneNumber location bloodType lastDonationDate'
     );
 
-    response.success(res, 200, 'Request details retrieved successfully', {
-      request,
-      donations,
-      responseCount: donations.length,
-      donationCount: donations.length,
-    });
+    const responseData = formatRequestDetailResponse(request, donations);
+    response.success(res, 200, 'Request details retrieved successfully', responseData);
   } catch (error) {
     next(error);
   }
@@ -883,7 +909,9 @@ export const updateRequest = async (req, res, next) => {
 
     // No-op: if the request is already in the desired state, return success.
     if (request.status === status) {
-      return response.success(res, 200, 'Request status updated successfully', request);
+      const donations = await Donation.find({ requestId: request._id });
+      const responseData = formatRequestDetailResponse(request, donations);
+      return response.success(res, 200, 'Request status updated successfully', responseData);
     }
 
     // Guard: validate transition through the centralized state machine.
@@ -932,63 +960,9 @@ export const updateRequest = async (req, res, next) => {
       session.endSession();
     }
 
-    response.success(res, 200, 'Request status updated successfully', updatedRequest);
-  } catch (error) {
-    next(error);
-  }
-};
-
-// Close a request (set status to 'completed')
-export const closeRequest = async (req, res, next) => {
-  try {
-    const { requestId } = req.params;
-
-    const request = await Request.findById(requestId);
-    if (!request) {
-      return response.error(res, 404, 'Request not found');
-    }
-
-    // Verify hospital ownership
-    if (request.hospitalId.toString() !== req.user.userId.toString()) {
-      return response.error(res, 403, 'Unauthorized access to this request');
-    }
-
-    // Guard: only non-terminal requests can be closed.
-    try {
-      validateTransition('request', request.status, 'completed');
-    } catch (err) {
-      return response.error(res, 400, err.message);
-    }
-
-    const completedDonation = await Donation.findOne({
-      requestId: request._id,
-      status: 'completed',
-    });
-    if (!completedDonation) {
-      return response.error(res, 400, 'Cannot close request: no completed donation found for this request. Use cancel instead.');
-    }
-
-    const completedAt = new Date();
-    const session = await mongoose.startSession();
-    let updatedRequest;
-    try {
-      await session.withTransaction(async () => {
-        updatedRequest = await Request.findByIdAndUpdate(
-          requestId,
-          { status: 'completed', completedAt },
-          { returnDocument: 'after', session }
-        );
-        await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
-          cancelledAt: completedAt,
-          notes: 'Appointment cancelled because the linked request was completed',
-          session,
-        });
-      });
-    } finally {
-      session.endSession();
-    }
-
-    return response.success(res, 200, 'Request closed successfully', updatedRequest);
+    const donations = await Donation.find({ requestId: updatedRequest._id });
+    const responseData = formatRequestDetailResponse(updatedRequest, donations);
+    response.success(res, 200, 'Request status updated successfully', responseData);
   } catch (error) {
     next(error);
   }
@@ -1300,7 +1274,6 @@ export const getMonthlyReports = async (req, res, next) => {
 
     const responseCount = donationsAgg.length;
     const totalResponses = donationsAgg.length;
-    const uniqueDonorsResponded = new Set(donationsAgg.map((d) => d.donorId?.toString())).size;
     const confirmedDonorCount = new Set(donationsAgg.filter((d) => ['scheduled', 'completed'].includes(d.status)).map((d) => d.donorId?.toString())).size;
 
     // Request deadline metrics
@@ -1350,7 +1323,6 @@ export const getMonthlyReports = async (req, res, next) => {
       totalResponses,
       totalDonations: totalResponses,
       completedDonations: donationsAgg.filter((d) => d.status === 'completed').length,
-      uniqueDonorsResponded,
       confirmedDonorCount,
       overdueCount,
       dueSoonCount,

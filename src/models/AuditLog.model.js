@@ -32,6 +32,11 @@ const auditLogSchema = new mongoose.Schema(
     targetId: {
       type: mongoose.Schema.Types.ObjectId,
     },
+
+    changes: {
+      type: mongoose.Schema.Types.Mixed,
+      default: null,
+    },
   },
   {
     timestamps: { createdAt: true, updatedAt: false },

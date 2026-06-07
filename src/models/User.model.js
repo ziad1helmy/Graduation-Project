@@ -199,6 +199,141 @@ userSchema.pre('save', async function () {
   });
 });
 
+/**
+ * CASCADE INTEGRITY HOOK - Handle soft-deletion cascades
+ *
+ * When User.deletedAt is set:
+ * - Donor deletion: Cancel pending/scheduled donations; cancel related appointments
+ * - Hospital deletion: Cancel pending/in-progress requests; cancel related appointments
+ * - Prevent orphaned records and broken referential integrity
+ */
+userSchema.post('findByIdAndUpdate', async function () {
+  try {
+    const user = this.getUpdate?.()?.['$set'] || this.getUpdate?.();
+    const isDeleted = user?.deletedAt !== undefined || user?.deletedAt !== null;
+
+    if (!isDeleted) return;
+
+    const userId = this.getFilter?.()?.['_id'] || this._conditions?._id;
+    if (!userId) return;
+
+    // Dynamic import to avoid circular dependencies
+    const { default: Donation } = await import('./Donation.model.js');
+    const { default: Appointment } = await import('./Appointment.model.js');
+    const { default: Request } = await import('./Request.model.js');
+    const { default: UserBadge } = await import('./UserBadge.model.js');
+    const { default: Notification } = await import('./Notification.model.js');
+
+    const session = this.session || (await mongoose.startSession());
+
+    try {
+      // Get user details to determine role
+      const fullUser = await User.findById(userId).session(session);
+      if (!fullUser) return;
+
+      if (fullUser.role === 'donor') {
+        // Cancel all pending/scheduled donations from this donor
+        await Donation.updateMany(
+          {
+            donorId: userId,
+            status: { $in: ['pending', 'scheduled'] },
+          },
+          {
+            $set: { status: 'cancelled', cancelledAt: new Date() },
+          },
+          { session }
+        );
+
+        // Cancel all pending/confirmed appointments for this donor
+        await Appointment.updateMany(
+          {
+            donorId: userId,
+            status: { $in: ['pending', 'confirmed'] },
+          },
+          {
+            $set: { status: 'cancelled', cancelledAt: new Date() },
+          },
+          { session }
+        );
+
+        // Clean up user badges (orphaned progress records)
+        await UserBadge.deleteMany(
+          { donorId: userId },
+          { session }
+        );
+      } else if (fullUser.role === 'hospital') {
+        // Cancel all pending/in-progress requests from this hospital
+        await Request.updateMany(
+          {
+            hospitalId: userId,
+            status: { $in: ['pending', 'in-progress', 'accepted'] },
+          },
+          {
+            $set: { status: 'cancelled', cancelledAt: new Date() },
+          },
+          { session }
+        );
+
+        // Cancel all pending/confirmed appointments for this hospital
+        await Appointment.updateMany(
+          {
+            hospitalId: userId,
+            status: { $in: ['pending', 'confirmed'] },
+          },
+          {
+            $set: { status: 'cancelled', cancelledAt: new Date() },
+          },
+          { session }
+        );
+
+        // Cancel all donations for appointments belonging to this hospital
+        const hospitalAppointments = await Appointment.find(
+          { hospitalId: userId },
+          { _id: 1 },
+          { session }
+        );
+        const appointmentIds = hospitalAppointments.map((a) => a._id);
+        if (appointmentIds.length > 0) {
+          await Donation.updateMany(
+            { appointmentId: { $in: appointmentIds } },
+            {
+              $set: { status: 'cancelled', cancelledAt: new Date() },
+            },
+            { session }
+          );
+        }
+      }
+
+      // Clean up orphaned notifications for any deleted user
+      await Notification.deleteMany(
+        { userId },
+        { session }
+      );
+
+      logger.info('User cascade deletion completed', {
+        userId,
+        role: fullUser.role,
+      });
+
+      if (!this.session) await session.commitTransaction();
+    } catch (error) {
+      if (!this.session) await session.abortTransaction();
+      logger.error('User cascade deletion failed', {
+        userId,
+        error: error.message,
+      });
+      throw error;
+    } finally {
+      if (!this.session) await session.endSession();
+    }
+  } catch (error) {
+    logger.error('User cascade hook error', {
+      error: error.message,
+    });
+    // Don't throw - let the delete succeed but log the error
+  }
+});
+
 userSchema.methods.createPasswordResetToken = function () {
   const resetToken = crypto.randomBytes(32).toString('hex');
 
