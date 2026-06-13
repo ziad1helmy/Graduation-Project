@@ -107,13 +107,6 @@ const parseHourLabel = (value) => {
   return hourPart;
 };
 
-const toPlainObject = (value) => {
-  if (!value) return {};
-  if (typeof value.toObject === 'function') return value.toObject();
-  if (value instanceof Map) return Object.fromEntries(value.entries());
-  return typeof value === 'object' && !Array.isArray(value) ? { ...value } : {};
-};
-
 const buildHourlySlots = (openingTime, closingTime, slotsPerHour, preservedSlots = {}, overrides = {}) => {
   const startHour = parseHourLabel(openingTime);
   const endHour = parseHourLabel(closingTime);
