@@ -20,12 +20,21 @@ describe('Analytics Service', () => {
 
     const summary = await analyticsService.getDashboardSummary();
 
-    expect(summary).toHaveProperty('users');
-    expect(summary).toHaveProperty('requests');
-    expect(summary).toHaveProperty('donations');
-    expect(summary).toHaveProperty('alerts');
-    expect(summary.users.donors).toBeGreaterThan(0);
-    expect(summary.requests.critical).toBeGreaterThan(0);
+    expect(summary).toHaveProperty('totalDonors');
+    expect(summary).toHaveProperty('totalDonorsGrowth');
+    expect(summary).toHaveProperty('activeRequests');
+    expect(summary).toHaveProperty('activeRequestsGrowth');
+    expect(summary).toHaveProperty('criticalCases');
+    expect(summary).toHaveProperty('criticalCasesGrowth');
+    expect(summary).toHaveProperty('successfulDonations');
+    expect(summary).toHaveProperty('successfulDonationsGrowth');
+    expect(summary).toHaveProperty('weeklyTrends');
+    expect(summary).toHaveProperty('criticalAlerts');
+    expect(summary).toHaveProperty('bloodTypeDistribution');
+    expect(summary).toHaveProperty('topDonors');
+    expect(summary).toHaveProperty('aiInsights');
+    expect(summary.totalDonors).toBeGreaterThan(0);
+    expect(summary.criticalCases).toBeGreaterThan(0);
   });
 
   it('getDonationTrends aggregates monthly donation data', async () => {
@@ -38,17 +47,20 @@ describe('Analytics Service', () => {
     await createDonation(donor._id, request._id, { status: 'completed', quantity: 1 });
     await createDonation(donor._id, request._id, { status: 'cancelled' });
 
-    const trends = await analyticsService.getDonationTrends(6);
+    const result = await analyticsService.getDonationTrends(6);
 
-    expect(Array.isArray(trends)).toBe(true);
-    const currentMonth = trends.find((t) => t.month === new Date().getMonth() + 1);
+    expect(result).toHaveProperty('trends');
+    expect(result).toHaveProperty('dailyTrends');
+    expect(result).toHaveProperty('regionalBreakdown');
+    expect(Array.isArray(result.trends)).toBe(true);
+    const currentMonth = result.trends.find((t) => t.month === new Date().getMonth() + 1);
     expect(currentMonth).toBeTruthy();
     expect(currentMonth.total).toBeGreaterThanOrEqual(3);
-    expect(currentMonth.totalAttempts).toBe(currentMonth.total);
-    expect(currentMonth.totalResponses).toBe(currentMonth.total);
     expect(currentMonth.successRate).toBeTruthy();
-    expect(trends.dailyTrends[0]).toHaveProperty('totalAttempts');
-    expect(trends.dailyTrends[0]).toHaveProperty('totalResponses');
+    expect(result.dailyTrends[0]).toHaveProperty('date');
+    expect(result.dailyTrends[0]).toHaveProperty('completed');
+    expect(result.dailyTrends[0]).toHaveProperty('pending');
+    expect(result.dailyTrends[0]).toHaveProperty('cancelled');
   });
 
   it('getBloodTypeDistribution returns donor and request distribution', async () => {

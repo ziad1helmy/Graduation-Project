@@ -21,7 +21,7 @@ import {
   validateCreateRequestBody,
   validateCreateEmergencyRequestBody,
 } from '../validation/hospital.validation.js';
-import { normalizeBloodTypeList } from '../utils/blood-type.js';
+import { normalizeBloodTypeList, extractFirstBloodType } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { validateTransition } from '../utils/state-machine.js';
 
@@ -428,6 +428,88 @@ const getOrCreateHospitalSettings = async (hospitalId) => {
  * Hospital Controller - Handles hospital-specific operations
  */
 
+const buildHospitalProfileStats = async (hospitalId) => {
+  const hospitalObjectId = new mongoose.Types.ObjectId(hospitalId);
+  const [requestStats, donorStats, donationStats] = await Promise.all([
+    Request.aggregate([
+      { $match: { hospitalId: hospitalObjectId } },
+      { $group: { _id: '$status', count: { $sum: 1 } } },
+    ]),
+    Donation.aggregate([
+      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+      { $unwind: '$request' },
+      { $match: { 'request.hospitalId': hospitalObjectId } },
+      { $group: { _id: '$donorId' } },
+      { $count: 'count' },
+    ]),
+    Donation.aggregate([
+      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+      { $unwind: '$request' },
+      { $match: { 'request.hospitalId': hospitalObjectId, status: 'completed' } },
+      { $count: 'count' },
+    ]),
+  ]);
+
+  const statusCounts = requestStats.reduce((acc, item) => {
+    acc[item._id] = item.count;
+    return acc;
+  }, {});
+
+  const totalRequests = Object.values(statusCounts).reduce((sum, n) => sum + n, 0);
+  const pendingRequests = (statusCounts.pending || 0) + (statusCounts.accepted || 0) + (statusCounts['in-progress'] || 0);
+  const completedRequests = statusCounts.completed || 0;
+  const cancelledRequests = statusCounts.cancelled || 0;
+  const expiredRequests = statusCounts.expired || 0;
+  const totalDonors = donorStats[0]?.count || 0;
+  const completedDonations = donationStats[0]?.count || 0;
+
+  return {
+    totalRequests,
+    pendingRequests,
+    completedRequests,
+    cancelledRequests,
+    expiredRequests,
+    totalDonors,
+    totalDonations: completedDonations,
+    completedDonations,
+  };
+};
+
+const toHospitalProfilePayload = (hospitalDoc, stats) => {
+  const hospital = hospitalDoc?.toObject ? hospitalDoc.toObject() : { ...hospitalDoc };
+  delete hospital.password;
+
+  const lat = Number(hospital.lat ?? hospital.location?.coordinates?.lat);
+  const lng = Number(hospital.long ?? hospital.location?.coordinates?.lng);
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
+  const city = hospital.city || hospital.address?.city || hospital.location?.city || null;
+  const governorate = hospital.state || hospital.address?.governorate || hospital.location?.governorate || null;
+
+  const location = {
+    ...(city ? { city } : {}),
+    ...(governorate ? { governorate } : {}),
+    ...(hasCoords
+      ? { coordinates: { lat, lng } }
+      : {}),
+  };
+
+  return {
+    ...hospital,
+    location,
+    stats: stats || {
+      totalRequests: 0,
+      pendingRequests: 0,
+      completedRequests: 0,
+      cancelledRequests: 0,
+      expiredRequests: 0,
+      totalDonors: 0,
+      totalDonations: 0,
+      completedDonations: 0,
+    },
+  };
+};
+
 // Get hospital profile
 export const getProfile = async (req, res, next) => {
   try {
@@ -435,10 +517,43 @@ export const getProfile = async (req, res, next) => {
     if (!hospital) {
       return response.error(res, 404, 'Hospital profile not found');
     }
-    response.success(res, 200, 'Hospital profile retrieved successfully', hospital);
+    const stats = await buildHospitalProfileStats(req.user.userId);
+    response.success(res, 200, 'Hospital profile retrieved successfully', toHospitalProfilePayload(hospital, stats));
   } catch (error) {
     next(error);
   }
+};
+
+export const toHospitalRequestResponse = (requestDoc) => {
+  const request = requestDoc?.toObject ? requestDoc.toObject() : { ...requestDoc };
+  const unitsNeeded = Number(request.unitsNeeded ?? request.quantity ?? 1);
+  const status = request.status || null;
+  const isFulfilled = status === 'completed';
+
+  const hospital = request.hospitalId && typeof request.hospitalId === 'object' && request.hospitalId._id
+    ? request.hospitalId
+    : null;
+
+  return {
+    ...request,
+    id: request._id?.toString?.() || request.id,
+    requestId: request._id?.toString?.() || request.requestId,
+    bloodType: extractFirstBloodType(request.bloodType),
+    unitsNeeded,
+    unitsRequested: unitsNeeded,
+    isFulfilled,
+    status,
+    requestStatus: status,
+    hospital: hospital
+      ? {
+          id: hospital._id?.toString?.() || null,
+          name: hospital.hospitalName || hospital.fullName || null,
+          hospitalName: hospital.hospitalName || hospital.fullName || null,
+        }
+      : request.hospitalId
+        ? { id: request.hospitalId.toString(), name: request.hospitalName || null, hospitalName: request.hospitalName || null }
+        : null,
+  };
 };
 
 export const findDonors = async (req, res, next) => {
@@ -491,18 +606,26 @@ export const findDonors = async (req, res, next) => {
       location: searchLocation,
     });
 
-    const donors = matches.map(({ donor, distanceKm }) => ({
-      donorId: donor._id.toString(),
-      fullName: donor.fullName,
-      bloodType: donor.bloodType,
-      email: donor.email || null,
-      distance: formatDistance(distanceKm),
-      distanceKm,
-      distanceMeters: distanceKm === null ? null : Math.round(distanceKm * 1000),
-      isOptedIn: Boolean(donor.isOptedIn ?? true),
-      phoneNumber: donor.phoneNumber || null,
-      location: toLocation(donor.location?.coordinates),
-    }));
+    const donors = matches.map(({ donor, distanceKm }) => {
+      const coordinates = toLocation(donor.location?.coordinates);
+      return {
+        id: donor._id.toString(),
+        donorId: donor._id.toString(),
+        name: donor.fullName,
+        fullName: donor.fullName,
+        bloodType: donor.bloodType,
+        email: donor.email || null,
+        phoneNumber: donor.phoneNumber || null,
+        distance: formatDistance(distanceKm),
+        distanceInKm: distanceKm,
+        distanceKm,
+        distanceMeters: distanceKm === null ? null : Math.round(distanceKm * 1000),
+        isOptedIn: Boolean(donor.isOptedIn ?? true),
+        latitude: coordinates?.lat ?? null,
+        longitude: coordinates?.lng ?? null,
+        location: coordinates,
+      };
+    });
 
     const paginatedDonors = donors.slice(offset, offset + limit);
     const pagination = paginationMeta(donors.length, page, limit);
@@ -604,10 +727,9 @@ export const updateProfile = async (req, res, next) => {
 
     await hospital.save();
 
-    const hospitalObj = hospital.toObject();
-    delete hospitalObj.password;
+    const stats = await buildHospitalProfileStats(req.user.userId);
 
-    response.success(res, 200, 'Hospital profile updated successfully', hospitalObj);
+    response.success(res, 200, 'Hospital profile updated successfully', toHospitalProfilePayload(hospital, stats));
   } catch (error) {
     if (error.name === 'ValidationError') {
       return response.error(res, 400, error.message);
@@ -744,6 +866,8 @@ const createRequestFromHospital = async (req, res, next, { emergencyOnly = false
 
     await donRequest.populate('hospitalId', 'fullName hospitalName address contactNumber');
 
+    response.success(res, 201, 'Donation request created successfully', toHospitalRequestResponse(donRequest));
+
     if (requestData.isEmergency) {
       try {
         const compatibleDonors = await matchingService.findCompatibleDonors(donRequest._id);
@@ -782,8 +906,6 @@ const createRequestFromHospital = async (req, res, next, { emergencyOnly = false
         } catch (ignore) {}
       }
     }
-
-    response.success(res, 201, 'Donation request created successfully', donRequest);
   } catch (error) {
     if (error.name === 'ValidationError') {
       return response.error(res, 400, error.message);
@@ -817,7 +939,7 @@ export const getRequests = async (req, res, next) => {
     ]);
 
     response.success(res, 200, 'Requests retrieved successfully', {
-      requests,
+      requests: requests.map(toHospitalRequestResponse),
       pagination: paginationMeta(total, page, limit),
     });
   } catch (error) {
@@ -1311,6 +1433,24 @@ export const getMonthlyReports = async (req, res, next) => {
     ]);
     const recentCompletedDonationCount = recentCompletedDonationAgg[0]?.count || 0;
 
+    // Donations created today for this hospital (used by Hospital dashboard widget)
+    const startOfToday = new Date(now);
+    startOfToday.setHours(0, 0, 0, 0);
+    const endOfToday = new Date(startOfToday);
+    endOfToday.setDate(endOfToday.getDate() + 1);
+    const responsesTodayAgg = await Donation.aggregate([
+      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+      { $unwind: '$request' },
+      {
+        $match: {
+          'request.hospitalId': hospitalObjectId,
+          createdAt: { $gte: startOfToday, $lt: endOfToday },
+        },
+      },
+      { $count: 'count' },
+    ]);
+    const responsesToday = responsesTodayAgg[0]?.count || 0;
+
     return response.success(res, 200, 'Monthly report retrieved successfully', {
       month,
       totalRequests,
@@ -1329,6 +1469,7 @@ export const getMonthlyReports = async (req, res, next) => {
       avgDaysToRequiredBy,
       recentActivityCount,
       recentCompletedDonationCount,
+      responsesToday,
     });
   } catch (error) {
     next(error);
@@ -1383,15 +1524,17 @@ export const getRequestHistory = async (req, res, next) => {
             $cond: [
               { $and: [{ $ne: ['$createdAt', null] }, { $ne: ['$completedAt', null] }] },
               {
-                $round: [
-                  {
-                    $divide: [
-                      { $subtract: ['$completedAt', '$createdAt'] },
-                      3600000,
-                    ],
-                  },
-                  2,
-                ],
+                $toInt: {
+                  $round: [
+                    {
+                      $divide: [
+                        { $subtract: ['$completedAt', '$createdAt'] },
+                        3600000,
+                      ],
+                    },
+                    0,
+                  ],
+                },
               },
               null,
             ],
@@ -1447,13 +1590,7 @@ export const getRequestHistory = async (req, res, next) => {
                       { $ne: ['$$lng', null] },
                     ],
                   },
-                  {
-                    $concat: [
-                      { $toString: '$$lat' },
-                      ', ',
-                      { $toString: '$$lng' },
-                    ],
-                  },
+                  { coordinates: { lat: '$$lat', lng: '$$lng' } },
                   null,
                 ],
               },

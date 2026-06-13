@@ -11,7 +11,6 @@ import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import {
   validateMaintenanceBody,
   validateListUsersQuery,
-  validateSuspendBody,
   validateCreateHospitalBody,
   validateCreateAdminBody,
   validateListRequestsQuery,
@@ -432,7 +431,7 @@ export const getUserStats = async (req, res, next) => {
 /** GET /admin/users/:id */
 export const getUserById = async (req, res, next) => {
   try {
-    const user = await adminService.getUserById(req.params.id);
+    const user = await adminService.getUserById(req.params.id, req.user.role);
     if (!user) {
       return response.error(res, 404, 'User not found');
     }
@@ -442,61 +441,27 @@ export const getUserById = async (req, res, next) => {
   }
 };
 
-/** PATCH /admin/users/:id/verify */
-export const verifyUser = async (req, res, next) => {
+/** GET /admin/donors/:id */
+export const getDonorById = async (req, res, next) => {
   try {
-    const user = await adminService.verifyUser(req.params.id, req.user._id);
+    const user = await adminService.getUserById(req.params.id, req.user.role, 'donor');
     if (!user) {
-      return response.error(res, 404, 'User not found');
+      return response.error(res, 404, 'Donor not found');
     }
-    return response.success(res, 200, 'User verified successfully', { user });
+    return response.success(res, 200, 'Donor details', { user });
   } catch (error) {
     next(error);
   }
 };
 
-/** PATCH /admin/users/:id/unverify */
-export const unverifyUser = async (req, res, next) => {
+/** GET /admin/hospitals/:id */
+export const getHospitalById = async (req, res, next) => {
   try {
-    const user = await adminService.unverifyUser(req.params.id, req.user._id);
+    const user = await adminService.getUserById(req.params.id, req.user.role, 'hospital');
     if (!user) {
-      return response.error(res, 404, 'User not found');
+      return response.error(res, 404, 'Hospital not found');
     }
-    return response.success(res, 200, 'User unverified successfully', { user });
-  } catch (error) {
-    next(error);
-  }
-};
-
-/** PATCH /admin/users/:id/suspend */
-export const suspendUser = async (req, res, next) => {
-  try {
-    const validation = validateSuspendBody(req.body);
-    if (!validation.valid) {
-      return response.error(res, 400, validation.errors.join(', '));
-    }
-
-    const user = await adminService.suspendUser(req.params.id, req.body.reason, req.user._id);
-    if (!user) {
-      return response.error(res, 404, 'User not found');
-    }
-    return response.success(res, 200, 'User suspended successfully', { user });
-  } catch (error) {
-    if (error.message === ERR.ADMIN_CANNOT_SUSPEND) {
-      return response.error(res, 403, error.message);
-    }
-    next(error);
-  }
-};
-
-/** PATCH /admin/users/:id/unsuspend */
-export const unsuspendUser = async (req, res, next) => {
-  try {
-    const user = await adminService.unsuspendUser(req.params.id, req.user._id);
-    if (!user) {
-      return response.error(res, 404, 'User not found');
-    }
-    return response.success(res, 200, 'User unsuspended successfully', { user });
+    return response.success(res, 200, 'Hospital details', { user });
   } catch (error) {
     next(error);
   }
@@ -627,6 +592,9 @@ export const updateAdmin = async (req, res, next) => {
     }
     return response.success(res, 200, 'Admin updated successfully', { admin });
   } catch (error) {
+    if (error.message === 'Email changes are not supported via this endpoint. Admins must use the self-service profile flow.') {
+      return response.error(res, 400, error.message);
+    }
     if (error.message === ERR.ADMIN_EMAIL_EXISTS) {
       return response.error(res, 409, error.message);
     }
@@ -645,6 +613,21 @@ export const deleteAdmin = async (req, res, next) => {
     if (error.message === 'Cannot delete your own account') {
       return response.error(res, 403, ERR.ADMIN_CANNOT_DELETE_SELF);
     }
+    next(error);
+  }
+};
+
+export const rotateAdminKey = async (req, res, next) => {
+  try {
+    const result = await adminService.rotateAdminKey(req.params.id, req.user._id);
+    if (!result) {
+      return response.error(res, 404, 'Admin not found');
+    }
+    return response.success(res, 200, 'Admin key rotated successfully. The new key is shown only once — store it securely.', {
+      admin: result.admin.toObject(),
+      adminKey: result.plaintextKey,
+    });
+  } catch (error) {
     next(error);
   }
 };
@@ -863,12 +846,8 @@ export const getStatistics = async (req, res, next) => {
 export const getDonationTrends = async (req, res, next) => {
   try {
     const months = parseInt(req.query.months) || 6;
-    const trends = await analyticsService.getDonationTrends(months);
-    return response.success(res, 200, 'Donation trends', {
-      trends,
-      dailyTrends: trends.dailyTrends || [],
-      regionalBreakdown: trends.regionalBreakdown || [],
-    });
+    const result = await analyticsService.getDonationTrends(months);
+    return response.success(res, 200, 'Donation trends', result);
   } catch (error) {
     next(error);
   }

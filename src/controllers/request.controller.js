@@ -675,6 +675,25 @@ export const acceptRequest = async (req, res, next) => {
           throw new Error('Request not found');
         }
 
+        // Guard against the narrow race window where requiredBy passes between
+        // normalizeRequestIfExpired (outside the transaction) and this save.
+        const now = new Date();
+        if (requestToUpdate.requiredBy && requestToUpdate.requiredBy <= now) {
+          // If the request is still pending, atomically expire it so the next
+          // check (or subsequent retry) sees the correct state.
+          if (requestToUpdate.status === 'pending') {
+            try {
+              validateTransition('request', requestToUpdate.status, 'expired');
+            } catch (err) {
+              throw new Error(err.message);
+            }
+            requestToUpdate.status = 'expired';
+            requestToUpdate.expiredAt = now;
+            await requestToUpdate.save({ session });
+          }
+          throw new Error('Request has expired — the deadline has passed');
+        }
+
         try {
           validateTransition('request', requestToUpdate.status, 'accepted');
         } catch (err) {
@@ -688,7 +707,6 @@ export const acceptRequest = async (req, res, next) => {
         const urgencyKey = requestToUpdate.isEmergency ? 'emergency' : (requestToUpdate.urgency || 'medium');
         const timeouts = URGENCY_TIMEOUTS[urgencyKey] || URGENCY_TIMEOUTS.medium;
         const arrivalWindowMs = timeouts.arrivalWindowMs;
-        const now = new Date();
         const qrExpires = new Date(now.getTime() + arrivalWindowMs);
         const qrToken = crypto.randomBytes(32).toString('hex');
 

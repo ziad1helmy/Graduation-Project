@@ -863,7 +863,9 @@ paths:
         - Auth
       summary: Admin/Superadmin login with email, password, and adminKey
       description: |-
-        Authenticate as admin or superadmin. Requires email, password, and adminKey secret
+        Authenticate as admin or superadmin. Requires email, password, and adminKey secret.
+        The adminKey is stored as a bcrypt hash server-side; the plaintext key is
+        only known to the admin who received it at account creation/rotation.
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com This operation includes a seeded demo request example.
       requestBody:
@@ -2953,6 +2955,7 @@ paths:
         aligned with the seeded demo dataset where possible."
   /donor/rewards:
     get:
+      deprecated: true
       tags:
         - Donor
       summary: Get donor rewards and badge progress
@@ -2986,6 +2989,7 @@ paths:
           description: Unauthorized
   /donor/points:
     get:
+      deprecated: true
       tags:
         - Donor
       summary: Get donor points summary and tier
@@ -3008,6 +3012,7 @@ paths:
                   rewardsAvailable: 5
   /donor/badges:
     get:
+      deprecated: true
       tags:
         - Donor
       summary: Get all badges and donor progress
@@ -3179,6 +3184,7 @@ paths:
           description: Unauthorized
   /donor/redemptions:
     get:
+      deprecated: true
       tags:
         - Donor
       summary: Get donor redemption history
@@ -4381,6 +4387,7 @@ paths:
                   emergencyRequests: 3
                   totalDonations: 7
                   totalResponses: 7
+                  responsesToday: 2
   /hospital/reports/monthly:
     get:
       tags:
@@ -4412,6 +4419,7 @@ paths:
                   emergencyRequests: 4
                   totalDonations: 9
                   totalResponses: 9
+                  responsesToday: 3
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -4459,8 +4467,21 @@ paths:
                     - O-
                     - A+
                   capacity: 120
-                  lat: 30.0444
-                  long: 31.2357
+                  location:
+                    city: Cairo
+                    governorate: Cairo
+                    coordinates:
+                      lat: 30.0444
+                      lng: 31.2357
+                  stats:
+                    totalRequests: 11
+                    pendingRequests: 3
+                    completedRequests: 7
+                    cancelledRequests: 1
+                    expiredRequests: 0
+                    totalDonors: 9
+                    totalDonations: 9
+                    completedDonations: 9
                   workingHours: 9AM - 5PM
         "401":
           description: Missing or invalid JWT token
@@ -4549,6 +4570,15 @@ paths:
                     coordinates:
                       lat: 30.0511
                       lng: 31.2435
+                  stats:
+                    totalRequests: 11
+                    pendingRequests: 3
+                    completedRequests: 7
+                    cancelledRequests: 1
+                    expiredRequests: 0
+                    totalDonors: 9
+                    totalDonations: 9
+                    completedDonations: 9
         "400":
           description: Validation error
         "401":
@@ -5214,18 +5244,26 @@ paths:
                 message: Donation request created successfully
                 data:
                   _id: 66f300000000000000000001
+                  id: 66f300000000000000000001
+                  requestId: 66f300000000000000000001
                   hospitalId:
                     _id: 66f100000000000000000001
                     fullName: Cairo Care Operations
                     hospitalName: Cairo Care Hospital
+                  hospital:
+                    id: 66f100000000000000000001
+                    name: Cairo Care Hospital
+                    hospitalName: Cairo Care Hospital
                   type: blood
-                  bloodType:
-                    - O+
-                    - B-
+                  bloodType: O+
                   urgency: critical
+                  status: pending
+                  requestStatus: pending
                   requiredBy: 2026-05-12T10:00:00.000Z
                   quantity: 3
                   unitsNeeded: 3
+                  unitsRequested: 3
+                  isFulfilled: false
                   patientType: adult
                   isEmergency: true
                   notes: Emergency surgery support
@@ -5293,19 +5331,28 @@ paths:
                 message: Donation request created successfully
                 data:
                   _id: 66f300000000000000000001
+                  id: 66f300000000000000000001
+                  requestId: 66f300000000000000000001
                   hospitalId:
                     _id: 66f100000000000000000001
                     fullName: Cairo Care Operations
                     hospitalName: Cairo Care Hospital
+                  hospital:
+                    id: 66f100000000000000000001
+                    name: Cairo Care Hospital
+                    hospitalName: Cairo Care Hospital
                   hospitalContact: "1044444444"
                   contactNumber: "1044444444"
                   type: blood
-                  bloodType:
-                    - O+
+                  bloodType: O+
                   urgency: critical
+                  status: pending
+                  requestStatus: pending
                   requiredBy: 2026-05-12T10:00:00.000Z
                   quantity: 2
                   unitsNeeded: 2
+                  unitsRequested: 2
+                  isFulfilled: false
                   patientType: Patient requires urgent blood transfusion
                   isEmergency: true
                   notes: Patient requires urgent blood transfusion
@@ -5381,7 +5428,10 @@ paths:
                       requestDate: 2024-09-28T00:00:00.000Z
                       completionTimeInHours: 3
                       priority: critical
-                      location: 30.0444, 31.2357
+                      location:
+                        coordinates:
+                          lat: 30.0444
+                          lng: 31.2357
                       hospitalContact: "01099998888"
                       hospitalName: Al Noor Hospital
                       status: completed
@@ -5447,17 +5497,30 @@ paths:
                 data:
                   requests:
                     - _id: 69fe540565ff7785a0313150
+                      id: 69fe540565ff7785a0313150
+                      requestId: 69fe540565ff7785a0313150
                       type: blood
                       bloodType: A-
                       urgency: high
                       status: in-progress
+                      requestStatus: in-progress
+                      isFulfilled: false
                       quantity: 2
+                      unitsNeeded: 2
+                      unitsRequested: 2
                       requiredBy: 2026-05-18T18:00:00.000Z
                     - _id: 69fe540565ff7785a0313153
+                      id: 69fe540565ff7785a0313153
+                      requestId: 69fe540565ff7785a0313153
                       type: platelets
+                      bloodType: null
                       urgency: pending
                       status: pending
+                      requestStatus: pending
+                      isFulfilled: false
                       quantity: 1
+                      unitsNeeded: 1
+                      unitsRequested: 1
                       requiredBy: 2026-05-19T10:00:00.000Z
                   pagination:
                     total: 2
@@ -5698,27 +5761,37 @@ paths:
                 message: Nearby donors retrieved successfully
                 data:
                   donors:
-                    - donorId: 69f3df915f42685cbbbcbb18
+                    - id: 69f3df915f42685cbbbcbb18
+                      donorId: 69f3df915f42685cbbbcbb18
+                      name: Sarah J.
                       fullName: Sarah J.
                       bloodType: O+
                       email: sarah.j@example.com
+                      phoneNumber: "01012345678"
                       distance: 2.30 km
+                      distanceInKm: 2.3
                       distanceKm: 2.3
                       distanceMeters: 2300
                       isOptedIn: true
-                      phoneNumber: "01012345678"
+                      latitude: 30.0444
+                      longitude: 31.2357
                       location:
                         lat: 30.0444
                         lng: 31.2357
-                    - donorId: 69f3df915f42685cbbbcbb19
+                    - id: 69f3df915f42685cbbbcbb19
+                      donorId: 69f3df915f42685cbbbcbb19
+                      name: Omar F.
                       fullName: Omar F.
                       bloodType: O-
                       email: omar.f@example.com
+                      phoneNumber: "01098765432"
                       distance: 4.10 km
+                      distanceInKm: 4.1
                       distanceKm: 4.1
                       distanceMeters: 4100
                       isOptedIn: true
-                      phoneNumber: "01098765432"
+                      latitude: 30.061
+                      longitude: 31.229
                       location:
                         lat: 30.061
                         lng: 31.229
@@ -6248,6 +6321,7 @@ paths:
           description: Appointment not found
   /requests/{id}/generate-qr:
     post:
+      deprecated: true
       tags:
         - Hospital
       summary: Generate a secure QR token for a request
@@ -6596,7 +6670,7 @@ paths:
                 message: System health
                 data:
                   status: healthy
-                  uptime: 86423.51
+                  uptime: 86423
                   database: connected
                   memory:
                     used: 96 MB
@@ -7014,13 +7088,15 @@ paths:
                       totalUnits: 6
                   regionalBreakdown:
                     - governorate: Cairo
-                      completed: 28
-                      activeRequests: 6
-                      donorsAvailable: 120
+                      requests: 10
+                      activeRequests: 4
+                      completed: 8
+                      donatedUnits: 8
                     - governorate: Giza
-                      completed: 9
-                      activeRequests: 3
-                      donorsAvailable: 45
+                      requests: 3
+                      activeRequests: 1
+                      completed: 1
+                      donatedUnits: 1
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -7074,14 +7150,23 @@ paths:
                 message: Top donors
                 data:
                   topDonors:
-                    - _id: 69f3df915f42685cbbbcbb18
+                    - donorId: 69f3df915f42685cbbbcbb18
                       completedDonations: 12
                       totalUnits: 12
                       lastDonation: 2026-05-10T12:30:00.000Z
-                      donor:
-                        fullName: Aya Hassan
-                        email: aya.hassan@lifelink.demo
-                        bloodType: O+
+                      fullName: Aya Hassan
+                      email: aya.hassan@lifelink.demo
+                      bloodType: O+
+                      location:
+                        city: Cairo
+                        governorate: Cairo
+                        coordinates:
+                          lat: 30.0444
+                          lng: 31.2357
+                      isActive: true
+                      isVerified: true
+                      points: 2400
+                      tier: gold
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -7142,21 +7227,95 @@ paths:
             application/json:
               example:
                 success: true
+                message: Dashboard summary retrieved
                 data:
-                  users:
-                    total: 284
-                    donors: 231
-                    hospitals: 41
-                  requests:
-                    active: 19
-                    critical: 4
-                  donations:
-                    pending: 13
-                    completed: 428
-                  alerts:
-                    unverifiedUsers: 7
-                    suspendedUsers: 3
-                    criticalRequests: 4
+                  totalDonors: 284
+                  totalDonorsGrowth: "+12%"
+                  activeRequests: 23
+                  activeRequestsGrowth: "+5%"
+                  criticalCases: 7
+                  criticalCasesGrowth: "-2%"
+                  successfulDonations: 1500
+                  successfulDonationsGrowth: "+8%"
+                  weeklyTrends:
+                    values: [44, 52, 48, 61, 55, 67, 43]
+                    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                  criticalAlerts:
+                    - id: "alert1"
+                      title: "Critical Blood Shortage"
+                      type: "critical"
+                      description: "City Hospital is critically low on O- blood. Only 2 units remaining."
+                      unitsNeeded: 20
+                      bloodTypesNeeded: ["O-"]
+                      hospitalId: "H001"
+                      hospitalName: "City Hospital"
+                      hospitalContact: "+201141935341"
+                      location: "Cairo, Egypt"
+                      latitude: 30.0444
+                      longitude: 31.2357
+                      predictMatchPercentage: 75
+                      date: "2026-06-13T03:53:00.000Z"
+                      createdAt: "2026-06-13T03:53:00.000Z"
+                  bloodTypeDistribution:
+                    "O+": 900
+                    "A+": 650
+                    "B+": 400
+                    "O-": 220
+                    "A-": 300
+                    "B-": 240
+                    "AB+": 80
+                    "AB-": 60
+                  topDonors:
+                    - id: "1"
+                      name: "Ahmed Mohamed"
+                      email: "ahmed@gmail.com"
+                      phoneNumber: "01012345678"
+                      bloodType: "O+"
+                      totalDonations: 12
+                      points: 240
+                      isEligibleToDonate: true
+                      isActive: true
+                      isVerified: true
+                      location: "Cairo"
+                      gender: "Male"
+                      age: 25
+                      weight: 75
+                      healthStatus: "Good"
+                      isBanned: false
+                      donorRank: 1
+                      createdAt: "2023-05-10T00:00:00.000Z"
+                  aiInsights:
+                    - title: "Predicted High Demand"
+                      description: "An increase of 30% in blood requests is predicted next week."
+                      confidence: 40
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /analytics/overview:
+    get:
+      summary: Get analytics overview with growth rate, success rate, monthly trend, and AI predictions (Admin only)
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Analytics overview with growth metrics and AI predictions
+          content:
+            application/json:
+              example:
+                success: true
+                message: Analytics overview retrieved
+                data:
+                  growthRate: "15%"
+                  successRate: "80.5%"
+                  monthlyTrend:
+                    values: [100, 120, 150, 130, 170, 160, 180]
+                    labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"]
+                  aiPredictions:
+                    - "Blood demand expected to increase 15% next month based on historical trends"
+                    - "O- type shortage likely in 3 weeks — proactive donor outreach recommended"
+                    - "Weekend donation drives show 23% higher success rates"
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -7727,16 +7886,30 @@ paths:
                   users:
                     - _id: 69f3df915f42685cbbbcbb18
                       fullName: Aya Hassan
+                      name: Aya Hassan
                       email: aya.hassan@lifelink.demo
+                      phoneNumber: "01011111111"
+                      phone: "01011111111"
                       role: donor
                       isEmailVerified: true
+                      isVerified: true
                       isSuspended: false
+                      isActive: true
+                      createdAt: 2026-02-02T11:45:00.000Z
+                      joinedAt: 2026-02-02T11:45:00.000Z
                     - _id: 69f3df915f42685cbbbcbb1b
                       fullName: Cairo Care Operations
+                      name: Cairo Care Operations
                       email: ops@cairocare.demo
+                      phoneNumber: "0223456789"
+                      phone: "0223456789"
                       role: hospital
                       isEmailVerified: true
+                      isVerified: true
                       isSuspended: false
+                      isActive: true
+                      createdAt: 2026-01-15T08:00:00.000Z
+                      joinedAt: 2026-01-15T08:00:00.000Z
                   total: 2
                   page: 1
                   limit: 20
@@ -7883,18 +8056,25 @@ paths:
                   user:
                     _id: 69f3df915f42685cbbbcbb19
                     fullName: Mina Adel
+                    name: Mina Adel
                     email: mina.adel@lifelink.demo
+                    phoneNumber: "01022222222"
+                    phone: "01022222222"
                     role: donor
                     bloodType: A-
                     isEmailVerified: true
+                    isVerified: true
                     isSuspended: false
+                    isActive: true
                     completedDonations: 3
                     createdAt: 2026-02-02T11:45:00.000Z
+                    joinedAt: 2026-02-02T11:45:00.000Z
         "404":
-          description: User not found
+          description: User not found, or target is an admin/superadmin and the caller is not a superadmin
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+        aligned with the seeded demo dataset where possible. Non-superadmin
+        callers cannot retrieve admin or superadmin accounts."
     delete:
       summary: Soft-delete a user account
       tags:
@@ -7918,147 +8098,6 @@ paths:
                 message: User deleted successfully
         "403":
           description: Cannot delete admin accounts
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/users/{id}/verify:
-    patch:
-      summary: Verify a user's email
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
-      responses:
-        "200":
-          description: User verified
-          content:
-            application/json:
-              example:
-                success: true
-                message: User verified successfully
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb19
-                    email: mina.adel@lifelink.demo
-                    isEmailVerified: true
-                    emailVerifiedAt: 2026-05-18T09:22:00.000Z
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/users/{id}/unverify:
-    patch:
-      summary: Unverify a user's email
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
-      responses:
-        "200":
-          description: User unverified
-          content:
-            application/json:
-              example:
-                success: true
-                message: User unverified successfully
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb19
-                    email: mina.adel@lifelink.demo
-                    isEmailVerified: false
-                    emailVerifiedAt: null
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/users/{id}/suspend:
-    patch:
-      summary: Suspend a user account
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reason
-              properties:
-                reason:
-                  type: string
-            example:
-              reason: Repeated policy violation
-      responses:
-        "200":
-          description: User suspended
-          content:
-            application/json:
-              example:
-                success: true
-                message: User suspended successfully
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb19
-                    fullName: Mina Adel
-                    isSuspended: true
-                    suspendedReason: Repeated policy violation
-                    suspendedAt: 2026-05-18T09:24:00.000Z
-        "403":
-          description: Cannot suspend admin accounts
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /admin/users/{id}/unsuspend:
-    patch:
-      summary: Unsuspend a user account
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
-      responses:
-        "200":
-          description: User unsuspended
-          content:
-            application/json:
-              example:
-                success: true
-                message: User unsuspended successfully
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb19
-                    fullName: Mina Adel
-                    isSuspended: false
-                    suspendedReason: null
-                    suspendedAt: null
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -8206,9 +8245,6 @@ paths:
               properties:
                 fullName:
                   type: string
-                email:
-                  type: string
-                  format: email
                 phoneNumber:
                   type: string
                 bloodType:
@@ -8245,8 +8281,8 @@ paths:
                     updatedAt: 2026-05-18T09:05:00.000Z
         "404":
           description: Donor not found
-        "409":
-          description: Email already registered
+        "400":
+          description: Email cannot be changed by admin — donors use the self-service profile flow
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
@@ -8516,9 +8552,14 @@ paths:
           description: Only superadmin can create admins
         "409":
           description: Email already registered
+        "429":
+          description: Superadmin limit reached (env.MAX_SUPERADMINS)
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+        aligned with the seeded demo dataset where possible. The created
+        account's adminKey is returned in the response exactly once and is
+        stored as a bcrypt hash in the database. The number of superadmins
+        is capped (env.MAX_SUPERADMINS, default 3)."
   /admin/admins/{id}:
     get:
       tags:
@@ -8575,9 +8616,6 @@ paths:
               properties:
                 fullName:
                   type: string
-                email:
-                  type: string
-                  format: email
                 password:
                   type: string
                 role:
@@ -8585,16 +8623,12 @@ paths:
                   enum:
                     - admin
                     - superadmin
-                isEmailVerified:
-                  type: boolean
                 isSuspended:
                   type: boolean
             example:
               fullName: Salma Mostafa
-              email: salma.mostafa@lifelink.demo
               password: AdminPass@123
               role: admin
-              isEmailVerified: true
               isSuspended: true
       responses:
         "200":
@@ -8617,11 +8651,14 @@ paths:
                     updatedAt: 2026-05-18T09:08:00.000Z
         "404":
           description: Admin not found
+        "400":
+          description: Email changes are not supported — admins use PATCH /admin/profile for self-service email updates
         "409":
-          description: Email already registered
+          description: Duplicate value for a unique field
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+        aligned with the seeded demo dataset where possible. Email and role
+        cannot be changed via this endpoint."
     delete:
       tags:
         - Admin
@@ -8650,6 +8687,40 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /admin/admins/{id}/rotate-key:
+    post:
+      tags:
+        - Admin
+      summary: Rotate an admin's adminKey
+      description: "Generates a new adminKey and invalidates the previous one. The new
+        key is returned in the response exactly once. Superadmin only. Also bumps
+        passwordChangedAt, invalidating all existing tokens for that admin."
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Admin key rotated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Admin key rotated successfully. The new key is shown only once — store it securely.
+                data:
+                  admin:
+                    _id: 69fe540565ff7785a031314f
+                    fullName: Salma Mostafa
+                    email: salma.mostafa@lifelink.demo
+                    role: admin
+                  adminKey: 9f3a1b4c5d6e7f8091a2b3c4d5e6f708
+        "404":
+          description: Admin not found
   /admin/permissions/roles:
     get:
       tags:
@@ -9047,11 +9118,17 @@ paths:
                 data:
                   requests:
                     - _id: 69fe540565ff7785a031314f
+                      id: 69fe540565ff7785a031314f
+                      requestId: 69fe540565ff7785a031314f
                       type: blood
                       bloodType: O-
+                      bloodTypes:
+                        - O-
                       urgency: critical
                       status: pending
+                      isFulfilled: false
                       quantity: 3
+                      unitsNeeded: 3
                       donationCount: 2
                       distanceKm: 4.2
                       hospitalId:
@@ -9126,9 +9203,13 @@ paths:
                     _id: 69fe540565ff7785a031314f
                     type: blood
                     bloodType: O-
+                    bloodTypes:
+                      - O-
                     urgency: critical
                     status: pending
+                    isFulfilled: false
                     quantity: 3
+                    unitsNeeded: 3
                     donationCount: 4
                     distanceKm: 4.2
                     acceptedDonationId: null

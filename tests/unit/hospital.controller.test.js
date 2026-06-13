@@ -26,6 +26,7 @@ vi.mock('../../src/models/Request.model.js', () => ({
     findById: vi.fn(),
     findByIdAndUpdate: vi.fn(),
     countDocuments: vi.fn(),
+    aggregate: vi.fn().mockResolvedValue([]),
   },
 }));
 
@@ -34,7 +35,7 @@ vi.mock('../../src/models/Donation.model.js', () => ({
     find: vi.fn(),
     findOne: vi.fn(),
     updateMany: vi.fn(),
-    aggregate: vi.fn(),
+    aggregate: vi.fn().mockResolvedValue([]),
   },
 }));
 

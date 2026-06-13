@@ -77,4 +77,15 @@ export const isBloodTypeCompatibleWithAnyRequestType = (donorBloodType, requestB
 
 export const formatBloodTypeLabel = (value, options = {}) => formatBloodTypeList(value, options);
 
+export const extractFirstBloodType = (value) => {
+  if (Array.isArray(value)) {
+    const first = value.find((entry) => typeof entry === 'string' && entry.trim());
+    return first ? first : null;
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value.includes(',') ? value.split(',')[0].trim() : value.trim();
+  }
+  return null;
+};
+
 export { BLOOD_TYPE_VALUES, BLOOD_TYPE_COMPATIBILITY, normalizeBloodTypeValue };

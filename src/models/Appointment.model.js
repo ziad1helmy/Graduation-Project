@@ -46,6 +46,9 @@ const appointmentSchema = new mongoose.Schema(
       validate: {
         validator: function (v) {
           if (!v) return false;
+          // Only enforce future date on creation; after creation, the deadline
+          // naturally passes and updates to status etc. must not be blocked.
+          if (!this.isNew) return true;
           return v > new Date();
         },
         message: 'Appointment date must be in the future',

@@ -10,36 +10,6 @@ vi.mock('../../src/middlewares/maintenance.middleware.js', () => ({ invalidateMa
 setupTestDB();
 
 describe('Admin Service', () => {
-  it('verifyUser marks a user as email verified', async () => {
-    const donor = await createDonor({ isEmailVerified: false });
-    const admin = await createAdmin();
-
-    const verified = await adminService.verifyUser(donor._id, admin._id);
-
-    expect(verified.isEmailVerified).toBe(true);
-    expect(verified.emailVerifiedAt).toBeTruthy();
-  });
-
-  it('suspendUser marks a user as suspended', async () => {
-    const donor = await createDonor();
-    const admin = await createAdmin();
-
-    const suspended = await adminService.suspendUser(donor._id, 'Violation', admin._id);
-
-    expect(suspended.isSuspended).toBe(true);
-    expect(suspended.suspendedReason).toBe('Violation');
-  });
-
-  it('unsuspendUser clears suspended status', async () => {
-    const donor = await createDonor({ isSuspended: true });
-    const admin = await createAdmin();
-
-    const unsuspended = await adminService.unsuspendUser(donor._id, admin._id);
-
-    expect(unsuspended.isSuspended).toBe(false);
-    expect(unsuspended.suspendedAt).toBeNull();
-  });
-
   it('logAudit creates an audit log entry', async () => {
     const admin = await createAdmin();
     const donor = await createDonor();
