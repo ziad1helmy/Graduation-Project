@@ -74,6 +74,9 @@ const donationSchema = new mongoose.Schema(
       validate: {
         validator: function(v) {
           if (!v) return true; // optional field
+          // Only enforce future date on creation; after creation, the deadline
+          // naturally passes and updates to status etc. must not be blocked.
+          if (!this.isNew) return true;
           return v > new Date();
         },
         message: 'Scheduled date must be in the future',
@@ -223,6 +226,9 @@ donationSchema.index(
   }
 );
 
+donationSchema.index({ createdAt: 1 });
+donationSchema.index({ donorId: 1, status: 1, createdAt: 1 });
+
 /**
  * INTEGRITY HOOK - Enforce appointment scheduling deadline
  * 
@@ -273,6 +279,14 @@ donationSchema.pre('save', async function() {
  *     }
  *   );
  */
+
+// Cache invalidation hook for analytics dashboard
+import { invalidateAnalyticsCache } from '../utils/analytics-cache.js';
+
+donationSchema.post('save', invalidateAnalyticsCache);
+donationSchema.post('findOneAndUpdate', invalidateAnalyticsCache);
+donationSchema.post('updateOne', invalidateAnalyticsCache);
+donationSchema.post('updateMany', invalidateAnalyticsCache);
 
 const Donation = mongoose.model('Donation', donationSchema);
 

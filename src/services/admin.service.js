@@ -27,6 +27,7 @@ import { env } from '../config/env.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 import { buildRequestPayload } from '../controllers/request.controller.js';
 import { validateTransition } from '../utils/state-machine.js';
+import { extractFirstBloodType } from '../utils/blood-type.js';
 
 /**
  * List audit logs with pagination and optional filters.
@@ -172,7 +173,7 @@ export const getSystemHealth = async () => {
 
   return {
     status: dbState === 1 ? 'healthy' : 'degraded',
-    uptime: process.uptime(),
+    uptime: Math.floor(process.uptime()),
     database: dbStates[dbState] || 'unknown',
     memory: {
       used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + ' MB',
@@ -281,21 +282,61 @@ export const listUsers = async (filters = {}, pagination = {}) => {
   ]);
 
   return {
-    users: await enrichDonorUsers(users),
+    users: (await enrichDonorUsers(users)).map(toAdminUserListItem),
     total,
     page: parseInt(page),
     limit: parseInt(limit),
   };
 };
 
+export const toAdminUserListItem = (user) => {
+  if (!user) return user;
+  const object = user.toObject ? user.toObject() : { ...user };
+  const isSuspended = Boolean(object.isSuspended);
+  const isVerified = Boolean(object.isEmailVerified);
+  const joinedAt = object.createdAt || null;
+
+  return {
+    ...object,
+    name: object.fullName ?? null,
+    phone: object.phoneNumber ?? null,
+    isActive: !isSuspended,
+    isSuspended,
+    isVerified,
+    isEmailVerified: isVerified,
+    joinedAt,
+    createdAt: joinedAt,
+  };
+};
+
 /**
  * Get a single user by ID with role-specific fields.
+ *
+ * Authorization rules:
+ * - Non-superadmin callers cannot retrieve admin or superadmin accounts.
+ * - If `expectedRole` is provided, the target user must match that role
+ *   (used by /admin/donors/:id and /admin/hospitals/:id routes so an
+ *   admin cannot pass a hospital ID to a donor endpoint or vice versa).
+ * Pass `callerRole` from the request to enforce this; omit to allow all
+ * (used internally by superadmin-only routes like `getAdminById`).
  */
-export const getUserById = async (id) => {
+export const getUserById = async (id, callerRole = null, expectedRole = null) => {
   const user = await User.findOne({ _id: id, deletedAt: null })
     .select('-password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt');
 
   if (!user) return null;
+
+  if (
+    callerRole &&
+    callerRole !== 'superadmin' &&
+    (user.role === 'admin' || user.role === 'superadmin')
+  ) {
+    return null;
+  }
+
+  if (expectedRole && user.role !== expectedRole) {
+    return null;
+  }
 
   // For donors, also get donation stats
   if (user.role === 'donor') {
@@ -356,70 +397,6 @@ export const getUserStats = async () => {
 };
 
 /**
- * Verify or unverify a user's email.
- */
-export const verifyUser = async (id, adminId) => {
-  const user = await User.findOne({ _id: id, deletedAt: null });
-  if (!user) return null;
-
-  user.isEmailVerified = true;
-  user.emailVerifiedAt = new Date();
-  await user.save({ validateBeforeSave: false });
-
-  await logAudit(adminId, 'user.verify', 'User', id);
-  return user;
-};
-
-export const unverifyUser = async (id, adminId) => {
-  const user = await User.findOne({ _id: id, deletedAt: null });
-  if (!user) return null;
-
-  user.isEmailVerified = false;
-  user.emailVerifiedAt = null;
-  await user.save({ validateBeforeSave: false });
-
-  await logAudit(adminId, 'user.unverify', 'User', id);
-  return user;
-};
-
-/**
- * Suspend a user account.
- */
-export const suspendUser = async (id, reason, adminId) => {
-  const user = await User.findOne({ _id: id, deletedAt: null });
-  if (!user) return null;
-
-  // Prevent suspending admins/superadmins unless you are superadmin
-  if (user.role === 'admin' || user.role === 'superadmin') {
-    throw Object.assign(new Error(ERR.ADMIN_CANNOT_SUSPEND), { statusCode: 403 });
-  }
-
-  user.isSuspended = true;
-  user.suspendedAt = new Date();
-  user.suspendedReason = reason;
-  await user.save({ validateBeforeSave: false });
-
-  await logAudit(adminId, 'user.suspend', 'User', id);
-  return user;
-};
-
-/**
- * Unsuspend a user account.
- */
-export const unsuspendUser = async (id, adminId) => {
-  const user = await User.findOne({ _id: id, deletedAt: null });
-  if (!user) return null;
-
-  user.isSuspended = false;
-  user.suspendedAt = null;
-  user.suspendedReason = null;
-  await user.save({ validateBeforeSave: false });
-
-  await logAudit(adminId, 'user.unsuspend', 'User', id);
-  return user;
-};
-
-/**
  * Soft-delete a user account.
  */
 export const softDeleteUser = async (id, adminId) => {
@@ -475,7 +452,6 @@ export const updateDonor = async (donorId, data, adminId) => {
 
   const allowedFields = [
     'fullName',
-    'email',
     'phoneNumber',
     'bloodType',
     'gender',
@@ -488,13 +464,6 @@ export const updateDonor = async (donorId, data, adminId) => {
   ];
   for (const field of allowedFields) {
     if (data[field] !== undefined) donor[field] = data[field];
-  }
-
-  if (data.email) {
-    const existing = await User.findOne({ email: data.email, _id: { $ne: donorId } });
-    if (existing) {
-      throw new Error('Email already registered');
-    }
   }
 
   await donor.save();
@@ -567,7 +536,18 @@ export const createAdmin = async (data, adminId) => {
     throw new Error('Invalid admin role');
   }
 
-  const adminKey = crypto.randomBytes(16).toString('hex');
+  if (role === 'superadmin') {
+    const superadminCount = await User.countDocuments({
+      role: 'superadmin',
+      deletedAt: null,
+    });
+    if (superadminCount >= (env.MAX_SUPERADMINS || 3)) {
+      throw new Error(`Superadmin limit reached (max ${env.MAX_SUPERADMINS || 3}). Demote an existing superadmin before creating a new one.`);
+    }
+  }
+
+  const plaintextKey = crypto.randomBytes(16).toString('hex');
+  const adminKeyHash = await bcrypt.hash(plaintextKey, env.BCRYPT_SALT_ROUNDS || 10);
 
   const admin = await User.create({
     fullName: data.fullName,
@@ -578,12 +558,12 @@ export const createAdmin = async (data, adminId) => {
     emailVerifiedAt: new Date(),
     phone: data.phone || null,
     address: data.address || null,
-    adminKey,
+    adminKey: adminKeyHash,
     location: data.location || {},
   });
 
   await logAudit(adminId, 'user.create_admin', 'User', admin._id);
-  return { ...admin.toObject(), adminKey };
+  return { ...admin.toObject(), adminKey: plaintextKey };
 };
 
 export const loginAdmin = async (email, password, adminKey) => {
@@ -604,7 +584,11 @@ export const loginAdmin = async (email, password, adminKey) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid credentials');
 
-  if (String(user.adminKey || '').trim() !== String(adminKey).trim()) {
+  const isAdminKeyValid = await bcrypt.compare(
+    String(adminKey).trim(),
+    String(user.adminKey || '').trim()
+  );
+  if (!isAdminKeyValid) {
     throw new Error(ERR.AUTH_INVALID_ADMIN_KEY);
   }
 
@@ -723,9 +707,8 @@ export const updateAdmin = async (id, data, adminId) => {
   if (!existing) return null;
   if (!['admin', 'superadmin'].includes(existing.role)) return null;
 
-  if (data.email && data.email !== existing.email) {
-    const dup = await User.findOne({ email: data.email, _id: { $ne: id } });
-    if (dup) throw new Error('Email already registered');
+  if (data.email !== undefined) {
+    throw new Error('Email changes are not supported via this endpoint. Admins must use the self-service profile flow.');
   }
 
   if (data.role !== undefined) {
@@ -733,14 +716,14 @@ export const updateAdmin = async (id, data, adminId) => {
   }
 
   const updateData = {};
-  // Role changes are intentionally not supported through the general update path.
-  const allowedFields = ['fullName', 'email', 'location', 'isEmailVerified', 'isSuspended'];
+  // Role changes and email changes are intentionally not supported through this path.
+  // Admins update their own email via PATCH /admin/profile (self-service re-verification).
+  const allowedFields = ['fullName', 'location', 'isSuspended'];
   for (const field of allowedFields) {
     if (data[field] !== undefined) updateData[field] = data[field];
   }
 
   if (data.password) updateData.password = data.password;
-  if (data.isEmailVerified !== undefined && data.isEmailVerified) updateData.emailVerifiedAt = new Date();
   if (data.isSuspended !== undefined && !data.isSuspended) {
     updateData.suspendedAt = null;
     updateData.suspendedReason = null;
@@ -769,6 +752,26 @@ export const deleteAdmin = async (id, adminId) => {
 
   await logAudit(adminId, 'user.delete_admin', 'User', id);
   return admin;
+};
+
+/**
+ * Rotate an admin's adminKey. The previous key is invalidated immediately.
+ * Returns the new plaintext key exactly once — it is unrecoverable afterwards.
+ */
+export const rotateAdminKey = async (id, adminId) => {
+  const admin = await User.findOne({ _id: id, deletedAt: null });
+  if (!admin) return null;
+  if (!['admin', 'superadmin'].includes(admin.role)) return null;
+
+  const plaintextKey = crypto.randomBytes(16).toString('hex');
+  const adminKeyHash = await bcrypt.hash(plaintextKey, env.BCRYPT_SALT_ROUNDS || 10);
+
+  admin.adminKey = adminKeyHash;
+  admin.passwordChangedAt = new Date();
+  await admin.save({ validateBeforeSave: false });
+
+  await logAudit(adminId, 'user.rotate_admin_key', 'User', id);
+  return { admin, plaintextKey };
 };
 
 /**
@@ -828,10 +831,38 @@ export const getRolePermissionDetails = async (role) => {
   return RolePermission.findOne({ role: role.toLowerCase() });
 };
 
+// Permissions catalog — the only permission keys accepted in role permissions.
+// Used to validate createRolePermission / updateRolePermissions payloads.
+const ALLOWED_PERMISSION_KEYS = [
+  'donor_management',
+  'hospital_management',
+  'admin_management',
+  'system_settings',
+  'audit_logging',
+  'reporting',
+];
+
+const validatePermissionsObject = (permissions) => {
+  if (permissions === undefined || permissions === null) return null;
+  if (typeof permissions !== 'object' || Array.isArray(permissions)) {
+    throw new Error('permissions must be an object');
+  }
+  const allowed = new Set(ALLOWED_PERMISSION_KEYS);
+  const provided = Object.keys(permissions);
+  const unknown = provided.filter((k) => !allowed.has(k));
+  if (unknown.length > 0) {
+    throw new Error(`Unknown permission keys: ${unknown.join(', ')}. Allowed: ${ALLOWED_PERMISSION_KEYS.join(', ')}`);
+  }
+  return permissions;
+};
+
 export const createRolePermission = async (data, adminId) => {
-  const normalizedRole = String(data.role || '').toLowerCase();
-  if (['admin', 'superadmin'].includes(normalizedRole)) {
+  const normalizedRole = String(data.role || '').trim().toLowerCase();
+  if (['admin', 'superadmin', 'donor', 'hospital'].includes(normalizedRole)) {
     throw new Error('Cannot modify a system role');
+  }
+  if (!normalizedRole) {
+    throw new Error('role is required');
   }
 
   const existing = await RolePermission.findOne({ role: normalizedRole });
@@ -839,12 +870,14 @@ export const createRolePermission = async (data, adminId) => {
     throw new Error('Role already exists');
   }
 
+  const validatedPermissions = validatePermissionsObject(data.permissions);
+
   const rolePermission = await RolePermission.create({
-    role: data.role,
+    role: normalizedRole,
     displayName: data.displayName,
     description: data.description || '',
-    isSystemRole: Boolean(data.isSystemRole),
-    permissions: data.permissions || {},
+    isSystemRole: false,
+    permissions: validatedPermissions || {},
     updatedBy: adminId,
   });
 
@@ -854,13 +887,13 @@ export const createRolePermission = async (data, adminId) => {
 
 export const updateRolePermissions = async (role, data, adminId) => {
   const normalizedRole = String(role || '').toLowerCase();
-  if (['admin', 'superadmin'].includes(normalizedRole)) {
+  if (['admin', 'superadmin', 'donor', 'hospital'].includes(normalizedRole)) {
     throw new Error('Cannot modify a system role');
   }
 
   const rolePermission = await RolePermission.findOne({ role: normalizedRole });
   if (!rolePermission) return null;
-  if (rolePermission.isSystemRole || ['admin', 'superadmin'].includes(rolePermission.role)) {
+  if (rolePermission.isSystemRole || ['admin', 'superadmin', 'donor', 'hospital'].includes(rolePermission.role)) {
     throw new Error('Cannot modify a system role');
   }
 
@@ -868,6 +901,9 @@ export const updateRolePermissions = async (role, data, adminId) => {
   const allowedFields = ['displayName', 'description', 'permissions'];
   for (const field of allowedFields) {
     if (data[field] !== undefined) updateData[field] = data[field];
+  }
+  if (updateData.permissions !== undefined) {
+    updateData.permissions = validatePermissionsObject(updateData.permissions);
   }
   updateData.updatedBy = adminId;
 
@@ -945,8 +981,8 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
       const donationCount = donationCountMap.get(String(request._id)) || 0;
 
       return {
-        ...requestObject,
-          ...buildRequestPayload(requestObject, null, { responseCount: donationCount }),
+        ...toAdminRequestListItem(requestObject),
+        ...buildRequestPayload(requestObject, null, { responseCount: donationCount }),
         donationCount,
         timeline: buildRequestTimeline(requestObject),
       };
@@ -954,6 +990,19 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
     total,
     page: parseInt(page),
     limit: parseInt(limit),
+  };
+};
+
+export const toAdminRequestListItem = (request) => {
+  if (!request) return request;
+  const object = request.toObject ? request.toObject() : { ...request };
+  const rawBloodType = object.bloodType;
+
+  return {
+    ...object,
+    bloodType: extractFirstBloodType(rawBloodType),
+    bloodTypes: Array.isArray(rawBloodType) ? rawBloodType : (rawBloodType ? [rawBloodType] : []),
+    isFulfilled: object.status === 'completed',
   };
 };
 

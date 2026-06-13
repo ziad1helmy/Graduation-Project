@@ -167,6 +167,8 @@ if (process.env.ENABLE_GEOSPATIAL_INDEX === 'true') {
   userSchema.index({ 'location.coordinates.lat': 1, 'location.coordinates.lng': 1 });
 }
 
+userSchema.index({ createdAt: 1 });
+
 userSchema.pre('save', async function () {
   const hookStartedAt = process.hrtime.bigint();
 
@@ -357,6 +359,14 @@ userSchema.methods.createEmailVerificationOtp = function () {
 
   return verificationOtp;
 };
+
+// Cache invalidation hook for analytics dashboard
+import { invalidateAnalyticsCache } from '../utils/analytics-cache.js';
+
+userSchema.post('save', invalidateAnalyticsCache);
+userSchema.post('findOneAndUpdate', invalidateAnalyticsCache);
+userSchema.post('updateOne', invalidateAnalyticsCache);
+userSchema.post('updateMany', invalidateAnalyticsCache);
 
 const User = mongoose.model('User', userSchema);
 

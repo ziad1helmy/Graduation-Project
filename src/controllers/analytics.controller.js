@@ -1,4 +1,5 @@
 import * as analyticsService from '../services/analytics.service.js';
+import response from '../utils/response.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -9,7 +10,7 @@ export const getMyStats = async (req, res, next) => {
   try {
     const { userId } = req.user;
     const stats = await analyticsService.getDonorStats(userId);
-    return res.status(200).json({ success: true, data: stats });
+    return response.success(res, 200, 'Donor stats retrieved', stats);
   } catch (error) {
     logger.error('Error fetching donor stats', { error: error?.message, userId: req.user?.userId });
     return next(error);
@@ -24,7 +25,7 @@ export const getLeaderboard = async (req, res, next) => {
   try {
     const { limit = 10, days = 30 } = req.query;
     const leaderboard = await analyticsService.getLeaderboard(parseInt(limit), parseInt(days));
-    return res.status(200).json({ success: true, data: leaderboard });
+    return response.success(res, 200, 'Leaderboard retrieved', leaderboard);
   } catch (error) {
     logger.error('Error fetching leaderboard', { error: error?.message });
     return next(error);
@@ -38,7 +39,7 @@ export const getLeaderboard = async (req, res, next) => {
 export const getDonationTypeStats = async (req, res, next) => {
   try {
     const stats = await analyticsService.getDonationTypeStats();
-    return res.status(200).json({ success: true, data: stats });
+    return response.success(res, 200, 'Donation type stats retrieved', stats);
   } catch (error) {
     logger.error('Error fetching donation type stats', { error: error?.message });
     return next(error);
@@ -52,9 +53,23 @@ export const getDonationTypeStats = async (req, res, next) => {
 export const getDashboardSummary = async (req, res, next) => {
   try {
     const summary = await analyticsService.getDashboardSummary();
-    return res.status(200).json({ success: true, data: summary });
+    return response.success(res, 200, 'Dashboard summary retrieved', summary);
   } catch (error) {
     logger.error('Error fetching dashboard summary', { error: error?.message });
+    return next(error);
+  }
+};
+
+/**
+ * GET /analytics/overview (Admin only)
+ * Get analytics overview with growth rate, success rate, monthly trend, and AI predictions
+ */
+export const getAnalyticsOverview = async (req, res, next) => {
+  try {
+    const overview = await analyticsService.getAnalyticsOverview();
+    return response.success(res, 200, 'Analytics overview retrieved', overview);
+  } catch (error) {
+    logger.error('Error fetching analytics overview', { error: error?.message });
     return next(error);
   }
 };
@@ -64,4 +79,5 @@ export default {
   getLeaderboard,
   getDonationTypeStats,
   getDashboardSummary,
+  getAnalyticsOverview,
 };

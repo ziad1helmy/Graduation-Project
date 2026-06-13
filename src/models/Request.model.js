@@ -113,6 +113,10 @@ const requestSchema = new mongoose.Schema(
       required: [true, 'Required by date is required'],
       validate: {
         validator: function(v) {
+          if (!v) return false;
+          // Only enforce future date on creation; after creation, the deadline
+          // naturally passes and updates to status etc. must not be blocked.
+          if (!this.isNew) return true;
           return v > new Date();
         },
         message: 'Required by date must be in the future',
@@ -246,6 +250,7 @@ requestSchema.index({ urgency: 1, status: 1 });
 requestSchema.index({ acceptedBy: 1, status: 1 });
 requestSchema.index({ hospitalLocationGeo: '2dsphere' });
 requestSchema.index({ arrivalDeadline: 1 });
+requestSchema.index({ createdAt: 1 });
 
 requestSchema.pre('init', function normalizeHydratedRequest(doc) {
   if (doc && doc.bloodType !== undefined) {
@@ -404,6 +409,14 @@ requestSchema.pre('update', syncRequestUpdate);
 requestSchema.pre('updateOne', syncRequestUpdate);
 requestSchema.pre('updateMany', syncRequestUpdate);
 requestSchema.pre('findOneAndUpdate', syncRequestUpdate);
+
+// Cache invalidation hook for analytics dashboard
+import { invalidateAnalyticsCache } from '../utils/analytics-cache.js';
+
+requestSchema.post('save', invalidateAnalyticsCache);
+requestSchema.post('findOneAndUpdate', invalidateAnalyticsCache);
+requestSchema.post('updateOne', invalidateAnalyticsCache);
+requestSchema.post('updateMany', invalidateAnalyticsCache);
 
 const Request = mongoose.model('Request', requestSchema);
 

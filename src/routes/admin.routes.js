@@ -147,20 +147,6 @@ router.post('/users/hospital', adminController.createHospital);
 router.get('/users/:id', adminController.getUserById);
 
 
-router.patch('/users/:id/verify', adminController.verifyUser);
-
-
-router.patch('/users/:id/unverify', adminController.unverifyUser);
-
-
-// Note: service layer enforces that admins/superadmins cannot be
-// suspended by regular admins. See admin.service.js suspendUser().
-router.patch('/users/:id/suspend', adminController.suspendUser);
-
-
-router.patch('/users/:id/unsuspend', adminController.unsuspendUser);
-
-
 router.delete('/users/:id', adminController.deleteUser);
 
 // ──────────────────────────────────────────────

@@ -27,4 +27,7 @@ router.get('/donation-types', requireRole('donor'), ac.getDonationTypeStats);
 
 router.get('/dashboard', requireRole('admin'), ac.getDashboardSummary);
 
+
+router.get('/overview', requireRole('admin'), ac.getAnalyticsOverview);
+
 export default router;

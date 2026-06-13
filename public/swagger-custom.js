@@ -142,6 +142,7 @@
     '/admin/analytics/top-donors': 'Dashboard & Statistics',
     '/admin/analytics/growth': 'Dashboard & Statistics',
     '/analytics/dashboard': 'Dashboard & Statistics',
+    '/analytics/overview': 'Dashboard & Statistics',
 
     '/admin/rewards/config': 'Rewards',
     '/rewards/admin/users/{userId}/points/adjust': 'Rewards',
