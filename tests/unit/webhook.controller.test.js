@@ -4,6 +4,7 @@ import * as webhookController from '../../src/controllers/webhook.controller.js'
 import InboundEmail from '../../src/models/InboundEmail.model.js';
 import { env } from '../../src/config/env.js';
 import { makeMockReq, makeMockRes } from '../helpers/mocks.js';
+import { HttpError } from '../../src/utils/HttpError.js';
 
 // Mock InboundEmail model
 vi.mock('../../src/models/InboundEmail.model.js', () => {
@@ -19,6 +20,14 @@ vi.mock('../../src/models/InboundEmail.model.js', () => {
     default: MockInboundEmail,
   };
 });
+
+const expectHttpError = (next, statusCode, messagePattern) => {
+  expect(next).toHaveBeenCalledTimes(1);
+  const err = next.mock.calls[0][0];
+  expect(err).toBeInstanceOf(HttpError);
+  expect(err.statusCode).toBe(statusCode);
+  if (messagePattern) expect(err.message).toMatch(messagePattern);
+};
 
 describe('Webhook Controller', () => {
   const secret = 'test_webhook_secret';
@@ -40,11 +49,11 @@ describe('Webhook Controller', () => {
         headers: {},
       });
       const res = makeMockRes();
+      const next = vi.fn();
 
-      await webhookController.handleResendWebhook(req, res);
+      await webhookController.handleResendWebhook(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(401);
-      expect(res.json.mock.calls[0][0].message).toBe('Invalid signature');
+      expectHttpError(next, 401, /Invalid signature/);
     });
 
     it('returns 401 if signature is invalid', async () => {
@@ -54,10 +63,11 @@ describe('Webhook Controller', () => {
         headers: { 'resend-signature': 'invalid_signature_hex' },
       });
       const res = makeMockRes();
+      const next = vi.fn();
 
-      await webhookController.handleResendWebhook(req, res);
+      await webhookController.handleResendWebhook(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(401);
+      expectHttpError(next, 401);
     });
 
     it('proceeds and returns 200 if signature is valid (prefixed with sha256=)', async () => {
@@ -70,9 +80,11 @@ describe('Webhook Controller', () => {
         headers: { 'resend-signature': `sha256=${computed}` },
       });
       const res = makeMockRes();
+      const next = vi.fn();
 
-      await webhookController.handleResendWebhook(req, res);
+      await webhookController.handleResendWebhook(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json.mock.calls[0][0].data).toEqual({ received: true });
     });
@@ -85,9 +97,11 @@ describe('Webhook Controller', () => {
         headers: { 'resend-signature': 'dummy' }, // header present, but secret is empty
       });
       const res = makeMockRes();
+      const next = vi.fn();
 
-      await webhookController.handleResendWebhook(req, res);
+      await webhookController.handleResendWebhook(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
     });
   });
@@ -100,11 +114,11 @@ describe('Webhook Controller', () => {
       });
       env.RESEND_WEBHOOK_SECRET = ''; // Bypass signature check
       const res = makeMockRes();
+      const next = vi.fn();
 
-      await webhookController.handleResendWebhook(req, res);
+      await webhookController.handleResendWebhook(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].message).toBe('Malformed payload');
+      expectHttpError(next, 400, /Malformed payload/);
     });
 
     it('processes email.received event and saves InboundEmail record', async () => {
@@ -126,12 +140,14 @@ describe('Webhook Controller', () => {
         headers: { 'resend-signature': 'dummy' },
       });
       const res = makeMockRes();
+      const next = vi.fn();
 
       // Reset saveSpy before call
       InboundEmail.saveSpy.mockClear();
 
-      await webhookController.handleResendWebhook(req, res);
+      await webhookController.handleResendWebhook(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
 
       // Wait for setImmediate to execute fire-and-forget processing

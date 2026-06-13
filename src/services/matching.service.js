@@ -6,6 +6,7 @@ import { env } from '../config/env.js';
 import * as geoUtil from '../utils/geo.js';
 import { canDonate, hasActiveDonationInProgress } from './eligibility.service.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import { logger } from '../utils/logger.js';
 import {
   getCompatibleDonorTypesForRequest,
   isBloodTypeCompatibleWithAnyRequestType,
@@ -32,93 +33,29 @@ const EMERGENCY_MATCHING_DISTANCE_KM = (() => {
 const ACTIVE_REQUEST_STATUSES = ['pending', 'in-progress'];
 const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
 
-const toNumber = (value) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
+const isGeoIndexError = (error) =>
+  error.name === 'MongoServerError' &&
+  /(\$geoNear|\$near|2dsphere|GEONEAR|geo index|index for.*geo)/i.test(error.message);
+
+const fetchRequestsWithGeoFallback = async ({ geoQueryBuilder, fallbackQuery, logMeta }) => {
+  try {
+    return await geoQueryBuilder.exec();
+  } catch (error) {
+    if (!isGeoIndexError(error)) throw error;
+    logger.warn('Geospatial $near query failed; falling back to plain request query', {
+      error: error.message,
+      ...logMeta,
+    });
+    return await fallbackQuery.exec();
+  }
 };
 
-const toGeoPoint = (location = null) => {
-  if (!location) return null;
+const getRequestLocationPoint = (request) => geoUtil.extractLocation(request, 'request');
 
-  // 1. Array coordinates: check if location.coordinates is an array of [lng, lat]
-  if (Array.isArray(location.coordinates) && location.coordinates.length >= 2) {
-    const lat = toNumber(location.coordinates[1]);
-    const lng = toNumber(location.coordinates[0]);
-    if (lat !== null && lng !== null) return { latitude: lat, longitude: lng };
-  }
-
-  // 2. Direct array check: check if location is an array [lng, lat]
-  if (Array.isArray(location) && location.length >= 2) {
-    const lat = toNumber(location[1]);
-    const lng = toNumber(location[0]);
-    if (lat !== null && lng !== null) return { latitude: lat, longitude: lng };
-  }
-
-  // 3. Object properties check
-  const latitude = toNumber(
-    location?.lat
-      ?? location?.latitude
-      ?? location?.coordinates?.lat
-      ?? location?.coordinates?.latitude
-      ?? location?.location?.coordinates?.lat
-      ?? location?.location?.coordinates?.latitude
-  );
-  const longitude = toNumber(
-    location?.lng
-      ?? location?.long
-      ?? location?.longitude
-      ?? location?.coordinates?.lng
-      ?? location?.coordinates?.long
-      ?? location?.coordinates?.longitude
-      ?? location?.location?.coordinates?.lng
-      ?? location?.location?.coordinates?.long
-      ?? location?.location?.coordinates?.longitude
-  );
-
-  if (latitude === null || longitude === null) {
-    return null;
-  }
-
-  return { latitude, longitude };
-};
-
-const getRequestLocationPoint = (request) => {
-  const latitude = toNumber(
-    request?.locationHospital?.latitude
-      ?? request?.hospitalLocation?.lat
-      ?? request?.hospitalLocationGeo?.coordinates?.[1]
-      ?? request?.hospitalId?.location?.coordinates?.lat
-      ?? request?.hospitalId?.lat
-  );
-  const longitude = toNumber(
-    request?.locationHospital?.longitude
-      ?? request?.hospitalLocation?.lng
-      ?? request?.hospitalLocationGeo?.coordinates?.[0]
-      ?? request?.hospitalId?.location?.coordinates?.lng
-      ?? request?.hospitalId?.long
-  );
-
-  if (latitude === null || longitude === null) {
-    return null;
-  }
-
-  return { latitude, longitude };
-};
-
-const getDonorLocationPoint = (donor) => {
-  const coordinates = donor?.location?.coordinates || {};
-  const latitude = toNumber(coordinates.lat ?? donor?.location?.latitude ?? donor?.location?.lat);
-  const longitude = toNumber(coordinates.lng ?? donor?.location?.longitude ?? donor?.location?.long);
-
-  if (latitude === null || longitude === null) {
-    return null;
-  }
-
-  return { latitude, longitude };
-};
+const getDonorLocationPoint = (donor) => geoUtil.extractLocation(donor, 'donor');
 
 const buildRequestGeoQuery = (location, radiusKm = DEFAULT_MATCHING_DISTANCE_KM) => {
-  const geoPoint = toGeoPoint(location);
+  const geoPoint = geoUtil.extractGeoPoint(location);
   const normalizedRadiusKm = Number.isFinite(radiusKm) && radiusKm > 0 ? radiusKm : DEFAULT_MATCHING_DISTANCE_KM;
 
   if (!geoPoint) {
@@ -168,41 +105,9 @@ const isRequestMatchable = (request) => {
   return request.status !== 'cancelled' && request.status !== 'completed' && request.status !== 'expired';
 };
 
-const extractRequestLocation = (request) => {
-  const hospital = request?.hospitalId || {};
-  const hospitalLocation = hospital.location || {};
+const extractRequestLocation = (request) => geoUtil.extractLocation(request, 'request');
 
-  const latitude = request?.locationHospital?.latitude
-    ?? request?.hospitalLocation?.lat
-    ?? request?.hospitalLocationGeo?.coordinates?.[1]
-    ?? hospitalLocation.coordinates?.lat
-    ?? hospital.lat
-    ?? null;
-  const longitude = request?.locationHospital?.longitude
-    ?? request?.hospitalLocation?.lng
-    ?? request?.hospitalLocationGeo?.coordinates?.[0]
-    ?? hospitalLocation.coordinates?.lng
-    ?? hospital.long
-    ?? null;
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  return { latitude, longitude };
-};
-
-const extractDonorLocation = (donor) => {
-  const coordinates = donor?.location?.coordinates || {};
-  const latitude = coordinates.lat ?? donor?.location?.latitude ?? donor?.location?.lat ?? null;
-  const longitude = coordinates.lng ?? donor?.location?.longitude ?? donor?.location?.long ?? null;
-
-  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
-    return null;
-  }
-
-  return { latitude, longitude };
-};
+const extractDonorLocation = (donor) => geoUtil.extractLocation(donor, 'donor');
 
 export const evaluateMatch = async (donor, request, options = {}) => {
   const { radiusKm = DEFAULT_MATCHING_DISTANCE_KM, allowOptedOut = false } = options;
@@ -496,7 +401,7 @@ export const searchCompatibleDonors = async ({
   }
 
   const normalizedRadiusKm = Number.isFinite(radiusKm) ? radiusKm : DEFAULT_MATCHING_DISTANCE_KM;
-  const geoPoint = toGeoPoint(location);
+  const geoPoint = geoUtil.extractGeoPoint(location);
   const searchHasLocation = Boolean(geoPoint);
 
   if (process.env.ENABLE_GEOSPATIAL_INDEX === 'true' && searchHasLocation) {
@@ -588,14 +493,22 @@ export const findNearbyRequests = async ({
   limit = 500,
 } = {}) => {
   const { geoQuery, radiusKm: normalizedRadiusKm } = buildRequestGeoQuery(location, radiusKm);
-  const requestQuery = geoQuery
+  const baseQuery = Request.find(buildRequestQuery(filters)).sort({ urgency: -1, createdAt: -1 });
+  const geoQueryBuilder = geoQuery
     ? Request.find({ ...buildRequestQuery(filters), ...geoQuery })
-    : Request.find(buildRequestQuery(filters));
+    : baseQuery;
 
-  const requests = await requestQuery
-    .populate('hospitalId', 'fullName hospitalName address contactNumber location')
-    .limit(limit)
-    .sort(geoQuery ? undefined : { urgency: -1, createdAt: -1 });
+  const requests = await fetchRequestsWithGeoFallback({
+    geoQueryBuilder: geoQueryBuilder.populate(
+      'hospitalId',
+      'fullName hospitalName address contactNumber location'
+    ).limit(limit),
+    fallbackQuery: baseQuery.populate(
+      'hospitalId',
+      'fullName hospitalName address contactNumber location'
+    ).limit(limit),
+    logMeta: { location, radiusKm },
+  });
 
   return requests
     .filter((request) => isRequestMatchable(request))
@@ -630,15 +543,19 @@ export const findCompatibleRequests = async (donorId, { radiusKm = DEFAULT_MATCH
   const donorLocation = getDonorLocationPoint(donor);
   const maxQueryRadius = Math.max(radiusKm, EMERGENCY_MATCHING_DISTANCE_KM);
   const { geoQuery, radiusKm: normalizedRadiusKm } = buildRequestGeoQuery(donorLocation, maxQueryRadius);
+  const baseQuery = Request.find(buildRequestQuery(filters)).sort({ urgency: -1, createdAt: -1 });
   const requestQuery = geoQuery
     ? Request.find({ ...buildRequestQuery(filters), ...geoQuery })
-    : Request.find(buildRequestQuery(filters));
+    : baseQuery;
 
-  // Get all active requests with hospital location for geo-scoring
-  const requests = await requestQuery
-    .populate('hospitalId', 'address location')
-    .limit(limit)
-    .sort(geoQuery ? undefined : { urgency: -1, createdAt: -1 });
+  // Get all active requests with hospital location for geo-scoring.
+  // If the 2dsphere index is missing or geo data is malformed, fall back to a
+  // plain query; the in-memory evaluateMatch loop still enforces the radius.
+  const requests = await fetchRequestsWithGeoFallback({
+    geoQueryBuilder: requestQuery.populate('hospitalId', 'address location').limit(limit),
+    fallbackQuery: baseQuery.populate('hospitalId', 'address location').limit(limit),
+    logMeta: { donorId, radiusKm },
+  });
 
   // Batch check existing donations (eliminates N+1 queries)
   const requestIds = requests.map((r) => r._id);

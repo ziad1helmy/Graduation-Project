@@ -336,6 +336,32 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(401);
   });
 
+  it('POST /admin/donors/:id/ban bans a donor and blocks login with the reason', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const donor = await createDonor({ password: 'DonorPass@123' });
+
+    const adminToken = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const banResponse = await request(app)
+      .post(`/admin/donors/${donor._id}/ban`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'Compliance violation' });
+
+    expect(banResponse.status).toBe(200);
+    expect(banResponse.body.success).toBe(true);
+    expect(banResponse.body.data.donor.isSuspended).toBe(true);
+
+    const loginResponse = await request(app)
+      .post('/auth/login')
+      .send({ email: donor.email, password: 'DonorPass@123', role: 'donor' });
+
+    expect(loginResponse.status).toBe(403);
+    expect(loginResponse.body.success).toBe(false);
+    expect(loginResponse.body.message).toContain('Compliance violation');
+    expect(loginResponse.body.details?.reason).toBe('Compliance violation');
+  });
+
   it('GET /admin routes require admin role', async () => {
     await clearDatabase();
     const donor = await createDonor();

@@ -341,6 +341,44 @@ describe('GET /hospital/find-donors', () => {
     expect(res.body.data.donors[0].fullName).toBe('Admin Search Donor');
   });
 
+  it.each([
+    ['long alias',       'lat=30.0444&long=31.2357&radiusKm=2'],
+    ['latitude/longitude', 'latitude=30.0444&longitude=31.2357&radiusKm=2'],
+  ])('accepts %s as a coordinate alias', async (_label, query) => {
+    const admin = await createAdmin();
+    const token = tokenFor(admin);
+
+    await createDonor({
+      fullName: 'Alias Test Donor',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.0445, lng: 31.2358 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .get(`/hospital/find-donors?${query}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.donors).toHaveLength(1);
+    expect(res.body.data.donors[0].fullName).toBe('Alias Test Donor');
+    expect(res.body.data.donors[0].distanceKm).toBeGreaterThanOrEqual(0);
+  });
+
+  it('returns 400 when only one of lat/lng is provided', async () => {
+    const admin = await createAdmin();
+    const token = tokenFor(admin);
+
+    const res = await request(app)
+      .get('/hospital/find-donors?lat=30.0444&radiusKm=2')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(400);
+  });
+
   it('creates a hospital-side donor appointment from a search result', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);

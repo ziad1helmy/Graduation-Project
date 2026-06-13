@@ -8,6 +8,7 @@ import Donation from '../../src/models/Donation.model.js';
 import Request from '../../src/models/Request.model.js';
 import * as eligibilityService from '../../src/services/eligibility.service.js';
 import * as activityService from '../../src/services/activity.service.js';
+import { HttpError } from '../../src/utils/HttpError.js';
 
 vi.mock('../../src/services/reward.service.js', () => ({
   onDonationCompleted: vi.fn().mockResolvedValue(null),
@@ -27,6 +28,14 @@ const makeRes = () => {
   const res = { json: vi.fn(), status: vi.fn() };
   res.status.mockReturnValue(res);
   return res;
+};
+
+const expectHttpError = (next, statusCode, messagePattern) => {
+  expect(next).toHaveBeenCalledTimes(1);
+  const err = next.mock.calls[0][0];
+  expect(err).toBeInstanceOf(HttpError);
+  expect(err.statusCode).toBe(statusCode);
+  if (messagePattern) expect(err.message).toMatch(messagePattern);
 };
 
 const createVerifiedAppointment = async ({ donor, hospital, request = null, donationType = 'Whole Blood' } = {}) => {
@@ -173,12 +182,14 @@ describe('verifyQr', () => {
     });
 
     const res1 = makeRes();
-    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, res1, vi.fn());
+    const next1 = vi.fn();
+    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, res1, next1);
 
     const res2 = makeRes();
-    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, res2, vi.fn());
+    const next2 = vi.fn();
+    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, res2, next2);
 
-    expect(res2.status).toHaveBeenCalledWith(409);
+    expectHttpError(next2, 409);
   });
 
   it('returns 400 for an expired QR token', async () => {
@@ -196,10 +207,10 @@ describe('verifyQr', () => {
     });
 
     const res = makeRes();
-    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, res, vi.fn());
+    const next = vi.fn();
+    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json.mock.calls[0][0].message).toContain('expired');
+    expectHttpError(next, 400, /expired/);
   });
 
   it('returns 403 for an ineligible donor', async () => {
@@ -221,9 +232,10 @@ describe('verifyQr', () => {
     });
 
     const res = makeRes();
-    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, res, vi.fn());
+    const next = vi.fn();
+    await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, res, next);
 
-    expect(res.status).toHaveBeenCalledWith(403);
+    expectHttpError(next, 403);
   });
 });
 
@@ -247,6 +259,7 @@ describe('verification checklist flow', () => {
     await donationController.verifyQr({ user: { userId: hospital._id }, body: { qrToken } }, makeRes(), vi.fn());
 
     const res = makeRes();
+    const next = vi.fn();
     await donationController.confirmArrival(
       {
         user: { userId: hospital._id },
@@ -260,10 +273,10 @@ describe('verification checklist flow', () => {
         },
       },
       res,
-      vi.fn()
+      next
     );
 
-    expect(res.status).toHaveBeenCalledWith(400);
+    expectHttpError(next, 400);
   });
 
   it('accepts a complete checklist and marks the appointment verified', async () => {
@@ -328,6 +341,7 @@ describe('verification checklist flow', () => {
     });
 
     const res = makeRes();
+    const next = vi.fn();
     await donationController.confirmArrival(
       {
         user: { userId: hospital._id },
@@ -341,11 +355,10 @@ describe('verification checklist flow', () => {
         },
       },
       res,
-      vi.fn()
+      next
     );
 
-    expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json.mock.calls[0][0].message).toBe('Donor cooldown period is active');
+    expectHttpError(next, 403, /Donor cooldown period is active/);
   });
 
   it('rejects and then allows a safe reset', async () => {
@@ -469,6 +482,7 @@ describe('completeDonation', () => {
     );
 
     const second = makeRes();
+    const next = vi.fn();
     await donationController.completeDonation(
       {
         user: { userId: hospital._id },
@@ -480,10 +494,10 @@ describe('completeDonation', () => {
         },
       },
       second,
-      vi.fn()
+      next
     );
 
-    expect(second.status).toHaveBeenCalledWith(409);
+    expectHttpError(next, 409);
   });
 
   it('keeps the legacy donationId completion path working', async () => {

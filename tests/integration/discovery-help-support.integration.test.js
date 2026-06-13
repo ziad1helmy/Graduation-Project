@@ -32,6 +32,29 @@ describe('Discovery, Help, and Support Routes', () => {
       const res = await request(app).get('/hospitals/nearby');
       expect([200, 400]).toContain(res.status);
     });
+
+    it('computes distanceKm when client sends ?lng= (not just ?long=)', async () => {
+      // Cairo center; createHospital defaults place the hospital there
+      await createHospital({ lat: 30.0444, long: 31.2357 });
+      const res = await request(app)
+        .get('/hospitals/nearby')
+        .query({ lat: 30.0444, lng: 31.2357, radius_km: 50 });
+      expect(res.status).toBe(200);
+      const hospital = res.body.data.hospitals[0];
+      expect(hospital).toBeDefined();
+      expect(hospital.distanceKm).toBe(0);
+      expect(hospital.distanceMeters).toBe(0);
+    });
+
+    it('does not drop all results when radius_km is sent without coordinates', async () => {
+      await createHospital({ lat: 30.0444, long: 31.2357 });
+      const res = await request(app)
+        .get('/hospitals/nearby')
+        .query({ radius_km: 50 });
+      expect(res.status).toBe(200);
+      expect(res.body.data.hospitals).toHaveLength(1);
+      expect(res.body.data.hospitals[0].distanceKm).toBeUndefined();
+    });
   });
 
   describe('GET /hospitals', () => {

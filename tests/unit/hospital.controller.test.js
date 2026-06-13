@@ -11,6 +11,15 @@ import * as adminService from '../../src/services/admin.service.js';
 import * as hospitalService from '../../src/services/hospital.service.js';
 import { makeMockReq, makeMockRes } from '../helpers/mocks.js';
 import Appointment from '../../src/models/Appointment.model.js';
+import { HttpError } from '../../src/utils/HttpError.js';
+
+const expectHttpError = (next, statusCode, messagePattern) => {
+  expect(next).toHaveBeenCalledTimes(1);
+  const err = next.mock.calls[0][0];
+  expect(err).toBeInstanceOf(HttpError);
+  expect(err.statusCode).toBe(statusCode);
+  if (messagePattern) expect(err.message).toMatch(messagePattern);
+};
 
 vi.mock('../../src/models/Hospital.model.js', () => ({
   default: {
@@ -103,6 +112,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.getProfile(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json.mock.calls[0][0].data.hospitalName).toBe('General Hospital');
     });
@@ -118,7 +128,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.getProfile(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(404);
+      expectHttpError(next, 404);
     });
   });
 
@@ -141,6 +151,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.findDonors(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
@@ -158,8 +169,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.findDonors(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].message).toBe('Invalid bloodType');
+      expectHttpError(next, 400, /Invalid bloodType/);
     });
   });
 
@@ -187,6 +197,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.updateProfile(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json.mock.calls[0][0].data.hospitalName).toBe('Updated Name');
     });
@@ -237,6 +248,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.createRequest(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(Request.create).toHaveBeenCalled();
       expect(matchingService.findCompatibleDonors).toHaveBeenCalledWith(requestId);
       expect(notificationService.notifyRequest).toHaveBeenCalled();
@@ -263,6 +275,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.getRequests(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       expect(res.json.mock.calls[0][0].data.requests).toHaveLength(1);
     });
@@ -295,6 +308,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.getAppointmentDetails(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
@@ -312,7 +326,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.getAppointmentDetails(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(404);
+      expectHttpError(next, 404, /not found/);
     });
   });
 });

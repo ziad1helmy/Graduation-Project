@@ -3,11 +3,26 @@ import { setupTestDB } from '../helpers/db.js';
 import { createDonor, createHospital } from '../helpers/factories.js';
 import * as appointmentController from '../../src/controllers/appointment.controller.js';
 import * as appointmentService from '../../src/services/appointment.service.js';
+import { HttpError } from '../../src/utils/HttpError.js';
 
 vi.mock('../../src/models/Notification.model.js', () => ({ default: { create: vi.fn().mockResolvedValue(null) } }));
 vi.mock('../../src/services/activity.service.js', () => ({ logActivity: vi.fn().mockResolvedValue(null) }));
 
 setupTestDB();
+
+/**
+ * Asserts that the controller forwarded an HttpError to next() with the
+ * expected status code. With the asyncHandler wrapper, domain errors are
+ * no longer mapped to res.json directly — they are thrown as HttpError
+ * and the global error middleware writes the JSON response.
+ */
+const expectHttpError = (next, statusCode, messagePattern) => {
+  expect(next).toHaveBeenCalledTimes(1);
+  const err = next.mock.calls[0][0];
+  expect(err).toBeInstanceOf(HttpError);
+  expect(err.statusCode).toBe(statusCode);
+  if (messagePattern) expect(err.message).toMatch(messagePattern);
+};
 
 const makeFutureAppointmentDate = (daysAhead = 2, hour = 10) => {
   const date = new Date();
@@ -74,8 +89,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.getAppointmentById(req, res, next);
 
-      const callArgs = res.json.mock.calls[0][0];
-      expect(callArgs.success).toBe(false);
+      expectHttpError(next, 404, /Appointment not found/);
     });
 
     it('returns error when donor does not own the appointment', async () => {
@@ -98,8 +112,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.getAppointmentById(req, res, next);
 
-      const callArgs = res.json.mock.calls[0][0];
-      expect(callArgs.success).toBe(false);
+      expectHttpError(next, 404, /Appointment not found/);
     });
   });
 
@@ -180,8 +193,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      const callArgs = res.json.mock.calls[0][0];
-      expect(callArgs.success).toBe(false);
+      expectHttpError(next, 400, /future/);
     });
 
     it('returns 404 when appointment not found', async () => {
@@ -201,8 +213,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      const callArgs = res.json.mock.calls[0][0];
-      expect(callArgs.success).toBe(false);
+      expectHttpError(next, 404, /Appointment not found/);
     });
 
     it('returns error when donor does not own the appointment', async () => {
@@ -227,8 +238,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      const callArgs = res.json.mock.calls[0][0];
-      expect(callArgs.success).toBe(false);
+      expectHttpError(next, 404, /Appointment not found/);
     });
   });
 

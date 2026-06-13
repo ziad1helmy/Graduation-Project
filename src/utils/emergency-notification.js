@@ -1,4 +1,5 @@
-import { calculateDistance } from './geo.js';
+import { calculateDistance, extractLocation } from './geo.js';
+import { formatDistance } from './format.js';
 import {
   formatBloodTypeLabel,
   normalizeBloodTypeList,
@@ -19,31 +20,24 @@ const toIsoString = (value) => {
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
 };
 
-const formatDistance = (distanceKm) => {
-  if (!Number.isFinite(distanceKm)) return null;
-  if (distanceKm < 1) return `${Math.round(distanceKm * 1000)} m`;
-  return `${distanceKm.toFixed(2)} km`;
-};
-
 const extractHospitalLocation = (request) => {
   const hospital = request?.hospitalId || {};
   const location = hospital.location || {};
+  const coords = extractLocation(request, 'auto') || {};
 
   return {
     city: location.city || hospital.city || null,
     governorate: location.governorate || hospital.address?.governorate || hospital.governorate || null,
-    latitude: request?.locationHospital?.latitude ?? request?.hospitalLocation?.lat ?? location.coordinates?.lat ?? null,
-    longitude: request?.locationHospital?.longitude ?? request?.hospitalLocation?.lng ?? location.coordinates?.lng ?? null,
+    latitude: coords.latitude ?? null,
+    longitude: coords.longitude ?? null,
   };
 };
 
 const extractDonorLocation = (donor) => {
-  const location = donor?.location || {};
-  const coordinates = location.coordinates || {};
-
+  const coords = extractLocation(donor, 'donor') || {};
   return {
-    latitude: coordinates.lat ?? location.latitude ?? location.lat ?? null,
-    longitude: coordinates.lng ?? location.longitude ?? location.long ?? null,
+    latitude: coords.latitude ?? null,
+    longitude: coords.longitude ?? null,
   };
 };
 

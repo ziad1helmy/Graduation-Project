@@ -172,6 +172,96 @@ describe('Discovery Controller', () => {
     });
   });
 
+  describe('Distance calculation: accepts lat/lng, lat/long, and lat/latitude+long', () => {
+    // Bug: /hospitals/nearby previously only read req.query.long, so clients
+    // sending `lng` got NaN distance and were silently dropped by radius_km.
+    const hospital = { lat: 30.0444, long: 31.2357 };
+
+    const callNearby = async (query) => {
+      const req = { query };
+      const res = {
+        json: vi.fn().mockReturnThis(),
+        status: vi.fn().mockReturnThis(),
+      };
+      const next = vi.fn();
+      await discoveryController.getNearbyHospitals(req, res, next);
+      return res.json.mock.calls[0][0];
+    };
+
+    it.each([
+      ['lat/lng', { lat: 30.0444, lng: 31.2357 }],
+      ['lat/long', { lat: 30.0444, long: 31.2357 }],
+      ['latitude/longitude', { latitude: 30.0444, longitude: 31.2357 }],
+    ])('computes distanceKm for nearby hospital using %s query', async (_label, query) => {
+      await createHospital({ ...hospital, bloodBanksAvailable: ['O+'] });
+
+      const payload = await callNearby({ ...query, radius_km: 50 });
+
+      const entry = payload.data.hospitals[0];
+      expect(entry).toBeDefined();
+      expect(entry.distanceKm).toBe(0);
+      expect(entry.distanceMeters).toBe(0);
+      expect(entry.distance).toBe('0 m');
+    });
+
+    it('returns empty result when radius_km is supplied without coordinates (was dropping all results)', async () => {
+      await createHospital({ ...hospital, bloodBanksAvailable: ['O+'] });
+
+      const payload = await callNearby({ radius_km: 50 });
+
+      expect(payload.data.hospitals).toHaveLength(1);
+      expect(payload.data.hospitals[0].distanceKm).toBeUndefined();
+    });
+
+    it('filters out hospitals beyond radius_km when coordinates are provided', async () => {
+      await createHospital({ lat: 30.0444, long: 31.2357, bloodBanksAvailable: ['O+'] });
+      // Alexandria is ~180 km from Cairo — must be excluded by a 50 km radius
+      await createHospital({ lat: 31.2001, long: 29.9187, bloodBanksAvailable: ['A+'] });
+
+      const payload = await callNearby({ lat: 30.0444, lng: 31.2357, radius_km: 50 });
+
+      expect(payload.data.hospitals).toHaveLength(1);
+      expect(payload.data.hospitals[0].lat).toBe(30.0444);
+    });
+  });
+
+  describe('getHospitalById: accepts lat/lng alias for distance computation', () => {
+    // Bug: /hospitals/:id previously only read req.query.long, so clients
+    // sending `lng` got NaN distance.
+    const callById = async (hospitalId, query) => {
+      const req = { params: { id: hospitalId }, query };
+      const res = {
+        json: vi.fn().mockReturnThis(),
+        status: vi.fn().mockReturnThis(),
+      };
+      const next = vi.fn();
+      await discoveryController.getHospitalById(req, res, next);
+      return res.json.mock.calls[0][0];
+    };
+
+    it.each([
+      ['lat/lng',        { lat: 30.0444, lng: 31.2357 }],
+      ['lat/long',       { lat: 30.0444, long: 31.2357 }],
+      ['latitude/longitude', { latitude: 30.0444, longitude: 31.2357 }],
+    ])('computes distanceKm for hospital with %s query', async (_label, query) => {
+      const hospital = await createHospital({ lat: 30.0444, long: 31.2357 });
+
+      const payload = await callById(hospital._id, query);
+
+      expect(payload.data.hospital).toBeDefined();
+      expect(payload.data.hospital.distanceKm).toBe(0);
+    });
+
+    it('omits distance fields when no coordinates are provided', async () => {
+      const hospital = await createHospital({ lat: 30.0444, long: 31.2357 });
+
+      const payload = await callById(hospital._id, {});
+
+      expect(payload.data.hospital).toBeDefined();
+      expect(payload.data.hospital.distanceKm).toBeUndefined();
+    });
+  });
+
   describe('Dev 2: Task 9 — searchHospitals and getHospitalsForMap', () => {
     it('searches hospitals by keyword and blood type', async () => {
       const targetHospital = await createHospital({

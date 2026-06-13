@@ -25,16 +25,15 @@ docs-guard, test-guard) and by the project maintainers during review.
 | `tests/unit/*.test.js` | Vitest unit tests, isolated. |
 | `tests/integration/*.test.js` | Vitest integration tests, full app. |
 | `openapi.yaml` | **Source of truth** for the public API. |
-| `openapi.json` | **Generated** mirror of `openapi.yaml`. Never edit by hand. |
 | `public/swagger-custom.js` | Swagger UI path-to-group mapping. |
 
 ---
 
-## 2. API surface changes — update `openapi.yaml` AND `openapi.json`
+## 2. API surface changes — update `openapi.yaml`
 
 The OpenAPI spec is the public contract of this API. The Flutter client,
 postman collections, and integration tests all read from it. **If you
-change the API surface, you must update both files.**
+change the API surface, you must update `openapi.yaml`.**
 
 ### What counts as an API surface change
 
@@ -53,16 +52,10 @@ Any of the following require an `openapi.yaml` update:
 ### How to keep the spec in sync
 
 1. Edit `openapi.yaml` (this is the **source of truth**).
-2. Run the generator to refresh the JSON mirror:
-   ```bash
-   node scripts/generate-openapi.js
-   ```
-   The generator reads `openapi.yaml` and writes `openapi.json`. Never
-   edit `openapi.json` by hand — the next regeneration will overwrite it.
-3. If you added or renamed a path, update `public/swagger-custom.js` to
+2. If you added or renamed a path, update `public/swagger-custom.js` to
    map it to the correct Swagger UI group (User Management, Requests &
    Moderation, etc.).
-4. Verify both files parse:
+3. Verify the spec parses:
    ```bash
    node -e "import('yaml').then(m => { const fs = require('fs'); const text = fs.readFileSync('openapi.yaml','utf8'); const p = m.default.parse(text); console.log('YAML valid:', Object.keys(p.paths).length, 'paths'); })"
    ```
@@ -116,8 +109,44 @@ message or PR description.**
    ```bash
    npx vitest run tests/integration/admin.integration.test.js tests/integration/auth.integration.test.js
    ```
-4. If you changed `openapi.yaml`, regenerate `openapi.json` and update
-   `public/swagger-custom.js` if path mappings changed.
+4. If you changed `openapi.yaml`, update `public/swagger-custom.js` if path
+   mappings changed.
+
+### Update integration tests when refactoring controllers or services
+
+When a change touches a controller handler or service function that has
+an existing integration test under `tests/integration/`, update the
+test **before** you run the suite — do not let the test fail and then
+"fix it after." A failing test on a known refactor is a planning
+failure, not a discovery.
+
+Concretely, before editing any file under `src/controllers/` or
+`src/services/`:
+
+1. `git grep` (or your editor's find-in-files) for the exported
+   handler/function name. Note every test file under `tests/integration/`
+   that references it.
+2. Skim each test and check whether the refactor changes any of:
+   - The HTTP status code returned for a given input.
+   - The error code, message, or response shape on a failure path.
+   - The success response shape (field names, nesting, included
+     metadata like `distanceKm`, `pagination`, `unreadCount`).
+   - The query/body parameter names the endpoint accepts.
+   - The order of middleware (auth, role, rate limit) on the route.
+3. If any of those change, update the test in the same commit. If the
+   new contract is stricter (e.g. a new alias is required, or a
+   previously-optional field is now mandatory), add a new test case
+   that pins the new behavior.
+4. For the shared utilities in `src/utils/`, the same rule applies
+   to the unit tests under `tests/unit/` that import them — if a
+   utility changes its argument shape, return shape, or alias set,
+   update the unit test that pins that contract in the same change.
+
+The "AI test smell" this prevents: a controller is refactored, an
+assertion on `res.body.data.foo` becomes stale, the test still
+passes because `foo` is now `undefined` and the assertion is loose,
+and the regression ships. The fix is to make the test pin the new
+contract before the refactor is considered done.
 
 ---
 
@@ -159,6 +188,11 @@ Donor and Hospital are Mongoose discriminators (`Donor` and `Hospital` extend `U
 - Caching: `src/utils/cache.js` provides Redis (if `REDIS_URL` is set) or in-memory fallback. Use it for expensive analytics endpoints.
 - Age calculation: `src/utils/age.js` has `calculateAge(dateOfBirth)`.
 - Response wrapper: `src/utils/response.js` (see above).
+- Geo and location utilities: `src/utils/geo.js` has `parseLatLng(query)` for parsing lat/lng/long/latitude/longitude query params, `extractLocation(obj, type)` for pulling coordinates out of any request/donor/hospital document shape, `extractGeoPoint(location)` for the same plus GeoJSON arrays, `calculateDistance(loc1, loc2)` (Haversine), `findNearby`, `sortByProximity`, and `getLocationScore`. Do not re-implement Haversine or coordinate extraction in controllers.
+- Formatting utilities: `src/utils/format.js` has `formatDistance(km)` and `formatEstimatedTime(km)`. Do not duplicate.
+- Query and data utilities: `src/utils/query.js` has `toNumber`, `isValidObjectId`, `toLocation`, `parseBooleanQuery`, and `toPlainObject`. Do not redefine these locally in controllers or services.
+- Typed errors: `src/utils/HttpError.js` exports `HttpError(statusCode, message, details?)`. Throw it instead of calling `response.error()` from inside `try/catch` blocks — the global error middleware in `src/middlewares/error.middleware.js` maps it to a JSON response.
+- Async route handlers: `src/middlewares/asyncHandler.js` exports `asyncHandler(fn)` to wrap async controllers and forward thrown errors to Express. Use it instead of `try { ... } catch (error) { next(error); }` in every controller.
 
 ---
 
@@ -170,7 +204,6 @@ Donor and Hospital are Mongoose discriminators (`Donor` and `Hospital` extend `U
 | `npx vitest run tests/unit/<file>` | One unit test file. |
 | `npx vitest run tests/integration/<file>` | One integration test file. |
 | `node scripts/migrate-admin-keys.js` | One-off migration for the bcrypt adminKey change. Run once before deploying the security fix. |
-| `node scripts/generate-openapi.js` | Regenerate `openapi.json` from `openapi.yaml`. Run after any spec change. |
 
 ### Test infrastructure
 - Uses `mongodb-memory-server` with a **replica set** (`MongoMemoryReplSet`) so transactions work.
@@ -188,10 +221,19 @@ preference.
 - **No inline JSDoc `@swagger` / `@openapi` annotations in route
   files.** All spec lives in `openapi.yaml`. There is a comment
   reminder in every router that says so.
-- **No editing `openapi.json` by hand.** It is generated.
 - **No route or middleware that bypasses the global `authMiddleware`**.
   The only unauthenticated routes are under `/auth/*` (login, signup,
   forgot-password, verify-email, verify-email-otp, verify-otp).
+- **No duplicating shared utilities.** Do not redefine `formatDistance`,
+  `formatEstimatedTime`, `toNumber`, `isValidObjectId`, `toLocation`,
+  `parseBooleanQuery`, `toPlainObject`, or a local `parseLatLng`/
+  `extractLocation` in a controller or service. Import them from
+  `src/utils/format.js`, `src/utils/query.js`, or `src/utils/geo.js`
+  instead. The same applies to local Haversine re-implementations.
+- **No `try { ... } catch (error) { next(error); }` in controllers.**
+  Use `asyncHandler(fn)` from `src/middlewares/asyncHandler.js`
+  instead. Domain-specific error mapping belongs inside a `try`
+  block that re-throws `HttpError`, not a generic `next(error)`.
 - **No accepting `email` or `role` in admin-update endpoints.** Admins
   change their own email via the self-service profile flow; role
   changes are not supported via the admin-update path.
@@ -207,8 +249,8 @@ preference.
 
 ## 8. Commit hygiene
 
-- One logical change per commit. If you touch `openapi.yaml` and
-  `openapi.json` for the same change, include both in the same commit.
+- One logical change per commit. If you touch `openapi.yaml` and the
+  related route/controller, include both in the same commit.
 - The commit message should name the endpoint(s) or module(s) affected
   and call out any cross-file impact explicitly.
 - Do not commit `.env`, secrets, or generated-only artifacts that

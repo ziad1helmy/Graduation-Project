@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as rewardController from '../../src/controllers/reward.controller.js';
 import * as rewardService from '../../src/services/reward.service.js';
 import { makeMockReq, makeMockRes } from '../helpers/mocks.js';
+import { HttpError } from '../../src/utils/HttpError.js';
 
 vi.mock('../../src/services/reward.service.js', () => ({
   getPointsSummary: vi.fn(),
@@ -119,9 +120,12 @@ describe('Reward Controller', () => {
 
       await rewardController.redeemReward(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(409);
-      expect(res.json.mock.calls[0][0].success).toBe(false);
-      expect(res.json.mock.calls[0][0].details).toEqual(err.details);
+      expect(next).toHaveBeenCalledTimes(1);
+      const httpErr = next.mock.calls[0][0];
+      expect(httpErr).toBeInstanceOf(HttpError);
+      expect(httpErr.statusCode).toBe(409);
+      expect(httpErr.message).toBe('Insufficient points');
+      expect(httpErr.details).toEqual(err.details);
     });
   });
 
@@ -137,8 +141,11 @@ describe('Reward Controller', () => {
 
       await rewardController.adminAdjustPoints(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].message).toBe('Amount and reason are required');
+      expect(next).toHaveBeenCalledTimes(1);
+      const httpErr = next.mock.calls[0][0];
+      expect(httpErr).toBeInstanceOf(HttpError);
+      expect(httpErr.statusCode).toBe(400);
+      expect(httpErr.message).toBe('Amount and reason are required');
     });
 
     it('successfully adjusts points when request is valid', async () => {
@@ -171,7 +178,10 @@ describe('Reward Controller', () => {
 
       await rewardController.adminUpdateRewardStatus(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expect(next).toHaveBeenCalledTimes(1);
+      const httpErr = next.mock.calls[0][0];
+      expect(httpErr).toBeInstanceOf(HttpError);
+      expect(httpErr.statusCode).toBe(400);
     });
 
     it('updates status when status is valid', async () => {

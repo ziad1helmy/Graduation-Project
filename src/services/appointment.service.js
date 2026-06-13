@@ -11,7 +11,7 @@ import * as eligibilityService from './eligibility.service.js';
 import * as activityService from './activity.service.js';
 import { rejectDonationLifecycle } from './request-lifecycle.service.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
-import { paginationMeta } from '../utils/pagination.js';
+import { paginationMeta, parsePagination } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 import { appointmentPopulateOptions, donorAppointmentPopulateOptions, toAppointmentResponse } from '../utils/appointment.dto.js';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
@@ -731,8 +731,7 @@ export const bookAppointment = async (donorId, hospitalId, requestId = null, app
 
 export const getMyAppointments = async (donorId, filters = {}, projection = null, options = {}) => {
   try {
-    const { page = 1, limit = 10 } = filters;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { offset, limit, page } = parsePagination(filters, 10);
 
     const filter = { donorId };
 
@@ -740,7 +739,7 @@ export const getMyAppointments = async (donorId, filters = {}, projection = null
     const appointments = await Appointment.find(filter, projection)
       .populate(populateOptions)
       .skip(offset)
-      .limit(parseInt(limit))
+      .limit(limit)
       .sort({ appointmentDate: -1 });
 
     const total = await Appointment.countDocuments(filter);
@@ -787,7 +786,7 @@ export const cancelAppointment = async (appointmentId, donorId) => {
     });
 
     const updatedAppointment = await Appointment.findById(appointment._id).populate(appointmentPopulateOptions);
-    return toAppointmentResponse(updatedAppointment);
+    return toAppointmentResponse(updatedAppointment, { isCancelled: true });
   } catch (error) {
     throw error;
   }

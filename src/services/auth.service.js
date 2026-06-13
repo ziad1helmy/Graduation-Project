@@ -46,6 +46,16 @@ const createServiceError = (message, statusCode = 400) => {
   return error;
 };
 
+const createBanError = (reason) => {
+  const error = createServiceError(
+    `${ERR.AUTH_ACCOUNT_BANNED}. Reason: ${reason || 'Not specified'}`,
+    403
+  );
+  error.code = 'AUTH_ACCOUNT_BANNED';
+  error.reason = reason || 'Not specified';
+  return error;
+};
+
 const hrtimeMs = (start) => Number(process.hrtime.bigint() - start) / 1e6;
 
 const createScopedToken = (payload, purpose, expiresIn) => (
@@ -92,7 +102,7 @@ const loadLoginUser = async ({ email, password, role, hospitalId }) => {
 
   const normalizedEmail = String(email).trim().toLowerCase();
   const user = await User.findOne({ email: normalizedEmail })
-    .select('+password +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +hospitalId')
+    .select('+password +passwordChangedAt +deletedAt +isSuspended +suspendedReason +isEmailVerified +hospitalId')
     .lean();
 
   if (!user) {
@@ -104,7 +114,10 @@ const loadLoginUser = async ({ email, password, role, hospitalId }) => {
   }
 
   if (user.isSuspended) {
-    throw new Error('Account is suspended. Contact support.');
+    if (role === 'donor') {
+      throw createBanError(user.suspendedReason);
+    }
+    throw new Error(ERR.AUTH_ACCOUNT_SUSPENDED);
   }
 
   if (!user.isEmailVerified) {
@@ -290,7 +303,8 @@ export const register = async (data, trace = {}) => {
 
     // Check if email already exists
     const duplicateLookupStartedAt = process.hrtime.bigint();
-    const existingUser = await User.findOne({ email });
+    const normalizedEmail = String(email).trim().toLowerCase();
+    const existingUser = await User.findOne({ email: normalizedEmail });
     logger.info('Signup duplicate email lookup finished', {
       traceId,
       email,
@@ -299,7 +313,10 @@ export const register = async (data, trace = {}) => {
       found: Boolean(existingUser),
     });
     if (existingUser) {
-        throw new Error('Email is already registered');
+        if (existingUser.isSuspended) {
+            throw createBanError(existingUser.suspendedReason);
+        }
+        throw new Error(ERR.EMAIL_ALREADY_EXISTS);
     }
 
     let normalizedLocation = location;
@@ -323,7 +340,7 @@ export const register = async (data, trace = {}) => {
     // Base user data (shared across all roles)
     const baseData = {
         fullName,
-        email,
+        email: normalizedEmail,
         password,
         role,
         ...(normalizedLocation && { location: normalizedLocation }),

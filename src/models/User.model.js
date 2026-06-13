@@ -169,6 +169,12 @@ if (process.env.ENABLE_GEOSPATIAL_INDEX === 'true') {
 
 userSchema.index({ createdAt: 1 });
 
+const BCRYPT_PREFIXES = ['$2a$', '$2b$', '$2y$'];
+const isAlreadyHashed = (value) => {
+  if (!value) return false;
+  return BCRYPT_PREFIXES.some((prefix) => value.startsWith(prefix));
+};
+
 userSchema.pre('save', async function () {
   const hookStartedAt = process.hrtime.bigint();
 
@@ -180,6 +186,12 @@ userSchema.pre('save', async function () {
       userId: this._id?.toString?.(),
       durationMs: Number(process.hrtime.bigint() - normalizeStartedAt) / 1e6,
     });
+  }
+
+  // Hash adminKey if modified and not already hashed
+  if (this.adminKey && this.isModified('adminKey') && !isAlreadyHashed(this.adminKey)) {
+    const saltRounds = env.BCRYPT_SALT_ROUNDS || 10;
+    this.adminKey = await bcrypt.hash(this.adminKey, saltRounds);
   }
 
   if (!this.isModified('password')) {

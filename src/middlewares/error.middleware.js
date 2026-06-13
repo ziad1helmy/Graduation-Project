@@ -1,12 +1,34 @@
 import response from '../utils/response.js';
 import { TokenExpiredError, JsonWebTokenError } from '../utils/jwt.js';
 import { logger } from '../utils/logger.js';
+import { HttpError } from '../utils/HttpError.js';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
 export default function errorMiddleware(err, req, res, next) {
   if (res.headersSent) {
     return next(err);
+  }
+
+  // HttpError carries its own status code; treat it as an expected client error
+  if (err instanceof HttpError) {
+    if (err.statusCode >= 500) {
+      logger.error('HttpError (5xx)', {
+        message: err.message,
+        statusCode: err.statusCode,
+        method: req.method,
+        path: req.path,
+        stack: isDev ? err.stack : undefined,
+      });
+    } else {
+      logger.warn('HttpError', {
+        message: err.message,
+        statusCode: err.statusCode,
+        method: req.method,
+        path: req.path,
+      });
+    }
+    return response.error(res, err.statusCode, err.message, err.details);
   }
 
   // Log the error with full details (stack only in development)

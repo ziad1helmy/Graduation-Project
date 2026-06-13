@@ -711,6 +711,18 @@ paths:
                     sent: true
         "400":
           description: Validation or registration error
+        "403":
+          description: This email is banned. The response message and details include the admin-provided reason.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                success: false
+                code: FORBIDDEN
+                message: "Account banned. Reason: Violated community guidelines"
+                details:
+                  reason: Violated community guidelines
         "409":
           description: Email already registered
   /auth/verify-email:
@@ -801,7 +813,17 @@ paths:
         "400":
           description: Validation error or invalid credentials
         "403":
-          description: Email not verified or account suspended
+          description: Email not verified, account suspended, or account banned. When banned, the response message and details include the admin-provided reason.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiErrorResponse"
+              example:
+                success: false
+                code: FORBIDDEN
+                message: "Account banned. Reason: Violated community guidelines"
+                details:
+                  reason: Violated community guidelines
   /auth/hospital/login:
     post:
       tags:
@@ -1828,18 +1850,16 @@ paths:
                 success: true
                 message: Available slots retrieved successfully
                 data:
-                  date: 2026-05-12
+                  date: 2026-05-12T00:00:00.000Z
                   hospitalId: 69f3df915f42685cbbbcbb1b
-                  remainingCapacity: 12
-                  maxCapacity: 20
-                  slotsPerHour: 4
+                  slotsPerHour: 5
                   timeSlots:
-                    - time: "08:00"
-                      available: true
-                    - time: "09:00"
-                      available: false
-                    - time: "10:00"
-                      available: true
+                    - time: "09:00 AM"
+                      remainingCapacity: 5
+                      maxCapacity: 5
+                    - time: "10:00 AM"
+                      remainingCapacity: 3
+                      maxCapacity: 5
         "400":
           description: Invalid hospitalId or date
         "404":
@@ -1887,9 +1907,17 @@ paths:
                       hospitalId:
                         _id: 69f3df915f42685cbbbcbb1b
                         hospitalName: Cairo Care Hospital
+                        contactNumber: "1044444444"
                         address:
                           city: Cairo
                           governorate: Cairo
+                          district: Garden City
+                        location:
+                          city: Cairo
+                          governorate: Cairo
+                          coordinates:
+                            lat: 30.0511
+                            lng: 31.2435
                       hospital:
                         hospitalId: 69f3df915f42685cbbbcbb1b
                         id: 69f3df915f42685cbbbcbb1b
@@ -1923,10 +1951,13 @@ paths:
                       updatedAt: 2026-05-08T09:00:00.000Z
                   total: 1
                   meta:
-                    page: 1
-                    limit: 10
                     total: 1
+                    page: 1
+                    currentPage: 1
+                    limit: 10
                     totalPages: 1
+                    hasNextPage: false
+                    hasPrevPage: false
         "401":
           description: Missing or invalid JWT
         "403":
@@ -2149,24 +2180,14 @@ paths:
                 message: Appointment cancelled
                 data:
                   _id: 69fe540565ff7785a031315c
-                  donorId:
-                    _id: 69f3df915f42685cbbbcbb18
-                    fullName: Noor Ahmed
-                    phoneNumber: '01123456789'
-                    bloodType: O+
-                    email: noor.ahmed@example.com
-                  donorDetails:
-                    fullName: Noor Ahmed
-                    phoneNumber: '01123456789'
-                    bloodType: O+
-                    email: noor.ahmed@example.com
-                  hospitalId:
-                    _id: 69f3df915f42685cbbbcbb1b
-                    hospitalName: Cairo Care Hospital
-                    fullName: Cairo Care Operations
+                  donorId: 69f3df915f42685cbbbcbb18
+                  hospitalId: 69f3df915f42685cbbbcbb1b
+                  requestId: 69fe540565ff7785a031314f
                   appointmentDate: 2026-05-12T10:00:00.000Z
                   status: cancelled
                   cancelledAt: 2026-05-09T10:30:00.000Z
+                  notes: Test appointment
+                  qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
                   donationType: Whole Blood
         "400":
           description: "Invalid appointment id or cannot cancel (too close to appointment time or already cancelled/completed)"
@@ -2725,7 +2746,7 @@ paths:
       tags:
         - Donor
       description: |-
-        Find hospitals within a specified radius from given GPS coordinates. Returns hospitals sorted by distance. Supports both lat/long and legacy latitude/longitude parameters
+        Find hospitals within a specified radius from given GPS coordinates. Returns hospitals sorted by distance. Accepts `lat`/`lng`, `lat`/`long`, or `latitude`/`longitude` for backwards compatibility.
 
         Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       parameters:
@@ -2734,6 +2755,12 @@ paths:
           schema:
             type: number
           description: Donor latitude coordinate (-90 to 90). Alias for latitude.
+          example: 1
+        - in: query
+          name: lng
+          schema:
+            type: number
+          description: Donor longitude coordinate (-180 to 180). Preferred alias for longitude.
           example: 1
         - in: query
           name: long
@@ -2751,7 +2778,7 @@ paths:
           name: longitude
           schema:
             type: number
-          description: Donor longitude coordinate (deprecated, use long instead)
+          description: Donor longitude coordinate (deprecated, use lng instead)
           example: 1
         - in: query
           name: search
@@ -2911,6 +2938,38 @@ paths:
           schema:
             type: string
           example: 69f3df915f42685cbbbcbb1b
+        - in: query
+          name: lat
+          schema:
+            type: number
+          description: Viewer latitude used to compute distance to the hospital. Alias
+            for latitude.
+          example: 30.0444
+        - in: query
+          name: lng
+          schema:
+            type: number
+          description: Viewer longitude used to compute distance to the hospital. Alias
+            for long.
+          example: 31.2357
+        - in: query
+          name: long
+          schema:
+            type: number
+          description: Viewer longitude (deprecated, use lng instead). Alias for longitude.
+          example: 31.2357
+        - in: query
+          name: latitude
+          schema:
+            type: number
+          description: Viewer latitude (deprecated, use lat instead). Alias for lat.
+          example: 30.0444
+        - in: query
+          name: longitude
+          schema:
+            type: number
+          description: Viewer longitude (deprecated, use lng instead). Alias for long.
+          example: 31.2357
       responses:
         "200":
           description: Hospital details
@@ -5711,7 +5770,7 @@ paths:
             minimum: -90
             maximum: 90
           description: Search latitude. If omitted, hospital users fall back to saved
-            hospital coordinates.
+            hospital coordinates. Alias for latitude.
           example: 30.0444
         - in: query
           name: lng
@@ -5721,7 +5780,34 @@ paths:
             minimum: -180
             maximum: 180
           description: Search longitude. If omitted, hospital users fall back to saved
-            hospital coordinates.
+            hospital coordinates. Preferred alias for longitude.
+          example: 31.2357
+        - in: query
+          name: long
+          required: false
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+          description: Search longitude. Alias for lng/longitude.
+          example: 31.2357
+        - in: query
+          name: latitude
+          required: false
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+          description: Search latitude. Alias for lat.
+          example: 30.0444
+        - in: query
+          name: longitude
+          required: false
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+          description: Search longitude. Alias for lng.
           example: 31.2357
         - in: query
           name: availability
@@ -8338,14 +8424,17 @@ paths:
             type: string
           example: 69f3df915f42685cbbbcbb18
       requestBody:
-        required: false
+        required: true
         content:
           application/json:
             schema:
               type: object
+              required:
+                - reason
               properties:
                 reason:
                   type: string
+                  maxLength: 500
             example:
               reason: Temporary compliance review
       responses:

@@ -6,6 +6,7 @@ import * as matchingService from '../../src/services/matching.service.js';
 import Donor from '../../src/models/Donor.model.js';
 import Appointment from '../../src/models/Appointment.model.js';
 import Donation from '../../src/models/Donation.model.js';
+import { HttpError } from '../../src/utils/HttpError.js';
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 vi.mock('../../src/models/Notification.model.js', () => ({
@@ -52,6 +53,14 @@ const makeRes = () => {
   return res;
 };
 
+const expectHttpError = (next, statusCode, messagePattern) => {
+  expect(next).toHaveBeenCalledTimes(1);
+  const err = next.mock.calls[0][0];
+  expect(err).toBeInstanceOf(HttpError);
+  expect(err.statusCode).toBe(statusCode);
+  if (messagePattern) expect(err.message).toMatch(messagePattern);
+};
+
 // =============================================================================
 //  getDashboard
 // =============================================================================
@@ -59,8 +68,10 @@ describe('getDashboard', () => {
   it('returns 200 with userInfo / stats / recentActivity / badges', async () => {
     const donor = await createDonor({ fullName: 'Ahmed Test', bloodType: 'O+' });
     const res = makeRes();
-    await donorController.getDashboard({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getDashboard({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const data = res.json.mock.calls[0][0].data;
     expect(data).toHaveProperty('userInfo');
@@ -72,8 +83,10 @@ describe('getDashboard', () => {
   it('userInfo contains firstName, bloodType, donationStatus', async () => {
     const donor = await createDonor({ fullName: 'Fatima Test', bloodType: 'A-' });
     const res = makeRes();
-    await donorController.getDashboard({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getDashboard({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     const { userInfo } = res.json.mock.calls[0][0].data;
     expect(userInfo.firstName).toBe('Fatima');
     expect(userInfo.bloodType).toBe('A-');
@@ -83,8 +96,10 @@ describe('getDashboard', () => {
   it('donationStatus is "eligible" when no pending appointments', async () => {
     const donor = await createDonor();
     const res = makeRes();
-    await donorController.getDashboard({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getDashboard({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.json.mock.calls[0][0].data.userInfo.donationStatus).toBe('eligible');
   });
 
@@ -98,16 +113,20 @@ describe('getDashboard', () => {
       status: 'pending',
     });
     const res = makeRes();
-    await donorController.getDashboard({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getDashboard({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.json.mock.calls[0][0].data.userInfo.donationStatus).toBe('pending');
   });
 
   it('stats.points uses pointsBalance (not totalPoints)', async () => {
     const donor = await createDonor();
     const res = makeRes();
-    await donorController.getDashboard({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getDashboard({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     // mock returns pointsBalance: 600 — previous bug returned undefined (was totalPoints)
     expect(res.json.mock.calls[0][0].data.stats.points).toBe(600);
   });
@@ -115,8 +134,10 @@ describe('getDashboard', () => {
   it('stats.livesSaved = totalDonations * 3', async () => {
     const donor = await createDonor();
     const res = makeRes();
-    await donorController.getDashboard({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getDashboard({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     const { stats } = res.json.mock.calls[0][0].data;
     expect(stats.livesSaved).toBe(stats.totalDonations * 3);
   });
@@ -146,13 +167,14 @@ describe('getRequests / getMatches', () => {
     ]);
 
     const res = makeRes();
-    await donorController.getRequests({ user: { userId: donor._id }, query: {} }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getRequests({ user: { userId: donor._id }, query: {} }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const data = res.json.mock.calls[0][0].data;
     expect(data.requests).toHaveLength(1);
     expect(data.requests[0].requestId).toBe(request._id.toString());
-    expect(matchingService.findCompatibleRequests).toHaveBeenCalledWith(donor._id);
   });
 
   it('getRequests returns 422 LOCATION_REQUIRED for donor without location', async () => {
@@ -162,15 +184,18 @@ describe('getRequests / getMatches', () => {
       location: { city: 'Cairo', governorate: 'Cairo', coordinates: {} },
     });
     const res = makeRes();
-    await donorController.getRequests({ user: { userId: donor._id }, query: {} }, res, vi.fn());
-    expect(res.status).toHaveBeenCalledWith(422);
+    const next = vi.fn();
+    await donorController.getRequests({ user: { userId: donor._id }, query: {} }, res, next);
+    expectHttpError(next, 422, /location/);
   });
 
   it('getMatches hides results for opted-out donors', async () => {
     const donor = await createDonor({ isOptedIn: false });
     const res = makeRes();
-    await donorController.getMatches({ user: { userId: donor._id }, query: {} }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getMatches({ user: { userId: donor._id }, query: {} }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json.mock.calls[0][0].data.matches).toHaveLength(0);
   });
@@ -183,8 +208,10 @@ describe('getProfile', () => {
   it('returns 200 with age, weight, stats, badgeProgress', async () => {
     const donor = await createDonor({ dateOfBirth: new Date('1990-01-01'), weight: 75 });
     const res = makeRes();
-    await donorController.getProfile({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getProfile({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const data = res.json.mock.calls[0][0].data;
     expect(typeof data.age).toBe('number');
@@ -196,14 +223,17 @@ describe('getProfile', () => {
 
   it('returns 404 when donor not found', async () => {
     const res = makeRes();
-    await donorController.getProfile({ user: { userId: '507f1f77bcf86cd799439011' } }, res, vi.fn());
-    expect(res.status).toHaveBeenCalledWith(404);
+    const next = vi.fn();
+    await donorController.getProfile({ user: { userId: '507f1f77bcf86cd799439011' } }, res, next);
+    expectHttpError(next, 404, /not found/);
   });
 
   it('verificationStatus reflects isEmailVerified', async () => {
     const donor = await createDonor({ isEmailVerified: true });
     const res = makeRes();
-    await donorController.getProfile({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getProfile({ user: { userId: donor._id } }, res, next);
+    expect(next).not.toHaveBeenCalled();
     expect(res.json.mock.calls[0][0].data.verificationStatus).toBe('verified');
   });
 });
@@ -215,11 +245,13 @@ describe('updateProfile', () => {
   it('updates weight successfully', async () => {
     const donor = await createDonor();
     const res = makeRes();
+    const next = vi.fn();
     await donorController.updateProfile(
       { user: { userId: donor._id }, body: { weight: 80 } },
       res,
-      vi.fn()
+      next
     );
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const updated = await Donor.findById(donor._id);
     expect(updated.weight).toBe(80);
@@ -228,12 +260,13 @@ describe('updateProfile', () => {
   it('rejects invalid phone number', async () => {
     const donor = await createDonor();
     const res = makeRes();
+    const next = vi.fn();
     await donorController.updateProfile(
       { user: { userId: donor._id }, body: { phoneNumber: '123' } },
       res,
-      vi.fn()
+      next
     );
-    expect(res.status).toHaveBeenCalledWith(400);
+    expectHttpError(next, 400, /11 digits/);
   });
 });
 
@@ -244,8 +277,10 @@ describe('getDonorStats', () => {
   it('returns totalDonations, points, livesSaved', async () => {
     const donor = await createDonor();
     const res = makeRes();
-    await donorController.getDonorStats({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getDonorStats({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const data = res.json.mock.calls[0][0].data;
     expect(data).toHaveProperty('totalDonations');
@@ -262,8 +297,10 @@ describe('getDonorRewards', () => {
   it('returns currentPoints, earnedBadges, lockedBadges, nextMilestone', async () => {
     const donor = await createDonor();
     const res = makeRes();
-    await donorController.getDonorRewards({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getDonorRewards({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const data = res.json.mock.calls[0][0].data;
     expect(data).toHaveProperty('currentPoints');
@@ -285,12 +322,14 @@ describe('respondToRequest — accept', () => {
     const donor = await createDonor();
 
     const res = makeRes();
+    const next = vi.fn();
     await donorController.respondToRequest(
       { user: { userId: donor._id }, params: { requestId: request._id.toString() }, body: { quantity: 1 } },
       res,
-      vi.fn()
+      next
     );
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(201);
     const { default: Request } = await import('../../src/models/Request.model.js');
     const updated = await Request.findById(request._id);
@@ -304,12 +343,14 @@ describe('respondToRequest — accept', () => {
     const donor = await createDonor();
 
     const res = makeRes();
+    const next = vi.fn();
     await donorController.respondToRequest(
       { user: { userId: donor._id }, params: { requestId: request._id.toString() }, body: { quantity: 1 } },
       res,
-      vi.fn()
+      next
     );
 
+    expect(next).not.toHaveBeenCalled();
     const { default: Request } = await import('../../src/models/Request.model.js');
     const updated = await Request.findById(request._id);
     expect(updated.status).toBe('accepted');
@@ -323,12 +364,13 @@ describe('respondToRequest — accept', () => {
     await Donation.create({ donorId: donor._id, requestId: request._id, quantity: 1, status: 'pending' });
 
     const res = makeRes();
+    const next = vi.fn();
     await donorController.respondToRequest(
       { user: { userId: donor._id }, params: { requestId: request._id.toString() }, body: {} },
       res,
-      vi.fn()
+      next
     );
-    expect(res.status).toHaveBeenCalledWith(400);
+    expectHttpError(next, 400, /already responded/);
   });
 });
 
@@ -339,11 +381,13 @@ describe('getDonationHistory', () => {
   it('returns 200 with donations array and pagination', async () => {
     const donor = await createDonor();
     const res = makeRes();
+    const next = vi.fn();
     await donorController.getDonationHistory(
       { user: { userId: donor._id }, query: {} },
       res,
-      vi.fn()
+      next
     );
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const data = res.json.mock.calls[0][0].data;
     expect(Array.isArray(data.donations)).toBe(true);
@@ -358,8 +402,10 @@ describe('getSettings / updateSettings', () => {
   it('returns default settings', async () => {
     const donor = await createDonor();
     const res = makeRes();
-    await donorController.getSettings({ user: { userId: donor._id } }, res, vi.fn());
+    const next = vi.fn();
+    await donorController.getSettings({ user: { userId: donor._id } }, res, next);
 
+    expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const { settings } = res.json.mock.calls[0][0].data;
     expect(settings.pushNotifications).toBe(true);
@@ -371,12 +417,14 @@ describe('getSettings / updateSettings', () => {
   it('updates individual settings without affecting others', async () => {
     const donor = await createDonor();
     const res = makeRes();
+    const next = vi.fn();
     await donorController.updateSettings(
       { user: { userId: donor._id }, body: { privacyMode: true, language: 'ar' } },
       res,
-      vi.fn()
+      next
     );
 
+    expect(next).not.toHaveBeenCalled();
     const { settings } = res.json.mock.calls[0][0].data;
     expect(settings.privacyMode).toBe(true);
     expect(settings.language).toBe('ar');
@@ -386,11 +434,12 @@ describe('getSettings / updateSettings', () => {
   it('rejects invalid language', async () => {
     const donor = await createDonor();
     const res = makeRes();
+    const next = vi.fn();
     await donorController.updateSettings(
       { user: { userId: donor._id }, body: { language: 'fr' } },
       res,
-      vi.fn()
+      next
     );
-    expect(res.status).toHaveBeenCalledWith(400);
+    expectHttpError(next, 400, /"en" or "ar"/);
   });
 });

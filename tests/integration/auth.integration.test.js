@@ -41,6 +41,53 @@ describe('Auth Integration', () => {
     expect(loginRes.user.email).toBe(email);
   });
 
+  describe('Banned donor auth', () => {
+    it('POST /auth/login returns 403 with the admin ban reason for a banned donor', async () => {
+      const password = 'BannedPass@123';
+      const donor = await createDonor({
+        password,
+        isSuspended: true,
+        suspendedReason: 'Violated community guidelines',
+      });
+
+      const res = await request(app)
+        .post('/auth/login')
+        .send({ email: donor.email, password, role: 'donor' });
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Account banned');
+      expect(res.body.message).toContain('Violated community guidelines');
+      expect(res.body.details?.reason).toBe('Violated community guidelines');
+    });
+
+    it('POST /auth/signup returns 403 with the admin ban reason when email belongs to a banned donor', async () => {
+      const donor = await createDonor({
+        isSuspended: true,
+        suspendedReason: 'Repeated no-shows',
+      });
+
+      const res = await request(app)
+        .post('/auth/signup')
+        .send({
+          role: 'donor',
+          fullName: 'New Signup',
+          email: donor.email,
+          password: 'Password123!',
+          confirmPassword: 'Password123!',
+          phoneNumber: '01012345678',
+          dateOfBirth: '1995-01-01',
+          bloodType: 'O+',
+        });
+
+      expect(res.status).toBe(403);
+      expect(res.body.success).toBe(false);
+      expect(res.body.message).toContain('Account banned');
+      expect(res.body.message).toContain('Repeated no-shows');
+      expect(res.body.details?.reason).toBe('Repeated no-shows');
+    });
+  });
+
   describe('POST /auth/change-password', () => {
     it('returns 400 when the current password is incorrect', async () => {
       const donor = await createDonor({ password: 'CorrectPass@123' });

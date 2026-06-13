@@ -18,6 +18,7 @@ export const ERR = Object.freeze({
   // ── Authentication ──────────────────────────
   AUTH_INVALID_CREDENTIALS:        'Invalid credentials',
   AUTH_ACCOUNT_SUSPENDED:          'Account is suspended. Contact support.',
+  AUTH_ACCOUNT_BANNED:             'Account banned',
   AUTH_EMAIL_NOT_VERIFIED:         'Email address is not verified',
   AUTH_INVALID_ROLE:               'Invalid role for this account',
 

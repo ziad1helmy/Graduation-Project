@@ -3,6 +3,15 @@ import { setupTestDB } from '../helpers/db.js';
 import Badge from '../../src/models/Badge.model.js';
 import * as adminController from '../../src/controllers/admin.controller.js';
 import { makeMockReq, makeMockRes } from '../helpers/mocks.js';
+import { HttpError } from '../../src/utils/HttpError.js';
+
+const expectHttpError = (next, statusCode, messagePattern) => {
+  expect(next).toHaveBeenCalledTimes(1);
+  const err = next.mock.calls[0][0];
+  expect(err).toBeInstanceOf(HttpError);
+  expect(err.statusCode).toBe(statusCode);
+  if (messagePattern) expect(err.message).toMatch(messagePattern);
+};
 
 setupTestDB();
 
@@ -33,6 +42,7 @@ describe('Admin Badge Controller', () => {
 
       await adminController.getBadges(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       const data = res.json.mock.calls[0][0].data;
       expect(data.badges).toHaveLength(1);
@@ -51,6 +61,7 @@ describe('Admin Badge Controller', () => {
 
       await adminController.updateBadge(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       const updatedBadge = res.json.mock.calls[0][0].data.badge;
       expect(updatedBadge.unlockThreshold).toBe(5);
@@ -72,6 +83,7 @@ describe('Admin Badge Controller', () => {
 
       await adminController.updateBadge(req, res, next);
 
+      expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
       const updatedBadge = res.json.mock.calls[0][0].data.badge;
       expect(updatedBadge.pointsReward).toBe(200);
@@ -87,8 +99,7 @@ describe('Admin Badge Controller', () => {
 
       await adminController.updateBadge(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].message).toContain('Invalid badge ID');
+      expectHttpError(next, 400, /Invalid badge ID/);
     });
 
     it('returns 404 if badge does not exist', async () => {
@@ -101,34 +112,23 @@ describe('Admin Badge Controller', () => {
 
       await adminController.updateBadge(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json.mock.calls[0][0].message).toContain('Badge not found');
+      expectHttpError(next, 404, /Badge not found/);
     });
 
-    it('returns 400 if validation fails (unlockThreshold < 1)', async () => {
+    it.each([
+      [{ unlockThreshold: 0 }, /unlockThreshold/],
+      [{ pointsReward: -5 }, /pointsReward/],
+    ])('returns 400 when validation fails (%s)', async (body, pattern) => {
       const req = makeMockReq({
         params: { id: badge._id.toString() },
-        body: { unlockThreshold: 0 },
+        body,
       });
       const res = makeMockRes();
       const next = vi.fn();
 
       await adminController.updateBadge(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-    });
-
-    it('returns 400 if validation fails (pointsReward < 0)', async () => {
-      const req = makeMockReq({
-        params: { id: badge._id.toString() },
-        body: { pointsReward: -5 },
-      });
-      const res = makeMockRes();
-      const next = vi.fn();
-
-      await adminController.updateBadge(req, res, next);
-
-      expect(res.status).toHaveBeenCalledWith(400);
+      expectHttpError(next, 400, pattern);
     });
   });
 });

@@ -11,6 +11,7 @@ import { logger } from '../utils/logger.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { validateTransition, validateOrphanState } from '../utils/state-machine.js';
 import { rejectDonationLifecycle } from './request-lifecycle.service.js';
+import { parsePagination } from '../utils/pagination.js';
 
 /**
  * Donation Service - Manages donation lifecycle and eligibility
@@ -385,8 +386,8 @@ export const updateDonationStatus = async (donationId, status, data = {}) => {
  */
 export const getDonationHistory = async (donorId, filters = {}) => {
   try {
-    const { status, page = 1, limit = 10 } = filters;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { status } = filters;
+    const { offset, limit } = parsePagination(filters, 10);
 
     const filter = { donorId };
     if (status) filter.status = status;
@@ -394,7 +395,7 @@ export const getDonationHistory = async (donorId, filters = {}) => {
     const donations = await Donation.find(filter)
       .populate('requestId')
       .skip(offset)
-      .limit(parseInt(limit))
+      .limit(limit)
       .sort({ createdAt: -1 });
 
     const total = await Donation.countDocuments(filter);
@@ -447,8 +448,8 @@ export const getDonorStats = async (donorId) => {
  */
 export const getDonationsForRequest = async (requestId, filters = {}) => {
   try {
-    const { status, page = 1, limit = 10 } = filters;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { status } = filters;
+    const { offset, limit } = parsePagination(filters, 10);
 
     const filter = { requestId };
     if (status) filter.status = status;
@@ -456,7 +457,7 @@ export const getDonationsForRequest = async (requestId, filters = {}) => {
     const donations = await Donation.find(filter)
       .populate('donorId', 'fullName email phoneNumber location bloodType')
       .skip(offset)
-      .limit(parseInt(limit))
+      .limit(limit)
       .sort({ createdAt: -1 });
 
     const total = await Donation.countDocuments(filter);

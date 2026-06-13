@@ -2,7 +2,7 @@ import Activity from '../models/Activity.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import Hospital from '../models/Hospital.model.js';
-import { paginationMeta } from '../utils/pagination.js';
+import { paginationMeta, parsePagination } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 
 /**
@@ -158,9 +158,7 @@ export const logActivity = async (userId, payload) => {
  */
 export const getUserTimeline = async (userId, filters = {}, projection = null) => {
   try {
-    const page = Math.max(parseInt(filters.page) || 1, 1);
-    const limit = Math.min(Math.max(parseInt(filters.limit) || 20, 1), 100);
-    const skip = (page - 1) * limit;
+    const { offset, limit, page } = parsePagination(filters, 20);
 
     // Build query: always scoped to userId
     const query = { userId };
@@ -175,7 +173,7 @@ export const getUserTimeline = async (userId, filters = {}, projection = null) =
     // Fetch paginated results — newest first
     const activities = await Activity.find(query, projection || '-__v')
       .sort({ createdAt: -1 })
-      .skip(skip)
+      .skip(offset)
       .limit(limit)
       .lean(); // Return plain objects (faster)
 

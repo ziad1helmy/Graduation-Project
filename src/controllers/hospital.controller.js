@@ -24,6 +24,11 @@ import {
 import { normalizeBloodTypeList, extractFirstBloodType } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { validateTransition } from '../utils/state-machine.js';
+import { parseLatLng, extractLocation } from '../utils/geo.js';
+import { formatDistance } from '../utils/format.js';
+import { toNumber, toLocation, parseBooleanQuery, toPlainObject } from '../utils/query.js';
+import { asyncHandler } from '../middlewares/asyncHandler.js';
+import { HttpError } from '../utils/HttpError.js';
 
 const normalizeLocationInput = (location) => {
   if (!location || typeof location !== 'object') return null;
@@ -47,43 +52,7 @@ const normalizeLocationInput = (location) => {
   return Object.keys(normalized).length ? normalized : null;
 };
 
-const toNumber = (value) => {
-  if (value === undefined || value === null || value === '') return null;
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : null;
-};
-
-const parseBooleanQuery = (value, defaultValue) => {
-  if (value === undefined || value === null || value === '') return defaultValue;
-  if (typeof value === 'boolean') return value;
-
-  const normalized = String(value).trim().toLowerCase();
-  if (['true', '1', 'yes'].includes(normalized)) return true;
-  if (['false', '0', 'no'].includes(normalized)) return false;
-  return null;
-};
-
 const EMERGENCY_REQUEST_REQUIRED_BY_MS = 24 * 60 * 60 * 1000;
-
-const toLocation = (coordinates) => {
-  const lat = Number(coordinates?.lat ?? coordinates?.latitude);
-  const lng = Number(coordinates?.lng ?? coordinates?.longitude);
-
-  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-    return null;
-  }
-
-  return {
-    lat,
-    lng,
-  };
-};
-
-const formatDistance = (distanceKm) => {
-  if (!Number.isFinite(distanceKm)) return null;
-  if (distanceKm < 1) return `${Math.round(distanceKm * 1000)} m`;
-  return `${distanceKm.toFixed(2)} km`;
-};
 
 const buildAppointmentDate = ({ appointmentDate, date, time }) => {
   if (appointmentDate) return new Date(appointmentDate);
@@ -109,16 +78,7 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
   return scheduledDate;
 };
     
-const resolveHospitalCoordinates = (hospital) => {
-  const latitude = toNumber(hospital?.location?.coordinates?.lat ?? hospital?.lat);
-  const longitude = toNumber(hospital?.location?.coordinates?.lng ?? hospital?.long);
-
-  if (latitude === null || longitude === null) {
-    return null;
-  }
-
-  return { latitude, longitude };
-};
+const resolveHospitalCoordinates = (hospital) => extractLocation(hospital, 'hospital');
 
 const APPOINTMENT_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
       
@@ -511,18 +471,14 @@ const toHospitalProfilePayload = (hospitalDoc, stats) => {
 };
 
 // Get hospital profile
-export const getProfile = async (req, res, next) => {
-  try {
-    const hospital = await Hospital.findById(req.user.userId).select('-password');
-    if (!hospital) {
-      return response.error(res, 404, 'Hospital profile not found');
-    }
-    const stats = await buildHospitalProfileStats(req.user.userId);
-    response.success(res, 200, 'Hospital profile retrieved successfully', toHospitalProfilePayload(hospital, stats));
-  } catch (error) {
-    next(error);
+export const getProfile = asyncHandler(async (req, res) => {
+  const hospital = await Hospital.findById(req.user.userId).select('-password');
+  if (!hospital) {
+    throw new HttpError(404, 'Hospital profile not found');
   }
-};
+  const stats = await buildHospitalProfileStats(req.user.userId);
+  response.success(res, 200, 'Hospital profile retrieved successfully', toHospitalProfilePayload(hospital, stats));
+});
 
 export const toHospitalRequestResponse = (requestDoc) => {
   const request = requestDoc?.toObject ? requestDoc.toObject() : { ...requestDoc };
@@ -556,111 +512,106 @@ export const toHospitalRequestResponse = (requestDoc) => {
   };
 };
 
-export const findDonors = async (req, res, next) => {
-  try {
-    const bloodType = typeof req.query.bloodType === 'string' && req.query.bloodType.trim()
-      ? req.query.bloodType.replace(/\s+/g, '+').trim().toUpperCase()
-      : null;
-    const radiusKm = toNumber(req.query.radiusKm) ?? 5;
-    const lat = toNumber(req.query.lat);
-    const lng = toNumber(req.query.lng);
-    const participation = req.query.participation !== undefined
-      ? parseBooleanQuery(req.query.participation, true)
-      : parseBooleanQuery(req.query.availability, true);
-    const { page, limit, offset } = parsePagination(req.query, 20);
+export const findDonors = asyncHandler(async (req, res) => {
+  const bloodType = typeof req.query.bloodType === 'string' && req.query.bloodType.trim()
+    ? req.query.bloodType.replace(/\s+/g, '+').trim().toUpperCase()
+    : null;
+  const radiusKm = toNumber(req.query.radiusKm) ?? 5;
+  const { lat, lng, hasCoordinates } = parseLatLng(req.query);
+  const participation = req.query.participation !== undefined
+    ? parseBooleanQuery(req.query.participation, true)
+    : parseBooleanQuery(req.query.availability, true);
+  const { page, limit, offset } = parsePagination(req.query, 20);
 
-    const validation = validateFindDonorsQuery(req.query, lat, lng, radiusKm, participation);
-    if (!validation.valid) {
-      return response.error(res, 400, validation.errors[0]);
-    }
-
-    let searchCoordinates = lat !== null && lng !== null ? { latitude: lat, longitude: lng } : null;
-
-    if (!searchCoordinates) {
-      if (req.user.role !== 'hospital') {
-        return response.error(res, 400, 'lat and lng are required for admin and superadmin users');
-      }
-
-      const hospital = await Hospital.findById(req.user.userId).select('location lat long');
-      if (!hospital) {
-        return response.error(res, 404, 'Hospital profile not found');
-      }
-
-      searchCoordinates = resolveHospitalCoordinates(hospital);
-      if (!searchCoordinates) {
-        return response.error(res, 400, 'Hospital coordinates are required to search for donors');
-      }
-    }
-
-    const searchLocation = {
-      coordinates: {
-        lat: searchCoordinates.latitude,
-        lng: searchCoordinates.longitude,
-      },
-    };
-
-    const matches = await matchingService.searchCompatibleDonors({
-      bloodType,
-      participation,
-      radiusKm,
-      location: searchLocation,
-    });
-
-    const donors = matches.map(({ donor, distanceKm }) => {
-      const coordinates = toLocation(donor.location?.coordinates);
-      return {
-        id: donor._id.toString(),
-        donorId: donor._id.toString(),
-        name: donor.fullName,
-        fullName: donor.fullName,
-        bloodType: donor.bloodType,
-        email: donor.email || null,
-        phoneNumber: donor.phoneNumber || null,
-        distance: formatDistance(distanceKm),
-        distanceInKm: distanceKm,
-        distanceKm,
-        distanceMeters: distanceKm === null ? null : Math.round(distanceKm * 1000),
-        isOptedIn: Boolean(donor.isOptedIn ?? true),
-        latitude: coordinates?.lat ?? null,
-        longitude: coordinates?.lng ?? null,
-        location: coordinates,
-      };
-    });
-
-    const paginatedDonors = donors.slice(offset, offset + limit);
-    const pagination = paginationMeta(donors.length, page, limit);
-
-    return response.success(res, 200, 'Nearby donors retrieved successfully', {
-      donors: paginatedDonors,
-      pagination: {
-        page: pagination.page,
-        limit: pagination.limit,
-        total: pagination.total,
-        totalPages: pagination.totalPages,
-      },
-    });
-  } catch (error) {
-    next(error);
+  const validation = validateFindDonorsQuery(req.query, hasCoordinates ? lat : null, hasCoordinates ? lng : null, radiusKm, participation);
+  if (!validation.valid) {
+    throw new HttpError(400, validation.errors[0]);
   }
-};
 
-export const bookDonorAppointment = async (req, res, next) => {
+  let searchCoordinates = lat !== null && lng !== null ? { latitude: lat, longitude: lng } : null;
+
+  if (!searchCoordinates) {
+    if (req.user.role !== 'hospital') {
+      throw new HttpError(400, 'lat and lng are required for admin and superadmin users');
+    }
+
+    const hospital = await Hospital.findById(req.user.userId).select('location lat long');
+    if (!hospital) {
+      throw new HttpError(404, 'Hospital profile not found');
+    }
+
+    searchCoordinates = resolveHospitalCoordinates(hospital);
+    if (!searchCoordinates) {
+      throw new HttpError(400, 'Hospital coordinates are required to search for donors');
+    }
+  }
+
+  const searchLocation = {
+    coordinates: {
+      lat: searchCoordinates.latitude,
+      lng: searchCoordinates.longitude,
+    },
+  };
+
+  const matches = await matchingService.searchCompatibleDonors({
+    bloodType,
+    participation,
+    radiusKm,
+    location: searchLocation,
+  });
+
+  const donors = matches.map(({ donor, distanceKm }) => {
+    const coordinates = toLocation(donor.location?.coordinates);
+    return {
+      id: donor._id.toString(),
+      donorId: donor._id.toString(),
+      name: donor.fullName,
+      fullName: donor.fullName,
+      bloodType: donor.bloodType,
+      email: donor.email || null,
+      phoneNumber: donor.phoneNumber || null,
+      distance: formatDistance(distanceKm),
+      distanceInKm: distanceKm,
+      distanceKm,
+      distanceMeters: distanceKm === null ? null : Math.round(distanceKm * 1000),
+      isOptedIn: Boolean(donor.isOptedIn ?? true),
+      latitude: coordinates?.lat ?? null,
+      longitude: coordinates?.lng ?? null,
+      location: coordinates,
+    };
+  });
+
+  const paginatedDonors = donors.slice(offset, offset + limit);
+  const pagination = paginationMeta(donors.length, page, limit);
+
+  return response.success(res, 200, 'Nearby donors retrieved successfully', {
+    donors: paginatedDonors,
+    pagination: {
+      page: pagination.page,
+      limit: pagination.limit,
+      total: pagination.total,
+      totalPages: pagination.totalPages,
+    },
+  });
+});
+
+export const bookDonorAppointment = asyncHandler(async (req, res) => {
+  const donorId = req.params.donorId;
+  const { appointmentDate, date, time, notes, donationType, requestId } = req.body;
+
+  if (!donorId) {
+    throw new HttpError(400, 'donorId is required');
+  }
+
+  const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
+  const validation = validateBookAppointmentBody(req.body, normalizedAppointmentDate);
+  if (!validation.valid) {
+    throw new HttpError(400, validation.errors[0]);
+  }
+
+  const normalizedDonationType = donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD;
+
   try {
-    const donorId = req.params.donorId;
-    const { appointmentDate, date, time, notes, donationType, requestId } = req.body;
-
-    if (!donorId) {
-      return response.error(res, 400, 'donorId is required');
-    }
-
-    const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
-    const validation = validateBookAppointmentBody(req.body, normalizedAppointmentDate);
-    if (!validation.valid) {
-      return response.error(res, 400, validation.errors[0]);
-    }
-
-    const normalizedDonationType = donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD;
-
     const appointment = await appointmentService.bookAppointment(
       donorId,
       req.user.userId,
@@ -679,7 +630,7 @@ export const bookDonorAppointment = async (req, res, next) => {
     return response.success(res, 201, 'Appointment booked successfully', appointmentResponse);
   } catch (error) {
     if (error.message === ELIGIBILITY_KEYS.DONOR_NOT_FOUND || error.message === 'Hospital not found' || error.message === ELIGIBILITY_KEYS.REQUEST_NOT_FOUND) {
-      return response.error(res, 404, error.message);
+      throw new HttpError(404, error.message);
     }
     if (
       error.message === 'Invalid donor or hospital id' ||
@@ -693,259 +644,253 @@ export const bookDonorAppointment = async (req, res, next) => {
       error.message === ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE ||
       error.message === ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE
     ) {
-      return response.error(res, 400, error.message);
+      throw new HttpError(400, error.message);
     }
     if (error.message === 'You already have an active appointment at this hospital') {
-      return response.error(res, 409, error.message);
+      throw new HttpError(409, error.message);
     }
-    next(error);
+    throw error;
   }
-};
+});
 
 // Update hospital profile
-export const updateProfile = async (req, res, next) => {
+export const updateProfile = asyncHandler(async (req, res) => {
+  const { fullName, hospitalName, contactNumber, address, location } = req.body;
+
+  const hospital = await Hospital.findById(req.user.userId);
+  if (!hospital) {
+    throw new HttpError(404, 'Hospital profile not found');
+  }
+
+  if (fullName) hospital.fullName = fullName;
+  if (hospitalName) hospital.hospitalName = hospitalName;
+  if (contactNumber) hospital.contactNumber = contactNumber;
+  if (address) {
+    hospital.address = {
+      ...address,
+      ...(address.governrate && !address.governorate ? { governorate: address.governrate } : {}),
+    };
+    delete hospital.address.governrate;
+  }
+  const normalizedLocation = normalizeLocationInput(location);
+  if (normalizedLocation) hospital.location = normalizedLocation;
+
   try {
-    const { fullName, hospitalName, contactNumber, address, location } = req.body;
-
-    const hospital = await Hospital.findById(req.user.userId);
-    if (!hospital) {
-      return response.error(res, 404, 'Hospital profile not found');
-    }
-
-    if (fullName) hospital.fullName = fullName;
-    if (hospitalName) hospital.hospitalName = hospitalName;
-    if (contactNumber) hospital.contactNumber = contactNumber;
-    if (address) {
-      hospital.address = {
-        ...address,
-        ...(address.governrate && !address.governorate ? { governorate: address.governrate } : {}),
-      };
-      delete hospital.address.governrate;
-    }
-    const normalizedLocation = normalizeLocationInput(location);
-    if (normalizedLocation) hospital.location = normalizedLocation;
-
     await hospital.save();
-
-    const stats = await buildHospitalProfileStats(req.user.userId);
-
-    response.success(res, 200, 'Hospital profile updated successfully', toHospitalProfilePayload(hospital, stats));
   } catch (error) {
     if (error.name === 'ValidationError') {
-      return response.error(res, 400, error.message);
+      throw new HttpError(400, error.message);
     }
-    next(error);
+    throw error;
   }
-};
+
+  const stats = await buildHospitalProfileStats(req.user.userId);
+
+  response.success(res, 200, 'Hospital profile updated successfully', toHospitalProfilePayload(hospital, stats));
+});
 
 // Create a donation request
-const createRequestFromHospital = async (req, res, next, { emergencyOnly = false } = {}) => {
-  try {
-    const validation = emergencyOnly
-      ? validateCreateEmergencyRequestBody(req.body)
-      : validateCreateRequestBody(req.body);
-    if (!validation.valid) {
-      return response.error(res, 400, validation.errors[0]);
-    }
+const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {}) => {
+  const validation = emergencyOnly
+    ? validateCreateEmergencyRequestBody(req.body)
+    : validateCreateRequestBody(req.body);
+  if (!validation.valid) {
+    throw new HttpError(400, validation.errors[0]);
+  }
 
-    const hospital = await Hospital.findById(req.user.userId).select('contactNumber location fullName hospitalName');
-    if (!hospital) {
-      return response.error(res, 404, 'Hospital profile not found');
-    }
+  const hospital = await Hospital.findById(req.user.userId).select('contactNumber location fullName hospitalName');
+  if (!hospital) {
+    throw new HttpError(404, 'Hospital profile not found');
+  }
 
-    if (!hospital.contactNumber) {
-      return response.error(res, 400, 'Hospital contact number is required before creating a request');
-    }
+  if (!hospital.contactNumber) {
+    throw new HttpError(400, 'Hospital contact number is required before creating a request');
+  }
 
-    const locationLatitude = hospital?.location?.coordinates?.lat;
-    const locationLongitude = hospital?.location?.coordinates?.lng;
+  const locationLatitude = hospital?.location?.coordinates?.lat;
+  const locationLongitude = hospital?.location?.coordinates?.lng;
 
-    const requestData = emergencyOnly
-      ? {
+  const requestData = emergencyOnly
+    ? {
+        hospitalId: req.user.userId,
+        hospitalContact: hospital.contactNumber,
+        contactNumber: hospital.contactNumber,
+        type: 'blood',
+        urgency: 'critical',
+        requiredBy: new Date(Date.now() + EMERGENCY_REQUEST_REQUIRED_BY_MS),
+        quantity: validation.unitsNeeded,
+        unitsNeeded: validation.unitsNeeded,
+        patientType: validation.patientDetails,
+        isEmergency: true,
+        notes: validation.patientDetails,
+        bloodType: validation.bloodTypes,
+      }
+    : (() => {
+        const {
+          type,
+          bloodType,
+          bloodTypes,
+          urgency,
+          requiredBy,
+          quantity,
+          unitsNeeded,
+          patientType,
+          contactNumber,
+          isEmergency,
+          notes,
+          patientDetails,
+        } = req.body;
+
+        const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
+        const normalizedBloodTypes = validation.bloodTypes?.length > 0
+          ? validation.bloodTypes
+          : normalizeBloodTypeList(bloodTypeInput);
+
+        const requiredByDate = new Date(requiredBy);
+        const resolvedUnits = Number(unitsNeeded ?? quantity ?? 1);
+        const resolvedUrgency = isEmergency === true ? 'critical' : urgency;
+
+        return {
           hospitalId: req.user.userId,
           hospitalContact: hospital.contactNumber,
-          contactNumber: hospital.contactNumber,
-          type: 'blood',
-          urgency: 'critical',
-          requiredBy: new Date(Date.now() + EMERGENCY_REQUEST_REQUIRED_BY_MS),
-          quantity: validation.unitsNeeded,
-          unitsNeeded: validation.unitsNeeded,
-          patientType: validation.patientDetails,
-          isEmergency: true,
-          notes: validation.patientDetails,
-          bloodType: validation.bloodTypes,
-        }
-      : (() => {
-          const {
-            type,
-            bloodType,
-            bloodTypes,
-            urgency,
-            requiredBy,
-            quantity,
-            unitsNeeded,
-            patientType,
-            contactNumber,
-            isEmergency,
-            notes,
-            patientDetails,
-          } = req.body;
+          contactNumber: contactNumber || hospital.contactNumber,
+          type,
+          urgency: resolvedUrgency,
+          requiredBy: requiredByDate,
+          quantity: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
+          unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
+          patientType: patientType || null,
+          isEmergency: isEmergency === true || resolvedUrgency === 'critical',
+          notes: notes || patientDetails || '',
+          ...(normalizedBloodTypes.length > 0 ? { bloodType: normalizedBloodTypes } : {}),
+        };
+      })();
 
-          const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
-          const normalizedBloodTypes = validation.bloodTypes?.length > 0
-            ? validation.bloodTypes
-            : normalizeBloodTypeList(bloodTypeInput);
-
-          const requiredByDate = new Date(requiredBy);
-          const resolvedUnits = Number(unitsNeeded ?? quantity ?? 1);
-          const resolvedUrgency = isEmergency === true ? 'critical' : urgency;
-
-          return {
-            hospitalId: req.user.userId,
-            hospitalContact: hospital.contactNumber,
-            contactNumber: contactNumber || hospital.contactNumber,
-            type,
-            urgency: resolvedUrgency,
-            requiredBy: requiredByDate,
-            quantity: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
-            unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
-            patientType: patientType || null,
-            isEmergency: isEmergency === true || resolvedUrgency === 'critical',
-            notes: notes || patientDetails || '',
-            ...(normalizedBloodTypes.length > 0 ? { bloodType: normalizedBloodTypes } : {}),
-          };
-        })();
-
-    // Snapshot hospital location and display name at time of request
-    requestData.locationHospital = {
-      latitude: locationLatitude,
-      longitude: locationLongitude,
+  // Snapshot hospital location and display name at time of request
+  requestData.locationHospital = {
+    latitude: locationLatitude,
+    longitude: locationLongitude,
+  };
+  requestData.hospitalLocation = {
+    lat: locationLatitude,
+    lng: locationLongitude,
+  };
+  if (Number.isFinite(locationLatitude) && Number.isFinite(locationLongitude)) {
+    requestData.hospitalLocationGeo = {
+      type: 'Point',
+      coordinates: [locationLongitude, locationLatitude],
     };
-    requestData.hospitalLocation = {
-      lat: locationLatitude,
-      lng: locationLongitude,
-    };
-    if (Number.isFinite(locationLatitude) && Number.isFinite(locationLongitude)) {
-      requestData.hospitalLocationGeo = {
-        type: 'Point',
-        coordinates: [locationLongitude, locationLatitude],
-      };
-    }
-    requestData.hospitalName = hospital?.hospitalName || hospital?.fullName;
-
-
-    const session = await mongoose.startSession();
-    let donRequest = null;
-    let outboxEntry = null;
-
-    try {
-      await session.withTransaction(async () => {
-        const docs = await Request.create([requestData], { session });
-        donRequest = docs[0];
-
-        // Create an outbox entry atomically with the request so we never lose intent
-        if (requestData.isEmergency) {
-          // Only create an outbox entry when mongoose is connected. Unit tests
-          // mock many models and do not initialize a DB connection — creating
-          // an outbox against an unconnected mongoose instance can hang tests.
-          if (mongoose.connection && mongoose.connection.readyState === 1) {
-            const outboxDocs = await NotificationOutbox.create([
-              {
-                requestId: donRequest._id,
-                donorIds: [],
-                status: 'pending',
-              },
-            ]);
-            outboxEntry = outboxDocs[0];
-          }
-        }
-      });
-    } finally {
-      session.endSession();
-    }
-
-    await donRequest.populate('hospitalId', 'fullName hospitalName address contactNumber');
-
-    response.success(res, 201, 'Donation request created successfully', toHospitalRequestResponse(donRequest));
-
-    if (requestData.isEmergency) {
-      try {
-        const compatibleDonors = await matchingService.findCompatibleDonors(donRequest._id);
-        const donorIds = compatibleDonors.map(({ donor }) => donor._id);
-
-        // If outbox was created, update it with recipient ids and mark ready
-        if (outboxEntry) {
-          try {
-            await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { donorIds, status: 'ready' });
-          } catch (ignore) {
-            // best-effort
-          }
-        }
-
-        if (donorIds.length > 0) {
-          try {
-            await notificationService.notifyRequest(donorIds, donRequest);
-            if (outboxEntry) {
-              await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 1, lastError: null });
-            }
-          } catch (notifyErr) {
-            if (outboxEntry) {
-              await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', attempts: 1, lastError: String(notifyErr?.message || notifyErr) });
-            }
-          }
-        } else if (outboxEntry) {
-          // No recipients found, mark outbox as sent with zero attempts
-          await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 0 });
-        }
-      } catch (err) {
-        // If matching or outbox update fails, log but do not rollback creation
-        try {
-          if (outboxEntry) {
-            await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', lastError: String(err?.message || err) });
-          }
-        } catch (ignore) {}
-      }
-    }
-  } catch (error) {
-    if (error.name === 'ValidationError') {
-      return response.error(res, 400, error.message);
-    }
-    next(error);
   }
-};
+  requestData.hospitalName = hospital?.hospitalName || hospital?.fullName;
 
-export const createRequest = async (req, res, next) => createRequestFromHospital(req, res, next, { emergencyOnly: false });
 
-export const createEmergencyRequest = async (req, res, next) => createRequestFromHospital(req, res, next, { emergencyOnly: true });
+  const session = await mongoose.startSession();
+  let donRequest = null;
+  let outboxEntry = null;
 
-// Get hospital's requests — supports ?page=1&limit=10
-export const getRequests = async (req, res, next) => {
   try {
-    const { status, type } = req.query;
-    const { offset, limit, page } = parsePagination(req.query);
+    await session.withTransaction(async () => {
+      const docs = await Request.create([requestData], { session });
+      donRequest = docs[0];
 
-    const filter = { hospitalId: req.user.userId };
-
-    if (status && ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
-      filter.status = status;
-    }
-    if (type && ['blood', 'plasma', 'platelets', 'double_red_cells'].includes(type)) {
-      filter.type = type;
-    }
-
-    const [requests, total] = await Promise.all([
-      Request.find(filter).skip(offset).limit(limit).sort({ createdAt: -1 }),
-      Request.countDocuments(filter),
-    ]);
-
-    response.success(res, 200, 'Requests retrieved successfully', {
-      requests: requests.map(toHospitalRequestResponse),
-      pagination: paginationMeta(total, page, limit),
+      // Create an outbox entry atomically with the request so we never lose intent
+      if (requestData.isEmergency) {
+        // Only create an outbox entry when mongoose is connected. Unit tests
+        // mock many models and do not initialize a DB connection — creating
+        // an outbox against an unconnected mongoose instance can hang tests.
+        if (mongoose.connection && mongoose.connection.readyState === 1) {
+          const outboxDocs = await NotificationOutbox.create([
+            {
+              requestId: donRequest._id,
+              donorIds: [],
+              status: 'pending',
+            },
+          ]);
+          outboxEntry = outboxDocs[0];
+        }
+      }
     });
   } catch (error) {
-    next(error);
+    if (error.name === 'ValidationError') {
+      throw new HttpError(400, error.message);
+    }
+    throw error;
+  } finally {
+    session.endSession();
+  }
+
+  await donRequest.populate('hospitalId', 'fullName hospitalName address contactNumber');
+
+  response.success(res, 201, 'Donation request created successfully', toHospitalRequestResponse(donRequest));
+
+  if (requestData.isEmergency) {
+    try {
+      const compatibleDonors = await matchingService.findCompatibleDonors(donRequest._id);
+      const donorIds = compatibleDonors.map(({ donor }) => donor._id);
+
+      // If outbox was created, update it with recipient ids and mark ready
+      if (outboxEntry) {
+        try {
+          await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { donorIds, status: 'ready' });
+        } catch (ignore) {
+          // best-effort
+        }
+      }
+
+      if (donorIds.length > 0) {
+        try {
+          await notificationService.notifyRequest(donorIds, donRequest);
+          if (outboxEntry) {
+            await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 1, lastError: null });
+          }
+        } catch (notifyErr) {
+          if (outboxEntry) {
+            await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', attempts: 1, lastError: String(notifyErr?.message || notifyErr) });
+          }
+        }
+      } else if (outboxEntry) {
+        // No recipients found, mark outbox as sent with zero attempts
+        await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 0 });
+      }
+    } catch (err) {
+      // If matching or outbox update fails, log but do not rollback creation
+      try {
+        if (outboxEntry) {
+          await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', lastError: String(err?.message || err) });
+        }
+      } catch (ignore) {}
+    }
   }
 };
+
+export const createRequest = asyncHandler((req, res) => createRequestFromHospital(req, res, { emergencyOnly: false }));
+
+export const createEmergencyRequest = asyncHandler((req, res) => createRequestFromHospital(req, res, { emergencyOnly: true }));
+
+// Get hospital's requests — supports ?page=1&limit=10
+export const getRequests = asyncHandler(async (req, res) => {
+  const { status, type } = req.query;
+  const { offset, limit, page } = parsePagination(req.query);
+
+  const filter = { hospitalId: req.user.userId };
+
+  if (status && ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
+    filter.status = status;
+  }
+  if (type && ['blood', 'plasma', 'platelets', 'double_red_cells'].includes(type)) {
+    filter.type = type;
+  }
+
+  const [requests, total] = await Promise.all([
+    Request.find(filter).skip(offset).limit(limit).sort({ createdAt: -1 }),
+    Request.countDocuments(filter),
+  ]);
+
+  response.success(res, 200, 'Requests retrieved successfully', {
+    requests: requests.map(toHospitalRequestResponse),
+    pagination: paginationMeta(total, page, limit),
+  });
+});
 
 const formatRequestDetailResponse = (request, donations) => {
   const responded = donations.length;
@@ -978,726 +923,666 @@ const formatRequestDetailResponse = (request, donations) => {
 };
 
 // Get specific request details
-export const getRequestDetails = async (req, res, next) => {
-  try {
-    const { requestId } = req.params;
+export const getRequestDetails = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
 
-    const request = await Request.findById(requestId).populate(
-      'hospitalId',
-      'fullName hospitalName address contactNumber'
-    );
+  const request = await Request.findById(requestId).populate(
+    'hospitalId',
+    'fullName hospitalName address contactNumber'
+  );
 
-    if (!request) {
-      return response.error(res, 404, 'Request not found');
-    }
-
-    // Verify hospital ownership
-    if (request.hospitalId._id.toString() !== req.user.userId.toString()) {
-      return response.error(res, 403, 'Unauthorized access to this request');
-    }
-
-    // Get donations for this request
-    const donations = await Donation.find({ requestId }).populate(
-      'donorId',
-      'fullName email phoneNumber location bloodType lastDonationDate'
-    );
-
-    const responseData = formatRequestDetailResponse(request, donations);
-    response.success(res, 200, 'Request details retrieved successfully', responseData);
-  } catch (error) {
-    next(error);
+  if (!request) {
+    throw new HttpError(404, 'Request not found');
   }
-};
+
+  // Verify hospital ownership
+  if (request.hospitalId._id.toString() !== req.user.userId.toString()) {
+    throw new HttpError(403, 'Unauthorized access to this request');
+  }
+
+  // Get donations for this request
+  const donations = await Donation.find({ requestId }).populate(
+    'donorId',
+    'fullName email phoneNumber location bloodType lastDonationDate'
+  );
+
+  const responseData = formatRequestDetailResponse(request, donations);
+  response.success(res, 200, 'Request details retrieved successfully', responseData);
+});
 
 // Update request status
-export const updateRequest = async (req, res, next) => {
-  try {
-    const { requestId } = req.params;
-    const { status } = req.body;
+export const updateRequest = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
+  const { status } = req.body;
 
-    if (!status || !['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
-      return response.error(res, 400, 'Valid status is required');
-    }
-
-    const request = await Request.findById(requestId);
-    if (!request) {
-      return response.error(res, 404, 'Request not found');
-    }
-
-    // Verify hospital ownership
-    if (request.hospitalId.toString() !== req.user.userId.toString()) {
-      return response.error(res, 403, 'Unauthorized access to this request');
-    }
-
-    // No-op: if the request is already in the desired state, return success.
-    if (request.status === status) {
-      const donations = await Donation.find({ requestId: request._id });
-      const responseData = formatRequestDetailResponse(request, donations);
-      return response.success(res, 200, 'Request status updated successfully', responseData);
-    }
-
-    // Guard: validate transition through the centralized state machine.
-    try {
-      validateTransition('request', request.status, status);
-    } catch (err) {
-      return response.error(res, 400, err.message);
-    }
-
-    if (status === 'completed') {
-      const completedDonation = await Donation.findOne({
-        requestId: request._id,
-        status: 'completed',
-      });
-      if (!completedDonation) {
-        return response.error(res, 400, 'Cannot complete request: no completed donation found for this request. Use cancel instead.');
-      }
-    }
-
-    if (status === 'accepted' && !request.acceptedDonationId) {
-      return response.error(res, 400, 'Cannot mark request accepted without an accepted donation');
-    }
-
-    // runValidators is intentionally omitted: past requiredBy date would fail
-    // validation on legitimate status updates (e.g. marking an old request completed)
-    const session = await mongoose.startSession();
-    let updatedRequest;
-    const cancelledAt = new Date();
-    try {
-      await session.withTransaction(async () => {
-        updatedRequest = await Request.findByIdAndUpdate(
-          requestId,
-          { status },
-          { returnDocument: 'after', session }
-        );
-
-        if (['completed', 'cancelled', 'expired'].includes(status)) {
-          await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
-            cancelledAt,
-            notes: `Appointment cancelled because request was marked as ${status}`,
-            session,
-          });
-        }
-      });
-    } finally {
-      session.endSession();
-    }
-
-    const donations = await Donation.find({ requestId: updatedRequest._id });
-    const responseData = formatRequestDetailResponse(updatedRequest, donations);
-    response.success(res, 200, 'Request status updated successfully', responseData);
-  } catch (error) {
-    next(error);
+  if (!status || !['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
+    throw new HttpError(400, 'Valid status is required');
   }
-};
 
-// Cancel request and all associated pending donations
-export const deleteRequest = async (req, res, next) => {
+  const request = await Request.findById(requestId);
+  if (!request) {
+    throw new HttpError(404, 'Request not found');
+  }
+
+  // Verify hospital ownership
+  if (request.hospitalId.toString() !== req.user.userId.toString()) {
+    throw new HttpError(403, 'Unauthorized access to this request');
+  }
+
+  // No-op: if the request is already in the desired state, return success.
+  if (request.status === status) {
+    const donations = await Donation.find({ requestId: request._id });
+    const responseData = formatRequestDetailResponse(request, donations);
+    return response.success(res, 200, 'Request status updated successfully', responseData);
+  }
+
+  // Guard: validate transition through the centralized state machine.
   try {
-    const { requestId } = req.params;
+    validateTransition('request', request.status, status);
+  } catch (err) {
+    throw new HttpError(400, err.message);
+  }
 
-    const request = await Request.findById(requestId);
-    if (!request) {
-      return response.error(res, 404, 'Request not found');
+  if (status === 'completed') {
+    const completedDonation = await Donation.findOne({
+      requestId: request._id,
+      status: 'completed',
+    });
+    if (!completedDonation) {
+      throw new HttpError(400, 'Cannot complete request: no completed donation found for this request. Use cancel instead.');
     }
+  }
 
-    // Verify hospital ownership
-    if (request.hospitalId.toString() !== req.user.userId.toString()) {
-      return response.error(res, 403, 'Unauthorized access to this request');
-    }
+  if (status === 'accepted' && !request.acceptedDonationId) {
+    throw new HttpError(400, 'Cannot mark request accepted without an accepted donation');
+  }
 
-    // Guard: only non-terminal requests can be cancelled.
-    try {
-      validateTransition('request', request.status, 'cancelled');
-    } catch (err) {
-      return response.error(res, 400, err.message);
-    }
+  // runValidators is intentionally omitted: past requiredBy date would fail
+  // validation on legitimate status updates (e.g. marking an old request completed)
+  const session = await mongoose.startSession();
+  let updatedRequest;
+  const cancelledAt = new Date();
+  try {
+    await session.withTransaction(async () => {
+      updatedRequest = await Request.findByIdAndUpdate(
+        requestId,
+        { status },
+        { returnDocument: 'after', session }
+      );
 
-    // Cancel all pending/scheduled donations for this request and update request status atomically.
-    const session = await mongoose.startSession();
-    const cancelledAt = new Date();
-    try {
-      await session.withTransaction(async () => {
-        const donationsToCancel = await Donation.find(
-          { requestId, status: { $nin: ['completed', 'cancelled', 'rejected'] } },
-          null,
-          { session }
-        );
-        for (const donation of donationsToCancel) {
-          validateTransition('donation', donation.status, 'cancelled');
-          donation.status = 'cancelled';
-          await donation.save({ session });
-        }
-
-        await Request.findByIdAndUpdate(
-          requestId,
-          {
-            status: 'cancelled',
-            cancelledAt,
-            acceptedBy: null,
-            acceptedByName: null,
-            acceptedByPhoneNumber: null,
-            acceptedByBloodType: null,
-            acceptedAt: null,
-            acceptedDonationId: null,
-          },
-          { session }
-        );
-
+      if (['completed', 'cancelled', 'expired'].includes(status)) {
         await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
           cancelledAt,
-          notes: 'Appointment cancelled because the linked request was cancelled',
+          notes: `Appointment cancelled because request was marked as ${status}`,
           session,
         });
-      });
-    } finally {
-      session.endSession();
-    }
-
-    request.status = 'cancelled';
-    request.cancelledAt = cancelledAt;
-    request.acceptedBy = null;
-    request.acceptedByName = null;
-    request.acceptedByPhoneNumber = null;
-    request.acceptedByBloodType = null;
-    request.acceptedAt = null;
-    request.acceptedDonationId = null;
-
-    response.success(res, 200, 'Request cancelled successfully', {
-      request,
+      }
     });
-  } catch (error) {
-    next(error);
+  } finally {
+    session.endSession();
   }
-};
+
+  const donations = await Donation.find({ requestId: updatedRequest._id });
+  const responseData = formatRequestDetailResponse(updatedRequest, donations);
+  response.success(res, 200, 'Request status updated successfully', responseData);
+});
+
+// Cancel request and all associated pending donations
+export const deleteRequest = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
+
+  const request = await Request.findById(requestId);
+  if (!request) {
+    throw new HttpError(404, 'Request not found');
+  }
+
+  // Verify hospital ownership
+  if (request.hospitalId.toString() !== req.user.userId.toString()) {
+    throw new HttpError(403, 'Unauthorized access to this request');
+  }
+
+  // Guard: only non-terminal requests can be cancelled.
+  try {
+    validateTransition('request', request.status, 'cancelled');
+  } catch (err) {
+    throw new HttpError(400, err.message);
+  }
+
+  // Cancel all pending/scheduled donations for this request and update request status atomically.
+  const session = await mongoose.startSession();
+  const cancelledAt = new Date();
+  try {
+    await session.withTransaction(async () => {
+      const donationsToCancel = await Donation.find(
+        { requestId, status: { $nin: ['completed', 'cancelled', 'rejected'] } },
+        null,
+        { session }
+      );
+      for (const donation of donationsToCancel) {
+        validateTransition('donation', donation.status, 'cancelled');
+        donation.status = 'cancelled';
+        await donation.save({ session });
+      }
+
+      await Request.findByIdAndUpdate(
+        requestId,
+        {
+          status: 'cancelled',
+          cancelledAt,
+          acceptedBy: null,
+          acceptedByName: null,
+          acceptedByPhoneNumber: null,
+          acceptedByBloodType: null,
+          acceptedAt: null,
+          acceptedDonationId: null,
+        },
+        { session }
+      );
+
+      await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
+        cancelledAt,
+        notes: 'Appointment cancelled because the linked request was cancelled',
+        session,
+      });
+    });
+  } finally {
+    session.endSession();
+  }
+
+  request.status = 'cancelled';
+  request.cancelledAt = cancelledAt;
+  request.acceptedBy = null;
+  request.acceptedByName = null;
+  request.acceptedByPhoneNumber = null;
+  request.acceptedByBloodType = null;
+  request.acceptedAt = null;
+  request.acceptedDonationId = null;
+
+  response.success(res, 200, 'Request cancelled successfully', {
+    request,
+  });
+});
 
 // Get donations for hospital's requests — supports ?page=1&limit=10
-export const getDonations = async (req, res, next) => {
-  try {
-    const { status } = req.query;
-    const { offset, limit, page } = parsePagination(req.query);
+export const getDonations = asyncHandler(async (req, res) => {
+  const { status } = req.query;
+  const { offset, limit, page } = parsePagination(req.query);
 
-    const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
-    const statusFilter = status && ['pending', 'scheduled', 'completed', 'cancelled'].includes(status)
-      ? { status }
-      : {};
+  const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
+  const statusFilter = status && ['pending', 'scheduled', 'completed', 'cancelled'].includes(status)
+    ? { status }
+    : {};
 
-    const basePipeline = [
-      {
-        $lookup: {
-          from: 'requests',
-          localField: 'requestId',
-          foreignField: '_id',
-          as: 'request',
-        },
+  const basePipeline = [
+    {
+      $lookup: {
+        from: 'requests',
+        localField: 'requestId',
+        foreignField: '_id',
+        as: 'request',
       },
-      { $unwind: '$request' },
-      {
-        $match: {
-          'request.hospitalId': hospitalObjectId,
-          ...statusFilter,
-        },
+    },
+    { $unwind: '$request' },
+    {
+      $match: {
+        'request.hospitalId': hospitalObjectId,
+        ...statusFilter,
       },
-      { $sort: { createdAt: -1 } },
-    ];
+    },
+    { $sort: { createdAt: -1 } },
+  ];
 
-    const [donations, totalResult] = await Promise.all([
-      Donation.aggregate([
-        ...basePipeline,
-        { $skip: offset },
-        { $limit: limit },
-        { $project: { request: 0 } },
-      ]),
-      Donation.aggregate([
-        ...basePipeline,
-        { $count: 'count' },
-      ]),
-    ]);
+  const [donations, totalResult] = await Promise.all([
+    Donation.aggregate([
+      ...basePipeline,
+      { $skip: offset },
+      { $limit: limit },
+      { $project: { request: 0 } },
+    ]),
+    Donation.aggregate([
+      ...basePipeline,
+      { $count: 'count' },
+    ]),
+  ]);
 
-    const total = totalResult[0]?.count || 0;
-    const populatedDonations = await Donation.populate(donations, [
-      { path: 'donorId', select: 'fullName email phoneNumber location bloodType' },
-      { path: 'requestId', select: 'type bloodType organType urgency' },
-    ]);
+  const total = totalResult[0]?.count || 0;
+  const populatedDonations = await Donation.populate(donations, [
+    { path: 'donorId', select: 'fullName email phoneNumber location bloodType' },
+    { path: 'requestId', select: 'type bloodType organType urgency' },
+  ]);
 
-    response.success(res, 200, 'Donations retrieved successfully', {
-      donations: populatedDonations,
-      pagination: paginationMeta(total, page, limit),
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+  response.success(res, 200, 'Donations retrieved successfully', {
+    donations: populatedDonations,
+    pagination: paginationMeta(total, page, limit),
+  });
+});
 
-export const getBloodBankSettings = async (req, res, next) => {
-  try {
-    const settings = await HospitalSettings.findOne({ hospitalId: req.user.userId });
-    return response.success(res, 200, 'Blood bank settings retrieved successfully', {
-      bloodBankSettings: settings?.bloodBankSettings || {
-        criticalThreshold: {},
-        lowThreshold: {},
-        automaticNotifications: true,
-        notificationEmail: null,
+export const getBloodBankSettings = asyncHandler(async (req, res) => {
+  const settings = await HospitalSettings.findOne({ hospitalId: req.user.userId });
+  return response.success(res, 200, 'Blood bank settings retrieved successfully', {
+    bloodBankSettings: settings?.bloodBankSettings || {
+      criticalThreshold: {},
+      lowThreshold: {},
+      automaticNotifications: true,
+      notificationEmail: null,
+    },
+  });
+});
+
+export const updateBloodBankSettings = asyncHandler(async (req, res) => {
+  const { criticalThreshold, lowThreshold, automaticNotifications, notificationEmail } = req.body;
+
+  const settings = await HospitalSettings.findOneAndUpdate(
+    { hospitalId: req.user.userId },
+    {
+      $set: {
+        'bloodBankSettings.criticalThreshold': criticalThreshold || {},
+        'bloodBankSettings.lowThreshold': lowThreshold || {},
+        'bloodBankSettings.automaticNotifications': automaticNotifications !== undefined ? Boolean(automaticNotifications) : true,
+        'bloodBankSettings.notificationEmail': notificationEmail || null,
       },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+      $setOnInsert: { hospitalId: req.user.userId },
+    },
+    { upsert: true, returnDocument: 'after' }
+  );
 
-export const updateBloodBankSettings = async (req, res, next) => {
-  try {
-    const { criticalThreshold, lowThreshold, automaticNotifications, notificationEmail } = req.body;
+  return response.success(res, 200, 'Blood bank settings updated successfully', {
+    bloodBankSettings: settings.bloodBankSettings,
+  });
+});
 
-    const settings = await HospitalSettings.findOneAndUpdate(
-      { hospitalId: req.user.userId },
-      {
-        $set: {
-          'bloodBankSettings.criticalThreshold': criticalThreshold || {},
-          'bloodBankSettings.lowThreshold': lowThreshold || {},
-          'bloodBankSettings.automaticNotifications': automaticNotifications !== undefined ? Boolean(automaticNotifications) : true,
-          'bloodBankSettings.notificationEmail': notificationEmail || null,
-        },
-        $setOnInsert: { hospitalId: req.user.userId },
+export const getNotificationPreferences = asyncHandler(async (req, res) => {
+  const settings = await HospitalSettings.findOne({ hospitalId: req.user.userId });
+  return response.success(res, 200, 'Notification preferences retrieved successfully', {
+    notificationPreferences: settings?.notificationPreferences || { email: true, push: true, sms: false },
+  });
+});
+
+export const updateNotificationPreferences = asyncHandler(async (req, res) => {
+  const { email, push, sms } = req.body;
+  const settings = await HospitalSettings.findOneAndUpdate(
+    { hospitalId: req.user.userId },
+    {
+      $set: {
+        'notificationPreferences.email': email !== undefined ? Boolean(email) : true,
+        'notificationPreferences.push': push !== undefined ? Boolean(push) : true,
+        'notificationPreferences.sms': sms !== undefined ? Boolean(sms) : false,
       },
-      { upsert: true, returnDocument: 'after' }
-    );
+      $setOnInsert: { hospitalId: req.user.userId },
+    },
+    { upsert: true, returnDocument: 'after' }
+  );
 
-    return response.success(res, 200, 'Blood bank settings updated successfully', {
-      bloodBankSettings: settings.bloodBankSettings,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getNotificationPreferences = async (req, res, next) => {
-  try {
-    const settings = await HospitalSettings.findOne({ hospitalId: req.user.userId });
-    return response.success(res, 200, 'Notification preferences retrieved successfully', {
-      notificationPreferences: settings?.notificationPreferences || { email: true, push: true, sms: false },
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const updateNotificationPreferences = async (req, res, next) => {
-  try {
-    const { email, push, sms } = req.body;
-    const settings = await HospitalSettings.findOneAndUpdate(
-      { hospitalId: req.user.userId },
-      {
-        $set: {
-          'notificationPreferences.email': email !== undefined ? Boolean(email) : true,
-          'notificationPreferences.push': push !== undefined ? Boolean(push) : true,
-          'notificationPreferences.sms': sms !== undefined ? Boolean(sms) : false,
-        },
-        $setOnInsert: { hospitalId: req.user.userId },
-      },
-      { upsert: true, returnDocument: 'after' }
-    );
-
-    return response.success(res, 200, 'Notification preferences updated successfully', {
-      notificationPreferences: settings.notificationPreferences,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+  return response.success(res, 200, 'Notification preferences updated successfully', {
+    notificationPreferences: settings.notificationPreferences,
+  });
+});
 
 // Removed: `getBloodInventory` handler — hospital inventory access consolidated
 // to the admin summary endpoint. Use `GET /admin/blood-inventory-summary` instead.
 
 // GET /hospital/appointments - upcoming appointments for the hospital
-export const getAppointments = async (req, res, next) => {
-  try {
-    const { offset, limit, page } = parsePagination(req.query, 20);
+export const getAppointments = asyncHandler(async (req, res) => {
+  const { offset, limit, page } = parsePagination(req.query, 20);
 
-    const statusFilter = req.query.status && ['pending', 'confirmed', 'completed', 'cancelled'].includes(req.query.status)
-      ? { status: req.query.status }
-      : { status: { $in: ['pending', 'confirmed'] } };
+  const statusFilter = req.query.status && ['pending', 'confirmed', 'completed', 'cancelled'].includes(req.query.status)
+    ? { status: req.query.status }
+    : { status: { $in: ['pending', 'confirmed'] } };
 
-    const now = new Date();
-    const filter = {
-      hospitalId: req.user.userId,
-      appointmentDate: { $gte: now },
-      ...statusFilter,
-    };
+  const now = new Date();
+  const filter = {
+    hospitalId: req.user.userId,
+    appointmentDate: { $gte: now },
+    ...statusFilter,
+  };
 
-    const [appointments, total] = await Promise.all([
-      Appointment.find(filter)
-        .populate(appointmentPopulateOptions)
-        .populate({ path: 'requestId', select: 'type bloodType organType urgency hospitalId' })
-        .sort({ appointmentDate: 1 })
-        .skip(offset)
-        .limit(limit),
-      Appointment.countDocuments(filter),
-    ]);
+  const [appointments, total] = await Promise.all([
+    Appointment.find(filter)
+      .populate(appointmentPopulateOptions)
+      .populate({ path: 'requestId', select: 'type bloodType organType urgency hospitalId' })
+      .sort({ appointmentDate: 1 })
+      .skip(offset)
+      .limit(limit),
+    Appointment.countDocuments(filter),
+  ]);
 
-    const appointmentResponses = appointments.map(toAppointmentResponse);
+  const appointmentResponses = appointments.map(toAppointmentResponse);
 
-    return response.success(res, 200, 'Appointments retrieved successfully', {
-      appointments: appointmentResponses,
-      pagination: paginationMeta(total, page, limit),
-    });
-  } catch (error) {
-    next(error);
-  }
-};
+  return response.success(res, 200, 'Appointments retrieved successfully', {
+    appointments: appointmentResponses,
+    pagination: paginationMeta(total, page, limit),
+  });
+});
 
 // GET /hospital/appointments/:appointmentId - single appointment details for hospital
-export const getAppointmentDetails = async (req, res, next) => {
-  try {
-    const { appointmentId } = req.params;
+export const getAppointmentDetails = asyncHandler(async (req, res) => {
+  const { appointmentId } = req.params;
 
-    if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
-    if (!mongoose.Types.ObjectId.isValid(appointmentId)) return response.error(res, 400, 'Invalid appointment id');
+  if (!appointmentId) throw new HttpError(400, 'appointmentId is required');
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new HttpError(400, 'Invalid appointment id');
 
-    const appointment = await Appointment.findOne({ _id: appointmentId, hospitalId: req.user.userId });
-    if (!appointment) return response.error(res, 404, 'Appointment not found');
+  const appointment = await Appointment.findOne({ _id: appointmentId, hospitalId: req.user.userId });
+  if (!appointment) throw new HttpError(404, 'Appointment not found');
 
-    await appointment.populate(appointmentPopulateOptions);
-    await appointment.populate({ path: 'requestId', select: 'type bloodType organType urgency hospitalId' });
+  await appointment.populate(appointmentPopulateOptions);
+  await appointment.populate({ path: 'requestId', select: 'type bloodType organType urgency hospitalId' });
 
-    const appointmentResponse = toAppointmentResponse(appointment);
-    return response.success(res, 200, 'Appointment retrieved successfully', appointmentResponse);
-  } catch (error) {
-    next(error);
+  const appointmentResponse = toAppointmentResponse(appointment);
+  return response.success(res, 200, 'Appointment retrieved successfully', appointmentResponse);
+});
+
+export const getMonthlyReports = asyncHandler(async (req, res) => {
+  const month = req.query.month || new Date().toISOString().slice(0, 7);
+  const startDate = new Date(`${month}-01T00:00:00.000Z`);
+  const endDate = new Date(startDate);
+  endDate.setMonth(endDate.getMonth() + 1);
+  const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
+
+  // Requests created in the month
+  const requests = await Request.find({
+    hospitalId: hospitalObjectId,
+    createdAt: { $gte: startDate, $lt: endDate },
+  }).select('status urgency requiredBy createdAt');
+
+  const totalRequests = requests.length;
+  const openRequests = requests.filter((r) => r.status === 'pending').length;
+  const activeRequests = requests.filter((r) => ['pending', 'in-progress'].includes(r.status)).length;
+  const totalCompleted = requests.filter((r) => r.status === 'completed').length;
+  const totalCancelled = requests.filter((r) => r.status === 'cancelled').length;
+  const emergencyRequests = requests.filter((r) => r.urgency === 'critical' || r.urgency === 'high').length;
+
+  // Donations for requests that were created in the month (join by request.createdAt)
+  const donationsAgg = await Donation.aggregate([
+    { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+    { $unwind: '$request' },
+    { $match: { 'request.hospitalId': hospitalObjectId, 'request.createdAt': { $gte: startDate, $lt: endDate } } },
+  ]);
+
+  const responseCount = donationsAgg.length;
+  const totalResponses = donationsAgg.length;
+  const confirmedDonorCount = new Set(donationsAgg.filter((d) => ['scheduled', 'completed'].includes(d.status)).map((d) => d.donorId?.toString())).size;
+
+  // Request deadline metrics
+  const now = new Date();
+  const dueSoonThreshold = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+  const overdueCount = requests.filter((r) => r.requiredBy && r.requiredBy < now && r.status !== 'completed').length;
+  const dueSoonCount = requests.filter((r) => r.requiredBy && r.requiredBy >= now && r.requiredBy <= dueSoonThreshold && r.status !== 'completed').length;
+  const avgDaysToRequiredBy = requests.length
+    ? Math.round(
+        requests.reduce((sum, r) => sum + ((r.requiredBy?.getTime() || 0) - r.createdAt.getTime()) / (1000 * 60 * 60 * 24), 0) /
+          requests.length
+      )
+    : 0;
+
+  // Recent activity (donations) in last 7 days for this hospital
+  const recentStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const recentAgg = await Donation.aggregate([
+    { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+    { $unwind: '$request' },
+    { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: recentStart } } },
+    { $count: 'count' },
+  ]);
+  const recentActivityCount = recentAgg[0]?.count || 0;
+  const recentCompletedDonationAgg = await Donation.aggregate([
+    { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+    { $unwind: '$request' },
+    {
+      $match: {
+        'request.hospitalId': hospitalObjectId,
+        createdAt: { $gte: recentStart },
+        status: 'completed',
+      },
+    },
+    { $count: 'count' },
+  ]);
+  const recentCompletedDonationCount = recentCompletedDonationAgg[0]?.count || 0;
+
+  // Donations created today for this hospital (used by Hospital dashboard widget)
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday);
+  endOfToday.setDate(endOfToday.getDate() + 1);
+  const responsesTodayAgg = await Donation.aggregate([
+    { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+    { $unwind: '$request' },
+    {
+      $match: {
+        'request.hospitalId': hospitalObjectId,
+        createdAt: { $gte: startOfToday, $lt: endOfToday },
+      },
+    },
+    { $count: 'count' },
+  ]);
+  const responsesToday = responsesTodayAgg[0]?.count || 0;
+
+  return response.success(res, 200, 'Monthly report retrieved successfully', {
+    month,
+    totalRequests,
+    openRequests,
+    activeRequests,
+    totalCompleted,
+    totalCancelled,
+    emergencyRequests,
+    responseCount,
+    totalResponses,
+    totalDonations: totalResponses,
+    completedDonations: donationsAgg.filter((d) => d.status === 'completed').length,
+    confirmedDonorCount,
+    overdueCount,
+    dueSoonCount,
+    avgDaysToRequiredBy,
+    recentActivityCount,
+    recentCompletedDonationCount,
+    responsesToday,
+  });
+});
+
+export const getRequestHistory = asyncHandler(async (req, res) => {
+  const { offset, limit, page } = parsePagination(req.query);
+  const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
+  const allowedStatuses = ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'];
+  const status = typeof req.query.status === 'string' ? req.query.status.trim().toLowerCase() : null;
+
+  if (status && !allowedStatuses.includes(status)) {
+    throw new HttpError(400, `Invalid status filter. Allowed values: ${allowedStatuses.join(', ')}`);
   }
-};
 
-export const getMonthlyReports = async (req, res, next) => {
-  try {
-    const month = req.query.month || new Date().toISOString().slice(0, 7);
-    const startDate = new Date(`${month}-01T00:00:00.000Z`);
-    const endDate = new Date(startDate);
-    endDate.setMonth(endDate.getMonth() + 1);
-    const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
+  const requestMatch = {
+    hospitalId: hospitalObjectId,
+    ...(status ? { status } : {}),
+  };
 
-    // Requests created in the month
-    const requests = await Request.find({
-      hospitalId: hospitalObjectId,
-      createdAt: { $gte: startDate, $lt: endDate },
-    }).select('status urgency requiredBy createdAt');
-
-    const totalRequests = requests.length;
-    const openRequests = requests.filter((r) => r.status === 'pending').length;
-    const activeRequests = requests.filter((r) => ['pending', 'in-progress'].includes(r.status)).length;
-    const totalCompleted = requests.filter((r) => r.status === 'completed').length;
-    const totalCancelled = requests.filter((r) => r.status === 'cancelled').length;
-    const emergencyRequests = requests.filter((r) => r.urgency === 'critical' || r.urgency === 'high').length;
-
-    // Donations for requests that were created in the month (join by request.createdAt)
-    const donationsAgg = await Donation.aggregate([
-      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-      { $unwind: '$request' },
-      { $match: { 'request.hospitalId': hospitalObjectId, 'request.createdAt': { $gte: startDate, $lt: endDate } } },
-    ]);
-
-    const responseCount = donationsAgg.length;
-    const totalResponses = donationsAgg.length;
-    const confirmedDonorCount = new Set(donationsAgg.filter((d) => ['scheduled', 'completed'].includes(d.status)).map((d) => d.donorId?.toString())).size;
-
-    // Request deadline metrics
-    const now = new Date();
-    const dueSoonThreshold = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-    const overdueCount = requests.filter((r) => r.requiredBy && r.requiredBy < now && r.status !== 'completed').length;
-    const dueSoonCount = requests.filter((r) => r.requiredBy && r.requiredBy >= now && r.requiredBy <= dueSoonThreshold && r.status !== 'completed').length;
-    const avgDaysToRequiredBy = requests.length
-      ? Math.round(
-          requests.reduce((sum, r) => sum + ((r.requiredBy?.getTime() || 0) - r.createdAt.getTime()) / (1000 * 60 * 60 * 24), 0) /
-            requests.length
-        )
-      : 0;
-
-    // Recent activity (donations) in last 7 days for this hospital
-    const recentStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-    const recentAgg = await Donation.aggregate([
-      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-      { $unwind: '$request' },
-      { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: recentStart } } },
-      { $count: 'count' },
-    ]);
-    const recentActivityCount = recentAgg[0]?.count || 0;
-    const recentCompletedDonationAgg = await Donation.aggregate([
-      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-      { $unwind: '$request' },
-      {
-        $match: {
-          'request.hospitalId': hospitalObjectId,
-          createdAt: { $gte: recentStart },
-          status: 'completed',
-        },
+  const requestsPipeline = [
+    {
+      $match: requestMatch,
+    },
+    {
+      $lookup: {
+        from: 'donations',
+        localField: '_id',
+        foreignField: 'requestId',
+        as: 'donations',
       },
-      { $count: 'count' },
-    ]);
-    const recentCompletedDonationCount = recentCompletedDonationAgg[0]?.count || 0;
-
-    // Donations created today for this hospital (used by Hospital dashboard widget)
-    const startOfToday = new Date(now);
-    startOfToday.setHours(0, 0, 0, 0);
-    const endOfToday = new Date(startOfToday);
-    endOfToday.setDate(endOfToday.getDate() + 1);
-    const responsesTodayAgg = await Donation.aggregate([
-      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-      { $unwind: '$request' },
-      {
-        $match: {
-          'request.hospitalId': hospitalObjectId,
-          createdAt: { $gte: startOfToday, $lt: endOfToday },
-        },
-      },
-      { $count: 'count' },
-    ]);
-    const responsesToday = responsesTodayAgg[0]?.count || 0;
-
-    return response.success(res, 200, 'Monthly report retrieved successfully', {
-      month,
-      totalRequests,
-      openRequests,
-      activeRequests,
-      totalCompleted,
-      totalCancelled,
-      emergencyRequests,
-      responseCount,
-      totalResponses,
-      totalDonations: totalResponses,
-      completedDonations: donationsAgg.filter((d) => d.status === 'completed').length,
-      confirmedDonorCount,
-      overdueCount,
-      dueSoonCount,
-      avgDaysToRequiredBy,
-      recentActivityCount,
-      recentCompletedDonationCount,
-      responsesToday,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getRequestHistory = async (req, res, next) => {
-  try {
-    const { offset, limit, page } = parsePagination(req.query);
-    const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
-    const allowedStatuses = ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'];
-    const status = typeof req.query.status === 'string' ? req.query.status.trim().toLowerCase() : null;
-
-    if (status && !allowedStatuses.includes(status)) {
-      return response.error(
-        res,
-        400,
-        `Invalid status filter. Allowed values: ${allowedStatuses.join(', ')}`
-      );
-    }
-
-    const requestMatch = {
-      hospitalId: hospitalObjectId,
-      ...(status ? { status } : {}),
-    };
-
-    const requestsPipeline = [
-      {
-        $match: requestMatch,
-      },
-      {
-        $lookup: {
-          from: 'donations',
-          localField: '_id',
-          foreignField: 'requestId',
-          as: 'donations',
-        },
-      },
-      {
-        $addFields: {
-          donorsContacted: { $size: '$donations' },
-          donorsConfirmed: {
-            $size: {
-              $filter: {
-                input: '$donations',
-                as: 'donation',
-                cond: { $in: ['$$donation.status', ['scheduled', 'completed']] },
-              },
+    },
+    {
+      $addFields: {
+        donorsContacted: { $size: '$donations' },
+        donorsConfirmed: {
+          $size: {
+            $filter: {
+              input: '$donations',
+              as: 'donation',
+              cond: { $in: ['$$donation.status', ['scheduled', 'completed']] },
             },
           },
-          completionTimeInHours: {
-            $cond: [
-              { $and: [{ $ne: ['$createdAt', null] }, { $ne: ['$completedAt', null] }] },
-              {
-                $toInt: {
-                  $round: [
-                    {
-                      $divide: [
-                        { $subtract: ['$completedAt', '$createdAt'] },
-                        3600000,
-                      ],
-                    },
-                    0,
-                  ],
-                },
-              },
-              null,
-            ],
-          },
         },
-      },
-      {
-        $project: {
-          bloodType: 1,
-          unitsRequested: '$unitsNeeded',
-          urgencyLevel: '$urgency',
-          donorsContacted: 1,
-          donorsConfirmed: 1,
-          isFulfilled: { $eq: ['$status', 'completed'] },
-          requestDate: '$createdAt',
-          completionTimeInHours: 1,
-          priority: '$urgency',
-          location: {
-            $let: {
-              vars: {
-                lat: {
-                  $ifNull: [
-                    '$hospitalLocation.lat',
-                    {
-                      $ifNull: [
-                        '$locationHospital.latitude',
-                        {
-                          $arrayElemAt: ['$hospitalLocationGeo.coordinates', 1],
-                        },
-                      ],
-                    },
-                  ],
-                },
-                lng: {
-                  $ifNull: [
-                    '$hospitalLocation.lng',
-                    {
-                      $ifNull: [
-                        '$locationHospital.longitude',
-                        {
-                          $arrayElemAt: ['$hospitalLocationGeo.coordinates', 0],
-                        },
-                      ],
-                    },
-                  ],
-                },
-              },
-              in: {
-                $cond: [
+        completionTimeInHours: {
+          $cond: [
+            { $and: [{ $ne: ['$createdAt', null] }, { $ne: ['$completedAt', null] }] },
+            {
+              $toInt: {
+                $round: [
                   {
-                    $and: [
-                      { $ne: ['$$lat', null] },
-                      { $ne: ['$$lng', null] },
+                    $divide: [
+                      { $subtract: ['$completedAt', '$createdAt'] },
+                      3600000,
                     ],
                   },
-                  { coordinates: { lat: '$$lat', lng: '$$lng' } },
-                  null,
+                  0,
                 ],
               },
             },
+            null,
+          ],
+        },
+      },
+    },
+    {
+      $project: {
+        bloodType: 1,
+        unitsRequested: '$unitsNeeded',
+        urgencyLevel: '$urgency',
+        donorsContacted: 1,
+        donorsConfirmed: 1,
+        isFulfilled: { $eq: ['$status', 'completed'] },
+        requestDate: '$createdAt',
+        completionTimeInHours: 1,
+        priority: '$urgency',
+        location: {
+          $let: {
+            vars: {
+              lat: {
+                $ifNull: [
+                  '$hospitalLocation.lat',
+                  {
+                    $ifNull: [
+                      '$locationHospital.latitude',
+                      {
+                        $arrayElemAt: ['$hospitalLocationGeo.coordinates', 1],
+                      },
+                    ],
+                  },
+                ],
+              },
+              lng: {
+                $ifNull: [
+                  '$hospitalLocation.lng',
+                  {
+                    $ifNull: [
+                      '$locationHospital.longitude',
+                      {
+                        $arrayElemAt: ['$hospitalLocationGeo.coordinates', 0],
+                      },
+                    ],
+                  },
+                ],
+              },
+            },
+            in: {
+              $cond: [
+                {
+                  $and: [
+                    { $ne: ['$$lat', null] },
+                    { $ne: ['$$lng', null] },
+                  ],
+                },
+                { coordinates: { lat: '$$lat', lng: '$$lng' } },
+                null,
+              ],
+            },
           },
-          hospitalContact: { $ifNull: ['$contactNumber', '$hospitalContact'] },
-          hospitalName: 1,
-          status: 1,
-          _id: 1,
         },
+        hospitalContact: { $ifNull: ['$contactNumber', '$hospitalContact'] },
+        hospitalName: 1,
+        status: 1,
+        _id: 1,
       },
-      { $sort: { requestDate: -1 } },
-    ];
+    },
+    { $sort: { requestDate: -1 } },
+  ];
 
-    const [requests, totalResult] = await Promise.all([
-      Request.aggregate([
-        ...requestsPipeline,
-        { $skip: offset },
-        { $limit: limit },
-      ]),
-      Request.aggregate([
-        ...requestsPipeline,
-        { $count: 'count' },
-      ]),
-    ]);
+  const [requests, totalResult] = await Promise.all([
+    Request.aggregate([
+      ...requestsPipeline,
+      { $skip: offset },
+      { $limit: limit },
+    ]),
+    Request.aggregate([
+      ...requestsPipeline,
+      { $count: 'count' },
+    ]),
+  ]);
 
-    const total = totalResult[0]?.count || 0;
+  const total = totalResult[0]?.count || 0;
 
-    const statsResult = await Request.aggregate([
-      { $match: { hospitalId: hospitalObjectId } },
-      {
-        $group: {
-          _id: '$status',
-          count: { $sum: 1 },
-        },
+  const statsResult = await Request.aggregate([
+    { $match: { hospitalId: hospitalObjectId } },
+    {
+      $group: {
+        _id: '$status',
+        count: { $sum: 1 },
       },
-    ]);
+    },
+  ]);
 
-    const statusCounts = statsResult.reduce((acc, item) => {
-      acc[item._id] = item.count;
-      return acc;
-    }, {});
+  const statusCounts = statsResult.reduce((acc, item) => {
+    acc[item._id] = item.count;
+    return acc;
+  }, {});
 
-    const activeRequests =
-      (statusCounts.pending || 0) +
-      (statusCounts.accepted || 0) +
-      (statusCounts['in-progress'] || 0);
-    const completedRequests = statusCounts.completed || 0;
-    const cancelledRequests = statusCounts.cancelled || 0;
+  const activeRequests =
+    (statusCounts.pending || 0) +
+    (statusCounts.accepted || 0) +
+    (statusCounts['in-progress'] || 0);
+  const completedRequests = statusCounts.completed || 0;
+  const cancelledRequests = statusCounts.cancelled || 0;
 
-    response.success(res, 200, 'Request history retrieved successfully', {
-      statistics: {
-        activeRequests,
-        completedRequests,
-        cancelledRequests,
-      },
-      requests,
-      pagination: paginationMeta(total, page, limit),
-    });
-  } catch (error) {
-    next(error);
+  response.success(res, 200, 'Request history retrieved successfully', {
+    statistics: {
+      activeRequests,
+      completedRequests,
+      cancelledRequests,
+    },
+    requests,
+    pagination: paginationMeta(total, page, limit),
+  });
+});
+
+export const createHospital = asyncHandler(async (req, res) => {
+  const validation = validateCreateHospitalByAdminBody(req.body);
+  if (!validation.valid) {
+    throw new HttpError(400, validation.errors.join(', '));
   }
-};
 
-export const createHospital = async (req, res, next) => {
   try {
-    const validation = validateCreateHospitalByAdminBody(req.body);
-    if (!validation.valid) {
-      return response.error(res, 400, validation.errors.join(', '));
-    }
-
     const result = await hospitalService.createHospitalByAdmin(req.body, req.user._id);
     return response.success(res, 201, 'Hospital created successfully', result);
   } catch (error) {
     if (error.message === 'Email already registered') {
-      return response.error(res, 409, error.message);
+      throw new HttpError(409, error.message);
     }
-    next(error);
+    throw error;
   }
-};
+});
 
 
 // GET /hospital/appointment-settings
-export const getAppointmentSettings = async (req, res, next) => {
-  try {
-    const settings = await getOrCreateHospitalSettings(req.user.userId);
-    return response.success(res, 200, 'Appointment settings retrieved successfully', settings.appointmentSettings);
-  } catch (error) {
-    next(error);
-  }
-};
+export const getAppointmentSettings = asyncHandler(async (req, res) => {
+  const settings = await getOrCreateHospitalSettings(req.user.userId);
+  return response.success(res, 200, 'Appointment settings retrieved successfully', settings.appointmentSettings);
+});
 
 // PUT /hospital/appointment-settings
-export const updateAppointmentSettings = async (req, res, next) => {
-  try {
-    const settings = await getOrCreateHospitalSettings(req.user.userId);
-    const normalized = normalizeAppointmentSettings(settings.appointmentSettings, req.body);
+export const updateAppointmentSettings = asyncHandler(async (req, res) => {
+  const settings = await getOrCreateHospitalSettings(req.user.userId);
+  const normalized = normalizeAppointmentSettings(settings.appointmentSettings, req.body);
 
-    if (normalized.errors.length) {
-      return response.error(res, 400, normalized.errors.join(', '));
-    }
-
-    settings.appointmentSettings = normalized.appointmentSettings;
-    await settings.save();
-
-    return response.success(res, 200, 'Appointment settings updated successfully', settings.appointmentSettings);
-  } catch (error) {
-    next(error);
+  if (normalized.errors.length) {
+    throw new HttpError(400, normalized.errors.join(', '));
   }
-};
+
+  settings.appointmentSettings = normalized.appointmentSettings;
+  await settings.save();
+
+  return response.success(res, 200, 'Appointment settings updated successfully', settings.appointmentSettings);
+});

@@ -9,7 +9,7 @@ import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
 import * as activityService from './activity.service.js';
 import { getRewardsConfig } from './rewardsConfig.service.js';
-import { paginationMeta } from '../utils/pagination.js';
+import { paginationMeta, parsePagination } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 import Donor from '../models/Donor.model.js';
 import { formatPointsTitle, ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
@@ -462,8 +462,8 @@ export const getPointsSummary = async (donorId) => {
 };
 
 export const getPointsHistory = async (donorId, filters = {}) => {
-  const { page = 1, limit = 20, filter = 'ALL', dateFrom, dateTo } = filters;
-  const offset = (page - 1) * limit;
+  const { filter = 'ALL', dateFrom, dateTo } = filters;
+  const { offset, limit } = parsePagination(filters, 20);
 
   const query = { donorId };
 
@@ -474,13 +474,13 @@ export const getPointsHistory = async (donorId, filters = {}) => {
   if (dateTo) query.createdAt = { ...query.createdAt, $lte: new Date(dateTo) };
 
   const [transactions, total] = await Promise.all([
-    PointsTransaction.find(query).sort({ createdAt: -1 }).skip(offset).limit(parseInt(limit)),
+    PointsTransaction.find(query).sort({ createdAt: -1 }).skip(offset).limit(limit),
     PointsTransaction.countDocuments(query),
   ]);
 
   return {
     transactions,
-    pagination: paginationMeta(total, parseInt(page), parseInt(limit)),
+    pagination: paginationMeta(total, parseInt(filters.page) || 1, parseInt(filters.limit) || 20),
   };
 };
 
@@ -705,19 +705,19 @@ export const redeemReward = async (donorId, rewardId, { deliveryMethod = 'IN_APP
   };
 };
 
-export const getDonorRedemptions = async (donorId, { page = 1, limit = 20, status } = {}) => {
-  const offset = (page - 1) * limit;
+export const getDonorRedemptions = async (donorId, { status, ...pagination } = {}) => {
+  const { offset, limit, page } = parsePagination(pagination, 20);
   const query = { donorId };
   if (status && status !== 'ALL') query.status = status;
 
   const [redemptions, total] = await Promise.all([
-    RewardRedemption.find(query).populate('rewardId', 'name category iconType').sort({ createdAt: -1 }).skip(offset).limit(parseInt(limit)),
+    RewardRedemption.find(query).populate('rewardId', 'name category iconType').sort({ createdAt: -1 }).skip(offset).limit(limit),
     RewardRedemption.countDocuments(query),
   ]);
 
   return {
     redemptions,
-    pagination: paginationMeta(total, parseInt(page), parseInt(limit)),
+    pagination: paginationMeta(total, page, limit),
   };
 };
 

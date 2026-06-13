@@ -6,7 +6,6 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node scripts/run-server.js --dev",
-    "generate:openapi": "node scripts/generate-openapi.js",
     "seed-demo": "node scripts/seed-demo.js",
     "seed": "node scripts/seed.js",
     "smoke": "node scripts/smoke.js",

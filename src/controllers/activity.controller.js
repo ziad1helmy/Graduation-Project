@@ -3,6 +3,7 @@ import { parsePagination } from '../utils/pagination.js';
 import * as activityService from '../services/activity.service.js';
 import { logger } from '../utils/logger.js';
 import { formatActivityForTimeline, ACTIVITY_TYPES } from '../utils/activity.formatter.js';
+import { asyncHandler } from '../middlewares/asyncHandler.js';
 
 
 /**
@@ -55,50 +56,42 @@ import { formatActivityForTimeline, ACTIVITY_TYPES } from '../utils/activity.for
  */
 const isPositiveIntegerString = (value) => /^\d+$/.test(String(value).trim());
 
-export const getTimeline = async (req, res, next) => {
-  try {
-    const userId = req.user.userId;
-    const { page: pageParam, limit: limitParam } = req.query;
+export const getTimeline = asyncHandler(async (req, res) => {
+  const userId = req.user.userId;
+  const { page: pageParam, limit: limitParam } = req.query;
 
-    if (pageParam !== undefined && !isPositiveIntegerString(pageParam)) {
-      return response.error(res, 400, 'Page must be a positive integer');
-    }
-
-    if (limitParam !== undefined && !isPositiveIntegerString(limitParam)) {
-      return response.error(res, 400, 'Limit must be a positive integer');
-    }
-
-    const { page, limit } = parsePagination(req.query, 20, 100);
-
-    // Validate optional `type` filter when provided
-    const typeParam = req.query?.type;
-    if (typeParam !== undefined && String(typeParam).trim() !== '') {
-      if (!ACTIVITY_TYPES.includes(String(typeParam))) {
-        return response.error(res, 400, `Invalid type filter: ${typeParam}`);
-      }
-    }
-
-    // Exclude __v always; also exclude createdAt for donor viewers (not needed by Flutter).
-    const projection = req.user?.role === 'donor' ? '-__v -createdAt' : '-__v';
-    const result = await activityService.getUserTimeline(userId, {
-      page,
-      limit,
-    }, projection);
-
-    const formattedActivities = result.activities.map(formatActivityForTimeline);
-
-    response.success(res, 200, 'Activity timeline retrieved successfully', {
-      activities: formattedActivities,
-      pagination: result.pagination,
-    });
-  } catch (error) {
-    logger.error('getTimeline error', {
-      userId: req.user.userId,
-      error: error.message,
-    });
-    next(error);
+  if (pageParam !== undefined && !isPositiveIntegerString(pageParam)) {
+    return response.error(res, 400, 'Page must be a positive integer');
   }
-};
+
+  if (limitParam !== undefined && !isPositiveIntegerString(limitParam)) {
+    return response.error(res, 400, 'Limit must be a positive integer');
+  }
+
+  const { page, limit } = parsePagination(req.query, 20, 100);
+
+  // Validate optional `type` filter when provided
+  const typeParam = req.query?.type;
+  if (typeParam !== undefined && String(typeParam).trim() !== '') {
+    if (!ACTIVITY_TYPES.includes(String(typeParam))) {
+      return response.error(res, 400, `Invalid type filter: ${typeParam}`);
+    }
+  }
+
+  // Exclude __v always; also exclude createdAt for donor viewers (not needed by Flutter).
+  const projection = req.user?.role === 'donor' ? '-__v -createdAt' : '-__v';
+  const result = await activityService.getUserTimeline(userId, {
+    page,
+    limit,
+  }, projection);
+
+  const formattedActivities = result.activities.map(formatActivityForTimeline);
+
+  response.success(res, 200, 'Activity timeline retrieved successfully', {
+    activities: formattedActivities,
+    pagination: result.pagination,
+  });
+});
 
 export default {
   getTimeline,

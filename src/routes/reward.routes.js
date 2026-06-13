@@ -16,35 +16,35 @@ const router = Router();
 router.use(authMiddleware);
 
 // ── Donor routes ──────────────────────────────────────────
-
+
 router.get('/points', requireRole('donor'), rc.getPoints);
-
+
 router.get('/earning-rules', requireRole('donor'), rc.getEarningRules);
-
+
 router.get('/dashboard', requireRole('donor'), rc.getRewardsDashboard);
-
+
 router.get('/stats', requireRole('donor'), rc.getRewardsStats);
 
 router.get('/points/history', requireRole('donor'), rc.getPointsHistory);
-
+
 router.get('/badges', requireRole('donor'), rc.getBadges);
-
+
 router.get('/catalog', requireRole('donor'), rc.getRewards);
-
+
 router.get('/history', requireRole('donor'), rc.getHistory);
-
+
 router.post('/catalog/:rewardId/redeem', requireRole('donor'), rc.redeemReward);
-
+
 router.get('/redemptions', requireRole('donor'), rc.getRedemptions);
-
+
 router.get('/leaderboard', rc.getLeaderboard);
 
 // ── Admin routes ──────────────────────────────────────────
-
+
 router.post('/admin/users/:userId/points/adjust', requireRole('admin', 'superadmin'), rc.adminAdjustPoints);
-
+
 router.patch('/admin/catalog/:rewardId/status', requireRole('admin', 'superadmin'), rc.adminUpdateRewardStatus);
-
+
 router.get('/admin/analytics', requireRole('admin', 'superadmin'), rc.adminGetRewardsAnalytics);
 
 export default router;

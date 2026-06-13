@@ -21,6 +21,34 @@ vi.mock('../../src/utils/geo.js', () => ({
     const score = Math.max(0, Math.round((1 - (distance / maxDistance)) * 100));
     return score;
   }),
+  extractGeoPoint: vi.fn((location) => {
+    if (!location) return null;
+    const lat = location.latitude ?? location.lat;
+    const lng = location.longitude ?? location.lng ?? location.long;
+    if (typeof lat === 'number' && typeof lng === 'number') return { latitude: lat, longitude: lng };
+    return null;
+  }),
+  extractLocation: vi.fn((obj) => {
+    if (!obj || typeof obj !== 'object') return null;
+    // Mirror the field paths in extractLocation() in src/utils/geo.js
+    const candidates = [
+      [obj.locationHospital?.latitude, obj.locationHospital?.longitude],
+      [obj.hospitalLocation?.lat, obj.hospitalLocation?.lng],
+      [obj.hospitalLocationGeo?.coordinates?.[1], obj.hospitalLocationGeo?.coordinates?.[0]],
+      [obj.hospitalId?.location?.coordinates?.lat ?? obj.hospitalId?.lat,
+       obj.hospitalId?.location?.coordinates?.lng ?? obj.hospitalId?.long],
+      [obj.location?.coordinates?.lat, obj.location?.coordinates?.lng],
+      [obj.location?.latitude, obj.location?.longitude],
+      [obj.location?.lat, obj.location?.lng],
+      [obj.lat, obj.lng ?? obj.long],
+      [obj.latitude, obj.longitude],
+      [obj.coordinates?.lat, obj.coordinates?.lng],
+    ];
+    for (const [lat, lng] of candidates) {
+      if (typeof lat === 'number' && typeof lng === 'number') return { latitude: lat, longitude: lng };
+    }
+    return null;
+  }),
 }));
 
 // setupTestDB(); // Removed to prevent duplicate connections

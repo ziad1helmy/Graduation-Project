@@ -3,6 +3,8 @@ import response from '../utils/response.js';
 import { logger } from '../utils/logger.js';
 import { env } from '../config/env.js';
 import InboundEmail from '../models/InboundEmail.model.js';
+import { asyncHandler } from '../middlewares/asyncHandler.js';
+import { HttpError } from '../utils/HttpError.js';
 
 function verifySignature(rawBody, headerValue) {
   if (!headerValue) return false;
@@ -72,13 +74,13 @@ async function processWebhookEvent(parsed) {
   }
 }
 
-export async function handleResendWebhook(req, res) {
+export const handleResendWebhook = asyncHandler(async (req, res) => {
   const raw = req.body; // express.raw set this to Buffer
   const signatureHeader = req.headers['resend-signature'] || req.headers['x-resend-signature'] || req.headers['signature'] || req.headers['x-signature'];
 
   if (!verifySignature(raw, String(signatureHeader || ''))) {
     logger.warn('Webhook signature verification failed', { ip: req.ip });
-    return response.error(res, 401, 'Invalid signature');
+    throw new HttpError(401, 'Invalid signature');
   }
 
   let parsed;
@@ -86,7 +88,7 @@ export async function handleResendWebhook(req, res) {
     parsed = JSON.parse(raw.toString('utf8'));
   } catch (err) {
     logger.warn('Malformed webhook payload', { message: err.message });
-    return response.error(res, 400, 'Malformed payload');
+    throw new HttpError(400, 'Malformed payload');
   }
 
   logger.info('Resend webhook received', { type: parsed?.type, to: parsed?.data?.to });
@@ -99,4 +101,4 @@ export async function handleResendWebhook(req, res) {
   });
 
   return response.success(res, 200, 'Webhook received', { received: true });
-}
+});

@@ -6,6 +6,7 @@ import { createDonor, createHospital, createRequest } from '../helpers/factories
 import { signToken } from '../../src/utils/jwt.js';
 import Donation from '../../src/models/Donation.model.js';
 import Request from '../../src/models/Request.model.js';
+import Appointment from '../../src/models/Appointment.model.js';
 
 setupTestDB();
 
@@ -91,6 +92,67 @@ describe('Donor Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.data.requests.every((r) => r.urgency === 'high')).toBe(true);
+  });
+
+  it('GET /donor/requests returns empty list when donor has an active appointment', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    await createRequest(hospital._id, { bloodType: donor.bloodType, urgency: 'high' });
+
+    const futureDate = new Date(Date.now() + 48 * 60 * 60 * 1000);
+    await Appointment.create({
+      donorId: donor._id,
+      hospitalId: hospital._id,
+      appointmentDate: futureDate,
+      status: 'pending',
+    });
+
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const response = await request(app)
+      .get('/donor/requests')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.requests).toHaveLength(0);
+    expect(response.body.data.reason).toBe('ACTIVE_APPOINTMENT_EXISTS');
+  });
+
+  it('GET /donor/requests falls back to non-geo query when 2dsphere index is missing', async () => {
+    // Regression: production saw 500s when the hospitalLocationGeo 2dsphere
+    // index was missing or geo data was malformed. The endpoint must degrade
+    // gracefully instead of crashing.
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    await createRequest(hospital._id, { bloodType: donor.bloodType, urgency: 'high' });
+
+    // Drop the geospatial index to simulate a production index mismatch.
+    const requestCollection = Request.collection;
+    try {
+      try {
+        await requestCollection.dropIndex('hospitalLocationGeo_2dsphere');
+      } catch (dropErr) {
+        // If the index does not exist, ignore.
+        if (dropErr.code !== 27) throw dropErr;
+      }
+
+      const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+      const response = await request(app)
+        .get('/donor/requests')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('requests');
+      expect(Array.isArray(response.body.data.requests)).toBe(true);
+    } finally {
+      // Restore the index so later tests are not affected.
+      await requestCollection.createIndex({ hospitalLocationGeo: '2dsphere' });
+    }
   });
 
   it('GET /donor/matches returns compatible donors for requests', async () => {

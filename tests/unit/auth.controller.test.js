@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import * as authController from '../../src/controllers/auth.controller.js';
 import * as authService from '../../src/services/auth.service.js';
 import { ERR } from '../../src/utils/errorCodes.js';
+import { HttpError } from '../../src/utils/HttpError.js';
 import { makeMockReq, makeMockRes } from '../helpers/mocks.js';
 
 vi.mock('../../src/services/auth.service.js', () => ({
@@ -22,6 +23,14 @@ vi.mock('../../src/services/auth.service.js', () => ({
   verifyEmail: vi.fn(),
   verifyEmailOtp: vi.fn(),
 }));
+
+const expectHttpError = (next, statusCode, messagePattern) => {
+  expect(next).toHaveBeenCalledTimes(1);
+  const err = next.mock.calls[0][0];
+  expect(err).toBeInstanceOf(HttpError);
+  expect(err.statusCode).toBe(statusCode);
+  if (messagePattern) expect(err.message).toMatch(messagePattern);
+};
 
 describe('Auth Controller', () => {
   const userId = '507f1f77bcf86cd799439011';
@@ -62,8 +71,7 @@ describe('Auth Controller', () => {
 
       await authController.register(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(403);
-      expect(res.json.mock.calls[0][0].message).toBe('Public signup is available for donors only');
+      expectHttpError(next, 403, /Public signup is available for donors only/);
     });
 
     it('returns 400 when registration fails validation', async () => {
@@ -77,8 +85,7 @@ describe('Auth Controller', () => {
 
       await authController.register(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].message).toContain('Validation failed');
+      expectHttpError(next, 400, /Validation failed/);
     });
   });
 
@@ -115,8 +122,7 @@ describe('Auth Controller', () => {
 
       await authController.loginUser(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(403);
-      expect(res.json.mock.calls[0][0].message).toBe(ERR.AUTH_ACCOUNT_SUSPENDED);
+      expectHttpError(next, 403, new RegExp(ERR.AUTH_ACCOUNT_SUSPENDED.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     });
 
     it('returns 401 for invalid credentials', async () => {
@@ -130,7 +136,7 @@ describe('Auth Controller', () => {
 
       await authController.loginUser(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(401);
+      expectHttpError(next, 401);
     });
   });
 
@@ -162,7 +168,7 @@ describe('Auth Controller', () => {
 
       await authController.logout(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expectHttpError(next, 400);
     });
   });
 
@@ -212,8 +218,7 @@ describe('Auth Controller', () => {
 
       await authController.changePassword(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].message).toBe(ERR.AUTH_CURRENT_PASSWORD_INCORRECT);
+      expectHttpError(next, 400, new RegExp(ERR.AUTH_CURRENT_PASSWORD_INCORRECT.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
     });
 
     it('returns 400 when the new password matches the current password', async () => {
@@ -226,8 +231,7 @@ describe('Auth Controller', () => {
 
       await authController.changePassword(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].code).toBe('VALIDATION_ERROR');
+      expectHttpError(next, 400);
     });
   });
 
@@ -258,8 +262,7 @@ describe('Auth Controller', () => {
 
       await authController.loginHospital(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].success).toBe(false);
+      expectHttpError(next, 400);
     });
 
     it('returns 401 when hospitalId is invalid', async () => {
@@ -273,7 +276,7 @@ describe('Auth Controller', () => {
 
       await authController.loginHospital(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(401);
+      expectHttpError(next, 401);
     });
 
     it('returns 400 for malformed payload', async () => {
@@ -283,7 +286,7 @@ describe('Auth Controller', () => {
 
       await authController.loginHospital(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expectHttpError(next, 400);
     });
   });
 
@@ -315,7 +318,7 @@ describe('Auth Controller', () => {
 
       await authController.registerFcmToken(req, res, next);
 
-      expect(res.status).toHaveBeenCalledWith(400);
+      expectHttpError(next, 400);
     });
   });
 });

@@ -28,14 +28,14 @@ import { invalidateMaintenanceCache } from '../middlewares/maintenance.middlewar
 import { buildRequestPayload } from '../controllers/request.controller.js';
 import { validateTransition } from '../utils/state-machine.js';
 import { extractFirstBloodType } from '../utils/blood-type.js';
+import { parsePagination } from '../utils/pagination.js';
 
 /**
  * List audit logs with pagination and optional filters.
  */
 export const getAuditLogs = async (filters = {}, pagination = {}) => {
   const { action, targetType, adminId } = filters;
-  const { page = 1, limit = 20 } = pagination;
-  const skip = (page - 1) * limit;
+  const { offset, limit, page } = parsePagination(pagination, 20);
 
   const query = {};
   if (action) query.action = action;
@@ -46,8 +46,8 @@ export const getAuditLogs = async (filters = {}, pagination = {}) => {
     AuditLog.find(query)
       .populate('adminId', 'fullName email role')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit)),
+      .skip(offset)
+      .limit(limit),
     AuditLog.countDocuments(query),
   ]);
 
@@ -257,8 +257,7 @@ export const seedDefaultSettings = async () => {
  */
 export const listUsers = async (filters = {}, pagination = {}) => {
   const { role, verified, suspended, search } = filters;
-  const { page = 1, limit = 20 } = pagination;
-  const skip = (page - 1) * limit;
+  const { offset, limit, page } = parsePagination(pagination, 20);
 
   const query = { deletedAt: null };
 
@@ -276,8 +275,8 @@ export const listUsers = async (filters = {}, pagination = {}) => {
     User.find(query)
       .select('-password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit)),
+      .skip(offset)
+      .limit(limit),
     User.countDocuments(query),
   ]);
 
@@ -478,7 +477,7 @@ export const banDonor = async (donorId, reason, adminId) => {
 
   donor.isSuspended = true;
   donor.suspendedAt = new Date();
-  donor.suspendedReason = reason || 'Banned by admin';
+  donor.suspendedReason = reason;
   await donor.save({ validateBeforeSave: false });
 
   await logAudit(adminId, 'user.ban_donor', 'User', donorId);
@@ -613,8 +612,7 @@ export const loginAdmin = async (email, password, adminKey) => {
 };
 
 export const getAllAdmins = async (pagination = {}) => {
-  const { page = 1, limit = 20 } = pagination;
-  const skip = (page - 1) * limit;
+  const { offset, limit, page } = parsePagination(pagination, 20);
 
   const query = { deletedAt: null, role: { $in: ['admin', 'superadmin'] } };
 
@@ -622,12 +620,12 @@ export const getAllAdmins = async (pagination = {}) => {
     User.find(query)
       .select('fullName email role phone address isEmailVerified isSuspended createdAt updatedAt')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit, 10)),
+      .skip(offset)
+      .limit(limit),
     User.countDocuments(query),
   ]);
 
-  return { admins, total, page: parseInt(page, 10), limit: parseInt(limit, 10) };
+  return { admins, total, page, limit };
 };
 
 export const getAdminProfile = async (adminId) => {
@@ -947,8 +945,7 @@ export const deleteRolePermission = async (role, adminId) => {
  */
 export const listAllRequests = async (filters = {}, pagination = {}) => {
   const { status, urgency, bloodType, hospitalId, type } = filters;
-  const { page = 1, limit = 20 } = pagination;
-  const skip = (page - 1) * limit;
+  const { offset, limit } = parsePagination(pagination, 20);
 
   const query = {};
   if (status) query.status = status;
@@ -961,8 +958,8 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
     Request.find(query)
       .populate('hospitalId', 'fullName email hospitalName address contactNumber')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit)),
+      .skip(offset)
+      .limit(limit),
     Request.countDocuments(query),
   ]);
 
@@ -1165,8 +1162,7 @@ export const getRequestDetails = async (id) => {
 
 export const listSupportMessages = async (filters = {}, pagination = {}) => {
   const { status, category, search } = filters;
-  const { page = 1, limit = 20 } = pagination;
-  const skip = (page - 1) * limit;
+  const { offset, limit, page } = parsePagination(pagination, 20);
 
   const query = {};
   if (status) query.status = status;
@@ -1181,11 +1177,11 @@ export const listSupportMessages = async (filters = {}, pagination = {}) => {
   }
 
   const [tickets, total] = await Promise.all([
-    SupportMessage.find(query).sort({ createdAt: -1 }).skip(skip).limit(parseInt(limit)).lean(),
+    SupportMessage.find(query).sort({ createdAt: -1 }).skip(offset).limit(limit).lean(),
     SupportMessage.countDocuments(query),
   ]);
 
-  return { tickets, total, page: parseInt(page), limit: parseInt(limit) };
+  return { tickets, total, page, limit };
 };
 
 export const getSupportMessageById = async (id) => SupportMessage.findById(id).lean();
@@ -1219,19 +1215,18 @@ export const replySupportMessage = async (id, reply, adminId) => {
  * Get paginated donations for a request.
  */
 export const getRequestDonations = async (id, pagination = {}) => {
-  const { page = 1, limit = 20 } = pagination;
-  const skip = (page - 1) * limit;
+  const { offset, limit, page } = parsePagination(pagination, 20);
 
   const [donations, total] = await Promise.all([
     Donation.find({ requestId: id })
       .populate('donorId', 'fullName email phoneNumber bloodType location')
       .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(parseInt(limit)),
+      .skip(offset)
+      .limit(limit),
     Donation.countDocuments({ requestId: id }),
   ]);
 
-  return { donations, total, page: parseInt(page), limit: parseInt(limit) };
+  return { donations, total, page, limit };
 };
 
 /**

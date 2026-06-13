@@ -44,9 +44,9 @@ export const validateListUsersQuery = (query) => {
 };
 
 /**
- * Validate suspend user body.
+ * Validate ban donor body.
  */
-export const validateSuspendBody = (body) => {
+export const validateBanDonorBody = (body) => {
   const errors = [];
 
   if (!body.reason || typeof body.reason !== 'string' || body.reason.trim().length === 0) {

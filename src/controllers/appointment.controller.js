@@ -4,6 +4,8 @@ import ERR from '../utils/errorCodes.js';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
 import { toAppointmentResponse, appointmentPopulateOptions, donorAppointmentPopulateOptions, toAvailableSlotsResponse } from '../utils/appointment.dto.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
+import { HttpError } from '../utils/HttpError.js';
+import { asyncHandler } from '../middlewares/asyncHandler.js';
 
 const getDonorId = (req) => req?.user?.userId || req?.user?._id;
 
@@ -46,22 +48,65 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
   return scheduledDate;
 };
 
-export const bookAppointment = async (req, res, next) => {
+const RESCHEDULE_ERROR_PATTERNS = [
+  'different from the current appointment',
+  'maximum number of reschedules',
+  'Hospital does not allow rescheduling',
+  'linked request is no longer active',
+  'Selected time slot is no longer available',
+  'at least',
+  'cannot be more than',
+  'support this donation type',
+  'Only pending or confirmed appointments can be rescheduled',
+  'active donation in progress',
+  'Donor is not eligible',
+  'Donor account is',
+  'Hospital not found',
+  'Hospital is suspended',
+  'Hospital is not verified',
+  'Hospital appointment scheduling is currently disabled',
+];
+
+const BOOKING_ERROR_400_MESSAGES = [
+  'Appointment date must be in the future',
+  'Appointment date is invalid',
+  'Appointment must be at least 24 hours in advance',
+  'Appointment cannot be more than 30 days in advance',
+  'Selected day is not available for appointments',
+  'Hospital appointment scheduling is currently disabled',
+  'Hospital does not support this donation type',
+  'Invalid donor or hospital id',
+  'Invalid appointment id',
+  'Invalid request id',
+  'Request does not belong to this hospital',
+  'The linked request is no longer active',
+  ELIGIBILITY_KEYS.DONOR_CURRENTLY_UNAVAILABLE,
+  ELIGIBILITY_KEYS.DONOR_SUSPENDED,
+  ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE,
+  ELIGIBILITY_KEYS.ACTIVE_DONATION_IN_PROGRESS,
+  'Selected time slot is outside operating hours',
+  'Selected time slot is no longer available',
+  'Daily appointment capacity has been reached',
+  ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE,
+  ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE,
+];
+
+export const bookAppointment = asyncHandler(async (req, res) => {
+  const donorId = getDonorId(req);
+  const { hospitalId, requestId, appointmentDate, date, time, notes, donationType } = req.body;
+
+  const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
+  const normalizedDonationType = donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD;
+
+  if (!hospitalId || !normalizedAppointmentDate) {
+    throw new HttpError(400, 'hospitalId and appointmentDate are required');
+  }
+
+  if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
+    throw new HttpError(400, 'Invalid donation type');
+  }
+
   try {
-    const donorId = getDonorId(req);
-    const { hospitalId, requestId, appointmentDate, date, time, notes, donationType } = req.body;
-
-    const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
-    const normalizedDonationType = donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD;
-
-    if (!hospitalId || !normalizedAppointmentDate) {
-      return response.error(res, 400, 'hospitalId and appointmentDate are required');
-    }
-
-    if (!DONATION_TYPE_OPTIONS.includes(normalizedDonationType)) {
-      return response.error(res, 400, 'Invalid donation type');
-    }
-
     const appointment = await appointmentService.bookAppointment(
       donorId,
       hospitalId,
@@ -71,154 +116,107 @@ export const bookAppointment = async (req, res, next) => {
       normalizedDonationType
     );
 
-    return response.success(res, 201, 'Appointment booked', toAppointmentResponse(appointment));
+    return response.success(res, 201, 'Appointment booked', toAppointmentResponse(appointment, { isBooking: true }));
   } catch (error) {
     if (error.message === 'Hospital not found' || error.message === ELIGIBILITY_KEYS.DONOR_NOT_FOUND) {
-      return response.error(res, 404, error.message);
+      throw new HttpError(404, error.message);
     }
     if (error.message === ELIGIBILITY_KEYS.REQUEST_NOT_FOUND) {
-      return response.error(res, 404, error.message);
+      throw new HttpError(404, error.message);
     }
     if (error.message === 'You already have an active appointment at this hospital') {
-      return response.error(res, 409, ERR.APPOINTMENT_ALREADY_EXISTS);
+      throw new HttpError(409, ERR.APPOINTMENT_ALREADY_EXISTS);
     }
-    if (
-      error.message === 'Appointment date must be in the future' ||
-      error.message === 'Appointment date is invalid' ||
-      error.message === 'Appointment must be at least 24 hours in advance' ||
-      error.message === 'Appointment cannot be more than 30 days in advance' ||
-      error.message === 'Selected day is not available for appointments' ||
-      error.message === 'Hospital appointment scheduling is currently disabled' ||
-      error.message === 'Hospital does not support this donation type' ||
-      error.message === 'Invalid donor or hospital id' ||
-      error.message === 'Invalid appointment id' ||
-      error.message === 'Invalid request id' ||
-      error.message === 'Request does not belong to this hospital' ||
-      error.message === 'The linked request is no longer active' ||
-      error.message === ELIGIBILITY_KEYS.DONOR_CURRENTLY_UNAVAILABLE ||
-      error.message === ELIGIBILITY_KEYS.DONOR_SUSPENDED ||
-      error.message === ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE ||
-      error.message === ELIGIBILITY_KEYS.ACTIVE_DONATION_IN_PROGRESS ||
-      error.message === 'Selected time slot is outside operating hours' ||
-      error.message === 'Selected time slot is no longer available' ||
-      error.message === 'Daily appointment capacity has been reached' ||
-      error.message === ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE ||
-      error.message === ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE
-    ) {
-      return response.error(res, 400, error.message);
+    if (BOOKING_ERROR_400_MESSAGES.includes(error.message)) {
+      throw new HttpError(400, error.message);
     }
-
-    if (error?.name === 'ValidationError') {
-      const details = Object.values(error.errors || {}).map((item) => item.message);
-      return response.error(res, 400, 'error.validation_failed', details);
-    }
-
-    if (error?.name === 'CastError') {
-      return response.error(res, 400, `Invalid ${error.path}`);
-    }
-
-    if (error?.code === 11000) {
-      const field = Object.keys(error.keyPattern || {})[0];
-      return response.error(res, 409, field ? `Duplicate ${field}` : error.message);
-    }
-
-    return response.error(res, 500, error?.message || 'Internal server error');
+    throw error;
   }
-};
+});
 
-export const getMyAppointments = async (req, res, next) => {
-  try {
-    const donorId = getDonorId(req);
-    const { page, limit } = req.query;
+export const getMyAppointments = asyncHandler(async (req, res) => {
+  const donorId = getDonorId(req);
+  const { page, limit } = req.query;
 
-    // Keep createdAt, updatedAt, verificationChecklist and rescheduleHistory for Flutter compatibility
-    const projection = req.user?.role === 'donor'
-      ? '-__v -donorId -notes -requestId -qrExpiresAt -verificationStatus -rescheduleCount -donorDetails'
-      : null;
+  const result = await appointmentService.getMyAppointments(donorId, { page, limit }, null, { role: req.user?.role });
 
-    const result = await appointmentService.getMyAppointments(donorId, { page, limit }, projection, { role: req.user?.role });
+  return response.success(res, 200, 'Appointments fetched', {
+    ...result,
+  });
+});
 
-    return response.success(res, 200, 'Appointments fetched', {
-      ...result,
-    });
-  } catch (error) {
-    next(error);
+export const getAvailableSlots = asyncHandler(async (req, res) => {
+  const { hospitalId, date, excludeAppointmentId } = req.query;
+
+  if (!hospitalId || !date) {
+    throw new HttpError(400, 'hospitalId and date are required');
   }
-};
 
-export const getAvailableSlots = async (req, res, next) => {
   try {
-    const { hospitalId, date, excludeAppointmentId } = req.query;
-
-    if (!hospitalId || !date) {
-      return response.error(res, 400, 'hospitalId and date are required');
-    }
-
     const slots = await appointmentService.getAvailableSlots(hospitalId, date, {
       excludeAppointmentId: excludeAppointmentId || undefined,
     });
     return response.success(res, 200, 'Available slots retrieved successfully', toAvailableSlotsResponse(slots, { role: req.user?.role }));
   } catch (error) {
     if (error.message === 'Invalid hospital id' || error.message === 'Invalid date') {
-      return response.error(res, 400, error.message);
+      throw new HttpError(400, error.message);
     }
     if (error.message === 'Hospital not found') {
-      return response.error(res, 404, error.message);
+      throw new HttpError(404, error.message);
     }
-    next(error);
+    throw error;
   }
-};
+});
 
-export const cancelAppointment = async (req, res, next) => {
+export const cancelAppointment = asyncHandler(async (req, res) => {
+  const donorId = getDonorId(req);
+  const appointmentId = req.params.appointmentId;
+
+  if (!appointmentId) throw new HttpError(400, 'appointmentId is required');
+
   try {
-    const donorId = getDonorId(req);
-    const appointmentId = req.params.appointmentId;
-
-    if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
-
     const appointment = await appointmentService.cancelAppointment(appointmentId, donorId);
-
     return response.success(res, 200, 'Appointment cancelled', appointment);
   } catch (error) {
-    if (error.message === 'Appointment not found') return response.error(res, 404, ERR.APPOINTMENT_NOT_FOUND);
-    if (error.message === 'This appointment cannot be cancelled') return response.error(res, 400, ERR.APPOINTMENT_CANNOT_CANCEL);
-    if (error.message.includes('Cancellation must be at least')) return response.error(res, 400, error.message);
-    next(error);
+    if (error.message === 'Appointment not found') throw new HttpError(404, ERR.APPOINTMENT_NOT_FOUND);
+    if (error.message === 'This appointment cannot be cancelled') throw new HttpError(400, ERR.APPOINTMENT_CANNOT_CANCEL);
+    if (error.message.includes('Cancellation must be at least')) throw new HttpError(400, error.message);
+    throw error;
   }
-};
+});
 
-export const getAppointmentById = async (req, res, next) => {
+export const getAppointmentById = asyncHandler(async (req, res) => {
+  const donorId = getDonorId(req);
+  const appointmentId = req.params.appointmentId;
+
+  if (!appointmentId) throw new HttpError(400, 'appointmentId is required');
+
   try {
-    const donorId = getDonorId(req);
-    const appointmentId = req.params.appointmentId;
-
-    if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
-
     const appointment = await appointmentService.getAppointmentById(appointmentId, donorId);
 
     // Populate for HTTP response then apply DTO transformation.
     await appointment.populate(req.user?.role === 'donor' ? donorAppointmentPopulateOptions : appointmentPopulateOptions);
     return response.success(res, 200, 'Appointment retrieved', toAppointmentResponse(appointment, { role: req.user?.role }));
   } catch (error) {
-    if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
-    if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
-    next(error);
+    if (error.message === 'Appointment not found') throw new HttpError(404, 'Appointment not found');
+    if (error.message === 'Invalid appointment id') throw new HttpError(400, 'Invalid appointment id');
+    throw error;
   }
-};
+});
 
-export const rescheduleAppointment = async (req, res, next) => {
+export const rescheduleAppointment = asyncHandler(async (req, res) => {
+  const donorId = getDonorId(req);
+  const appointmentId = req.params.appointmentId;
+  // Accept either { date, time } (human-readable) or a plain ISO date string in `date`.
+  const { date, time, appointmentDate, donationType, reason, notes } = req.body;
+  const newDate = buildAppointmentDate({ appointmentDate, date, time });
+  // Support both 'notes' (preferred) and 'reason' (legacy) fields
+  const rescheduleReason = notes || reason;
+
+  if (!appointmentId) throw new HttpError(400, 'appointmentId is required');
+  if (!newDate) throw new HttpError(400, 'date is required');
+
   try {
-    const donorId = getDonorId(req);
-    const appointmentId = req.params.appointmentId;
-    // Accept either { date, time } (human-readable) or a plain ISO date string in `date`.
-    const { date, time, appointmentDate, donationType, reason, notes } = req.body;
-    const newDate = buildAppointmentDate({ appointmentDate, date, time });
-    // Support both 'notes' (preferred) and 'reason' (legacy) fields
-    const rescheduleReason = notes || reason;
-
-    if (!appointmentId) return response.error(res, 400, 'appointmentId is required');
-    if (!newDate) return response.error(res, 400, 'date is required');
-
     const appointment = await appointmentService.rescheduleAppointment(appointmentId, donorId, {
       appointmentDate: newDate,
       donationType,
@@ -227,23 +225,13 @@ export const rescheduleAppointment = async (req, res, next) => {
 
     return response.success(res, 200, 'Appointment rescheduled', toAppointmentResponse(appointment, { role: req.user?.role }));
   } catch (error) {
-    if (error.message === 'Appointment not found') return response.error(res, 404, 'Appointment not found');
-    if (error.message === 'Invalid appointment id') return response.error(res, 400, 'Invalid appointment id');
-    if (error.message.includes('rescheduled')) return response.error(res, 400, error.message);
-    if (error.message.includes('future')) return response.error(res, 400, error.message);
-    if (
-      error.message.includes('different from the current appointment')
-      || error.message.includes('maximum number of reschedules')
-      || error.message.includes('Hospital does not allow rescheduling')
-      || error.message.includes('linked request is no longer active')
-      || error.message.includes('Selected time slot is no longer available')
-      || error.message.includes('at least')
-      || error.message.includes('cannot be more than')
-      || error.message.includes('support this donation type')
-      || error.message.includes('Only pending or confirmed appointments can be rescheduled')
-    ) {
-      return response.error(res, 400, error.message);
+    if (error.message === 'Appointment not found') throw new HttpError(404, 'Appointment not found');
+    if (error.message === 'Invalid appointment id') throw new HttpError(400, 'Invalid appointment id');
+    if (error.message.includes('rescheduled')) throw new HttpError(400, error.message);
+    if (error.message.includes('future')) throw new HttpError(400, error.message);
+    if (RESCHEDULE_ERROR_PATTERNS.some((p) => error.message.includes(p))) {
+      throw new HttpError(400, error.message);
     }
-    next(error);
+    throw error;
   }
-};
+});

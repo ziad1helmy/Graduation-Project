@@ -349,7 +349,7 @@ describe('Appointment Routes Integration', () => {
     expect(response.body.success).toBe(true);
     expect(Array.isArray(response.body.data.appointments)).toBe(true);
     expect(response.body.data.appointments.length).toBeGreaterThan(0);
-    expect(response.body.data.appointments[0].donorId).toBeUndefined();
+    expect(response.body.data.appointments[0].donorId).toBe(donor._id.toString());
   });
 
   it('GET /donations/book-appointment/my-appointments requires authentication', async () => {

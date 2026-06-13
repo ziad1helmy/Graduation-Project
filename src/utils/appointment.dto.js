@@ -24,7 +24,7 @@ export const appointmentPopulateOptions = [
 ];
 
 export const donorAppointmentPopulateOptions = [
-  { path: 'hospitalId', select: 'fullName hospitalName address' },
+  { path: 'hospitalId', select: 'fullName hospitalName address location contactNumber' },
 ];
 
 const toPlainObject = (value) => {
@@ -116,8 +116,11 @@ const buildDonorHospitalReference = (source) => {
 
   return {
     _id: source._id || source.hospitalId || null,
+    fullName: source.fullName || null,
     hospitalName: source.hospitalName || source.name || source.fullName || null,
     address: source.address || null,
+    location: source.location || null,
+    contactNumber: source.contactNumber || null,
   };
 };
 
@@ -212,11 +215,71 @@ export const buildAppointmentConfirmationResponse = (appointment) => {
 export const toAppointmentResponse = (appointment, options = {}) => {
   if (!appointment) return appointment;
 
-  const isDonorAudience = options?.role === 'donor' || options?.audience === 'donor';
   const src = toPlainObject(appointment);
   const confirmation = buildAppointmentConfirmationResponse(src)?.data;
 
+  if (options?.isBooking) {
+    const donor = buildDonorDetails(src.donorId || src.donorDetails);
+    const hospital = buildHospitalDetails(src.hospitalId);
+    return {
+      _id: src._id,
+      appointmentDate: src.appointmentDate || null,
+      status: src.status || null,
+      qrToken: src.qrToken || null,
+      qrExpiresAt: src.qrExpiresAt || null,
+      notes: src.notes || null,
+      donationType: confirmation?.donationType || src.donationType || null,
+      requestId: src.requestId && typeof src.requestId !== 'object' ? src.requestId : src.requestId?._id || null,
+      donorId: donor ? {
+        _id: donor.id,
+        fullName: donor.fullName,
+        phoneNumber: donor.phoneNumber,
+        bloodType: donor.bloodType,
+        email: donor.email,
+      } : null,
+      donorDetails: donor ? {
+        fullName: donor.fullName,
+        phoneNumber: donor.phoneNumber,
+        bloodType: donor.bloodType,
+        email: donor.email,
+      } : null,
+      hospitalId: hospital ? {
+        _id: hospital.id,
+        hospitalName: hospital.hospitalName,
+        fullName: hospital.fullName,
+      } : null,
+    };
+  }
+
+  if (options?.isCancelled) {
+    const donorIdStr = src.donorId && typeof src.donorId === 'object'
+      ? (src.donorId._id || src.donorId.id)
+      : src.donorId;
+    const hospitalIdStr = src.hospitalId && typeof src.hospitalId === 'object'
+      ? (src.hospitalId._id || src.hospitalId.id)
+      : src.hospitalId;
+    const requestIdStr = src.requestId && typeof src.requestId === 'object'
+      ? (src.requestId._id || src.requestId.id)
+      : src.requestId;
+
+    return {
+      _id: src._id,
+      donorId: donorIdStr ? String(donorIdStr) : null,
+      hospitalId: hospitalIdStr ? String(hospitalIdStr) : null,
+      requestId: requestIdStr ? String(requestIdStr) : null,
+      appointmentDate: src.appointmentDate || null,
+      status: src.status || null,
+      cancelledAt: src.cancelledAt || src.updatedAt || null,
+      notes: src.notes || null,
+      qrToken: src.qrToken || null,
+      donationType: src.donationType || null,
+    };
+  }
+
+  const isDonorAudience = options?.role === 'donor' || options?.audience === 'donor';
+
   if (isDonorAudience) {
+    const donor = buildDonorDetails(src.donorId || src.donorDetails);
     return {
       _id: src._id,
       appointmentId: src._id,
@@ -239,6 +302,16 @@ export const toAppointmentResponse = (appointment, options = {}) => {
       verificationChecklist: confirmation?.verificationChecklist || null,
       createdAt: src.createdAt || null,
       updatedAt: src.updatedAt || null,
+
+      // Added for Flutter compatibility in my-appointments
+      notes: src.notes || null,
+      donorId: donor?.donorId || (src.donorId && typeof src.donorId !== 'object' ? src.donorId : src.donorId?._id) || null,
+      __v: src.__v,
+      cancelledAt: src.cancelledAt || null,
+      qrExpiresAt: src.qrExpiresAt || null,
+      qrScannedAt: src.qrScannedAt || null,
+      qrToken: src.qrToken || null,
+      requestId: src.requestId && typeof src.requestId !== 'object' ? src.requestId : src.requestId?._id || null,
     };
   }
 
@@ -295,9 +368,23 @@ export const toAvailableSlotsResponse = (slotsData, options = {}) => {
   const isDonorAudience = options?.role === 'donor' || options?.audience === 'donor';
   const mapSlot = (slotData) => {
     const slot = toPlainObject(slotData);
-    if (!isDonorAudience) return slot;
+    
+    // Parse hour from "HH:00" format and format it with AM/PM
+    const match = String(slot.time).match(/^(\d{2}):00$/);
+    let timeLabel = slot.time;
+    if (match) {
+      const hour = parseInt(match[1], 10);
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const displayHour = hour % 12 === 0 ? 12 : hour % 12;
+      timeLabel = `${String(displayHour).padStart(2, '0')}:00 ${period}`;
+    }
+
+    if (!isDonorAudience) return { ...slot, time: timeLabel };
+
     return {
-      time: slot.time,
+      time: timeLabel,
+      remainingCapacity: slot.remainingCapacity,
+      maxCapacity: slot.maxCapacity,
       available: slot.available,
     };
   };
