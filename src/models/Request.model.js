@@ -3,6 +3,12 @@ import {
   BLOOD_TYPE_VALUES,
   normalizeBloodTypeList,
 } from '../utils/blood-type.js';
+import {
+  PATIENT_TYPE_ENUM,
+  REQUEST_URGENCY_ENUM,
+  REQUEST_TYPE_ENUM,
+  REQUEST_STATUS_ENUM,
+} from '../constants/request.constants.js';
 
 /**
  * Request Model - Hospital-created requests for blood donations
@@ -30,8 +36,11 @@ const requestSchema = new mongoose.Schema(
 
     patientType: {
       type: String,
-      trim: true,
-      maxlength: [150, 'Patient type cannot exceed 150 characters'],
+      enum: {
+        values: PATIENT_TYPE_ENUM,
+        message: `Patient type must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`,
+      },
+      default: 'general',
     },
 
     unitsNeeded: {
@@ -48,8 +57,8 @@ const requestSchema = new mongoose.Schema(
     type: {
       type: String,
       enum: {
-        values: ['blood', 'plasma', 'platelets', 'double_red_cells'],
-        message: 'Type must be blood, plasma, platelets, or double_red_cells',
+        values: REQUEST_TYPE_ENUM,
+        message: `Type must be one of: ${REQUEST_TYPE_ENUM.join(', ')}`,
       },
       required: [true, 'Request type is required'],
     },
@@ -77,13 +86,17 @@ const requestSchema = new mongoose.Schema(
     // Cause of the request, e.g. accident, surgery, etc. This helps the donor understand the urgency of the request.
     cause: {
       type: String,
-      maxlength: [200, 'Cause cannot exceed 200 characters'],
+      enum: {
+        values: PATIENT_TYPE_ENUM,
+        message: `Cause must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`,
+      },
+      default: 'general',
     },
     urgency: {
       type: String,
       enum: {
-        values: ['low', 'medium', 'high', 'critical'],
-        message: 'Urgency must be low, medium, high, or critical',
+        values: REQUEST_URGENCY_ENUM,
+        message: `Urgency must be one of: ${REQUEST_URGENCY_ENUM.join(', ')}`,
       },
       required: [true, 'Urgency level is required'],
     },
@@ -91,8 +104,8 @@ const requestSchema = new mongoose.Schema(
     status: {
       type: String,
       enum: {
-        values: ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'],
-        message: 'Status must be pending, accepted, in-progress, completed, cancelled, or expired',
+        values: REQUEST_STATUS_ENUM,
+        message: `Status must be one of: ${REQUEST_STATUS_ENUM.join(', ')}`,
       },
       default: 'pending',
     },

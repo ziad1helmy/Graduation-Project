@@ -169,7 +169,7 @@ const computeCriticalAlerts = async () => {
 
     return {
       id: request._id.toString(),
-      title: request.cause || 'Critical Blood Request',
+      title: request.patientType || 'Critical Blood Request',
       type: alertType,
       description: request.notes || `Critical request for ${bloodTypes.join(', ')} blood type(s).`,
       unitsNeeded: request.unitsNeeded || request.quantity || 1,
