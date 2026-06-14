@@ -313,14 +313,16 @@ export const listUsers = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Users list', result);
 });
 
-/** GET /admin/donors */
+/** GET /admin/donors — convenience alias for GET /admin/users?role=donor */
 export const listDonors = asyncHandler(async (req, res) => {
-  return listUsers({ query: { ...req.query, role: 'donor' } }, res);
+  req.query.role = 'donor';
+  return listUsers(req, res);
 });
 
-/** GET /admin/hospitals */
+/** GET /admin/hospitals — convenience alias for GET /admin/users?role=hospital */
 export const listHospitals = asyncHandler(async (req, res) => {
-  return listUsers({ query: { ...req.query, role: 'hospital' } }, res);
+  req.query.role = 'hospital';
+  return listUsers(req, res);
 });
 
 export const listAdmins = asyncHandler(async (req, res) => {
@@ -330,29 +332,23 @@ export const listAdmins = asyncHandler(async (req, res) => {
   }
 
   const { page, limit } = parsePagination(req.query, 20);
-  const result = await adminService.getAllAdmins({ page, limit });
+  const result = await adminService.getAllAdmins({ page, limit }, req.user.role);
   return response.success(res, 200, 'Admins list', result);
 });
 
 export const getAllAdmins = listAdmins;
 
 export const getAdminById = asyncHandler(async (req, res) => {
-  const user = await adminService.getUserById(req.params.id);
+  const user = await adminService.getUserById(req.params.id, req.user.role);
   if (!user || !['admin', 'superadmin'].includes(user.role)) {
     throw new HttpError(404, 'Admin not found');
   }
   return response.success(res, 200, 'Admin details', { user });
 });
 
-/** GET /admin/users/stats */
-export const getUserStats = asyncHandler(async (req, res) => {
-  const stats = await adminService.getUserStats();
-  return response.success(res, 200, 'User statistics', stats);
-});
-
 /** GET /admin/users/:id */
 export const getUserById = asyncHandler(async (req, res) => {
-  const user = await adminService.getUserById(req.params.id, req.user.role);
+  const user = await adminService.getUserById(req.params.id, req.user.role, null, req.user._id);
   if (!user) {
     throw new HttpError(404, 'User not found');
   }
@@ -361,7 +357,7 @@ export const getUserById = asyncHandler(async (req, res) => {
 
 /** GET /admin/donors/:id */
 export const getDonorById = asyncHandler(async (req, res) => {
-  const user = await adminService.getUserById(req.params.id, req.user.role, 'donor');
+  const user = await adminService.getUserById(req.params.id, req.user.role, 'donor', req.user._id);
   if (!user) {
     throw new HttpError(404, 'Donor not found');
   }
@@ -370,7 +366,7 @@ export const getDonorById = asyncHandler(async (req, res) => {
 
 /** GET /admin/hospitals/:id */
 export const getHospitalById = asyncHandler(async (req, res) => {
-  const user = await adminService.getUserById(req.params.id, req.user.role, 'hospital');
+  const user = await adminService.getUserById(req.params.id, req.user.role, 'hospital', req.user._id);
   if (!user) {
     throw new HttpError(404, 'Hospital not found');
   }
@@ -619,12 +615,6 @@ export const listRequests = asyncHandler(async (req, res) => {
     { page, limit }
   );
   return response.success(res, 200, 'Requests list', result);
-});
-
-/** GET /admin/requests/stats */
-export const getRequestStats = asyncHandler(async (req, res) => {
-  const stats = await adminService.getRequestStats();
-  return response.success(res, 200, 'Request statistics', stats);
 });
 
 /** GET /admin/requests/:id */

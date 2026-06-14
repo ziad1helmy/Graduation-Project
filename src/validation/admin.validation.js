@@ -62,12 +62,14 @@ export const validateBanDonorBody = (body) => {
 
 /**
  * Validate create hospital body.
+ * Accepts both legacy field names and Flutter field names via aliases.
  */
 export const validateCreateHospitalBody = (body) => {
   const errors = [];
 
-  if (!body.fullName || typeof body.fullName !== 'string') {
-    errors.push('fullName is required');
+  const name = body.fullName || body.name || body.hospitalName;
+  if (!name || typeof name !== 'string') {
+    errors.push('name (or fullName/hospitalName) is required');
   }
 
   if (!body.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
@@ -78,24 +80,22 @@ export const validateCreateHospitalBody = (body) => {
     errors.push('Password must be at least 8 characters');
   }
 
-  if (!body.hospitalName || typeof body.hospitalName !== 'string') {
-    errors.push('hospitalName is required');
+  const hospitalId = body.hospitalId || body.hospitalCode;
+  if (!hospitalId || typeof hospitalId !== 'string') {
+    errors.push('hospitalId (or hospitalCode) is required');
   }
 
-  if (body.hospitalId === undefined || body.hospitalId === null) {
-    errors.push('hospitalId is required');
+  const lat = body.lat ?? body.latitude;
+  const lng = body.long ?? body.longitude;
+  if (lat === undefined || lat === null || typeof lat !== 'number' || lat < -90 || lat > 90) {
+    errors.push('Valid latitude (or lat) is required (-90 to 90)');
+  }
+  if (lng === undefined || lng === null || typeof lng !== 'number' || lng < -180 || lng > 180) {
+    errors.push('Valid longitude (or long/lng) is required (-180 to 180)');
   }
 
-  if (body.lat === undefined || body.lat === null || typeof body.lat !== 'number') {
-    errors.push('lat (number) is required');
-  } else if (body.lat < -90 || body.lat > 90) {
-    errors.push('lat must be between -90 and 90');
-  }
-
-  if (body.long === undefined || body.long === null || typeof body.long !== 'number') {
-    errors.push('long (number) is required');
-  } else if (body.long < -180 || body.long > 180) {
-    errors.push('long must be between -180 and 180');
+  if (body.type && typeof body.type !== 'string') {
+    errors.push('type must be a string');
   }
 
   return { valid: errors.length === 0, errors };
@@ -103,6 +103,8 @@ export const validateCreateHospitalBody = (body) => {
 
 /**
  * Validate admin creation payload.
+ * Accepts `accessLevel` (Full Access → superadmin, anything else → admin)
+ * or legacy `role` field.
  */
 export const validateCreateAdminBody = (body) => {
   const errors = [];

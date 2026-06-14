@@ -8219,7 +8219,7 @@ paths:
           description: Email already in use by another account
   /admin/users:
     get:
-      summary: List all users with filters and pagination
+      summary: List all users with filters, pagination, global stats, and AI insights
       tags:
         - Admin
       security:
@@ -8234,7 +8234,7 @@ paths:
               - hospital
               - admin
               - superadmin
-          example: custom-ops
+          example: donor
         - in: query
           name: verified
           schema:
@@ -8268,7 +8268,7 @@ paths:
           example: 10
       responses:
         "200":
-          description: Users list
+          description: Users list with pagination, global stats, and AI insights
           content:
             application/json:
               example:
@@ -8277,63 +8277,77 @@ paths:
                 data:
                   users:
                     - _id: 69f3df915f42685cbbbcbb18
+                      id: 69f3df915f42685cbbbcbb18
                       fullName: Aya Hassan
                       name: Aya Hassan
                       email: aya.hassan@lifelink.demo
                       phoneNumber: "01011111111"
                       phone: "01011111111"
                       role: donor
+                      bloodType: O+
+                      isActive: true
                       isEmailVerified: true
                       isVerified: true
                       isSuspended: false
-                      isActive: true
                       createdAt: 2026-02-02T11:45:00.000Z
                       joinedAt: 2026-02-02T11:45:00.000Z
+                      totalDonations: 5
+                      completedDonations: 5
+                      pointsBalance: 1200
+                      lifetimePointsEarned: 1500
+                      tier: Gold
+                      eligibilitySummary:
+                        eligible: true
+                        reason: null
+                        nextEligibleDate: null
+                      location:
+                        city: Cairo
+                        governorate: Cairo
+                        coordinates:
+                          lat: 30.0444
+                          lng: 31.2357
                     - _id: 69f3df915f42685cbbbcbb1b
+                      id: 69f3df915f42685cbbbcbb1b
                       fullName: Cairo Care Operations
                       name: Cairo Care Operations
                       email: ops@cairocare.demo
                       phoneNumber: "0223456789"
                       phone: "0223456789"
                       role: hospital
+                      isActive: true
                       isEmailVerified: true
                       isVerified: true
                       isSuspended: false
-                      isActive: true
                       createdAt: 2026-01-15T08:00:00.000Z
                       joinedAt: 2026-01-15T08:00:00.000Z
-                  total: 2
-                  page: 1
-                  limit: 20
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/users/stats:
-    get:
-      summary: Get user statistics
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: User statistics
-          content:
-            application/json:
-              example:
-                success: true
-                message: User statistics
-                data:
-                  totalUsers: 284
-                  totalDonors: 231
-                  totalHospitals: 41
-                  totalAdmins: 12
-                  verifiedUsers: 277
-                  unverifiedUsers: 7
-                  suspendedUsers: 3
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+                  pagination:
+                    total: 2
+                    page: 1
+                    limit: 20
+                    totalPages: 1
+                    hasNextPage: false
+                    hasPrevPage: false
+                  stats:
+                    totalUsers: 284
+                    totalDonors: 231
+                    totalHospitals: 41
+                    totalAdmins: 12
+                    verifiedUsers: 277
+                    unverifiedUsers: 7
+                    suspendedUsers: 3
+                    totalUsersGrowth: "+10%"
+                    totalDonorsGrowth: "+12%"
+                    totalHospitalsGrowth: "+5%"
+                    verifiedUsersGrowth: "+8%"
+                    suspendedUsersGrowth: "-3%"
+                    aiInsights:
+                      - title: Donor Registrations Rising
+                        description: Donor signups are +12% this week compared to last week. New donors are joining at an accelerating rate.
+                        confidence: 0.85
+                      - title: Verification Gap Detected
+                        description: 20% of users are unverified. Consider sending a reminder email campaign to improve engagement.
+                        confidence: 0.78
+      description: "Returns paginated user list, global stats (unaffected by filters), and AI-generated insights about user patterns. Demo seed available via `npm run seed-demo`."
   /admin/users/hospital:
     post:
       summary: Create a new hospital (admin-created, pre-verified)
@@ -8348,24 +8362,41 @@ paths:
             schema:
               type: object
               required:
-                - fullName
                 - email
                 - password
-                - hospitalName
-                - hospitalId
-                - lat
-                - long
+              anyOf:
+                - required:
+                    - fullName
+                - required:
+                    - name
+                - required:
+                    - hospitalName
               properties:
                 fullName:
                   type: string
+                  description: Legacy alias for name
+                name:
+                  type: string
+                  description: Hospital name (preferred with Flutter)
+                hospitalName:
+                  type: string
+                  description: Legacy alias for name
                 email:
                   type: string
                 password:
                   type: string
-                hospitalName:
-                  type: string
                 hospitalId:
                   type: string
+                  description: Legacy hospital ID field
+                hospitalCode:
+                  type: string
+                  description: Flutter alias for hospitalId
+                phone:
+                  type: string
+                  description: Flutter alias for contactNumber
+                contactNumber:
+                  type: string
+                  description: Legacy phone field
                 address:
                   type: object
                   properties:
@@ -8373,23 +8404,46 @@ paths:
                       type: string
                     governorate:
                       type: string
-                contactNumber:
-                  type: string
                 lat:
                   type: number
                   format: double
-                  description: Hospital latitude coordinate (-90 to 90)
+                  description: Legacy alias for latitude (-90 to 90)
+                  example: 30.0444
+                latitude:
+                  type: number
+                  format: double
+                  description: Flutter alias for lat (-90 to 90)
                   example: 30.0444
                 long:
                   type: number
                   format: double
-                  description: Hospital longitude coordinate (-180 to 180)
+                  description: Legacy alias for longitude (-180 to 180)
                   example: 31.2357
+                longitude:
+                  type: number
+                  format: double
+                  description: Flutter alias for long (-180 to 180)
+                  example: 31.2357
+                type:
+                  type: string
+                  description: Hospital type (e.g., General Hospital)
+                  example: General Hospital
+                licenseNumber:
+                  type: string
+                  description: Hospital license/registration number
+                emergencyContactNumber:
+                  type: string
+                  description: Emergency contact phone number
+                adminContactName:
+                  type: string
+                  description: Admin contact person name
+                adminContactPhone:
+                  type: string
+                  description: Admin contact person phone number
             example:
               fullName: Alexandria Demo Hospital
               email: alex.demo@lifelink.demo
               password: HospitalPass@123
-              hospitalName: Alexandria Demo Hospital
               hospitalId: HOSP-ALEX-001
               contactNumber: "1066666666"
               lat: 31.2001
@@ -8416,12 +8470,10 @@ paths:
                     contactNumber: "1066666666"
                     isEmailVerified: true
         "400":
-          description: Invalid lat/long coordinates
+          description: Invalid or missing coordinates
         "409":
           description: Email already registered
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
+      description: "Accepts both legacy field names and Flutter field names (name, hospitalCode, latitude/longitude, emergencyContactNumber). Demo seed available via `npm run seed-demo`."
   /admin/users/{id}:
     get:
       summary: Get user details by ID
@@ -8918,6 +8970,17 @@ paths:
                   enum:
                     - admin
                     - superadmin
+                accessLevel:
+                  type: string
+                  description: "Flutter alias for role. Normalized case-insensitive: 'Full Access' → superadmin, anything else → admin. Falls back to `role` field if omitted."
+                  example: "Full Access"
+                adminCode:
+                  type: string
+                  description: Not used — backend always auto-generates adminKey
+                phone:
+                  type: string
+                address:
+                  type: string
                 location:
                   type: object
             example:
@@ -8949,12 +9012,7 @@ paths:
           description: Email already registered
         "429":
           description: Superadmin limit reached (env.MAX_SUPERADMINS)
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible. The created
-        account's adminKey is returned in the response exactly once and is
-        stored as a bcrypt hash in the database. The number of superadmins
-        is capped (env.MAX_SUPERADMINS, default 3)."
+      description: "Accepts accessLevel ('Full Access' → superadmin, anything else → admin) or legacy role field. The backend auto-generates adminKey and returns it once. Demo seed available via `npm run seed-demo`."
   /admin/admins/{id}:
     get:
       tags:
@@ -8971,7 +9029,7 @@ paths:
           example: 69fe540565ff7785a031314f
       responses:
         "200":
-          description: Admin details
+          description: Admin details (includes adminKey)
           content:
             application/json:
               example:
@@ -8986,9 +9044,8 @@ paths:
                     phone: "01022223333"
                     isEmailVerified: true
                     createdAt: 2026-05-01T10:00:00.000Z
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+                    adminKey: a1b2c3d4e5f67890123456789abcdef0
+      description: "Returns admin details including the decrypted adminKey. Demo seed available via `npm run seed-demo`."
     put:
       tags:
         - Admin
@@ -9525,6 +9582,8 @@ paths:
                       quantity: 3
                       unitsNeeded: 3
                       donationCount: 2
+                      donorsConfirmed: 2
+                      donorsContacted: 12
                       distanceKm: 4.2
                       hospitalId:
                         _id: 69f3df915f42685cbbbcbb1b
@@ -9534,6 +9593,20 @@ paths:
                   total: 1
                   page: 1
                   limit: 10
+                  stats:
+                    total: 68
+                    byStatus:
+                      pending: 14
+                      in-progress: 5
+                      completed: 41
+                      cancelled: 8
+                    byUrgency:
+                      critical: 12
+                      high: 23
+                      medium: 33
+                    byBloodType:
+                      A+: 8
+                      O-: 4
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."

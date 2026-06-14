@@ -28,7 +28,9 @@ import { invalidateMaintenanceCache } from '../middlewares/maintenance.middlewar
 import { buildRequestPayload } from '../controllers/request.controller.js';
 import { validateTransition } from '../utils/state-machine.js';
 import { extractFirstBloodType } from '../utils/blood-type.js';
-import { parsePagination } from '../utils/pagination.js';
+import { parsePagination, paginationMeta } from '../utils/pagination.js';
+import { encryptAdminKey, decryptAdminKey, isEncryptedKey } from '../utils/admin-key-crypto.js';
+import { computeGrowth, safeEngine } from '../utils/insight-utils.js';
 
 /**
  * List audit logs with pagination and optional filters.
@@ -78,16 +80,28 @@ const enrichDonorUsers = async (users = []) => {
   if (donorUsers.length === 0) return users;
 
   const donorIds = donorUsers.map((user) => user._id);
-  const pointsAccounts = await DonorPoints.find({ donorId: { $in: donorIds } }).lean();
+
+  const [pointsAccounts, donationCounts] = await Promise.all([
+    DonorPoints.find({ donorId: { $in: donorIds } }).lean(),
+    Donation.aggregate([
+      { $match: { donorId: { $in: donorIds }, status: 'completed' } },
+      { $group: { _id: '$donorId', count: { $sum: 1 } } },
+    ]),
+  ]);
+
   const pointsMap = new Map(pointsAccounts.map((account) => [String(account.donorId), account]));
+  const donationMap = new Map(donationCounts.map((d) => [String(d._id), d.count]));
 
   const enrichedDonors = await Promise.all(donorUsers.map(async (donor) => {
     const donorId = String(donor._id);
     const pointsAccount = pointsMap.get(donorId);
     const donorObject = toPlain(donor);
+    const donationCount = donationMap.get(donorId) || 0;
 
     return {
       ...donorObject,
+      totalDonations: donationCount,
+      completedDonations: donationCount,
       pointsBalance: pointsAccount?.pointsBalance ?? 0,
       lifetimePointsEarned: pointsAccount?.lifetimePointsEarned ?? 0,
       tier: pointsAccount?.tier || DonorPoints.calculateTier(pointsAccount?.lifetimePointsEarned ?? 0),
@@ -271,20 +285,20 @@ export const listUsers = async (filters = {}, pagination = {}) => {
     ];
   }
 
-  const [users, total] = await Promise.all([
+  const [users, total, stats] = await Promise.all([
     User.find(query)
       .select('-password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt')
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit),
     User.countDocuments(query),
+    computeUserStats(),
   ]);
 
   return {
     users: (await enrichDonorUsers(users)).map(toAdminUserListItem),
-    total,
-    page: parseInt(page),
-    limit: parseInt(limit),
+    pagination: paginationMeta(total, page, limit),
+    stats,
   };
 };
 
@@ -297,6 +311,7 @@ export const toAdminUserListItem = (user) => {
 
   return {
     ...object,
+    id: String(object._id),
     name: object.fullName ?? null,
     phone: object.phoneNumber ?? null,
     isActive: !isSuspended,
@@ -319,9 +334,9 @@ export const toAdminUserListItem = (user) => {
  * Pass `callerRole` from the request to enforce this; omit to allow all
  * (used internally by superadmin-only routes like `getAdminById`).
  */
-export const getUserById = async (id, callerRole = null, expectedRole = null) => {
+export const getUserById = async (id, callerRole = null, expectedRole = null, callerId = null) => {
   const user = await User.findOne({ _id: id, deletedAt: null })
-    .select('-password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt');
+    .select('+adminKey -password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt');
 
   if (!user) return null;
 
@@ -361,27 +376,55 @@ export const getUserById = async (id, callerRole = null, expectedRole = null) =>
     return { ...user.toObject(), totalRequests: requestCount };
   }
 
+  // For admin/superadmin, attach decrypted admin key only if caller is superadmin or the user themselves
+  if (user.role === 'admin' || user.role === 'superadmin') {
+    if (callerRole === 'superadmin' || (callerRole && id.toString() === callerId)) {
+      return attachAdminKey(user);
+    }
+    return user;
+  }
+
   return user;
 };
 
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
 /**
- * Get user statistics (counts by role, verified, suspended).
+ * Compute global user statistics with growth percentages and AI insights.
  */
-export const getUserStats = async () => {
+export const computeUserStats = async () => {
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now - THIRTY_DAYS_MS);
+  const sixtyDaysAgo = new Date(now - 2 * THIRTY_DAYS_MS);
+
+  const baseMatch = { deletedAt: null };
+
   const [
-    totalUsers,
-    totalDonors,
-    totalHospitals,
+    totalUsers, newUsersCurrent, newUsersPrev,
+    totalDonors, newDonorsCurrent, newDonorsPrev,
+    totalHospitals, newHospitalsCurrent, newHospitalsPrev,
     totalAdmins,
-    verifiedUsers,
-    suspendedUsers,
+    verifiedUsers, newVerifiedCurrent, newVerifiedPrev,
+    suspendedUsers, newSuspendedCurrent, newSuspendedPrev,
+    aiInsights,
   ] = await Promise.all([
-    User.countDocuments({ deletedAt: null }),
-    User.countDocuments({ role: 'donor', deletedAt: null }),
-    User.countDocuments({ role: 'hospital', deletedAt: null }),
-    User.countDocuments({ role: { $in: ['admin', 'superadmin'] }, deletedAt: null }),
-    User.countDocuments({ isEmailVerified: true, deletedAt: null }),
-    User.countDocuments({ isSuspended: true, deletedAt: null }),
+    User.countDocuments(baseMatch),
+    User.countDocuments({ ...baseMatch, createdAt: { $gte: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, role: 'donor' }),
+    User.countDocuments({ ...baseMatch, role: 'donor', createdAt: { $gte: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, role: 'donor', createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, role: 'hospital' }),
+    User.countDocuments({ ...baseMatch, role: 'hospital', createdAt: { $gte: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, role: 'hospital', createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, role: { $in: ['admin', 'superadmin'] } }),
+    User.countDocuments({ ...baseMatch, isEmailVerified: true }),
+    User.countDocuments({ ...baseMatch, isEmailVerified: true, emailVerifiedAt: { $gte: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, isEmailVerified: true, emailVerifiedAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, isSuspended: true }),
+    User.countDocuments({ ...baseMatch, isSuspended: true, suspendedAt: { $gte: thirtyDaysAgo } }),
+    User.countDocuments({ ...baseMatch, isSuspended: true, suspendedAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+    generateUserAIInsights(),
   ]);
 
   return {
@@ -392,6 +435,137 @@ export const getUserStats = async () => {
     verifiedUsers,
     unverifiedUsers: totalUsers - verifiedUsers,
     suspendedUsers,
+    totalUsersGrowth: computeGrowth(newUsersCurrent, newUsersPrev),
+    totalDonorsGrowth: computeGrowth(newDonorsCurrent, newDonorsPrev),
+    totalHospitalsGrowth: computeGrowth(newHospitalsCurrent, newHospitalsPrev),
+    verifiedUsersGrowth: computeGrowth(newVerifiedCurrent, newVerifiedPrev),
+    suspendedUsersGrowth: computeGrowth(newSuspendedCurrent, newSuspendedPrev),
+    aiInsights,
+  };
+};
+
+/**
+ * Generate AI insights about user patterns.
+ */
+const generateUserAIInsights = async () => {
+  const insights = await Promise.all([
+    safeEngine(registrationTrendEngine, 'registrationTrend'),
+    safeEngine(verificationGapEngine, 'verificationGap'),
+    safeEngine(hospitalEngagementEngine, 'hospitalEngagement'),
+    safeEngine(donorRetentionEngine, 'donorRetention'),
+    safeEngine(suspensionAlertEngine, 'suspensionAlert'),
+  ]);
+  return insights.filter(Boolean).sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+};
+
+const registrationTrendEngine = async () => {
+  const now = new Date();
+  const thisWeek = new Date(now - 7 * 24 * 60 * 60 * 1000);
+  const lastWeek = new Date(now - 14 * 24 * 60 * 60 * 1000);
+
+  const [currentWeek, previousWeek] = await Promise.all([
+    User.countDocuments({ deletedAt: null, role: 'donor', createdAt: { $gte: thisWeek } }),
+    User.countDocuments({ deletedAt: null, role: 'donor', createdAt: { $gte: lastWeek, $lt: thisWeek } }),
+  ]);
+
+  const growth = computeGrowth(currentWeek, previousWeek);
+  const direction = growth.startsWith('+') ? 'up' : 'down';
+  const magnitude = Math.abs(parseInt(growth));
+
+  if (magnitude < 5) return null;
+
+  return {
+    title: direction === 'up' ? 'Donor Registrations Rising' : 'Donor Registrations Declining',
+    description: `Donor signups are ${growth} this week compared to last week. ${direction === 'up' ? 'New donors are joining at an accelerating rate.' : 'Consider increasing outreach efforts.'}`,
+    confidence: Math.min(0.5 + magnitude / 100, 0.95),
+  };
+};
+
+const verificationGapEngine = async () => {
+  const totalUsers = await User.countDocuments({ deletedAt: null });
+  const verifiedUsers = await User.countDocuments({ deletedAt: null, isEmailVerified: true });
+  const unverifiedRatio = totalUsers > 0 ? (totalUsers - verifiedUsers) / totalUsers : 0;
+
+  if (unverifiedRatio < 0.15) return null;
+
+  const unverifiedCount = totalUsers - verifiedUsers;
+  return {
+    title: 'Verification Gap Detected',
+    description: `${Math.round(unverifiedRatio * 100)}% of users (${unverifiedCount}) are unverified. Consider sending a reminder email campaign to improve engagement.`,
+    confidence: Math.min(0.6 + unverifiedRatio, 0.9),
+  };
+};
+
+const hospitalEngagementEngine = async () => {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+  const hospitals = await User.find({ deletedAt: null, role: 'hospital' }).select('_id').lean();
+  const hospitalIds = hospitals.map((h) => h._id);
+
+  if (hospitalIds.length === 0) return null;
+
+  const hospitalsWithRequests = await Request.distinct('hospitalId', {
+    hospitalId: { $in: hospitalIds },
+    createdAt: { $gte: thirtyDaysAgo },
+  });
+
+  const inactiveCount = hospitalIds.length - hospitalsWithRequests.length;
+  if (inactiveCount === 0) return null;
+
+  return {
+    title: 'Inactive Hospitals',
+    description: `${inactiveCount} out of ${hospitalIds.length} hospitals haven't posted a request in the last 30 days. Follow up to ensure they're operational.`,
+    confidence: Math.min(0.5 + inactiveCount / hospitalIds.length, 0.85),
+  };
+};
+
+const donorRetentionEngine = async () => {
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+
+  const donors = await User.find({
+    deletedAt: null,
+    role: 'donor',
+    createdAt: { $lte: sixtyDaysAgo },
+  }).select('_id').lean();
+
+  if (donors.length === 0) return null;
+
+  const donorIds = donors.map((d) => d._id);
+  const returningDonors = await Donation.distinct('donorId', {
+    donorId: { $in: donorIds },
+    status: 'completed',
+    createdAt: { $gte: sixtyDaysAgo },
+  });
+
+  const retentionRate = Math.round((returningDonors.length / donors.length) * 100);
+  if (retentionRate > 40) return null;
+
+  return {
+    title: 'Donor Retention Alert',
+    description: `Only ${retentionRate}% of donors return for a second donation. Consider implementing a follow-up campaign and appointment reminders.`,
+    confidence: Math.min(0.6 + (40 - retentionRate) / 40, 0.85),
+  };
+};
+
+const suspensionAlertEngine = async () => {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+
+  const [current, previous] = await Promise.all([
+    User.countDocuments({ deletedAt: null, isSuspended: true, suspendedAt: { $gte: thirtyDaysAgo } }),
+    User.countDocuments({ deletedAt: null, isSuspended: true, suspendedAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } }),
+  ]);
+
+  if (current === 0 && previous === 0) return null;
+  if (current <= previous) return null;
+
+  const growth = computeGrowth(current, previous);
+  const magnitude = Math.abs(parseInt(growth));
+
+  return {
+    title: 'Suspension Spike Detected',
+    description: `Account suspensions ${growth} (${current} this month vs ${previous} last month). Review moderation patterns to ensure fair enforcement.`,
+    confidence: Math.min(0.5 + magnitude / 100, 0.9),
   };
 };
 
@@ -423,20 +597,21 @@ export const createHospital = async (data, adminId) => {
       name: data.fullName || data.name || data.hospitalName,
       type: data.type || 'hospital',
       email: data.email,
-      phone: data.contactNumber || data.phone,
+      phone: data.contactNumber || data.phone || data.adminContactPhone || data.emergencyContactNumber,
       address: data.address || null,
       city: data.city,
       state: data.state,
       zipCode: data.zipCode,
 
-      hospitalId: data.hospitalId,
+      hospitalId: data.hospitalId || data.hospitalCode,
       adminContactName: data.adminContactName,
       adminContactPhone: data.adminContactPhone,
-      emergencyContact: data.emergencyContact,
+      emergencyContact: data.emergencyContact || data.emergencyContactNumber,
       bloodBanksAvailable: data.bloodBanksAvailable,
       capacity: data.capacity,
-      lat: data.lat,
-      long: data.long,
+      lat: data.lat ?? data.latitude,
+      long: data.long ?? data.longitude,
+      licenseNumber: data.licenseNumber,
       password: data.password,
     },
     adminId
@@ -530,7 +705,13 @@ export const createAdmin = async (data, adminId) => {
     throw new Error('Email already registered');
   }
 
-  const role = (data.role || 'admin').toLowerCase();
+  const role = (() => {
+    if (!data.accessLevel) return (data.role || 'admin').toLowerCase();
+
+    const normalized = String(data.accessLevel).toLowerCase().trim();
+    if (normalized === 'full access' || normalized === 'fullaccess') return 'superadmin';
+    return 'admin';
+  })();
   if (!['admin', 'superadmin'].includes(role)) {
     throw new Error('Invalid admin role');
   }
@@ -546,7 +727,6 @@ export const createAdmin = async (data, adminId) => {
   }
 
   const plaintextKey = crypto.randomBytes(16).toString('hex');
-  const adminKeyHash = await bcrypt.hash(plaintextKey, env.BCRYPT_SALT_ROUNDS || 10);
 
   const admin = await User.create({
     fullName: data.fullName,
@@ -557,9 +737,12 @@ export const createAdmin = async (data, adminId) => {
     emailVerifiedAt: new Date(),
     phone: data.phone || null,
     address: data.address || null,
-    adminKey: adminKeyHash,
+    adminKey: 'pending',
     location: data.location || {},
   });
+
+  admin.adminKey = encryptAdminKey(plaintextKey, admin._id.toString());
+  await admin.save({ validateBeforeSave: false });
 
   await logAudit(adminId, 'user.create_admin', 'User', admin._id);
   return { ...admin.toObject(), adminKey: plaintextKey };
@@ -583,10 +766,17 @@ export const loginAdmin = async (email, password, adminKey) => {
   const isMatch = await bcrypt.compare(password, user.password);
   if (!isMatch) throw new Error('Invalid credentials');
 
-  const isAdminKeyValid = await bcrypt.compare(
-    String(adminKey).trim(),
-    String(user.adminKey || '').trim()
-  );
+  const providedKey = String(adminKey).trim();
+  const storedKey = String(user.adminKey || '').trim();
+  let isAdminKeyValid;
+
+  if (isEncryptedKey(storedKey)) {
+    const decrypted = decryptAdminKey(storedKey, String(user._id));
+    isAdminKeyValid = decrypted === providedKey;
+  } else {
+    // Legacy bcrypt hash format — keep working during migration
+    isAdminKeyValid = await bcrypt.compare(providedKey, storedKey);
+  }
   if (!isAdminKeyValid) {
     throw new Error(ERR.AUTH_INVALID_ADMIN_KEY);
   }
@@ -611,32 +801,47 @@ export const loginAdmin = async (email, password, adminKey) => {
   };
 };
 
-export const getAllAdmins = async (pagination = {}) => {
+const attachAdminKey = (admin) => {
+  const obj = admin.toObject ? admin.toObject() : { ...admin };
+  if (isEncryptedKey(String(obj.adminKey || ''))) {
+    obj.adminKey = decryptAdminKey(obj.adminKey, String(obj._id));
+  } else {
+    delete obj.adminKey;
+  }
+  return obj;
+};
+
+export const getAllAdmins = async (pagination = {}, callerRole = null) => {
   const { offset, limit, page } = parsePagination(pagination, 20);
 
   const query = { deletedAt: null, role: { $in: ['admin', 'superadmin'] } };
 
   const [admins, total] = await Promise.all([
     User.find(query)
-      .select('fullName email role phone address isEmailVerified isSuspended createdAt updatedAt')
+      .select('+adminKey fullName email role phone address isEmailVerified isSuspended createdAt updatedAt')
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit),
     User.countDocuments(query),
   ]);
 
-  return { admins, total, page, limit };
+  return {
+    admins: admins.map((a) => (callerRole === 'superadmin' ? attachAdminKey(a) : a)),
+    total,
+    page,
+    limit,
+  };
 };
 
 export const getAdminProfile = async (adminId) => {
   const admin = await User.findOne({ _id: adminId, deletedAt: null, role: { $in: ['admin', 'superadmin'] } })
-    .select('fullName email role phone address isEmailVerified isSuspended createdAt updatedAt');
+    .select('+adminKey fullName email role phone address isEmailVerified isSuspended createdAt updatedAt');
 
   if (!admin) {
     return null;
   }
 
-  return admin;
+  return attachAdminKey(admin);
 };
 
 const buildFieldDiff = (current, incoming, fields) => {
@@ -762,14 +967,13 @@ export const rotateAdminKey = async (id, adminId) => {
   if (!['admin', 'superadmin'].includes(admin.role)) return null;
 
   const plaintextKey = crypto.randomBytes(16).toString('hex');
-  const adminKeyHash = await bcrypt.hash(plaintextKey, env.BCRYPT_SALT_ROUNDS || 10);
 
-  admin.adminKey = adminKeyHash;
+  admin.adminKey = encryptAdminKey(plaintextKey, id.toString());
   admin.passwordChangedAt = new Date();
   await admin.save({ validateBeforeSave: false });
 
   await logAudit(adminId, 'user.rotate_admin_key', 'User', id);
-  return { admin, plaintextKey };
+  return { admin: attachAdminKey(admin), plaintextKey };
 };
 
 /**
@@ -945,7 +1149,7 @@ export const deleteRolePermission = async (role, adminId) => {
  */
 export const listAllRequests = async (filters = {}, pagination = {}) => {
   const { status, urgency, bloodType, hospitalId, type } = filters;
-  const { offset, limit } = parsePagination(pagination, 20);
+  const { offset, limit, page } = parsePagination(pagination, 20);
 
   const query = {};
   if (status) query.status = status;
@@ -954,39 +1158,64 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
   if (hospitalId) query.hospitalId = hospitalId;
   if (type) query.type = type;
 
-  const [requests, total] = await Promise.all([
+  const [requests, total, stats] = await Promise.all([
     Request.find(query)
-      .populate('hospitalId', 'fullName email hospitalName address contactNumber')
+      .populate('hospitalId', 'fullName email hospitalName address contactNumber location')
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit),
     Request.countDocuments(query),
+    getRequestStats(hospitalId || null),
   ]);
 
   const requestIds = requests.map((request) => request._id);
-  const donationCounts = requestIds.length === 0
-    ? []
-    : await Donation.aggregate([
-        { $match: { requestId: { $in: requestIds } } },
-        { $group: { _id: '$requestId', count: { $sum: 1 } } },
-      ]);
+  const [donationCounts, contactedCounts] = await Promise.all([
+    requestIds.length === 0
+      ? []
+      : Donation.aggregate([
+          { $match: { requestId: { $in: requestIds } } },
+          { $group: { _id: '$requestId', count: { $sum: 1 } } },
+        ]),
+    requestIds.length === 0
+      ? []
+      : Notification.aggregate([
+          {
+            $match: {
+              relatedId: { $in: requestIds },
+              type: { $in: ['request', 'emergency', 'request_broadcast', 'emergency_broadcast'] },
+            },
+          },
+          { $group: { _id: '$relatedId', count: { $sum: 1 } } },
+        ]),
+  ]);
+
   const donationCountMap = new Map(donationCounts.map((entry) => [String(entry._id), entry.count]));
+  const contactedCountMap = new Map(contactedCounts.map((entry) => [String(entry._id), entry.count]));
 
   return {
     requests: requests.map((request) => {
       const requestObject = request.toObject();
       const donationCount = donationCountMap.get(String(request._id)) || 0;
+      const donorsContacted = contactedCountMap.get(String(request._id)) || 0;
 
-      return {
-        ...toAdminRequestListItem(requestObject),
+      const listItem = toAdminRequestListItem(requestObject);
+      const payload = {
+        ...listItem,
         ...buildRequestPayload(requestObject, null, { responseCount: donationCount }),
         donationCount,
+        donorsConfirmed: donationCount,
+        donorsContacted,
         timeline: buildRequestTimeline(requestObject),
       };
+
+      // Ensure location remains a String representation as required by admin list views
+      payload.location = listItem.location;
+      return payload;
     }),
     total,
     page: parseInt(page),
     limit: parseInt(limit),
+    stats,
   };
 };
 
@@ -995,11 +1224,33 @@ export const toAdminRequestListItem = (request) => {
   const object = request.toObject ? request.toObject() : { ...request };
   const rawBloodType = object.bloodType;
 
+  const hospitalName = object.hospitalName
+    || object.hospitalId?.hospitalName
+    || object.hospitalId?.fullName
+    || null;
+
+  const hospitalContact = object.hospitalContact
+    || object.contactNumber
+    || object.hospitalId?.contactNumber
+    || null;
+
+  const location = object.hospitalId?.address
+    ? `${object.hospitalId.address.city || ''}, ${object.hospitalId.address.governorate || ''}`.trim().replace(/^,|,$/g, '').trim()
+    : object.hospitalId?.location?.city || object.location?.city || 'Cairo';
+
   return {
     ...object,
     bloodType: extractFirstBloodType(rawBloodType),
     bloodTypes: Array.isArray(rawBloodType) ? rawBloodType : (rawBloodType ? [rawBloodType] : []),
     isFulfilled: object.status === 'completed',
+    hospitalName,
+    hospitalContact,
+    location,
+    urgencyLevel: object.urgency,
+    unitsRequested: object.unitsNeeded ?? object.quantity ?? 1,
+    completionTimeInHours: object.requiredBy
+      ? Math.max(0, Math.ceil((new Date(object.requiredBy).getTime() - Date.now()) / (1000 * 60 * 60)))
+      : 0,
   };
 };
 

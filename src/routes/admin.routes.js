@@ -138,9 +138,6 @@ router.delete('/permissions/roles/:role', requireRole('superadmin'), adminContro
 router.get('/users', adminController.listUsers);
 
 
-router.get('/users/stats', adminController.getUserStats);
-
-
 router.post('/users/hospital', adminController.createHospital);
 
 
@@ -155,9 +152,6 @@ router.delete('/users/:id', adminController.deleteUser);
 
 
 router.get('/requests', adminController.listRequests);
-
-
-router.get('/requests/stats', adminController.getRequestStats);
 
 
 router.get('/requests/:id', adminController.getRequestDetails);

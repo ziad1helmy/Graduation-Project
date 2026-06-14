@@ -160,13 +160,8 @@
 
     '/admin/profile': 'User Management',
     '/admin/users': 'User Management',
-    '/admin/users/stats': 'User Management',
     '/admin/users/hospital': 'User Management',
     '/admin/users/{id}': 'User Management',
-    '/admin/users/{id}/verify': 'User Management',
-    '/admin/users/{id}/unverify': 'User Management',
-    '/admin/users/{id}/suspend': 'User Management',
-    '/admin/users/{id}/unsuspend': 'User Management',
     '/admin/donors': 'User Management',
     '/admin/hospitals': 'User Management',
     '/admin/donors/{id}': 'User Management',
