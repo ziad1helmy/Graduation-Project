@@ -32,6 +32,7 @@ router.get('/appointments/:appointmentId', hospitalController.getAppointmentDeta
 // Profile routes
 router.get('/profile', hospitalController.getProfile);
 router.put('/profile', hospitalController.updateProfile);
+router.put('/profile/location', hospitalController.updateProfileLocation);
 
 // Appointment settings routes
 router.get('/appointment-settings', hospitalController.getAppointmentSettings);
@@ -43,11 +44,14 @@ router.post('/request', hospitalController.createRequest);
 router.post('/requests/create-emergency', hospitalController.createEmergencyRequest);
 // Hospital dashboard
 router.get('/dashboard', hospitalController.getMonthlyReports);
+router.get('/activity', hospitalController.getActivity);
 router.get('/history', hospitalController.getRequestHistory);
 router.get('/requests', hospitalController.getRequests);
+router.get('/requests/:requestId/responses', hospitalController.getRequestResponses);
 router.get('/requests/:requestId', hospitalController.getRequestDetails);
 router.put('/requests/:requestId', hospitalController.updateRequest);
 router.delete('/requests/:requestId', hospitalController.deleteRequest);
+router.post('/confirm-donation', hospitalController.confirmDonation);
 
 // Donation tracking
 router.get('/donations', hospitalController.getDonations);

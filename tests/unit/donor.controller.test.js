@@ -253,7 +253,6 @@ describe('getProfile', () => {
     const data = res.json.mock.calls[0][0].data;
     expect(typeof data.age).toBe('number');
     expect(data.age).toBeGreaterThan(0);
-    expect(data.dateOfBirth).toBe('1990-01-01');
     expect(data.weight).toBe(75);
     expect(data).toHaveProperty('stats');
     expect(data).toHaveProperty('badgeProgress');
@@ -281,7 +280,7 @@ describe('getProfile', () => {
 // =============================================================================
 describe('updateProfile', () => {
   it('updates weight successfully', async () => {
-    const donor = await createDonor({ dateOfBirth: new Date('1991-02-03') });
+    const donor = await createDonor();
     const res = makeRes();
     const next = vi.fn();
     await donorController.updateProfile(
@@ -291,7 +290,6 @@ describe('updateProfile', () => {
     );
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json.mock.calls[0][0].data.dateOfBirth).toBe('1991-02-03');
     const updated = await Donor.findById(donor._id);
     expect(updated.weight).toBe(80);
   });

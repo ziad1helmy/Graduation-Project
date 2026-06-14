@@ -1,5 +1,4 @@
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
-import { formatDateOnly } from './format.js';
 
 const DONOR_DETAILS_SELECT = 'fullName phoneNumber bloodType email gender dateOfBirth';
 const HOSPITAL_DETAILS_SELECT = 'fullName hospitalName address contactNumber location';
@@ -91,7 +90,7 @@ const buildDonorDetails = (source) => {
     bloodType: source.bloodType ?? null,
     email: source.email ?? null,
     gender: source.gender ?? null,
-    dateOfBirth: formatDateOnly(source.dateOfBirth),
+    dateOfBirth: source.dateOfBirth ?? null,
   };
 };
 
@@ -237,16 +236,12 @@ export const toAppointmentResponse = (appointment, options = {}) => {
         phoneNumber: donor.phoneNumber,
         bloodType: donor.bloodType,
         email: donor.email,
-        gender: donor.gender,
-        dateOfBirth: donor.dateOfBirth,
       } : null,
       donorDetails: donor ? {
         fullName: donor.fullName,
         phoneNumber: donor.phoneNumber,
         bloodType: donor.bloodType,
         email: donor.email,
-        gender: donor.gender,
-        dateOfBirth: donor.dateOfBirth,
       } : null,
       hospitalId: hospital ? {
         _id: hospital.id,
@@ -281,6 +276,23 @@ export const toAppointmentResponse = (appointment, options = {}) => {
     };
   }
 
+  if (options?.isReschedule) {
+    return {
+      _id: src._id,
+      appointmentId: src._id,
+      // Date-only format is the contract for this response shape (Flutter expectation).
+      // The time component is separately expressed in appointmentTime.
+      appointmentDate: src.appointmentDate ? new Date(src.appointmentDate).toISOString().split('T')[0] : null,
+      appointmentTime: confirmation?.appointmentTime || formatAppointmentTime(src.appointmentDate),
+      status: src.status || null,
+      donationType: confirmation?.donationType || src.donationType || null,
+      rescheduleHistory: src.rescheduleHistory || [],
+      donor: confirmation?.donor || null,
+      hospital: confirmation?.hospital || null,
+      hospitalId: confirmation?.hospitalId || null,
+    };
+  }
+
   const isDonorAudience = options?.role === 'donor' || options?.audience === 'donor';
 
   if (isDonorAudience) {
@@ -288,7 +300,7 @@ export const toAppointmentResponse = (appointment, options = {}) => {
     return {
       _id: src._id,
       appointmentId: src._id,
-      appointmentDate: src.appointmentDate || null,
+      appointmentDate: src.appointmentDate ? new Date(src.appointmentDate).toISOString().split('T')[0] : null,
       appointmentTime: confirmation?.appointmentTime || formatAppointmentTime(src.appointmentDate),
       status: src.status || null,
       donationType: confirmation?.donationType || src.donationType || null,

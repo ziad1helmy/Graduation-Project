@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import response from '../utils/response.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
+import Appointment from '../models/Appointment.model.js';
 import Donor from '../models/Donor.model.js';
 import User from '../models/User.model.js';
 import Notification from '../models/Notification.model.js';
@@ -11,6 +12,7 @@ import * as donationService from '../services/donation.service.js';
 import * as appointmentService from '../services/appointment.service.js';
 import * as eligibilityService from '../services/eligibility.service.js';
 import * as matchingService from '../services/matching.service.js';
+import * as requestService from '../services/request.service.js';
 import { rejectDonationLifecycle } from '../services/request-lifecycle.service.js';
 import { calculateDistance, parseLatLng, extractLocation } from '../utils/geo.js';
 import { formatDistance, formatEstimatedTime } from '../utils/format.js';
@@ -71,7 +73,7 @@ const buildRequestPagination = (total, page, limit, role) => {
   return meta;
 };
 
-export const buildRequestPayload = (request, viewerLocation = null, { responseCount = 0, donations = null, role = null } = {}) => {
+export const buildRequestPayload = (request, viewerLocation = null, { responseCount = 0, donations = null, role = null, donorActiveQr = null } = {}) => {
   const requestLocation = getRequestCoordinates(request);
   const distance = computeDistanceDetails(viewerLocation, request);
   const hospitalName = request.hospitalName
@@ -106,9 +108,9 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
         }
       : null,
     location: toLocation(requestLocation),
-    qrToken: request.qrToken || null,
-    qrCreatedAt: request.qrCreatedAt || null,
-    qrExpiresAt: request.qrExpiresAt || null,
+    qrToken: donorActiveQr ? donorActiveQr.qrToken : (request.qrToken || null),
+    qrCreatedAt: donorActiveQr ? donorActiveQr.qrCreatedAt : (request.qrCreatedAt || null),
+    qrExpiresAt: donorActiveQr ? donorActiveQr.qrExpiresAt : (request.qrExpiresAt || null),
     hospital: {
       id: request.hospitalId?._id?.toString?.() || request.hospitalId?.toString?.() || null,
       name: hospitalName,
@@ -208,11 +210,20 @@ const normalizeRequestIfExpired = async (request) => {
 
           currentRequest.status = 'expired';
           currentRequest.expiredAt = new Date();
+          // Invalidate the request-level QR so a hospital viewer cannot read
+          // a stale token out of GET /requests/:id after natural expiration.
+          // Cancellation already does this; natural expiration must too.
+          currentRequest.qrToken = null;
+          currentRequest.qrCreatedAt = null;
+          currentRequest.qrExpiresAt = null;
           await currentRequest.save({ session });
-          
+
           // Update the original request object with new state
           request.status = currentRequest.status;
           request.expiredAt = currentRequest.expiredAt;
+          request.qrToken = currentRequest.qrToken;
+          request.qrCreatedAt = currentRequest.qrCreatedAt;
+          request.qrExpiresAt = currentRequest.qrExpiresAt;
         }
       });
     } finally {
@@ -231,6 +242,48 @@ const canAccessRequest = (request, req) => {
     return request.hospitalId?._id?.toString?.() === req.user.userId;
   }
   return false;
+};
+
+/**
+ * Resolves the active QR token for a specific donor on a specific request.
+ * Appointment QR takes precedence over donation QR when the donor has booked a slot.
+ * Returns an object with QR fields, or null if the donor has no active donation.
+ */
+const resolveActiveDonorQr = async (donorId, requestId) => {
+  const donation = await Donation.findOne({
+    donorId,
+    requestId,
+    status: { $nin: ['cancelled', 'rejected', 'expired', 'abandoned'] },
+  });
+
+  if (!donation) return null;
+
+  if (donation.appointmentId) {
+    const appointment = await Appointment.findById(donation.appointmentId);
+    if (appointment && ['pending', 'confirmed'].includes(appointment.status)) {
+      return {
+        qrToken: appointment.qrToken || null,
+        qrCreatedAt: appointment.createdAt || null,
+        qrExpiresAt: appointment.qrExpiresAt || null,
+        arrivalDeadline: appointment.appointmentDate || donation.arrivalDeadline,
+        donation,
+      };
+    }
+  }
+
+  // No active appointment — fall back to the donation-level QR (urgent walk-in path)
+  if (['pending', 'scheduled'].includes(donation.status)) {
+    return {
+      qrToken: donation.qrToken || null,
+      qrCreatedAt: donation.createdAt || null,
+      qrExpiresAt: donation.qrExpiresAt || null,
+      arrivalDeadline: donation.arrivalDeadline,
+      donation,
+    };
+  }
+
+  // Donation exists but is in a non-displayable state (e.g. completed before QR cleared)
+  return { qrToken: null, qrCreatedAt: null, qrExpiresAt: null, arrivalDeadline: null, donation };
 };
 
 export const generateQr = asyncHandler(async (req, res) => {
@@ -343,7 +396,7 @@ export const verifyQr = asyncHandler(async (req, res) => {
 
   const now = new Date();
 
-  if (donation.qrExpires && now > new Date(donation.qrExpires)) {
+  if (donation.qrExpiresAt && now > new Date(donation.qrExpiresAt)) {
     return response.success(res, 200, 'QR verification completed', {
       valid: false,
       message: 'QR code has expired',
@@ -381,7 +434,7 @@ export const verifyQr = asyncHandler(async (req, res) => {
     donorName: donorDoc?.fullName || null,
     donorBloodType: donorDoc?.bloodType || null,
     qrToken: donation.qrToken,
-    qrExpiresAt: donation.qrExpires,
+    qrExpiresAt: donation.qrExpiresAt,
     arrivalDeadline: donation.arrivalDeadline,
   });
 });
@@ -413,10 +466,19 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
     ? await Donation.find({ requestId: request._id }).populate('donorId', 'fullName email phoneNumber location bloodType lastDonationDate')
     : null;
 
+  // For donors: always pass an explicit QR object so buildRequestPayload does NOT
+  // fall through to the request-level (hospital) QR token for donors with no donation.
+  let donorQrOverride = null;
+  if (req.user?.role === 'donor') {
+    const resolvedQr = await resolveActiveDonorQr(req.user.userId, request._id);
+    donorQrOverride = resolvedQr ?? { qrToken: null, qrCreatedAt: null, qrExpiresAt: null };
+  }
+
   const payload = buildRequestPayload(request, viewerLocation, {
     responseCount: donations?.length || 0,
     donations: donations || undefined,
     role: req.user?.role,
+    donorActiveQr: donorQrOverride,
   });
 
   return response.success(res, 200, 'Request details retrieved successfully', payload);
@@ -547,135 +609,40 @@ export const acceptRequest = asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Request not found');
   }
 
-  const donor = await Donor.findById(req.user.userId);
-  if (!donor) {
-    throw new HttpError(404, 'Donor not found');
-  }
-
   await normalizeRequestIfExpired(request);
 
-  // Guard: use the centralized state machine to validate pending -> accepted.
-  // This also catches expired, completed, cancelled, and any other terminal states.
+  let result;
   try {
-    validateTransition('request', request.status, 'accepted');
-  } catch (err) {
-    throw new HttpError(400, err.message);
-  }
-
-  if (request.acceptedBy) {
-    throw new HttpError(400, 'Request has already been accepted');
-  }
-
-  const existingDonation = await Donation.findOne({
-    donorId: donor._id,
-    requestId: request._id,
-    status: { $nin: ['cancelled', 'rejected', 'expired', 'abandoned'] },
-  });
-
-  if (existingDonation) {
-    throw new HttpError(400, 'You have already responded to this request');
-  }
-
-  const eligibility = await donationService.validateEligibility(donor, request);
-  if (!eligibility.eligible) {
-    throw new HttpError(400, eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
-  }
-
-  const session = await mongoose.startSession();
-  let donation;
-  let acceptedRequest;
-
-  try {
-    await session.withTransaction(async () => {
-      const requestToUpdate = await Request.findById(request._id).session(session);
-      if (!requestToUpdate) {
-        throw new Error('Request not found');
-      }
-
-      // Guard against the narrow race window where requiredBy passes between
-      // normalizeRequestIfExpired (outside the transaction) and this save.
-      const now = new Date();
-      if (requestToUpdate.requiredBy && requestToUpdate.requiredBy <= now) {
-        // If the request is still pending, atomically expire it so the next
-        // check (or subsequent retry) sees the correct state.
-        if (requestToUpdate.status === 'pending') {
-          try {
-            validateTransition('request', requestToUpdate.status, 'expired');
-          } catch (err) {
-            throw new Error(err.message);
-          }
-          requestToUpdate.status = 'expired';
-          requestToUpdate.expiredAt = now;
-          await requestToUpdate.save({ session });
-        }
-        throw new Error('Request has expired — the deadline has passed');
-      }
-
-      try {
-        validateTransition('request', requestToUpdate.status, 'accepted');
-      } catch (err) {
-        throw new Error(err.message);
-      }
-
-      if (requestToUpdate.acceptedBy) {
-        throw new Error('Request has already been accepted');
-      }
-
-      const urgencyKey = requestToUpdate.isEmergency ? 'emergency' : (requestToUpdate.urgency || 'medium');
-      const timeouts = URGENCY_TIMEOUTS[urgencyKey] || URGENCY_TIMEOUTS.medium;
-      const arrivalWindowMs = timeouts.arrivalWindowMs;
-      const qrExpires = new Date(now.getTime() + arrivalWindowMs);
-      const qrToken = crypto.randomBytes(32).toString('hex');
-
-      const donationDocs = await Donation.create([{
-        donorId: donor._id,
-        requestId: requestToUpdate._id,
-        quantity: requestToUpdate.unitsNeeded ?? requestToUpdate.quantity ?? 1,
-        status: 'pending',
-        qrToken,
-        qrExpires,
-        arrivalDeadline: qrExpires,
-        qrUsed: false,
-      }], { session });
-      donation = donationDocs[0];
-
-      requestToUpdate.status = 'accepted';
-      requestToUpdate.acceptedBy = donor._id;
-      requestToUpdate.acceptedByName = donor.fullName || null;
-      requestToUpdate.acceptedByPhoneNumber = donor.phoneNumber || null;
-      requestToUpdate.acceptedByBloodType = donor.bloodType || null;
-      requestToUpdate.acceptedAt = new Date();
-      requestToUpdate.acceptedDonationId = donation._id;
-      requestToUpdate.arrivalDeadline = qrExpires;
-      await requestToUpdate.save({ session });
-
-      validateOrphanState('request', requestToUpdate, { donation });
-      acceptedRequest = requestToUpdate;
+    result = await requestService.acceptRequest({
+      donorId: req.user.userId,
+      requestId: id,
     });
   } catch (error) {
-    // F18: Handle duplicate key error from unique partial index on acceptRequest
     if (error?.code === 11000 || (typeof error?.message === 'string' && error.message.includes('E11000'))) {
       throw new HttpError(409, 'You have already responded to this request');
     }
+    if (error.statusCode === 404) throw new HttpError(404, error.message);
+    if (error.statusCode === 400) throw new HttpError(400, error.message);
+    if (error.statusCode === 409) throw new HttpError(409, error.message);
     throw error;
-  } finally {
-    session.endSession();
   }
 
-  acceptedRequest = await populateRequest(Request.findById(acceptedRequest._id));
+  const { donation } = result;
+  const acceptedRequest = await populateRequest(Request.findById(result.request._id));
+  const donor = await Donor.findById(req.user.userId);
 
   await Notification.create({
     userId: acceptedRequest.hospitalId?._id || acceptedRequest.hospitalId,
     type: acceptedRequest.isEmergency || acceptedRequest.urgency === 'critical' ? 'emergency' : 'request',
     title: 'Request accepted',
-    message: `${donor.fullName || 'A donor'} accepted the request for ${formatBloodTypeLabel(acceptedRequest.bloodType) || acceptedRequest.patientType || 'needed supplies'}.`,
+    message: `${donor?.fullName || 'A donor'} accepted the request for ${formatBloodTypeLabel(acceptedRequest.bloodType) || acceptedRequest.patientType || 'needed supplies'}.`,
     relatedId: acceptedRequest._id,
     relatedType: 'Request',
     data: {
       requestId: acceptedRequest._id,
-      donorId: donor._id,
-      donorName: donor.fullName || null,
-      donorBloodType: donor.bloodType || null,
+      donorId: donor?._id,
+      donorName: donor?.fullName || null,
+      donorBloodType: donor?.bloodType || null,
       status: acceptedRequest.status,
     },
   }).catch(() => {});
@@ -687,7 +654,7 @@ export const acceptRequest = asyncHandler(async (req, res) => {
   const bloodTypeLabel = formatBloodTypeLabel(acceptedRequest.bloodType) || acceptedRequest.patientType || 'blood';
 
   await Notification.create({
-    userId: donor._id,
+    userId: donor?._id,
     type: 'request',
     title: 'Donation Confirmed',
     message: `You've been assigned to ${hospitalName} for ${bloodTypeLabel}. Arrive by ${deadlineDisplay}. Open the request to view your QR code.`,
@@ -704,11 +671,11 @@ export const acceptRequest = asyncHandler(async (req, res) => {
     },
   }).catch(() => {});
 
-  const donorUser = await User.findById(donor._id).select('fcmTokens');
+  const donorUser = await User.findById(donor?._id).select('fcmTokens');
   if (donorUser?.fcmTokens?.length) {
     const pushTitle = 'Proceed to Hospital';
     const pushBody = `${hospitalName} — arrive by ${deadlineDisplay}. Show your QR code on arrival.`;
-    (sendToMultipleWithRetry || sendToMultiple)(
+    sendToMultipleWithRetry(
       donorUser.fcmTokens,
       pushTitle,
       pushBody,
@@ -731,7 +698,7 @@ export const acceptRequest = asyncHandler(async (req, res) => {
     donationId: donation._id.toString(),
     status: acceptedRequest.status,
     qrToken: donation.qrToken,
-    qrExpiresAt: donation.qrExpires,
+    qrExpiresAt: donation.qrExpiresAt,
     acceptedAt: acceptedRequest.acceptedAt,
     arrivalDeadline: acceptedRequest.arrivalDeadline,
   });
@@ -900,7 +867,7 @@ export const confirmRequest = asyncHandler(async (req, res) => {
       if (sessionDonation.arrivalDeadline && sessionNow > new Date(sessionDonation.arrivalDeadline)) {
         throw new Error('ARRIVAL_DEADLINE_PASSED');
       }
-      if (sessionDonation.qrExpires && sessionNow > new Date(sessionDonation.qrExpires)) {
+      if (sessionDonation.qrExpiresAt && sessionNow > new Date(sessionDonation.qrExpiresAt)) {
         throw new Error('QR_EXPIRED');
       }
 
@@ -1067,7 +1034,7 @@ const items = requests
     .map((r) => {
       const donation = donationMap.get(r._id.toString());
       const now = new Date();
-      const qrExpired = donation?.qrExpires ? now > new Date(donation.qrExpires) : true;
+      const qrExpired = donation?.qrExpiresAt ? now > new Date(donation.qrExpiresAt) : true;
       const arrivalDeadlinePassed = donation?.arrivalDeadline ? now > new Date(donation.arrivalDeadline) : false;
 
       return {
@@ -1077,7 +1044,7 @@ const items = requests
         donationStatus: donation?.status || null,
         acceptedAt: r.acceptedAt,
         arrivalDeadline: donation?.arrivalDeadline || null,
-        qrExpiresAt: donation?.qrExpires || null,
+        qrExpiresAt: donation?.qrExpiresAt || null,
         qrExpired,
         arrivalDeadlinePassed,
         bloodType: normalizeBloodTypeList(r.bloodType),
@@ -1137,9 +1104,27 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
   }
 
   const now = new Date();
-  const qrExpired = donation.qrExpires ? now > new Date(donation.qrExpires) : true;
-  const arrivalDeadlinePassed = donation.arrivalDeadline ? now > new Date(donation.arrivalDeadline) : false;
-  const isEligible = !qrExpired && !arrivalDeadlinePassed && donation.qrToken && !donation.qrUsed;
+
+  let activeQr = {
+    qrToken: donation.qrToken,
+    qrExpiresAt: donation.qrExpiresAt,
+    qrCreatedAt: donation.createdAt,
+    arrivalDeadline: donation.arrivalDeadline,
+  };
+
+  const resolvedQr = await resolveActiveDonorQr(req.user.userId, request._id);
+  if (resolvedQr) {
+    activeQr = {
+      qrToken: resolvedQr.qrToken ?? donation.qrToken,
+      qrExpiresAt: resolvedQr.qrExpiresAt ?? donation.qrExpiresAt,
+      qrCreatedAt: resolvedQr.qrCreatedAt ?? donation.createdAt,
+      arrivalDeadline: resolvedQr.arrivalDeadline ?? donation.arrivalDeadline,
+    };
+  }
+
+  const qrExpired = activeQr.qrExpiresAt ? now > new Date(activeQr.qrExpiresAt) : true;
+  const arrivalDeadlinePassed = activeQr.arrivalDeadline ? now > new Date(activeQr.arrivalDeadline) : false;
+  const isEligible = !qrExpired && !arrivalDeadlinePassed && activeQr.qrToken && !donation.qrUsed;
 
   return response.success(res, 200, 'Accepted request details retrieved successfully', {
     requestId: request._id.toString(),
@@ -1147,9 +1132,9 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
     status: request.status,
     donationStatus: donation.status,
     acceptedAt: request.acceptedAt,
-    arrivalDeadline: donation.arrivalDeadline,
-    qrToken: donation.qrToken,
-    qrExpiresAt: donation.qrExpires,
+    arrivalDeadline: activeQr.arrivalDeadline,
+    qrToken: activeQr.qrToken,
+    qrExpiresAt: activeQr.qrExpiresAt,
     qrUsed: donation.qrUsed,
     qrUsedAt: donation.qrUsedAt,
     qrExpired,

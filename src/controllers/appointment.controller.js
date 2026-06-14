@@ -217,9 +217,11 @@ export const getAppointmentById = asyncHandler(async (req, res) => {
 export const rescheduleAppointment = asyncHandler(async (req, res) => {
   const donorId = getDonorId(req);
   const appointmentId = req.params.appointmentId;
-  // Accept either { date, time } (human-readable) or a plain ISO date string in `date`.
-  const { date, time, appointmentDate, donationType, reason, notes } = req.body;
-  const newDate = buildAppointmentDate({ appointmentDate, date, time });
+  const { date, time, appointmentDate, appointmentTime, donationType, reason, notes } = req.body;
+  const targetDate = date || (appointmentTime ? appointmentDate : null);
+  const targetTime = time || appointmentTime;
+  const targetAppointmentDate = appointmentTime ? null : appointmentDate;
+  const newDate = buildAppointmentDate({ appointmentDate: targetAppointmentDate, date: targetDate, time: targetTime });
   // Support both 'notes' (preferred) and 'reason' (legacy) fields
   const rescheduleReason = notes || reason;
 
@@ -233,7 +235,7 @@ export const rescheduleAppointment = asyncHandler(async (req, res) => {
       reason: rescheduleReason,
     });
 
-    return response.success(res, 200, 'Appointment rescheduled', toAppointmentResponse(appointment, { role: req.user?.role }));
+    return response.success(res, 200, 'Appointment rescheduled', toAppointmentResponse(appointment, { role: req.user?.role, isReschedule: true }));
   } catch (error) {
     if (error.message === 'Appointment not found') throw new HttpError(404, 'Appointment not found');
     if (error.message === 'Invalid appointment id') throw new HttpError(400, 'Invalid appointment id');

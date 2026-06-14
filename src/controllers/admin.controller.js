@@ -22,7 +22,6 @@ import {
 import { validateRewardsConfigBody } from '../validation/reward.validation.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
-import { serializeDateOfBirth } from '../utils/format.js';
 
 // ──────────────────────────────────────────────
 //  Phase 1: System & Foundation
@@ -357,7 +356,7 @@ export const getUserById = asyncHandler(async (req, res) => {
   if (!user) {
     throw new HttpError(404, 'User not found');
   }
-  return response.success(res, 200, 'User details', { user: serializeDateOfBirth(user) });
+  return response.success(res, 200, 'User details', { user });
 });
 
 /** GET /admin/donors/:id */
@@ -366,7 +365,7 @@ export const getDonorById = asyncHandler(async (req, res) => {
   if (!user) {
     throw new HttpError(404, 'Donor not found');
   }
-  return response.success(res, 200, 'Donor details', { user: serializeDateOfBirth(user) });
+  return response.success(res, 200, 'Donor details', { user });
 });
 
 /** GET /admin/hospitals/:id */

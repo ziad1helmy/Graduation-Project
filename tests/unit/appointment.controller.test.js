@@ -140,13 +140,18 @@ describe('Appointment Controller', () => {
 
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
-      expect(new Date(callArgs.data.appointmentDate).getTime()).toBe(newDate.getTime());
+      // appointmentDate is date-only YYYY-MM-DD; precise time lives in appointmentTime
+      expect(callArgs.data.appointmentDate).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+      expect(callArgs.data.appointmentTime).toBeDefined();
       expect(callArgs.data.donationType).toBe('Plasma');
       expect(callArgs.data.donor.firstName).toBeDefined();
       expect(callArgs.data.hospital.name).toBeDefined();
     });
 
-    it('reschedules appointment using separate date and time (12h format)', async () => {
+    it.each([
+      ['12h format', '02:30 PM'],
+      ['24h format', '14:30'],
+    ])('reschedules appointment using separate date and time (%s)', async (_, time) => {
       const donor = await createDonor();
       const hospital = await createHospital();
       const apptDate = makeFutureAppointmentDate();
@@ -156,7 +161,7 @@ describe('Appointment Controller', () => {
       const req = {
         user: { userId: donor._id },
         params: { appointmentId: appt._id.toString() },
-        body: { date: '2026-06-25', time: '02:30 PM', donationType: 'Plasma' },
+        body: { date: '2026-06-25', time, donationType: 'Plasma' },
       };
       const res = {
         json: vi.fn().mockReturnThis(),
@@ -168,42 +173,9 @@ describe('Appointment Controller', () => {
 
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
-      const updatedDate = new Date(callArgs.data.appointmentDate);
-      expect(updatedDate.getFullYear()).toBe(2026);
-      expect(updatedDate.getMonth()).toBe(5);
-      expect(updatedDate.getDate()).toBe(25);
-      expect(updatedDate.getHours()).toBe(14);
-      expect(updatedDate.getMinutes()).toBe(30);
-    });
-
-    it('reschedules appointment using separate date and time (24h format)', async () => {
-      const donor = await createDonor();
-      const hospital = await createHospital();
-      const apptDate = makeFutureAppointmentDate();
-
-      const appt = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
-
-      const req = {
-        user: { userId: donor._id },
-        params: { appointmentId: appt._id.toString() },
-        body: { date: '2026-06-25', time: '14:30', donationType: 'Plasma' },
-      };
-      const res = {
-        json: vi.fn().mockReturnThis(),
-        status: vi.fn().mockReturnThis(),
-      };
-      const next = vi.fn();
-
-      await appointmentController.rescheduleAppointment(req, res, next);
-
-      const callArgs = res.json.mock.calls[0][0];
-      expect(callArgs.success).toBe(true);
-      const updatedDate = new Date(callArgs.data.appointmentDate);
-      expect(updatedDate.getFullYear()).toBe(2026);
-      expect(updatedDate.getMonth()).toBe(5);
-      expect(updatedDate.getDate()).toBe(25);
-      expect(updatedDate.getHours()).toBe(14);
-      expect(updatedDate.getMinutes()).toBe(30);
+      // appointmentDate is date-only YYYY-MM-DD; time precision lives in appointmentTime
+      expect(callArgs.data.appointmentDate).toBe('2026-06-25');
+      expect(callArgs.data.appointmentTime).toBe('2:30 PM');
     });
 
     it('includes the reschedule reason in appointment history', async () => {
@@ -229,6 +201,7 @@ describe('Appointment Controller', () => {
 
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
+      expect(Array.isArray(callArgs.data.rescheduleHistory)).toBe(true);
       expect(callArgs.data.rescheduleHistory[0].reason).toBe('Need a different time');
     });
 

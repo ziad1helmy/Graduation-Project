@@ -188,8 +188,8 @@ userSchema.pre('save', async function () {
     });
   }
 
-  // Hash adminKey if modified and not already hashed
-  if (this.adminKey && this.isModified('adminKey') && !isAlreadyHashed(this.adminKey)) {
+  // Hash adminKey if present and not already hashed
+  if (this.adminKey && !isAlreadyHashed(this.adminKey)) {
     const saltRounds = env.BCRYPT_SALT_ROUNDS || 10;
     this.adminKey = await bcrypt.hash(this.adminKey, saltRounds);
   }

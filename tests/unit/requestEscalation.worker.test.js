@@ -26,7 +26,7 @@ describe('Request Escalation Worker', () => {
       const donation = await createDonation(donor._id, urgentRequest._id, {
         status: 'pending',
         qrToken: 'test-qr-token-expiry',
-        qrExpires: pastDeadline,
+        qrExpiresAt: pastDeadline,
         arrivalDeadline: pastDeadline,
         qrUsed: false,
       });
@@ -66,7 +66,7 @@ describe('Request Escalation Worker', () => {
       const donation = await createDonation(donor._id, urgentRequest._id, {
         status: 'pending',
         qrToken: 'test-qr-token-future',
-        qrExpires: futureDeadline,
+        qrExpiresAt: futureDeadline,
         arrivalDeadline: futureDeadline,
         qrUsed: false,
       });
@@ -99,7 +99,7 @@ describe('Request Escalation Worker', () => {
       const donation = await createDonation(donor._id, urgentRequest._id, {
         status: 'pending',
         qrToken: 'test-qr-token-used',
-        qrExpires: pastDeadline,
+        qrExpiresAt: pastDeadline,
         arrivalDeadline: pastDeadline,
         qrUsed: true,
       });

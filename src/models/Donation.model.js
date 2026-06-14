@@ -108,11 +108,11 @@ const donationSchema = new mongoose.Schema(
       default: null,
       index: true,
     },
-    // NOTE: The field name is `qrExpires` (not `qrExpiresAt`) for the Donation model.
-    // The Appointment model uses `qrExpiresAt`. All API response payloads normalize
-    // this to `qrExpiresAt` via `donation.qrExpires`. A future migration should
-    // rename this field to `qrExpiresAt` for consistency.
-    qrExpires: {
+    // Donation-level QR expiration. Named `qrExpiresAt` for consistency with
+    // Appointment.qrExpiresAt and Request.qrExpiresAt. A migration script
+    // (scripts/migrate-donation-qr-field.js) renames any pre-existing
+    // `qrExpires` documents to this field.
+    qrExpiresAt: {
       type: Date,
       default: null,
     },

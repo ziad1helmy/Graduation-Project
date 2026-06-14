@@ -169,7 +169,7 @@ const donorsData = [
     dateOfBirth: new Date('1994-06-18'),
     gender: 'female',
     bloodType: 'AB+',
-    isOptedIn: false,
+    isOptedIn: true,
     weight: 57,
     hemoglobinLevel: 12.8,
     healthHistory: {
@@ -630,7 +630,7 @@ async function main() {
       type: 'blood',
       bloodType: ['O+', 'B-'],
       urgency: 'critical',
-      status: 'completed',
+      status: 'accepted',
       requiredBy: futureDate(2),
       quantity: 3,
       cause: 'Emergency surgery support',
@@ -638,6 +638,11 @@ async function main() {
       hospitalContact: hospitals.cairoCare.contactNumber,
       hospitalLocation: hospitals.cairoCare.location.coordinates,
       hospitalName: hospitals.cairoCare.hospitalName,
+      acceptedBy: donors.aya._id,
+      acceptedByName: donors.aya.fullName,
+      acceptedByPhoneNumber: donors.aya.phoneNumber,
+      acceptedByBloodType: donors.aya.bloodType,
+      acceptedAt: now,
     }
   );
 
@@ -648,7 +653,7 @@ async function main() {
       type: 'blood',
       bloodType: ['A-', 'O-'],
       urgency: 'high',
-      status: 'completed',
+      status: 'accepted',
       requiredBy: futureDate(3),
       quantity: 2,
       cause: 'ICU demand spike',
@@ -656,6 +661,11 @@ async function main() {
       hospitalContact: hospitals.nileHope.contactNumber,
       hospitalLocation: hospitals.nileHope.location.coordinates,
       hospitalName: hospitals.nileHope.hospitalName,
+      acceptedBy: donors.omar._id,
+      acceptedByName: donors.omar.fullName,
+      acceptedByPhoneNumber: donors.omar.phoneNumber,
+      acceptedByBloodType: donors.omar.bloodType,
+      acceptedAt: now,
     }
   );
 
@@ -774,7 +784,7 @@ async function main() {
       type: 'platelets',
       bloodType: ['O+', 'B+'],
       urgency: 'high',
-      status: 'completed',
+      status: 'accepted',
       requiredBy: futureDate(2),
       quantity: 3,
       cause: 'Cancer patient undergoing chemotherapy',
@@ -782,6 +792,11 @@ async function main() {
       hospitalContact: hospitals.nileHope.contactNumber,
       hospitalLocation: hospitals.nileHope.location.coordinates,
       hospitalName: hospitals.nileHope.hospitalName,
+      acceptedBy: donors.leila._id,
+      acceptedByName: donors.leila.fullName,
+      acceptedByPhoneNumber: donors.leila.phoneNumber,
+      acceptedByBloodType: donors.leila.bloodType,
+      acceptedAt: now,
     }
   );
 
@@ -810,7 +825,7 @@ async function main() {
       type: 'blood',
       bloodType: ['O+', 'A+'],
       urgency: 'critical',
-      status: 'completed',
+      status: 'accepted',
       requiredBy: futureDate(1),
       quantity: 2,
       cause: 'Emergency blood loss response - critical responder match',
@@ -818,6 +833,11 @@ async function main() {
       hospitalContact: hospitals.cairoCare.contactNumber,
       hospitalLocation: hospitals.cairoCare.location.coordinates,
       hospitalName: hospitals.cairoCare.hospitalName,
+      acceptedBy: donors.cairoResponder._id,
+      acceptedByName: donors.cairoResponder.fullName,
+      acceptedByPhoneNumber: donors.cairoResponder.phoneNumber,
+      acceptedByBloodType: donors.cairoResponder.bloodType,
+      acceptedAt: now,
     }
   );
 
@@ -845,7 +865,7 @@ async function main() {
     {
       hospitalId: hospitals.cairoCare._id,
       type: 'blood',
-      bloodType: ['O+', 'O-'],
+      bloodType: ['O+', 'O-', 'AB+'],
       urgency: 'high',
       status: 'pending',
       requiredBy: futureDate(4),
@@ -864,7 +884,7 @@ async function main() {
     {
       hospitalId: hospitals.cairoCare._id,
       type: 'blood',
-      bloodType: ['O+', 'O-'],
+      bloodType: ['O+', 'O-', 'B+'],
       urgency: 'medium',
       status: 'pending',
       requiredBy: futureDate(7),
@@ -884,7 +904,7 @@ async function main() {
       type: 'blood',
       bloodType: ['A-', 'AB-'],
       urgency: 'critical',
-      status: 'completed',
+      status: 'accepted',
       requiredBy: futureDate(1),
       quantity: 2,
       cause: 'Emergency blood loss response - critical responder match',
@@ -892,6 +912,11 @@ async function main() {
       hospitalContact: hospitals.nileHope.contactNumber,
       hospitalLocation: hospitals.nileHope.location.coordinates,
       hospitalName: hospitals.nileHope.hospitalName,
+      acceptedBy: donors.gizaResponder._id,
+      acceptedByName: donors.gizaResponder.fullName,
+      acceptedByPhoneNumber: donors.gizaResponder.phoneNumber,
+      acceptedByBloodType: donors.gizaResponder.bloodType,
+      acceptedAt: now,
     }
   );
 
@@ -933,7 +958,7 @@ async function main() {
 
   const donations = {};
   donations.ayaPending = await ensureDonation(
-    { donorId: donors.aya._id, requestId: requests.cairoCriticalBlood._id, status: 'pending' },
+    { donorId: donors.aya._id, requestId: requests.cairoCriticalBlood._id },
     {
       donorId: donors.aya._id,
       requestId: requests.cairoCriticalBlood._id,
@@ -944,7 +969,7 @@ async function main() {
   );
 
   donations.omarScheduled = await ensureDonation(
-    { donorId: donors.omar._id, requestId: requests.gizaHighBlood._id, status: 'scheduled' },
+    { donorId: donors.omar._id, requestId: requests.gizaHighBlood._id },
     {
       donorId: donors.omar._id,
       requestId: requests.gizaHighBlood._id,
@@ -956,7 +981,7 @@ async function main() {
   );
 
   donations.mariamCompleted = await ensureDonation(
-    { donorId: donors.mariam._id, requestId: requests.cairoCompletedBlood._id, status: 'completed' },
+    { donorId: donors.mariam._id, requestId: requests.cairoCompletedBlood._id },
     {
       donorId: donors.mariam._id,
       requestId: requests.cairoCompletedBlood._id,
@@ -968,7 +993,7 @@ async function main() {
   );
 
   donations.leilaDeclined = await ensureDonation(
-    { donorId: donors.leila._id, requestId: requests.cairoUrgentBlood._id, status: 'cancelled' },
+    { donorId: donors.leila._id, requestId: requests.cairoUrgentBlood._id },
     {
       donorId: donors.leila._id,
       requestId: requests.cairoUrgentBlood._id,
@@ -979,7 +1004,7 @@ async function main() {
   );
 
   donations.noorRejected = await ensureDonation(
-    { donorId: donors.noor._id, requestId: requests.gizaOminus._id, status: 'rejected' },
+    { donorId: donors.noor._id, requestId: requests.gizaOminus._id },
     {
       donorId: donors.noor._id,
       requestId: requests.gizaOminus._id,
@@ -990,29 +1015,29 @@ async function main() {
   );
 
   donations.cairoResponderPending = await ensureDonation(
-    { donorId: donors.cairoResponder._id, requestId: requests.cairoCriticalBlood._id, status: 'pending' },
+    { donorId: donors.cairoResponder._id, requestId: requests.cairoCriticalBlood._id },
     {
       donorId: donors.cairoResponder._id,
       requestId: requests.cairoCriticalBlood._id,
-      status: 'pending',
+      status: 'completed',
       quantity: 1,
       notes: 'Nearby responder accepted urgent O+ request for Cairo Care Hospital.',
     }
   );
 
   donations.gizaResponderPending = await ensureDonation(
-    { donorId: donors.gizaResponder._id, requestId: requests.gizaHighBlood._id, status: 'pending' },
+    { donorId: donors.gizaResponder._id, requestId: requests.gizaHighBlood._id },
     {
       donorId: donors.gizaResponder._id,
       requestId: requests.gizaHighBlood._id,
-      status: 'pending',
+      status: 'completed',
       quantity: 1,
       notes: 'Nearby responder accepted urgent A- request for Nile Hope Medical Center.',
     }
   );
 
   donations.leilaCancelled = await ensureDonation(
-    { donorId: donors.leila._id, requestId: requests.gizaCancelledBlood._id, status: 'cancelled' },
+    { donorId: donors.leila._id, requestId: requests.gizaCancelledBlood._id },
     {
       donorId: donors.leila._id,
       requestId: requests.gizaCancelledBlood._id,
@@ -1023,7 +1048,7 @@ async function main() {
   );
 
   donations.mariam_plasma_completed = await ensureDonation(
-    { donorId: donors.mariam._id, requestId: requests.cairoPlasma._id, status: 'completed' },
+    { donorId: donors.mariam._id, requestId: requests.cairoPlasma._id },
     {
       donorId: donors.mariam._id,
       requestId: requests.cairoPlasma._id,
@@ -1035,7 +1060,7 @@ async function main() {
   );
 
   donations.leila_platelets_pending = await ensureDonation(
-    { donorId: donors.leila._id, requestId: requests.gizaPlatelets._id, status: 'pending' },
+    { donorId: donors.leila._id, requestId: requests.gizaPlatelets._id },
     {
       donorId: donors.leila._id,
       requestId: requests.gizaPlatelets._id,
@@ -1046,7 +1071,7 @@ async function main() {
   );
 
   donations.mariam_double_red_cells_completed = await ensureDonation(
-    { donorId: donors.mariam._id, requestId: requests.cairoDoubleRedCells._id, status: 'completed' },
+    { donorId: donors.mariam._id, requestId: requests.cairoDoubleRedCells._id },
     {
       donorId: donors.mariam._id,
       requestId: requests.cairoDoubleRedCells._id,
@@ -1058,7 +1083,7 @@ async function main() {
   );
 
   donations.cairoResponderEmergency = await ensureDonation(
-    { donorId: donors.cairoResponder._id, requestId: requests.cairoEmergencyForResponder._id, status: 'pending' },
+    { donorId: donors.cairoResponder._id, requestId: requests.cairoEmergencyForResponder._id },
     {
       donorId: donors.cairoResponder._id,
       requestId: requests.cairoEmergencyForResponder._id,
@@ -1069,7 +1094,7 @@ async function main() {
   );
 
   donations.gizaResponderEmergency = await ensureDonation(
-    { donorId: donors.gizaResponder._id, requestId: requests.gizaEmergencyForResponder._id, status: 'pending' },
+    { donorId: donors.gizaResponder._id, requestId: requests.gizaEmergencyForResponder._id },
     {
       donorId: donors.gizaResponder._id,
       requestId: requests.gizaEmergencyForResponder._id,
@@ -1135,7 +1160,7 @@ async function main() {
     {
       donorId: donors.noor._id,
       hospitalId: hospitals.cairoCare._id,
-      requestId: null,
+      requestId: requests.cairoAvailableCritical._id,
       appointmentDate: futureDate(2, 12),
       status: 'confirmed',
       notes: '[demo-seed] appointment-noor-verify',
@@ -1152,7 +1177,7 @@ async function main() {
       hospitalId: hospitals.cairoCare._id,
       requestId: requests.cairoDoubleRedCells._id,
       appointmentDate: futureDate(6, 11),
-      status: 'confirmed',
+      status: 'completed',
       notes: '[demo-seed] appointment-mariam-double-red-cells',
       qrToken: 'demo-qr-mariam-double-red-cells',
       qrExpiresAt: futureDate(7, 11),

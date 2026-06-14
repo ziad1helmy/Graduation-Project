@@ -150,6 +150,27 @@ describe('GET /hospital/find-donors', () => {
     expect(res.body.data.donors[0].distanceKm).toBeLessThan(res.body.data.donors[1].distanceKm);
   });
 
+  it('groups nearby donors by blood type when requested', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    await createDonor({ bloodType: 'A+' });
+    await createDonor({ bloodType: 'A+' });
+    await createDonor({ bloodType: 'O-' });
+
+    const res = await request(app)
+      .get('/hospital/find-donors?radiusKm=5&groupBy=bloodType')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.groups).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ bloodType: 'A+', count: 2 }),
+        expect.objectContaining({ bloodType: 'O-', count: 1 }),
+      ])
+    );
+  });
+
   it('applies radius filtering', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
@@ -435,6 +456,31 @@ describe('PUT /hospital/profile', () => {
       .put('/hospital/profile')
       .send({ fullName: 'Hacker' });
     expect(res.status).toBe(401);
+  });
+});
+
+describe('PUT /hospital/profile/location', () => {
+  it('updates hospital address fields used by the change location dialog', async () => {
+    const hospital = await createHospital();
+
+    const res = await request(app)
+      .put('/hospital/profile/location')
+      .set('Authorization', `Bearer ${tokenFor(hospital)}`)
+      .send({
+        address: '12 Nile Street',
+        city: 'Giza',
+        governorate: 'Giza',
+        postalCode: '12611',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.address).toMatchObject({
+      street: '12 Nile Street',
+      city: 'Giza',
+      governorate: 'Giza',
+      postalCode: '12611',
+    });
+    expect(res.body.data.location).toMatchObject({ city: 'Giza', governorate: 'Giza' });
   });
 });
 
@@ -1114,5 +1160,74 @@ describe('Hospital Dashboard & Reports', () => {
     expect(res.body.data.totalRequests).toBe(2);
     expect(res.body.data.totalResponses).toBe(2);
     expect(res.body.data.uniqueDonorsResponded).toBeUndefined();
+  });
+});
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ADDITIONAL PORTAL FEATURES (RESPONSES, CONFIRMATION, ACTIVITY)
+// ═════════════════════════════════════════════════════════════════════════════
+describe('Hospital Portal responses, confirm-donation, and activity', () => {
+  it('GET /hospital/requests/:requestId/responses returns responding donors list', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ fullName: 'John Doe', bloodType: 'A-', isOptedIn: true });
+    const req = await createRequest(hospital._id, { urgency: 'high', status: 'in-progress' });
+    await createDonation(donor._id, req._id, { status: 'pending' });
+
+    const res = await request(app)
+      .get(`/hospital/requests/${req._id}/responses`)
+      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.donors).toBeDefined();
+    expect(res.body.data.donors).toHaveLength(1);
+    expect(res.body.data.donors[0].donorId).toBe(donor._id.toString());
+    expect(res.body.data.donors[0].fullName).toBe('John Doe');
+    expect(res.body.data.donors[0].bloodType).toBe('A-');
+    expect(res.body.data.donors[0].isAvailable).toBe(true);
+  });
+
+  it('POST /hospital/confirm-donation confirms the donation', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor();
+    const req = await createRequest(hospital._id, { urgency: 'high', status: 'in-progress' });
+    const donation = await createDonation(donor._id, req._id, { status: 'scheduled' });
+
+    const res = await request(app)
+      .post('/hospital/confirm-donation')
+      .set('Authorization', `Bearer ${tokenFor(hospital)}`)
+      .send({ donorId: donor._id.toString(), requestId: req._id.toString() });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe('Donation confirmed');
+    expect(res.body.data.status).toBe('completed');
+
+    // Verify DB update
+    const updatedRequest = await Request.findById(req._id);
+    expect(updatedRequest.status).toBe('completed');
+
+    const updatedDonation = await Donation.findById(donation._id);
+    expect(updatedDonation.status).toBe('completed');
+  });
+
+  it('GET /hospital/activity returns recent hospital activity feed', async () => {
+    const hospital = await createHospital();
+    const donor = await createDonor({ fullName: 'Jane Smith' });
+    const req = await createRequest(hospital._id, { urgency: 'high', status: 'in-progress' });
+    await createDonation(donor._id, req._id, { status: 'pending' });
+
+    const res = await request(app)
+      .get('/hospital/activity?limit=10')
+      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.activities).toBeDefined();
+    expect(res.body.data.activities.length).toBeGreaterThan(0);
+    
+    const activityTypes = res.body.data.activities.map(a => a.type);
+    expect(activityTypes).toContain('request_created');
+    expect(activityTypes).toContain('donor_response');
   });
 });

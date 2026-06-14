@@ -6,6 +6,7 @@ import { createDonor, createHospital, createRequest } from '../helpers/factories
 import { signToken } from '../../src/utils/jwt.js';
 import Request from '../../src/models/Request.model.js';
 import Donation from '../../src/models/Donation.model.js';
+import Appointment from '../../src/models/Appointment.model.js';
 import * as stateMachine from '../../src/utils/state-machine.js';
 
 describe('Request Details Integration', () => {
@@ -72,12 +73,21 @@ describe('Request Details Integration', () => {
     expect(response.body.data.qrImage).toMatch(/^data:image\/png;base64,/);
     expect(response.body.data.qrExpiresAt).toBeDefined();
 
-    const detailResponse = await request(app)
+    // A donor who has NOT accepted sees null — the hospital request-level QR is not their token
+    const donorDetailResponse = await request(app)
       .get(`/requests/${urgentRequest._id}`)
       .set('Authorization', `Bearer ${signToken({ userId: donor._id.toString(), role: donor.role })}`);
 
-    expect(detailResponse.status).toBe(200);
-    expect(detailResponse.body.data.qrToken).toBe(response.body.data.qrToken);
+    expect(donorDetailResponse.status).toBe(200);
+    expect(donorDetailResponse.body.data.qrToken).toBeNull();
+
+    // The hospital viewer still sees the request-level QR it generated
+    const hospitalDetailResponse = await request(app)
+      .get(`/requests/${urgentRequest._id}`)
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(hospitalDetailResponse.status).toBe(200);
+    expect(hospitalDetailResponse.body.data.qrToken).toBe(response.body.data.qrToken);
   });
 
   it('POST /requests/verify-qr validates a donation QR token after donor accepts', async () => {
@@ -443,5 +453,151 @@ describe('Request Details Integration', () => {
       .set('Authorization', `Bearer ${otherToken}`);
 
     expect(detailsResponse.status).toBe(403);
+  });
+
+  it('GET /requests/:id returns donor-level QR code dynamically on accept/book/reschedule', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const urgentRequest = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      urgency: 'critical',
+      patientType: 'Accident Case',
+      contactNumber: hospital.contactNumber,
+      unitsNeeded: 3,
+      isEmergency: true,
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    // Before accept, QR fields should be null for a donor with no active donation
+    let response = await request(app)
+      .get(`/requests/${urgentRequest._id}`)
+      .set('Authorization', `Bearer ${donorToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.qrToken).toBeNull();
+    expect(response.body.data.qrCreatedAt).toBeNull();
+    expect(response.body.data.qrExpiresAt).toBeNull();
+
+    // Donor accepts the request
+    const acceptResponse = await request(app)
+      .post(`/requests/${urgentRequest._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    expect(acceptResponse.status).toBe(200);
+    const donationQrToken = acceptResponse.body.data.qrToken;
+    expect(donationQrToken).toBeDefined();
+
+    // Now GET /requests/:id should return the donation's QR token
+    response = await request(app)
+      .get(`/requests/${urgentRequest._id}`)
+      .set('Authorization', `Bearer ${donorToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.qrToken).toBe(donationQrToken);
+    expect(response.body.data.qrCreatedAt).toBeDefined();
+    expect(response.body.data.qrExpiresAt).toBeDefined();
+
+    // Donor books an appointment — appointment QR should now take precedence
+    const bookDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    bookDate.setHours(10, 0, 0, 0); // ensure exact hour for capacity checks
+    const bookResponse = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({
+        hospitalId: hospital._id.toString(),
+        requestId: urgentRequest._id.toString(),
+        appointmentDate: bookDate.toISOString(),
+        donationType: 'Whole Blood',
+        notes: 'test booking',
+      });
+
+    expect(bookResponse.status).toBe(201);
+    const apptQrToken = bookResponse.body.data.qrToken;
+    expect(apptQrToken).toBeDefined();
+    expect(apptQrToken).not.toBe(donationQrToken);
+
+    // Now GET /requests/:id should return the appointment's QR token
+    response = await request(app)
+      .get(`/requests/${urgentRequest._id}`)
+      .set('Authorization', `Bearer ${donorToken}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.data.qrToken).toBe(apptQrToken);
+
+    // Donor reschedules — a new appointment QR token must be issued
+    const rescheduleDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    rescheduleDate.setHours(11, 0, 0, 0);
+    const rescheduleResponse = await request(app)
+      .patch(`/donations/book-appointment/${bookResponse.body.data._id}`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({
+        appointmentDate: rescheduleDate.toISOString(),
+        donationType: 'Whole Blood',
+        reason: 'Change slot',
+      });
+
+    expect(rescheduleResponse.status).toBe(200);
+
+    // Now GET /requests/:id should return the rescheduled appointment's QR token
+    response = await request(app)
+      .get(`/requests/${urgentRequest._id}`)
+      .set('Authorization', `Bearer ${donorToken}`);
+
+    expect(response.status).toBe(200);
+    const newApptQrToken = response.body.data.qrToken;
+    expect(newApptQrToken).toBeDefined();
+    expect(newApptQrToken).not.toBeNull();
+    expect(newApptQrToken).not.toBe(apptQrToken);
+  });
+
+  it('GET /requests/accepted/:id returns appointment QR code when donation is scheduled', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const urgentRequest = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      urgency: 'critical',
+      patientType: 'Accident Case',
+      contactNumber: hospital.contactNumber,
+      unitsNeeded: 3,
+      isEmergency: true,
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    // Donor accepts
+    await request(app)
+      .post(`/requests/${urgentRequest._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    // Donor books appointment
+    const bookDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    bookDate.setHours(10, 0, 0, 0);
+    const bookResponse = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({
+        hospitalId: hospital._id.toString(),
+        requestId: urgentRequest._id.toString(),
+        appointmentDate: bookDate.toISOString(),
+        donationType: 'Whole Blood',
+        notes: 'test booking',
+      });
+
+    expect(bookResponse.status).toBe(201);
+    const apptQrToken = bookResponse.body.data.qrToken;
+
+    // Get accepted details
+    const detailsResponse = await request(app)
+      .get(`/requests/accepted/${urgentRequest._id}`)
+      .set('Authorization', `Bearer ${donorToken}`);
+
+    expect(detailsResponse.status).toBe(200);
+    expect(detailsResponse.body.data.qrToken).toBe(apptQrToken);
+    expect(new Date(detailsResponse.body.data.arrivalDeadline).getTime()).toBe(new Date(bookDate).getTime());
   });
 });

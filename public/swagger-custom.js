@@ -101,8 +101,10 @@
     // Hospital
     '/hospital/dashboard': 'Dashboard & Analytics',
     '/hospital/reports/monthly': 'Dashboard & Analytics',
+    '/hospital/activity': 'Dashboard & Analytics',
 
     '/hospital/profile': 'Profile & Configuration',
+    '/hospital/profile/location': 'Profile & Configuration',
     '/hospital/appointment-settings': 'Profile & Configuration',
     '/hospital/blood-bank-settings': 'Profile & Configuration',
     '/hospital/notification-preferences': 'Profile & Configuration',
@@ -113,6 +115,8 @@
     '/hospital/requests': 'Blood Requests & Donations',
     '/hospital/requests/{requestId}': 'Blood Requests & Donations',
     '/hospital/requests/{requestId}/close': 'Blood Requests & Donations',
+    '/hospital/requests/{requestId}/responses': 'Blood Requests & Donations',
+    '/hospital/confirm-donation': 'Blood Requests & Donations',
     '/hospital/find-donors': 'Blood Requests & Donations',
     '/hospital/donors/{donorId}/appointments': 'Blood Requests & Donations',
     '/hospital/donations': 'Blood Requests & Donations',

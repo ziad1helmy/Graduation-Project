@@ -113,7 +113,7 @@ const buildDonationVerificationPayload = (donation, eligibility, sessionId = nul
       donationType: donation.requestId?.type || DONATION_TYPE_LABELS.WHOLE_BLOOD,
       qrToken: donation.qrToken || null,
       qrScannedAt: donation.qrScannedAt || null,
-      qrExpiresAt: donation.qrExpires || null,
+      qrExpiresAt: donation.qrExpiresAt || null,
       requestId: request?._id || null,
       hospital: hospital
         ? {
@@ -132,7 +132,7 @@ const buildDonationVerificationPayload = (donation, eligibility, sessionId = nul
       donationType: donation.requestId?.type || DONATION_TYPE_LABELS.WHOLE_BLOOD,
       qrToken: donation.qrToken || null,
       qrScannedAt: donation.qrScannedAt || null,
-      qrExpiresAt: donation.qrExpires || null,
+      qrExpiresAt: donation.qrExpiresAt || null,
       hospital: hospital
         ? {
             id: hospital._id,
@@ -470,7 +470,7 @@ export const verifyQr = asyncHandler(async (req, res) => {
     if (donation.verificationStatus === 'rejected') {
       throw new HttpError(409, 'Donation verification was rejected');
     }
-    if (donation.qrExpires && new Date() > new Date(donation.qrExpires)) {
+    if (donation.qrExpiresAt && new Date() > new Date(donation.qrExpiresAt)) {
       throw new HttpError(400, 'QR code expired');
     }
     if (donation.qrScannedAt) {

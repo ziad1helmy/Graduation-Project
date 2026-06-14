@@ -573,7 +573,7 @@ components:
         qrToken:
           type: string
           example: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
-        qrExpires:
+        qrExpiresAt:
           type: string
           format: date-time
           example: 2026-05-20T12:00:00.000Z
@@ -1803,15 +1803,11 @@ paths:
                     phoneNumber: '01123456789'
                     bloodType: O+
                     email: noor.ahmed@example.com
-                    gender: female
-                    dateOfBirth: 1995-01-15
                   donorDetails:
                     fullName: Noor Ahmed
                     phoneNumber: '01123456789'
                     bloodType: O+
                     email: noor.ahmed@example.com
-                    gender: female
-                    dateOfBirth: 1995-01-15
                   hospitalId:
                     _id: 69f3df915f42685cbbbcbb1b
                     hospitalName: Cairo Care Hospital
@@ -1956,7 +1952,7 @@ paths:
                         phoneNumber: '01011111111'
                         bloodType: O+
                         gender: female
-                        dateOfBirth: 1995-01-15
+                        dateOfBirth: 1995-01-15T00:00:00.000Z
                       appointment:
                         appointmentId: 69fe540565ff7785a031315c
                         donationType: Whole Blood
@@ -2039,7 +2035,7 @@ paths:
                     phoneNumber: '01011111111'
                     bloodType: O+
                     gender: female
-                    dateOfBirth: 1995-01-15
+                    dateOfBirth: 1995-01-15T00:00:00.000Z
                   appointment:
                     appointmentId: 69fe540565ff7785a031315c
                     donationType: Whole Blood
@@ -2083,8 +2079,10 @@ paths:
               properties:
                 appointmentDate:
                   type: string
-                  format: date-time
-                  description: New date and time of the appointment (alternative to date/time parameters)
+                  description: New date of the appointment (YYYY-MM-DD) or full date-time timestamp
+                appointmentTime:
+                  type: string
+                  description: New time of the appointment (HH:MM or HH:MM AM/PM) when appointmentDate is date-only
                 date:
                   type: string
                   format: date
@@ -2102,8 +2100,8 @@ paths:
                   type: string
                   description: Optional donor-provided reason for rescheduling (legacy alias for 'notes')
             example:
-              date: "2026-06-20"
-              time: "12:00 PM"
+              appointmentDate: "2026-05-15"
+              appointmentTime: "02:00 PM"
               donationType: Plasma
               notes: Travel conflict
       responses:
@@ -2117,54 +2115,13 @@ paths:
                 data:
                   _id: 69fe540565ff7785a031315c
                   appointmentId: 69fe540565ff7785a031315c
-                  donorId: 69f3df915f42685cbbbcbb18
-                  hospitalId: 69f3df915f42685cbbbcbb1b
-                  requestId: 69fe540565ff7785a031314f
-                  appointmentDate: 2026-05-15T14:00:00.000Z
-                  appointmentTime: 02:00 PM
-                  appointmentDay: 2026-05-15
+                  appointmentDate: "2026-05-15"
+                  appointmentTime: "02:00 PM"
                   status: pending
-                  notes: Donation follow-up appointment
-                  qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
                   donationType: Plasma
-                  donor:
-                    donorId: 69f3df915f42685cbbbcbb18
-                    firstName: Aya
-                    lastName: Hassan
-                    fullName: Aya Hassan
-                    email: aya.hassan@lifelink.demo
-                    phoneNumber: '01011111111'
-                    bloodType: O+
-                    gender: female
-                    dateOfBirth: 1995-01-15
-                  appointment:
-                    appointmentId: 69fe540565ff7785a031315c
-                    donationType: Plasma
-                    appointmentDate: 2026-05-15T14:00:00.000Z
-                    appointmentTime: 02:00 PM
-                    status: pending
-                    hospitalId: 69f3df915f42685cbbbcbb1b
+                  hospitalId:
+                    _id: 69f3df915f42685cbbbcbb1b
                     hospitalName: Cairo Care Hospital
-                  hospital:
-                    hospitalId: 69f3df915f42685cbbbcbb1b
-                    id: 69f3df915f42685cbbbcbb1b
-                    name: Cairo Care Hospital
-                    hospitalName: Cairo Care Hospital
-                  request:
-                    requestId: 69fe540565ff7785a031314f
-                    id: 69fe540565ff7785a031314f
-                    urgencyLevel: high
-                    unitsNeeded: 2
-                    notes: Donation follow-up appointment
-                  rescheduleHistory:
-                    - previousAppointmentDate: 2026-05-12T10:00:00.000Z
-                      newAppointmentDate: 2026-05-15T14:00:00.000Z
-                      previousDonationType: Whole Blood
-                      newDonationType: Plasma
-                      reason: Travel conflict
-                      rescheduledAt: 2026-05-10T09:30:00.000Z
-                  createdAt: 2026-05-08T09:00:00.000Z
-                  updatedAt: 2026-05-08T09:00:00.000Z
         "400":
           description: Invalid appointment payload or reschedule not allowed for the selected appointment/request
         "401":
@@ -2463,7 +2420,7 @@ paths:
                   quantity: 1
                   status: pending
                   qrToken: 8f3a4f2f6a6d4f3a9e2c1b0a7d6c5e4f3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d
-                  qrExpires: 2026-05-20T12:00:00.000Z
+                  qrExpiresAt: 2026-05-20T12:00:00.000Z
         "400":
           description: Invalid request or eligibility check failed
         "409":
@@ -4476,6 +4433,53 @@ paths:
                   totalDonations: 7
                   totalResponses: 7
                   responsesToday: 2
+  /hospital/activity:
+    get:
+      tags:
+        - Hospital
+      summary: Get hospital recent activity feed
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Maximum number of activity items to return
+          example: 10
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+          example: 1
+      responses:
+        "200":
+          description: Hospital activity retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Hospital activity retrieved successfully
+                data:
+                  activities:
+                    - type: donor_response
+                      title: New donor response - Sarah J.
+                      subtitle: O+ donor responded
+                      status: active
+                      timestamp: "2026-05-12T10:00:00.000Z"
+                      donorPhone: "01012345678"
+                    - type: request_created
+                      title: Request created - A-
+                      subtitle: units needed 2
+                      status: active
+                      timestamp: "2026-05-12T08:20:00.000Z"
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Access denied - role not allowed
   /hospital/reports/monthly:
     get:
       tags:
@@ -4673,6 +4677,76 @@ paths:
           description: Missing or invalid JWT token
         "403":
           description: Access denied - hospital role required
+        "404":
+          description: Hospital profile not found
+  /hospital/profile/location:
+    put:
+      tags:
+        - Hospital
+      summary: Update hospital location profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                address:
+                  type: string
+                  example: "123 El-Tahrir St"
+                city:
+                  type: string
+                  example: "Cairo"
+                governorate:
+                  type: string
+                  example: "Cairo"
+                postalCode:
+                  type: string
+                  example: "11511"
+      responses:
+        "200":
+          description: Hospital location updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Hospital location updated successfully
+                data:
+                  _id: 66f100000000000000000001
+                  fullName: Cairo Care Operations
+                  hospitalName: Cairo Care Hospital
+                  type: hospital
+                  hospitalType: General Hospital
+                  contactNumber: "1044444444"
+                  address:
+                    street: "123 El-Tahrir St"
+                    city: "Cairo"
+                    governorate: "Cairo"
+                    postalCode: "11511"
+                  city: "Cairo"
+                  state: "Cairo"
+                  zipCode: "11511"
+                  location:
+                    city: "Cairo"
+                    governorate: "Cairo"
+                    coordinates:
+                      lat: 30.0444
+                      lng: 31.2357
+                  stats:
+                    totalRequests: 11
+                    pendingRequests: 3
+                    completedRequests: 7
+                    cancelledRequests: 1
+                    expiredRequests: 0
+                    totalDonors: 9
+                    totalDonations: 9
+                    completedDonations: 9
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - role not allowed
         "404":
           description: Hospital profile not found
   /hospital/appointment-settings:
@@ -5597,6 +5671,10 @@ paths:
                       unitsNeeded: 2
                       unitsRequested: 2
                       requiredBy: 2026-05-18T18:00:00.000Z
+                      createdAt: 2026-05-16T18:00:00.000Z
+                      requestDate: 2026-05-16T18:00:00.000Z
+                      donorsResponded: 5
+                      donorsConfirmed: 2
                     - _id: 69fe540565ff7785a0313153
                       id: 69fe540565ff7785a0313153
                       requestId: 69fe540565ff7785a0313153
@@ -5610,6 +5688,10 @@ paths:
                       unitsNeeded: 1
                       unitsRequested: 1
                       requiredBy: 2026-05-19T10:00:00.000Z
+                      createdAt: 2026-05-18T10:00:00.000Z
+                      requestDate: 2026-05-18T10:00:00.000Z
+                      donorsResponded: 0
+                      donorsConfirmed: 0
                   pagination:
                     total: 2
                     page: 1
@@ -5823,6 +5905,43 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /hospital/requests/{requestId}/responses:
+    get:
+      tags:
+        - Hospital
+      summary: Get list of donors who responded to a specific request
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: requestId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a0313150
+      responses:
+        "200":
+          description: Request responses retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Request responses retrieved successfully
+                data:
+                  donors:
+                    - donorId: 69f3df915f42685cbbbcbb18
+                      fullName: Sarah J.
+                      bloodType: O+
+                      isAvailable: true
+                      phoneNumber: "01012345678"
+                      responseStatus: pending
+                      respondedAt: 2026-05-18T10:00:00.000Z
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed or unauthorized access to this request
+        "404":
+          description: Request not found
   /hospital/find-donors:
     get:
       tags:
@@ -5938,55 +6057,80 @@ paths:
             default: 20
           description: Page size
           example: 20
+        - in: query
+          name: groupBy
+          required: false
+          schema:
+            type: string
+            enum:
+              - bloodType
+          description: Optional grouping logic. If set to bloodType, returns donors grouped by blood type.
+          example: bloodType
       responses:
         "200":
           description: Nearby donors retrieved successfully
           content:
             application/json:
-              example:
-                success: true
-                message: Nearby donors retrieved successfully
-                data:
-                  donors:
-                    - id: 69f3df915f42685cbbbcbb18
-                      donorId: 69f3df915f42685cbbbcbb18
-                      name: Sarah J.
-                      fullName: Sarah J.
-                      bloodType: O+
-                      email: sarah.j@example.com
-                      phoneNumber: "01012345678"
-                      distance: 2.30 km
-                      distanceInKm: 2.3
-                      distanceKm: 2.3
-                      distanceMeters: 2300
-                      isOptedIn: true
-                      latitude: 30.0444
-                      longitude: 31.2357
-                      location:
-                        lat: 30.0444
-                        lng: 31.2357
-                    - id: 69f3df915f42685cbbbcbb19
-                      donorId: 69f3df915f42685cbbbcbb19
-                      name: Omar F.
-                      fullName: Omar F.
-                      bloodType: O-
-                      email: omar.f@example.com
-                      phoneNumber: "01098765432"
-                      distance: 4.10 km
-                      distanceInKm: 4.1
-                      distanceKm: 4.1
-                      distanceMeters: 4100
-                      isOptedIn: true
-                      latitude: 30.061
-                      longitude: 31.229
-                      location:
-                        lat: 30.061
-                        lng: 31.229
-                  pagination:
-                    page: 1
-                    limit: 20
-                    total: 2
-                    totalPages: 1
+              examples:
+                flatList:
+                  summary: Flat list of compatible donors sorted by proximity
+                  value:
+                    success: true
+                    message: Nearby donors retrieved successfully
+                    data:
+                      donors:
+                        - id: 69f3df915f42685cbbbcbb18
+                          donorId: 69f3df915f42685cbbbcbb18
+                          name: Sarah J.
+                          fullName: Sarah J.
+                          bloodType: O+
+                          email: sarah.j@example.com
+                          phoneNumber: "01012345678"
+                          distance: 2.30 km
+                          distanceInKm: 2.3
+                          distanceKm: 2.3
+                          distanceMeters: 2300
+                          isOptedIn: true
+                          latitude: 30.0444
+                          longitude: 31.2357
+                          location:
+                            lat: 30.0444
+                            lng: 31.2357
+                        - id: 69f3df915f42685cbbbcbb19
+                          donorId: 69f3df915f42685cbbbcbb19
+                          name: Omar F.
+                          fullName: Omar F.
+                          bloodType: O-
+                          email: omar.f@example.com
+                          phoneNumber: "01098765432"
+                          distance: 4.10 km
+                          distanceInKm: 4.1
+                          distanceKm: 4.1
+                          distanceMeters: 4100
+                          isOptedIn: true
+                          latitude: 30.061
+                          longitude: 31.229
+                          location:
+                            lat: 30.061
+                            lng: 31.229
+                      pagination:
+                        page: 1
+                        limit: 20
+                        total: 2
+                        totalPages: 1
+                groupedList:
+                  summary: Nearby donors grouped by blood type
+                  value:
+                    success: true
+                    message: Nearby donor groups retrieved successfully
+                    data:
+                      groups:
+                        - bloodType: O+
+                          count: 5
+                          nearestDistanceKm: 2.3
+                        - bloodType: A-
+                          count: 2
+                          nearestDistanceKm: 4.5
         "400":
           description: Invalid query parameters or missing coordinates
         "401":
@@ -6071,6 +6215,50 @@ paths:
           description: Access denied - role not allowed
         "404":
           description: Donor or hospital not found
+  /hospital/confirm-donation:
+    post:
+      tags:
+        - Hospital
+      summary: Confirm a donation response via QR Scanner
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - donorId
+                - requestId
+              properties:
+                donorId:
+                  type: string
+                  example: 69f3df915f42685cbbbcbb18
+                requestId:
+                  type: string
+                  example: 69fe540565ff7785a0313150
+      responses:
+        "200":
+          description: Donation confirmed successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donation confirmed
+                data:
+                  requestId: 69fe540565ff7785a0313150
+                  donorId: 69f3df915f42685cbbbcbb18
+                  donationId: 69fe540565ff7785a0313157
+                  status: completed
+        "400":
+          description: Invalid payload, invalid IDs, or request is not in accepted/in-progress status
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed or unauthorized access to this request
+        "404":
+          description: Request, donor, or active donation response not found
   /hospital/donations:
     get:
       tags:

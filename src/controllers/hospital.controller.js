@@ -1,6 +1,7 @@
 import response from '../utils/response.js';
 import mongoose from 'mongoose';
 import Hospital from '../models/Hospital.model.js';
+import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import NotificationOutbox from '../models/NotificationOutbox.model.js';
@@ -487,7 +488,7 @@ export const getProfile = asyncHandler(async (req, res) => {
   response.success(res, 200, 'Hospital profile retrieved successfully', toHospitalProfilePayload(hospital, stats));
 });
 
-export const toHospitalRequestResponse = (requestDoc) => {
+export const toHospitalRequestResponse = (requestDoc, metrics = {}) => {
   const request = requestDoc?.toObject ? requestDoc.toObject() : { ...requestDoc };
   const unitsNeeded = Number(request.unitsNeeded ?? request.quantity ?? 1);
   const status = request.status || null;
@@ -507,6 +508,10 @@ export const toHospitalRequestResponse = (requestDoc) => {
     isFulfilled,
     status,
     requestStatus: status,
+    createdAt: request.createdAt,
+    requestDate: request.createdAt,
+    donorsResponded: Number(metrics.donorsResponded || 0),
+    donorsConfirmed: Number(metrics.donorsConfirmed || 0),
     hospital: hospital
       ? {
           id: hospital._id?.toString?.() || null,
@@ -590,6 +595,27 @@ export const findDonors = asyncHandler(async (req, res) => {
 
   const paginatedDonors = donors.slice(offset, offset + limit);
   const pagination = paginationMeta(donors.length, page, limit);
+
+  if (req.query.groupBy === 'bloodType') {
+    const grouped = donors.reduce((groupsByBloodType, donor) => {
+      const existing = groupsByBloodType.get(donor.bloodType) || {
+        bloodType: donor.bloodType,
+        count: 0,
+        nearestDistanceKm: null,
+      };
+
+      existing.count += 1;
+      if (donor.distanceKm !== null && (existing.nearestDistanceKm === null || donor.distanceKm < existing.nearestDistanceKm)) {
+        existing.nearestDistanceKm = donor.distanceKm;
+      }
+      groupsByBloodType.set(donor.bloodType, existing);
+      return groupsByBloodType;
+    }, new Map());
+
+    return response.success(res, 200, 'Nearby donor groups retrieved successfully', {
+      groups: [...grouped.values()].sort((left, right) => left.bloodType.localeCompare(right.bloodType)),
+    });
+  }
 
   return response.success(res, 200, 'Nearby donors retrieved successfully', {
     donors: paginatedDonors,
@@ -695,6 +721,59 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   response.success(res, 200, 'Hospital profile updated successfully', toHospitalProfilePayload(hospital, stats));
 });
+
+export const updateProfileLocation = asyncHandler(async (req, res) => {
+  const { address, city, governorate, postalCode } = req.body;
+  const hospital = await Hospital.findById(req.user.userId);
+  if (!hospital) {
+    throw new HttpError(404, 'Hospital profile not found');
+  }
+
+  const nextAddress = {
+    ...(typeof hospital.address === 'object' && hospital.address !== null ? hospital.address : {}),
+    ...(address !== undefined ? { street: address } : {}),
+    ...(city !== undefined ? { city } : {}),
+    ...(governorate !== undefined ? { governorate } : {}),
+    ...(postalCode !== undefined ? { postalCode } : {}),
+  };
+
+  hospital.address = nextAddress;
+  if (city !== undefined) hospital.city = city;
+  if (governorate !== undefined) hospital.state = governorate;
+  if (postalCode !== undefined) hospital.zipCode = postalCode;
+  hospital.location = {
+    ...(hospital.location?.toObject ? hospital.location.toObject() : hospital.location || {}),
+    ...(city !== undefined ? { city } : {}),
+    ...(governorate !== undefined ? { governorate } : {}),
+    lastUpdated: new Date(),
+  };
+
+  await hospital.save();
+
+  const stats = await buildHospitalProfileStats(req.user.userId);
+  return response.success(res, 200, 'Hospital location updated successfully', toHospitalProfilePayload(hospital, stats));
+});
+
+const buildDonationMetricsByRequest = async (requestIds) => {
+  if (requestIds.length === 0) return new Map();
+
+  const rows = await Donation.aggregate([
+    { $match: { requestId: { $in: requestIds } } },
+    {
+      $group: {
+        _id: '$requestId',
+        donorsResponded: { $sum: 1 },
+        donorsConfirmed: {
+          $sum: {
+            $cond: [{ $in: ['$status', ['scheduled', 'completed']] }, 1, 0],
+          },
+        },
+      },
+    },
+  ]);
+
+  return new Map(rows.map((row) => [row._id.toString(), row]));
+};
 
 // Create a donation request
 const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {}) => {
@@ -894,9 +973,10 @@ export const getRequests = asyncHandler(async (req, res) => {
     Request.find(filter).skip(offset).limit(limit).sort({ createdAt: -1 }),
     Request.countDocuments(filter),
   ]);
+  const requestMetrics = await buildDonationMetricsByRequest(requests.map((item) => item._id));
 
   response.success(res, 200, 'Requests retrieved successfully', {
-    requests: requests.map(toHospitalRequestResponse),
+    requests: requests.map((item) => toHospitalRequestResponse(item, requestMetrics.get(item._id.toString()))),
     pagination: paginationMeta(total, page, limit),
   });
 });
@@ -957,6 +1037,103 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
 
   const responseData = formatRequestDetailResponse(request, donations);
   response.success(res, 200, 'Request details retrieved successfully', responseData);
+});
+
+export const getRequestResponses = asyncHandler(async (req, res) => {
+  const { requestId } = req.params;
+  const request = await Request.findById(requestId).select('hospitalId');
+  if (!request) {
+    throw new HttpError(404, 'Request not found');
+  }
+  if (request.hospitalId.toString() !== req.user.userId.toString()) {
+    throw new HttpError(403, 'Unauthorized access to this request');
+  }
+
+  const donations = await Donation.find({ requestId })
+    .populate('donorId', 'fullName phoneNumber bloodType isOptedIn')
+    .sort({ createdAt: -1 });
+
+  const donors = donations
+    .filter((donation) => donation.donorId)
+    .map((donation) => ({
+      donorId: donation.donorId._id.toString(),
+      fullName: donation.donorId.fullName,
+      bloodType: donation.donorId.bloodType,
+      isAvailable: Boolean(donation.donorId.isOptedIn ?? true),
+      phoneNumber: donation.donorId.phoneNumber || null,
+      responseStatus: donation.status,
+      respondedAt: donation.createdAt,
+    }));
+
+  return response.success(res, 200, 'Request responses retrieved successfully', { donors });
+});
+
+export const confirmDonation = asyncHandler(async (req, res) => {
+  const { donorId, requestId } = req.body;
+  if (!mongoose.Types.ObjectId.isValid(donorId) || !mongoose.Types.ObjectId.isValid(requestId)) {
+    throw new HttpError(400, 'donorId and requestId must be valid ids');
+  }
+
+  const request = await Request.findById(requestId);
+  if (!request) {
+    throw new HttpError(404, 'Request not found');
+  }
+  if (request.hospitalId.toString() !== req.user.userId.toString()) {
+    throw new HttpError(403, 'Unauthorized access to this request');
+  }
+
+  const donation = await Donation.findOne({
+    donorId,
+    requestId,
+    status: { $in: ['pending', 'scheduled'] },
+  });
+  if (!donation) {
+    throw new HttpError(404, 'Active donor response not found');
+  }
+
+  if (!['accepted', 'in-progress'].includes(request.status)) {
+    throw new HttpError(400, 'Request must be accepted or in-progress before confirming donation');
+  }
+
+  const donor = await Donor.findById(donorId);
+  if (!donor) {
+    throw new HttpError(404, 'Donor not found');
+  }
+
+  const session = await mongoose.startSession();
+  const completedAt = new Date();
+  try {
+    await session.withTransaction(async () => {
+      validateTransition('donation', donation.status, 'completed');
+      validateTransition('request', request.status, 'completed');
+
+      donation.status = 'completed';
+      donation.completedDate = completedAt;
+      donation.qrUsed = true;
+      donation.qrUsedAt = completedAt;
+      await donation.save({ session });
+
+      request.status = 'completed';
+      request.completedAt = completedAt;
+      request.acceptedBy = donor._id;
+      request.acceptedByName = donor.fullName || null;
+      request.acceptedByPhoneNumber = donor.phoneNumber || null;
+      request.acceptedByBloodType = donor.bloodType || null;
+      request.acceptedDonationId = donation._id;
+      await request.save({ session });
+
+      await Donor.findByIdAndUpdate(donor._id, { lastDonationDate: completedAt }, { session });
+    });
+  } finally {
+    session.endSession();
+  }
+
+  return response.success(res, 200, 'Donation confirmed', {
+    requestId: request._id.toString(),
+    donorId: donor._id.toString(),
+    donationId: donation._id.toString(),
+    status: 'completed',
+  });
 });
 
 // Update request status and details
@@ -1474,6 +1651,71 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
     recentCompletedDonationCount,
     responsesToday,
   });
+});
+
+const activityBloodTypeLabel = (request) => normalizeBloodTypeList(request?.bloodType).join(', ') || 'blood';
+
+const toRequestActivity = (request) => ({
+  type: request.status === 'completed' ? 'request_fulfilled' : 'request_created',
+  title: `${request.status === 'completed' ? 'Request fulfilled' : 'Request created'} - ${activityBloodTypeLabel(request)}`,
+  subtitle: request.status === 'completed'
+    ? `units received ${request.unitsNeeded ?? request.quantity ?? 1}`
+    : `units needed ${request.unitsNeeded ?? request.quantity ?? 1}`,
+  status: request.status === 'completed' ? 'completed' : 'active',
+  timestamp: (request.completedAt || request.createdAt).toISOString(),
+});
+
+const toDonorResponseActivity = (donation) => {
+  const donor = donation.donorId;
+  const request = donation.requestId;
+  return {
+    type: 'donor_response',
+    title: `New donor response - ${donor?.fullName || 'Donor'}`,
+    subtitle: `${donor?.bloodType || activityBloodTypeLabel(request)} donor responded`,
+    status: request?.status === 'completed' ? 'completed' : 'active',
+    timestamp: donation.createdAt.toISOString(),
+    donorPhone: donor?.phoneNumber || null,
+  };
+};
+
+export const getActivity = asyncHandler(async (req, res) => {
+  const { limit } = parsePagination(req.query, 10);
+  const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
+
+  const [requests, donations] = await Promise.all([
+    Request.find({ hospitalId: hospitalObjectId })
+      .select('bloodType unitsNeeded quantity status createdAt completedAt')
+      .sort({ createdAt: -1 })
+      .limit(limit),
+    Donation.aggregate([
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'requestId',
+          foreignField: '_id',
+          as: 'request',
+        },
+      },
+      { $unwind: '$request' },
+      { $match: { 'request.hospitalId': hospitalObjectId } },
+      { $sort: { createdAt: -1 } },
+      { $limit: limit },
+    ]),
+  ]);
+
+  const populatedDonations = await Donation.populate(donations, [
+    { path: 'donorId', select: 'fullName phoneNumber bloodType' },
+    { path: 'requestId', select: 'bloodType status' },
+  ]);
+
+  const activities = [
+    ...requests.map(toRequestActivity),
+    ...populatedDonations.map(toDonorResponseActivity),
+  ]
+    .sort((left, right) => new Date(right.timestamp) - new Date(left.timestamp))
+    .slice(0, limit);
+
+  return response.success(res, 200, 'Hospital activity retrieved successfully', { activities });
 });
 
 export const getRequestHistory = asyncHandler(async (req, res) => {

@@ -1,4 +1,3 @@
-import crypto from 'crypto';
 import response from '../utils/response.js';
 import mongoose from 'mongoose';
 import Donor from '../models/Donor.model.js';
@@ -8,6 +7,7 @@ import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import * as matchingService from '../services/matching.service.js';
 import * as donationService from '../services/donation.service.js';
+import * as requestService from '../services/request.service.js';
 import * as notificationService from '../services/notification.service.js';
 import * as activityService from '../services/activity.service.js';
 import * as eligibilityService from '../services/eligibility.service.js';
@@ -17,14 +17,10 @@ import * as rewardService from '../services/reward.service.js';
 import { formatActivityForTimeline } from '../utils/activity.formatter.js';
 import { buildRequestPayload, buildDonorRequestSummary } from './request.controller.js';
 import { formatBloodTypeLabel, normalizeBloodTypeList } from '../utils/blood-type.js';
-import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
-import { validateOrphanState, validateTransition } from '../utils/state-machine.js';
-import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 import { extractLocation } from '../utils/geo.js';
 import { checkDonorMatchGuard, optedOutResponse } from '../utils/donor-guard.js';
-import { serializeDateOfBirth } from '../utils/format.js';
 
 const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
 
@@ -41,16 +37,6 @@ const getActiveAppointmentNotice = async (donorId) => {
   return {
     reason: 'ACTIVE_APPOINTMENT_EXISTS',
     message: 'You have an active appointment. Complete or cancel it to see new requests.',
-  };
-};
-
-const DONATION_QR_TTL_MS = 2 * 60 * 60 * 1000;
-
-const createDonationQrPayload = () => {
-  const now = new Date();
-  return {
-    qrToken: crypto.randomBytes(32).toString('hex'),
-    qrExpires: new Date(now.getTime() + DONATION_QR_TTL_MS),
   };
 };
 
@@ -95,7 +81,7 @@ export const getProfile = asyncHandler(async (req, res) => {
 
   const badgeProgress = { currentBadge, nextBadge, progressPercentage };
 
-  const donorObj = serializeDateOfBirth(donor);
+  const donorObj = donor.toObject ? donor.toObject() : { ...donor };
 
   response.success(res, 200, 'Donor profile retrieved successfully', {
     ...donorObj,
@@ -183,7 +169,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
     console.error('Activity log error:', error.message);
   });
 
-  const donorObj = serializeDateOfBirth(donor);
+  const donorObj = donor.toObject();
   delete donorObj.password;
 
   response.success(res, 200, 'Donor profile updated successfully', donorObj);
@@ -269,110 +255,28 @@ export const getMatches = asyncHandler(async (req, res) => {
 });
 
 // Respond to a request (create a donation)
+// Delegates the core "accept + create donation + issue QR" logic to
+// `requestService.acceptRequest` so this route stays in sync with
+// `POST /requests/:id/accept` and the urgency-based QR TTL.
 export const respondToRequest = asyncHandler(async (req, res) => {
   const { requestId } = req.params;
   const { quantity } = req.body;
   const donorId = req.user.userId;
 
-  let createdDonation = null;
+  let createdDonation;
   try {
-    const donor = await Donor.findById(donorId);
-    if (!donor) throw new HttpError(404, 'Donor not found');
+    const result = await requestService.acceptRequest({ donorId, requestId, quantity });
+    createdDonation = result.donation;
 
-    const session = await mongoose.startSession();
-    try {
-      await session.withTransaction(async () => {
-        // Re-fetch request in-session
-        const request = await Request.findById(requestId).session(session);
-        if (!request) {
-          throw new HttpError(404, 'Request not found');
-        }
-
-        if (request.status !== 'pending') {
-          throw new HttpError(400, 'This request is no longer accepting responses');
-        }
-
-        try {
-          validateTransition('request', request.status, 'accepted');
-        } catch (err) {
-          throw new HttpError(400, err.message);
-        }
-
-        // Check if donor already responded (in-session)
-        const existingDonation = await Donation.findOne({
-          donorId,
-          requestId,
-          status: { $nin: ['cancelled', 'rejected'] },
-        }).session(session);
-
-        if (existingDonation) {
-          throw new HttpError(400, 'You have already responded to this request');
-        }
-
-        // Validate eligibility
-        const isEligible = await donationService.validateEligibility(donor, request);
-        if (!isEligible.eligible) {
-          throw new HttpError(400, isEligible.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
-        }
-
-        // Create donation in-session and issue a donation QR for donor confirmation.
-        const urgencyKey = request.isEmergency ? 'emergency' : (request.urgency || 'medium');
-        const timeouts = URGENCY_TIMEOUTS[urgencyKey] || URGENCY_TIMEOUTS.medium;
-        const arrivalWindowMs = timeouts.arrivalWindowMs;
-        const now = new Date();
-        const qrExpires = new Date(now.getTime() + arrivalWindowMs);
-        const qrToken = crypto.randomBytes(32).toString('hex');
-
-        const [donation] = await Donation.create([
-          {
-            donorId,
-            requestId,
-            quantity: quantity || 1,
-            status: 'pending',
-            qrToken,
-            qrExpires,
-            arrivalDeadline: qrExpires,
-          },
-        ], { session });
-        createdDonation = donation;
-
-        // Atomically update request only if still pending
-        const updatedRequest = await Request.findOneAndUpdate(
-          { _id: requestId, status: 'pending' },
-          {
-            $set: {
-              status: 'accepted',
-              acceptedBy: donorId,
-              acceptedByName: donor.fullName || null,
-              acceptedByPhoneNumber: donor.phoneNumber || null,
-              acceptedByBloodType: donor.bloodType || null,
-              acceptedAt: new Date(),
-              acceptedDonationId: donation._id,
-            },
-          },
-          { session, returnDocument: 'after' },
-        );
-
-        if (!updatedRequest) {
-          throw new HttpError(409, 'Request was accepted by another donor');
-        }
-
-        // Validate orphan state inside transaction
-        validateOrphanState('request', updatedRequest, { donation });
-
-        // Create NotificationOutbox entry for match notifications
-        await NotificationOutbox.create([
-          {
-            requestId: updatedRequest._id,
-            userId: updatedRequest.hospitalId,
-            donorIds: [donorId],
-            type: 'match',
-            status: 'pending',
-          },
-        ], { session });
-      });
-    } finally {
-      session.endSession();
+    const updatedRequest = await Request.findById(requestId).lean();
+    if (updatedRequest) {
+      await NotificationOutbox.create({
+        requestId: updatedRequest._id,
+        userId: updatedRequest.hospitalId,
+        donorIds: [donorId],
+        type: 'match',
+        status: 'pending',
+      }).catch((error) => console.error('NotificationOutbox create error:', error.message));
     }
   } catch (error) {
     if (error instanceof HttpError) throw error;
