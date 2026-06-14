@@ -9,6 +9,7 @@ import {
   BLOOD_TYPE_VALUES,
   normalizeBloodTypeList,
 } from '../utils/blood-type.js';
+import { PATIENT_TYPE_ENUM } from '../constants/request.constants.js';
 
 const isValidNumber = (value) => Number.isFinite(Number(value));
 
@@ -108,7 +109,7 @@ export const validateCreateRequestBody = (body = {}) => {
   const errors = [];
   const validUrgencies = ['low', 'medium', 'high', 'critical'];
 
-  const { type, urgency, requiredBy, date, time, isEmergency } = body;
+  const { type, urgency, requiredBy, date, time, isEmergency, patientType, cause } = body;
   const bloodTypeInput = body.bloodTypes !== undefined ? body.bloodTypes : body.bloodType;
   const normalizedBloodTypes = normalizeBloodTypeList(bloodTypeInput);
 
@@ -123,6 +124,14 @@ export const validateCreateRequestBody = (body = {}) => {
 
   if (urgency && !validUrgencies.includes(urgency)) {
     errors.push('Urgency must be low, medium, high, or critical');
+  }
+
+  if (patientType && !PATIENT_TYPE_ENUM.includes(patientType)) {
+    errors.push(`patientType must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`);
+  }
+
+  if (cause && !PATIENT_TYPE_ENUM.includes(cause)) {
+    errors.push(`cause must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`);
   }
 
   if (['blood', 'double_red_cells'].includes(type) && normalizedBloodTypes.length === 0) {

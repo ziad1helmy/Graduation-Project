@@ -19,7 +19,7 @@ describe('Request Details Integration', () => {
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
       urgency: 'critical',
-      patientType: 'Accident Case',
+      patientType: 'accident',
       contactNumber: hospital.contactNumber,
       unitsNeeded: 3,
       isEmergency: true,
@@ -39,7 +39,7 @@ describe('Request Details Integration', () => {
       : response.body.data.bloodType;
     expect(respBlood).toBe(donor.bloodType);
     expect(response.body.data.hospitalName).toContain('Test Hospital');
-    expect(response.body.data.patientType).toBe('Accident Case');
+    expect(response.body.data.patientType).toBe('accident');
     expect(response.body.data.contactNumber).toBe(hospital.contactNumber);
     expect(response.body.data.unitsNeeded).toBe(3);
     expect(response.body.data.isEmergency).toBe(true);
@@ -54,7 +54,7 @@ describe('Request Details Integration', () => {
     const donor = await createDonor();
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      patientType: 'Emergency Surgery',
+      patientType: 'surgery',
       contactNumber: hospital.contactNumber,
       isEmergency: true,
       urgency: 'critical',
@@ -462,7 +462,7 @@ describe('Request Details Integration', () => {
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
       urgency: 'critical',
-      patientType: 'Accident Case',
+      patientType: 'accident',
       contactNumber: hospital.contactNumber,
       unitsNeeded: 3,
       isEmergency: true,
@@ -560,7 +560,7 @@ describe('Request Details Integration', () => {
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
       urgency: 'critical',
-      patientType: 'Accident Case',
+      patientType: 'accident',
       contactNumber: hospital.contactNumber,
       unitsNeeded: 3,
       isEmergency: true,

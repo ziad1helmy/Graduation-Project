@@ -16,7 +16,6 @@
     "fcm_token_registered": "FCM token registered successfully",
     "fcm_token_updated": "FCM token updated successfully",
     "fcm_token_removed": "FCM token removed successfully",
-
     "error_email_required": "Email is required",
     "error_password_required": "password is required",
     "error_admin_key_required": "adminKey is required",
@@ -27,7 +26,6 @@
     "error_use_admin_login": "Use /auth/admin/login for admin accounts",
     "error_invalid_role": "Invalid role"
   },
-
   "donor": {
     "profile_retrieved": "Donor profile retrieved successfully",
     "profile_updated": "Donor profile updated successfully",
@@ -50,7 +48,6 @@
     "urgent_request_already_declined": "Urgent request already declined",
     "urgent_request_declined": "Urgent request declined successfully",
     "profile_completed": "Profile Completed",
-
     "error_profile_not_found": "Donor profile not found",
     "error_not_found": "Donor not found",
     "error_request_not_found": "Request not found",
@@ -63,7 +60,6 @@
     "error_request_id_required": "requestId is required",
     "error_invalid_language": "Language must be \"en\" or \"ar\""
   },
-
   "appointment": {
     "booked": "Appointment booked",
     "retrieved": "Appointment retrieved",
@@ -71,7 +67,6 @@
     "slots_retrieved": "Available slots retrieved successfully",
     "rescheduled": "Appointment rescheduled",
     "cancelled": "Appointment cancelled",
-
     "error_hospital_date_required": "hospitalId and date are required",
     "error_appointment_id_required": "appointmentId is required",
     "error_date_required": "date is required",
@@ -91,7 +86,6 @@
     "error_must_verify_before_arrival": "Appointment must be verified before confirming arrival",
     "error_must_verify_before_donation": "Appointment must be verified before confirming donation"
   },
-
   "donation": {
     "completed": "Donation completed successfully",
     "verified": "Donation verification started successfully",
@@ -102,14 +96,12 @@
     "types_retrieved": "Donation types retrieved successfully",
     "qr_invalid": "Invalid QR code",
     "qr_already_used": "QR code already used",
-
     "error_qr_token_required": "qrToken is required",
     "error_appointment_or_donation_required": "appointmentId or donationId is required",
     "error_donor_not_eligible": "Donor not eligible",
     "error_donor_not_found": "Donor not found",
     "error_appointment_not_found": "Appointment not found"
   },
-
   "hospital": {
     "profile_retrieved": "Hospital profile retrieved successfully",
     "profile_updated": "Hospital profile updated successfully",
@@ -129,11 +121,9 @@
     "monthly_report_retrieved": "Monthly report retrieved successfully",
     "appointment_settings_retrieved": "Appointment settings retrieved successfully",
     "appointment_settings_updated": "Appointment settings updated successfully",
-
     "error_not_found": "Hospital profile not found",
     "error_invalid_blood_type": "Invalid bloodType value"
   },
-
   "eligibility": {
     "dateOfBirthRequired": "Date of birth is required",
     "minimumAge": "You must be at least 17 years old to donate",
@@ -164,7 +154,6 @@
     "donorCurrentlyUnavailable": "Donor is currently unavailable",
     "requestNoLongerActive": "The linked request is no longer active"
   },
-
   "request": {
     "details_retrieved": "Request details retrieved successfully",
     "nearby_retrieved": "Nearby requests retrieved successfully",
@@ -174,7 +163,6 @@
     "qr_generated": "QR generated successfully",
     "qr_verified": "QR verified successfully",
     "qr_verification_completed": "QR verification completed",
-
     "error_not_found": "Request not found",
     "error_invalid_id": "Invalid request id",
     "error_unauthorized": "Unauthorized",
@@ -189,18 +177,15 @@
     "error_donor_role_required": "Access denied - donor role required",
     "error_cancel_own_only": "You can only cancel your own accepted request",
     "error_donor_not_eligible": "Donor is not eligible",
-
     "validation": {
       "blood_types_required": "At least one blood type is required",
       "blood_types_empty": "Blood type list cannot be empty",
       "blood_types_invalid": "One or more blood types are invalid"
     },
-
     "matching": {
       "compatible_with_any": "Compatible with any of: {{bloodTypes}}",
       "not_compatible_with_any": "Donor blood type {{donorBloodType}} is not compatible with request blood types {{bloodTypes}}"
     },
-
     "status": {
       "pending": "Pending",
       "in_progress": "In Progress",
@@ -209,14 +194,12 @@
       "cancelled": "Cancelled",
       "declined": "Declined"
     },
-
     "notifications": {
       "new_request_title": "🚨 New Blood Request",
       "new_request_body": "{{bloodType}} needed near {{hospitalName}}. Units: {{units}}",
       "new_request_body_multi": "{{bloodTypes}} needed near {{hospitalName}}. Units: {{units}}"
     }
   },
-
   "reward": {
     "points_retrieved": "Points retrieved successfully",
     "dashboard_retrieved": "Rewards dashboard retrieved",
@@ -234,11 +217,9 @@
     "analytics_retrieved": "Rewards analytics retrieved",
     "config_retrieved": "Rewards config retrieved successfully",
     "config_updated": "Rewards config updated successfully",
-
     "error_amount_reason_required": "Amount and reason are required",
     "error_invalid_status": "Status must be ACTIVE, INACTIVE, or LIMITED",
     "error_insufficient_points": "Insufficient points",
-
     "catalog": {
       "Coffee Voucher": "Coffee Voucher",
       "Movie Tickets": "Movie Tickets",
@@ -247,7 +228,6 @@
       "Premium Badge": "Premium Badge",
       "Gym Membership": "Gym Membership"
     },
-
     "earning_rule": {
       "blood_donation": "Blood Donation",
       "plasma_donation": "Plasma Donation",
@@ -258,7 +238,6 @@
       "referral": "Referral"
     }
   },
-
   "badge": {
     "First Timer": {
       "name": "First Timer",
@@ -289,7 +268,6 @@
       "description": "Responded to 25 emergency requests"
     }
   },
-
   "tier": {
     "bronze": "Bronze",
     "silver": "Silver",
@@ -298,13 +276,24 @@
     "promoted_title": "🎉 Tier Upgraded to {{tier}}!",
     "promoted_message": "Congratulations! You've reached {{tier}} tier. Keep donating to unlock more rewards!",
     "benefits": {
-      "bronze": ["Access to basic rewards"],
-      "silver": ["10% more points per donation", "Early access to limited rewards"],
-      "gold": ["15% more points per donation", "Exclusive gold rewards"],
-      "platinum": ["20% more points per donation", "VIP support", "All exclusive rewards"]
+      "bronze": [
+        "Access to basic rewards"
+      ],
+      "silver": [
+        "10% more points per donation",
+        "Early access to limited rewards"
+      ],
+      "gold": [
+        "15% more points per donation",
+        "Exclusive gold rewards"
+      ],
+      "platinum": [
+        "20% more points per donation",
+        "VIP support",
+        "All exclusive rewards"
+      ]
     }
   },
-
   "notification": {
     "retrieved": "Notifications retrieved successfully",
     "marked_read": "Notification marked as read",
@@ -312,7 +301,6 @@
     "deleted": "Notification deleted successfully",
     "all_deleted": "All notifications deleted successfully",
     "retrieved_single": "Notification retrieved successfully",
-
     "badge_unlocked_title": "🏆 Badge Unlocked: {{badgeName}}",
     "badge_unlocked_message": "{{badgeDescription}}",
     "tier_up_title": "🎉 Tier Upgraded to {{tier}}!",
@@ -326,11 +314,9 @@
     "urgent_request_accepted_message": "You accepted an urgent {{requestType}} request with {{urgency}} urgency.",
     "urgent_request_declined_title": "Urgent Request Declined",
     "urgent_request_declined_message": "You declined an urgent {{requestType}} request with {{urgency}} urgency.",
-
     "error_invalid_id": "Invalid notification id",
     "error_not_found": "Notification not found"
   },
-
   "admin": {
     "dashboard_retrieved": "Dashboard summary",
     "users_list": "Users list",
@@ -383,7 +369,6 @@
     "inbound_email_read": "Inbound email marked as read",
     "inbound_email_archived": "Inbound email archived",
     "inbound_email_deleted": "Inbound email deleted successfully",
-
     "error_not_found": "Admin not found",
     "error_profile_not_found": "Admin profile not found",
     "error_donor_not_found": "Donor not found",
@@ -401,17 +386,14 @@
     "error_invalid_inbound_id": "Invalid inbound email id",
     "error_inbound_not_found": "Inbound email not found"
   },
-
   "discovery": {
     "hospitals_retrieved": "Hospitals retrieved successfully",
     "hospitals_map_retrieved": "Hospitals retrieved successfully for map",
     "nearby_hospitals_retrieved": "Nearby hospitals retrieved successfully",
     "hospital_searched": "Hospitals searched successfully",
     "hospital_retrieved": "Hospital retrieved successfully",
-
     "error_hospital_not_found": "Hospital not found"
   },
-
   "activity": {
     "timeline_retrieved": "Activity timeline retrieved successfully",
     "earned_points": "{{points}} Points Earned — {{reason}}",
@@ -424,25 +406,20 @@
     "donation_confirmed": "Donation Confirmed",
     "donation_completed": "Donation Completed",
     "donation_cancelled": "Donation Cancelled",
-
     "error_invalid_type": "Invalid type filter: {{type}}",
     "error_invalid_page": "Page must be a positive integer",
     "error_invalid_limit": "Limit must be a positive integer"
   },
-
   "analytics": {
     "stats_retrieved": "Analytics retrieved successfully"
   },
-
   "help": {
     "faq_retrieved": "FAQ retrieved successfully",
     "document_retrieved": "Document retrieved successfully",
     "support_submitted": "Support request submitted successfully",
-
     "error_document_not_found": "Document not found",
     "error_subject_message_required": "subject and message are required"
   },
-
   "email": {
     "verify_subject": "Verify Your LifeLink Email",
     "reset_subject": "Reset Your LifeLink Password",
@@ -450,7 +427,6 @@
     "verify_body": "Please click the link to verify your email.",
     "reset_body": "Use the following code to reset your password: {{code}}"
   },
-
   "error": {
     "unauthorized": "Unauthorized",
     "forbidden": "Forbidden",
@@ -459,7 +435,6 @@
     "validation_failed": "Validation failed",
     "invalid_id": "Invalid ID"
   },
-
   "ui": {
     "accept": "Accept",
     "decline": "Decline",
@@ -478,5 +453,23 @@
     "donation_confirmed_success": "Donation confirmed successfully",
     "reward_redeemed_success": "Reward redeemed successfully",
     "profile_completed": "Profile Completed"
+  },
+  "patient_types": {
+    "surgery": "Surgery",
+    "accident": "Accident",
+    "cancer": "Oncology",
+    "maternity": "Maternity",
+    "chronic_illness": "Chronic Illness",
+    "emergency": "Emergency",
+    "general": "General Transfusion",
+    "cardiac_surgery": "Cardiac Surgery",
+    "burns": "Severe Burns",
+    "leukemia": "Leukemia",
+    "hemophilia": "Hemophilia",
+    "thalassemia": "Thalassemia",
+    "dialysis": "Kidney Dialysis",
+    "gastrointestinal_bleeding": "GI Bleeding",
+    "organ_transplant": "Organ Transplant",
+    "pediatric": "Pediatric Patient"
   }
 }
