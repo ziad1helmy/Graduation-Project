@@ -6,6 +6,7 @@ import { validateChangePassword } from '../validation/auth.validation.js';
 import { buildValidateTokenResponse } from '../utils/auth.dto.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
+import { serializeDateOfBirth } from '../utils/format.js';
 
 // Controller for auth routes
 
@@ -166,7 +167,7 @@ export const register = asyncHandler(async (req, res) => {
     if (safeUser.location) { delete safeUser.location.lastUpdated; }
 
     const responseData = {
-      user: safeUser,
+      user: serializeDateOfBirth(safeUser),
       tokens: {
         accessToken: result.accessToken,
         refreshToken: result.refreshToken,
@@ -421,7 +422,7 @@ export const getMe = asyncHandler(async (req, res) => {
       '-lastDeferralReason -travelHistory -isOptedIn -isBanned -isVerified'
     : '-password';
   const user = await authService.getMe(req.user.userId, projection);
-  const userObj = user.toObject ? user.toObject() : { ...user };
+  const userObj = serializeDateOfBirth(user);
   if (req.user?.role === 'donor' && userObj.location) { delete userObj.location.lastUpdated; }
   response.success(res, 200, 'User retrieved', userObj);
 });

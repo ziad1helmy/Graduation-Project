@@ -1,4 +1,5 @@
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
+import { formatDateOnly } from './format.js';
 
 const DONOR_DETAILS_SELECT = 'fullName phoneNumber bloodType email gender dateOfBirth';
 const HOSPITAL_DETAILS_SELECT = 'fullName hospitalName address contactNumber location';
@@ -90,7 +91,7 @@ const buildDonorDetails = (source) => {
     bloodType: source.bloodType ?? null,
     email: source.email ?? null,
     gender: source.gender ?? null,
-    dateOfBirth: source.dateOfBirth ?? null,
+    dateOfBirth: formatDateOnly(source.dateOfBirth),
   };
 };
 
@@ -236,12 +237,16 @@ export const toAppointmentResponse = (appointment, options = {}) => {
         phoneNumber: donor.phoneNumber,
         bloodType: donor.bloodType,
         email: donor.email,
+        gender: donor.gender,
+        dateOfBirth: donor.dateOfBirth,
       } : null,
       donorDetails: donor ? {
         fullName: donor.fullName,
         phoneNumber: donor.phoneNumber,
         bloodType: donor.bloodType,
         email: donor.email,
+        gender: donor.gender,
+        dateOfBirth: donor.dateOfBirth,
       } : null,
       hospitalId: hospital ? {
         _id: hospital.id,

@@ -24,6 +24,7 @@ import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 import { extractLocation } from '../utils/geo.js';
 import { checkDonorMatchGuard, optedOutResponse } from '../utils/donor-guard.js';
+import { serializeDateOfBirth } from '../utils/format.js';
 
 const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
 
@@ -94,7 +95,7 @@ export const getProfile = asyncHandler(async (req, res) => {
 
   const badgeProgress = { currentBadge, nextBadge, progressPercentage };
 
-  const donorObj = donor.toObject ? donor.toObject() : { ...donor };
+  const donorObj = serializeDateOfBirth(donor);
 
   response.success(res, 200, 'Donor profile retrieved successfully', {
     ...donorObj,
@@ -182,7 +183,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
     console.error('Activity log error:', error.message);
   });
 
-  const donorObj = donor.toObject();
+  const donorObj = serializeDateOfBirth(donor);
   delete donorObj.password;
 
   response.success(res, 200, 'Donor profile updated successfully', donorObj);

@@ -41,6 +41,38 @@ describe('Auth Integration', () => {
     expect(loginRes.user.email).toBe(email);
   });
 
+  it('POST /auth/signup returns dateOfBirth as YYYY-MM-DD', async () => {
+    const res = await request(app)
+      .post('/auth/signup')
+      .send({
+        role: 'donor',
+        fullName: 'Date Format Donor',
+        email: 'date-format-donor@example.com',
+        password: 'Password123!',
+        confirmPassword: 'Password123!',
+        phoneNumber: '01012345678',
+        dateOfBirth: '1995-01-01',
+        bloodType: 'O+',
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.user.dateOfBirth).toBe('1995-01-01');
+  });
+
+  it('GET /auth/me returns dateOfBirth as YYYY-MM-DD for donors', async () => {
+    const donor = await createDonor({ dateOfBirth: new Date('1994-04-12T00:00:00.000Z') });
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const res = await request(app)
+      .get('/auth/me')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.dateOfBirth).toBe('1994-04-12');
+  });
+
   describe('Banned donor auth', () => {
     it('POST /auth/login returns 403 with the admin ban reason for a banned donor', async () => {
       const password = 'BannedPass@123';
