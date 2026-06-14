@@ -57,6 +57,11 @@ const hospitalSchema = new mongoose.Schema({
         trim: true,
         index: true,
     },
+    licenseNumber: {
+        type: String,
+        trim: true,
+        default: null,
+    },
     adminContactName: {
         type: String,
         trim: true,

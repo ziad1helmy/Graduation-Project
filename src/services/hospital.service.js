@@ -62,9 +62,10 @@ export const createHospitalByAdmin = async (data, adminId) => {
       : null,
     lat: data.lat !== undefined && data.lat !== null ? Number(data.lat) : null,
     long: data.long !== undefined && data.long !== null ? Number(data.long) : null,
+    licenseNumber: data.licenseNumber ? String(data.licenseNumber).trim() : null,
   });
 
-  await logAudit(adminId, 'hospital.create', 'Hospital', hospital._id);
+  await logAudit(adminId, 'hospital.create', 'User', hospital._id);
 
   return {
     hospital,

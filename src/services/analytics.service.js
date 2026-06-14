@@ -8,6 +8,7 @@ import { calculateAge } from '../utils/age.js';
 import { getCompatibleDonorTypesForRequest } from '../utils/blood-type.js';
 import cache from '../utils/cache.js';
 import { logger } from '../utils/logger.js';
+import { computeGrowth, safeEngine } from '../utils/insight-utils.js';
 
 /**
  * Analytics Service - Dashboard metrics, trends, and statistics
@@ -17,14 +18,6 @@ const DASHBOARD_CACHE_KEY = 'analytics:dashboard';
 const DASHBOARD_CACHE_TTL = 60;
 const DAYS_MS = 24 * 60 * 60 * 1000;
 const DONATION_COOLDOWN_DAYS = 56;
-
-const computeGrowth = (current, prev) => {
-  if (current === 0 && prev === 0) return '0%';
-  if (prev === 0) return '+100%';
-  if (current === 0) return '-100%';
-  const pct = ((current - prev) / prev * 100).toFixed(0);
-  return (pct >= 0 ? '+' : '') + pct + '%';
-};
 
 const computeHealthStatus = (healthHistory) => {
   if (!healthHistory) return 'Good';
@@ -287,17 +280,6 @@ const computeTopDonors = async (limit = 5) => {
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  AI Insights Engine
-// ─────────────────────────────────────────────────────────────────────────────
-
-const safeEngine = async (engineFn, engineName = 'unknown') => {
-  try {
-    return await engineFn();
-  } catch (e) {
-    logger.error(`AI engine "${engineName}" failed`, { error: e?.message });
-    return null;
-  }
-};
-
 const precomputeTrendData = async () => {
   const now = new Date();
   const threeDaysAgo = new Date(now - 3 * DAYS_MS);

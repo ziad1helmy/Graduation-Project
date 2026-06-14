@@ -21,12 +21,17 @@ describe('Admin Service', () => {
     expect(log.targetType).toBe('User');
   });
 
-  it('getUserStats returns counts by role', async () => {
-    const stats = await adminService.getUserStats();
+  it('computeUserStats returns counts by role with growth and AI insights', async () => {
+    const stats = await adminService.computeUserStats();
 
     expect(stats).toHaveProperty('totalUsers');
     expect(stats).toHaveProperty('totalDonors');
     expect(stats).toHaveProperty('totalHospitals');
+    expect(stats).toHaveProperty('totalUsersGrowth');
+    expect(stats).toHaveProperty('totalDonorsGrowth');
+    expect(stats).toHaveProperty('aiInsights');
     expect(typeof stats.totalUsers).toBe('number');
+    expect(typeof stats.totalUsersGrowth).toBe('string');
+    expect(Array.isArray(stats.aiInsights)).toBe(true);
   });
 });

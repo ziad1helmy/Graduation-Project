@@ -170,8 +170,10 @@ if (process.env.ENABLE_GEOSPATIAL_INDEX === 'true') {
 userSchema.index({ createdAt: 1 });
 
 const BCRYPT_PREFIXES = ['$2a$', '$2b$', '$2y$'];
+const ENCRYPTED_KEY_RE = /^[0-9a-f]+:[0-9a-f]+:[0-9a-f]+$/;
 const isAlreadyHashed = (value) => {
   if (!value) return false;
+  if (ENCRYPTED_KEY_RE.test(value)) return true;
   return BCRYPT_PREFIXES.some((prefix) => value.startsWith(prefix));
 };
 
