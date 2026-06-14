@@ -1803,11 +1803,15 @@ paths:
                     phoneNumber: '01123456789'
                     bloodType: O+
                     email: noor.ahmed@example.com
+                    gender: female
+                    dateOfBirth: 1995-01-15
                   donorDetails:
                     fullName: Noor Ahmed
                     phoneNumber: '01123456789'
                     bloodType: O+
                     email: noor.ahmed@example.com
+                    gender: female
+                    dateOfBirth: 1995-01-15
                   hospitalId:
                     _id: 69f3df915f42685cbbbcbb1b
                     hospitalName: Cairo Care Hospital
@@ -1952,7 +1956,7 @@ paths:
                         phoneNumber: '01011111111'
                         bloodType: O+
                         gender: female
-                        dateOfBirth: 1995-01-15T00:00:00.000Z
+                        dateOfBirth: 1995-01-15
                       appointment:
                         appointmentId: 69fe540565ff7785a031315c
                         donationType: Whole Blood
@@ -2035,7 +2039,7 @@ paths:
                     phoneNumber: '01011111111'
                     bloodType: O+
                     gender: female
-                    dateOfBirth: 1995-01-15T00:00:00.000Z
+                    dateOfBirth: 1995-01-15
                   appointment:
                     appointmentId: 69fe540565ff7785a031315c
                     donationType: Whole Blood
@@ -2132,7 +2136,7 @@ paths:
                     phoneNumber: '01011111111'
                     bloodType: O+
                     gender: female
-                    dateOfBirth: 1995-01-15T00:00:00.000Z
+                    dateOfBirth: 1995-01-15
                   appointment:
                     appointmentId: 69fe540565ff7785a031315c
                     donationType: Plasma
