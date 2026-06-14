@@ -6,12 +6,12 @@
  *   1. Donor must exist (404).
  *   2. If opted out, return an empty list response with no error.
  *   3. If no location, return 422 LOCATION_REQUIRED.
- *   4. If has an active appointment, return an empty list with ACTIVE_APPOINTMENT_EXISTS.
+ *   4. Active appointments are handled by callers when they need advisory UI
+ *      messaging, but they should not hide compatible requests.
  *
  * Callers compose the helper with the appropriate response shape.
  */
 
-import Appointment from '../models/Appointment.model.js';
 import { extractLocation } from '../utils/geo.js';
 import response from '../utils/response.js';
 import { paginationMeta } from '../utils/pagination.js';
@@ -21,7 +21,6 @@ import { paginationMeta } from '../utils/pagination.js';
  *   - { kind: 'not-found', message: 'Donor not found' }
  *   - { kind: 'opted-out',   buildResponse: (page, limit) => response payload }
  *   - { kind: 'no-location', response: built 422 LOCATION_REQUIRED }
- *   - { kind: 'active-appt', buildResponse: (page, limit) => response payload }
  *   - { kind: 'ok' }
  */
 export const checkDonorMatchGuard = async (donor) => {
@@ -35,13 +34,6 @@ export const checkDonorMatchGuard = async (donor) => {
     return { kind: 'no-location' };
   }
 
-  const activeAppointments = await Appointment.find({
-    donorId: donor._id,
-    status: { $in: ['pending', 'confirmed'] },
-  });
-  if (activeAppointments.length > 0) {
-    return { kind: 'active-appt' };
-  }
   return { kind: 'ok' };
 };
 
@@ -52,15 +44,4 @@ export const optedOutResponse = (res, listKey, page, limit, successMessage) =>
   response.success(res, 200, successMessage, {
     [listKey]: [],
     pagination: paginationMeta(0, page, limit),
-  });
-
-/**
- * Standard "active appointment" empty-list response with reason.
- */
-export const activeAppointmentResponse = (res, listKey, page, limit, successMessage) =>
-  response.success(res, 200, successMessage, {
-    [listKey]: [],
-    pagination: paginationMeta(0, page, limit),
-    reason: 'ACTIVE_APPOINTMENT_EXISTS',
-    message: 'You have an active appointment. Complete or cancel it to see new requests.',
   });

@@ -23,7 +23,25 @@ import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 import { extractLocation } from '../utils/geo.js';
-import { checkDonorMatchGuard, optedOutResponse, activeAppointmentResponse } from '../utils/donor-guard.js';
+import { checkDonorMatchGuard, optedOutResponse } from '../utils/donor-guard.js';
+
+const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
+
+const getActiveAppointmentNotice = async (donorId) => {
+  const hasActiveAppointment = await Appointment.exists({
+    donorId,
+    status: { $in: ACTIVE_APPOINTMENT_STATUSES },
+  });
+
+  if (!hasActiveAppointment) {
+    return {};
+  }
+
+  return {
+    reason: 'ACTIVE_APPOINTMENT_EXISTS',
+    message: 'You have an active appointment. Complete or cancel it to see new requests.',
+  };
+};
 
 const DONATION_QR_TTL_MS = 2 * 60 * 60 * 1000;
 
@@ -189,11 +207,14 @@ export const getRequests = asyncHandler(async (req, res) => {
   if (guard.kind === 'no-location') {
     throw new HttpError(422, 'Please set your location to see blood requests.', { code: 'LOCATION_REQUIRED' });
   }
-  if (guard.kind === 'active-appt') {
-    return activeAppointmentResponse(res, 'requests', page, limit, 'Requests retrieved successfully');
-  }
 
-  const matchedRequests = await matchingService.findCompatibleRequests(donor._id);
+  const [matchedRequests, activeAppointmentNotice] = await Promise.all([
+    matchingService.findCompatibleRequests(donor._id, {
+      excludeActiveDonationInProgress: false,
+      excludeActiveAppointments: false,
+    }),
+    getActiveAppointmentNotice(donor._id),
+  ]);
   const paginatedRequests = matchedRequests.slice(offset, offset + limit).map(({ request, score, locationScore, compatibility }) => ({
     ...buildDonorRequestSummary(request),
     score,
@@ -204,6 +225,7 @@ export const getRequests = asyncHandler(async (req, res) => {
   response.success(res, 200, 'Requests retrieved successfully', {
     requests: paginatedRequests,
     pagination: paginationMeta(matchedRequests.length, page, limit),
+    ...activeAppointmentNotice,
   });
 });
 
@@ -225,11 +247,14 @@ export const getMatches = asyncHandler(async (req, res) => {
   if (guard.kind === 'no-location') {
     throw new HttpError(422, 'Please set your location to see blood requests.', { code: 'LOCATION_REQUIRED' });
   }
-  if (guard.kind === 'active-appt') {
-    return activeAppointmentResponse(res, 'matches', page, limit, 'Matching requests retrieved successfully');
-  }
 
-  const matches = await matchingService.findCompatibleRequests(donor._id);
+  const [matches, activeAppointmentNotice] = await Promise.all([
+    matchingService.findCompatibleRequests(donor._id, {
+      excludeActiveDonationInProgress: false,
+      excludeActiveAppointments: false,
+    }),
+    getActiveAppointmentNotice(donor._id),
+  ]);
   const paginatedMatches = matches.slice(offset, offset + limit).map((match) => ({
     ...match,
     request: buildDonorRequestSummary(match.request),
@@ -238,6 +263,7 @@ export const getMatches = asyncHandler(async (req, res) => {
   response.success(res, 200, 'Matching requests retrieved successfully', {
     matches: paginatedMatches,
     pagination: paginationMeta(matches.length, page, limit),
+    ...activeAppointmentNotice,
   });
 });
 

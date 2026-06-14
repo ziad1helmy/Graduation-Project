@@ -2412,7 +2412,9 @@ paths:
                   pagination:
                     page: 1
                     limit: 20
-                    total: 0
+                    total: 1
+                  reason: ACTIVE_APPOINTMENT_EXISTS
+                  message: You have an active appointment. Complete or cancel it to see new requests.
         "401":
           description: Missing or invalid JWT token
         "403":

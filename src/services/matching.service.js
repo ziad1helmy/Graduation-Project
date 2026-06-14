@@ -519,7 +519,16 @@ export const findNearbyRequests = async ({
     }));
 };
 
-export const findCompatibleRequests = async (donorId, { radiusKm = DEFAULT_MATCHING_DISTANCE_KM, filters = {}, limit = 500 } = {}) => {
+export const findCompatibleRequests = async (
+  donorId,
+  {
+    radiusKm = DEFAULT_MATCHING_DISTANCE_KM,
+    filters = {},
+    limit = 500,
+    excludeActiveDonationInProgress = true,
+    excludeActiveAppointments = true,
+  } = {},
+) => {
   const donor = await Donor.findById(donorId);
   if (!donor) {
     throw new Error(ELIGIBILITY_KEYS.DONOR_NOT_FOUND);
@@ -536,7 +545,7 @@ export const findCompatibleRequests = async (donorId, { radiusKm = DEFAULT_MATCH
   // Two-layer defense: this global donation guard blocks donors already in a
   // pending/scheduled lifecycle, while the appointment query below catches
   // any active booking state that is not represented by a donation document.
-  if (await hasActiveDonationInProgress(donor)) {
+  if (excludeActiveDonationInProgress && await hasActiveDonationInProgress(donor)) {
     return [];
   }
 
@@ -571,7 +580,7 @@ export const findCompatibleRequests = async (donorId, { radiusKm = DEFAULT_MATCH
     }).select('requestId'),
   ]);
 
-  if (activeAppointments.length > 0) {
+  if (excludeActiveAppointments && activeAppointments.length > 0) {
     return [];
   }
 

@@ -94,7 +94,7 @@ describe('Donor Routes Integration', () => {
     expect(response.body.data.requests.every((r) => r.urgency === 'high')).toBe(true);
   });
 
-  it('GET /donor/requests returns empty list when donor has an active appointment', async () => {
+  it('GET /donor/requests keeps compatible requests visible when donor has an active appointment', async () => {
     await clearDatabase();
     const donor = await createDonor();
     const hospital = await createHospital();
@@ -116,8 +116,9 @@ describe('Donor Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data.requests).toHaveLength(0);
+    expect(response.body.data.requests).toHaveLength(1);
     expect(response.body.data.reason).toBe('ACTIVE_APPOINTMENT_EXISTS');
+    expect(response.body.data.message).toBe('You have an active appointment. Complete or cancel it to see new requests.');
   });
 
   it('GET /donor/requests falls back to non-geo query when 2dsphere index is missing', async () => {

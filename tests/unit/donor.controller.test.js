@@ -177,6 +177,43 @@ describe('getRequests / getMatches', () => {
     expect(data.requests[0].requestId).toBe(request._id.toString());
   });
 
+  it('getRequests keeps matched requests visible when donor has an active appointment', async () => {
+    const donor = await createDonor({
+      bloodType: 'O+',
+      isOptedIn: true,
+      location: { coordinates: { lat: 30.0444, lng: 31.2357 }, governorate: 'Cairo' },
+    });
+    const hospital = await createHospital();
+    const request = await createRequest(hospital._id, { bloodType: 'O+' });
+    await Appointment.create({
+      donorId: donor._id,
+      hospitalId: hospital._id,
+      requestId: request._id,
+      appointmentDate: new Date(Date.now() + 48 * 3600 * 1000),
+      status: 'pending',
+    });
+
+    matchingService.findCompatibleRequests.mockResolvedValue([
+      {
+        request,
+        score: 99,
+        locationScore: 88,
+        compatibility: { bloodTypeMatch: true, eligible: true },
+      },
+    ]);
+
+    const res = makeRes();
+    const next = vi.fn();
+    await donorController.getRequests({ user: { userId: donor._id }, query: {} }, res, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(res.status).toHaveBeenCalledWith(200);
+    const data = res.json.mock.calls[0][0].data;
+    expect(data.requests).toHaveLength(1);
+    expect(data.reason).toBe('ACTIVE_APPOINTMENT_EXISTS');
+    expect(data.message).toBe('You have an active appointment. Complete or cancel it to see new requests.');
+  });
+
   it('getRequests returns 422 LOCATION_REQUIRED for donor without location', async () => {
     const donor = await createDonor({
       bloodType: 'O+',
