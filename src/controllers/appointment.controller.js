@@ -31,21 +31,31 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
   const scheduledDate = new Date(date);
   if (Number.isNaN(scheduledDate.getTime())) return null;
 
-  if (time) {
-    const match = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (!match) return null;
+  const timeStr = String(time).trim();
+  let match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+  if (match) {
+    const hour = Number(match[1]);
+    const minute = Number(match[2]);
+    if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+      scheduledDate.setHours(hour, minute, 0, 0);
+      return scheduledDate;
+    }
+  }
 
+  match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+  if (match) {
     let hour = Number(match[1]);
     const minute = Number(match[2]);
     const period = match[3].toUpperCase();
-
-    if (period === 'PM' && hour !== 12) hour += 12;
-    if (period === 'AM' && hour === 12) hour = 0;
-
-    scheduledDate.setHours(hour, minute, 0, 0);
+    if (hour >= 1 && hour <= 12 && minute >= 0 && minute < 60) {
+      if (period === 'PM' && hour !== 12) hour += 12;
+      if (period === 'AM' && hour === 12) hour = 0;
+      scheduledDate.setHours(hour, minute, 0, 0);
+      return scheduledDate;
+    }
   }
 
-  return scheduledDate;
+  return null;
 };
 
 const RESCHEDULE_ERROR_PATTERNS = [

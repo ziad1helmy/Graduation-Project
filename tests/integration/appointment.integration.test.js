@@ -449,4 +449,80 @@ describe('Appointment Routes Integration', () => {
 
     expect(response.status).toBe(401);
   });
+
+  it('PATCH /appointments/:appointmentId reschedules appointment using separate date and time (12h format)', async () => {
+    await clearDatabase();
+    const donor = await createDonor({ bloodType: 'O+' });
+    const hospital = await createHospital();
+    const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+    const futureDate = makeFutureAppointmentDate();
+
+    const createResponse = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${token}`)
+      .send(bookAppointmentPayload({
+        hospitalId: hospital._id,
+        requestId: request2._id,
+        appointmentDate: futureDate,
+        donationType: 'Whole Blood',
+      }));
+
+    const appointmentId = createResponse.body.data._id;
+
+    const updateResponse = await request(app)
+      .patch(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        date: '2026-06-25',
+        time: '02:30 PM',
+        donationType: 'Whole Blood',
+      });
+
+    expect(updateResponse.status).toBe(200);
+    const updatedDate = new Date(updateResponse.body.data.appointmentDate);
+    expect(updatedDate.getFullYear()).toBe(2026);
+    expect(updatedDate.getMonth()).toBe(5); // 0-indexed, so June is 5
+    expect(updatedDate.getDate()).toBe(25);
+    expect(updatedDate.getHours()).toBe(14);
+    expect(updatedDate.getMinutes()).toBe(30);
+  });
+
+  it('PATCH /appointments/:appointmentId reschedules appointment using separate date and time (24h format)', async () => {
+    await clearDatabase();
+    const donor = await createDonor({ bloodType: 'O+' });
+    const hospital = await createHospital();
+    const request2 = await createRequest(hospital._id, { type: 'blood', bloodType: 'O+' });
+    const token = signToken({ userId: donor._id.toString(), role: donor.role });
+    const futureDate = makeFutureAppointmentDate();
+
+    const createResponse = await request(app)
+      .post('/donations/book-appointment')
+      .set('Authorization', `Bearer ${token}`)
+      .send(bookAppointmentPayload({
+        hospitalId: hospital._id,
+        requestId: request2._id,
+        appointmentDate: futureDate,
+        donationType: 'Whole Blood',
+      }));
+
+    const appointmentId = createResponse.body.data._id;
+
+    const updateResponse = await request(app)
+      .patch(`/appointments/${appointmentId}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        date: '2026-06-25',
+        time: '14:30',
+        donationType: 'Whole Blood',
+      });
+
+    expect(updateResponse.status).toBe(200);
+    const updatedDate = new Date(updateResponse.body.data.appointmentDate);
+    expect(updatedDate.getFullYear()).toBe(2026);
+    expect(updatedDate.getMonth()).toBe(5);
+    expect(updatedDate.getDate()).toBe(25);
+    expect(updatedDate.getHours()).toBe(14);
+    expect(updatedDate.getMinutes()).toBe(30);
+  });
 });

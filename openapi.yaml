@@ -2076,12 +2076,18 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - appointmentDate
               properties:
                 appointmentDate:
                   type: string
                   format: date-time
+                  description: New date and time of the appointment (alternative to date/time parameters)
+                date:
+                  type: string
+                  format: date
+                  description: Alternative to appointmentDate, specifies the appointment date (YYYY-MM-DD)
+                time:
+                  type: string
+                  description: Alternative to appointmentDate, specifies the appointment time (HH:MM or HH:MM AM/PM)
                 donationType:
                   type: string
                   description: Donation type label or supported alias
@@ -2092,7 +2098,8 @@ paths:
                   type: string
                   description: Optional donor-provided reason for rescheduling (legacy alias for 'notes')
             example:
-              appointmentDate: 2026-05-13T11:00:00.000Z
+              date: "2026-06-20"
+              time: "12:00 PM"
               donationType: Plasma
               notes: Travel conflict
       responses:
@@ -5713,6 +5720,13 @@ paths:
                 requiredBy:
                   type: string
                   format: date-time
+                date:
+                  type: string
+                  format: date
+                  description: "Alternative to requiredBy, specifies the deadline date (YYYY-MM-DD)"
+                time:
+                  type: string
+                  description: "Alternative to requiredBy, specifies the deadline time (HH:MM or HH:MM AM/PM)"
                 quantity:
                   type: number
                   minimum: 1
@@ -5721,16 +5735,31 @@ paths:
                   minimum: 1
                 patientType:
                   type: string
+                  enum:
+                    - adult
+                    - infant
+                    - child
+                  example: adult
                 contactNumber:
                   type: string
+                  example: "01099998888"
                 notes:
                   type: string
+                  example: Requires compatible donors urgently
                 patientDetails:
                   type: string
+                  example: Patient needs whole blood transfusion
             example:
               status: in-progress
+              bloodTypes:
+                - A-
               urgency: high
               unitsNeeded: 3
+              date: "2026-06-20"
+              time: "12:00 PM"
+              patientType: adult
+              contactNumber: "01099998888"
+              patientDetails: Patient needs whole blood transfusion
       responses:
         "200":
           description: Request status updated successfully
