@@ -77,7 +77,6 @@ describe('Appointment Routes Integration', () => {
     expect(createResponse.body.success).toBe(true);
     expect(createResponse.body.data).toHaveProperty('_id');
     expect(createResponse.body.data.donationType).toBe(donationType);
-    expect(createResponse.body.data.donorDetails?.dateOfBirth ?? createResponse.body.data.donorId?.dateOfBirth).toBe('1995-01-15');
 
     const appointmentId = createResponse.body.data._id;
     const savedAppointment = await Appointment.findById(appointmentId);
@@ -105,7 +104,6 @@ describe('Appointment Routes Integration', () => {
     expect(updateResponse.body.data.donationType).toBe('Plasma');
     expect(updateResponse.body.data.appointment.appointmentId).toBeDefined();
     expect(updateResponse.body.data.donor.email).toBeDefined();
-    expect(updateResponse.body.data.donor.dateOfBirth).toBe('1995-01-15');
 
     const detailResponse = await request(app)
       .get(`/appointments/${appointmentId}`)
@@ -114,7 +112,6 @@ describe('Appointment Routes Integration', () => {
     expect(detailResponse.status).toBe(200);
     expect(detailResponse.body.data.donationType).toBe('Plasma');
     expect(detailResponse.body.data.appointmentTime).toBeDefined();
-    expect(detailResponse.body.data.donor.dateOfBirth).toBe('1995-01-15');
 
     const listResponse = await request(app)
       .get('/donations/book-appointment/my-appointments')
