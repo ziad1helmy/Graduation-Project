@@ -47,6 +47,7 @@ const demoCredentials = [
   { role: 'donor', email: 'noor.tarek@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'cairo.responder@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'giza.responder@lifelink.demo', password: 'DonorPass@123' },
+  { role: 'donor', email: 'nearby.available@lifelink.demo', password: 'DonorPass@123' },
   { role: 'hospital', email: 'ops@cairocare.demo', password: 'HospitalPass@123' },
   { role: 'hospital', email: 'bloodbank@nilehope.demo', password: 'HospitalPass@123' },
 ];
@@ -295,6 +296,41 @@ const donorsData = [
       city: 'Giza',
       governorate: 'Giza',
       coordinates: { lat: 29.9965, lng: 31.2091 },
+      lastUpdated: now,
+    },
+  },
+  {
+    key: 'nearbyAvailable',
+    fullName: 'Salma Kareem',
+    email: 'nearby.available@lifelink.demo',
+    password: 'DonorPass@123',
+    role: 'donor',
+    phoneNumber: '01088888888',
+    dateOfBirth: new Date('1999-04-16'),
+    gender: 'female',
+    bloodType: 'O+',
+    isOptedIn: true,
+    weight: 66,
+    hemoglobinLevel: 13.8,
+    healthHistory: {
+      chronicConditions: [],
+      medications: [],
+      allergies: [],
+      recentIllness: '',
+      notes: 'Available donor reserved for nearby request list demos.',
+      lastCheckupDate: pastDate(25),
+      updatedAt: now,
+    },
+    settings: {
+      pushNotifications: true,
+      emergencyAlerts: true,
+      privacyMode: false,
+      language: 'en',
+    },
+    location: {
+      city: 'Cairo',
+      governorate: 'Cairo',
+      coordinates: { lat: 30.0497, lng: 31.2428 },
       lastUpdated: now,
     },
   },
@@ -779,6 +815,62 @@ async function main() {
       quantity: 2,
       cause: 'Emergency blood loss response - critical responder match',
       notes: '[demo-seed] cairo-emergency-responder-o-plus',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
+    }
+  );
+
+  requests.cairoAvailableCritical = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-available-critical-o-positive' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      type: 'blood',
+      bloodType: ['O+', 'O-'],
+      urgency: 'critical',
+      status: 'pending',
+      requiredBy: futureDate(2),
+      quantity: 2,
+      cause: 'Active critical request for nearby list demos',
+      notes: '[demo-seed] cairo-available-critical-o-positive',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
+      isEmergency: true,
+    }
+  );
+
+  requests.cairoAvailableHigh = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-available-high-o-positive' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      type: 'blood',
+      bloodType: ['O+', 'O-'],
+      urgency: 'high',
+      status: 'pending',
+      requiredBy: futureDate(4),
+      quantity: 2,
+      cause: 'Active high-priority request for nearby list demos',
+      notes: '[demo-seed] cairo-available-high-o-positive',
+      hospitalContact: hospitals.cairoCare.contactNumber,
+      hospitalLocation: hospitals.cairoCare.location.coordinates,
+      hospitalName: hospitals.cairoCare.hospitalName,
+      isEmergency: true,
+    }
+  );
+
+  requests.cairoAvailableMedium = await ensureRequest(
+    { hospitalId: hospitals.cairoCare._id, notes: '[demo-seed] cairo-available-medium-o-positive' },
+    {
+      hospitalId: hospitals.cairoCare._id,
+      type: 'blood',
+      bloodType: ['O+', 'O-'],
+      urgency: 'medium',
+      status: 'pending',
+      requiredBy: futureDate(7),
+      quantity: 1,
+      cause: 'Active medium-priority request for nearby list demos',
+      notes: '[demo-seed] cairo-available-medium-o-positive',
       hospitalContact: hospitals.cairoCare.contactNumber,
       hospitalLocation: hospitals.cairoCare.location.coordinates,
       hospitalName: hospitals.cairoCare.hospitalName,
@@ -1639,6 +1731,9 @@ async function main() {
     `platelets request: ${requests.cairoPlatelets._id}`,
     `pending O- request: ${requests.gizaOminus._id}`,
     `cairo emergency (O+ responder match): ${requests.cairoEmergencyForResponder._id}`,
+    `available critical request (pending): ${requests.cairoAvailableCritical._id}`,
+    `available high request (pending): ${requests.cairoAvailableHigh._id}`,
+    `available medium request (pending): ${requests.cairoAvailableMedium._id}`,
     `giza emergency (A- responder match): ${requests.gizaEmergencyForResponder._id}`,
     `double red cells request: ${requests.cairoDoubleRedCells._id}`,
     `low blood request (pending): ${requests.cairoLowBlood._id}`,

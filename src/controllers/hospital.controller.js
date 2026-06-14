@@ -943,14 +943,22 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
   response.success(res, 200, 'Request details retrieved successfully', responseData);
 });
 
-// Update request status
+// Update request status and details
 export const updateRequest = asyncHandler(async (req, res) => {
   const { requestId } = req.params;
-  const { status } = req.body;
-
-  if (!status || !['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
-    throw new HttpError(400, 'Valid status is required');
-  }
+  const {
+    status,
+    bloodType,
+    bloodTypes,
+    urgency,
+    requiredBy,
+    quantity,
+    unitsNeeded,
+    patientType,
+    contactNumber,
+    notes,
+    patientDetails,
+  } = req.body;
 
   const request = await Request.findById(requestId);
   if (!request) {
@@ -962,48 +970,116 @@ export const updateRequest = asyncHandler(async (req, res) => {
     throw new HttpError(403, 'Unauthorized access to this request');
   }
 
-  // No-op: if the request is already in the desired state, return success.
-  if (request.status === status) {
-    const donations = await Donation.find({ requestId: request._id });
-    const responseData = formatRequestDetailResponse(request, donations);
-    return response.success(res, 200, 'Request status updated successfully', responseData);
-  }
+  // If status is provided, validate it
+  if (status !== undefined) {
+    if (!['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
+      throw new HttpError(400, 'Valid status is required');
+    }
 
-  // Guard: validate transition through the centralized state machine.
-  try {
-    validateTransition('request', request.status, status);
-  } catch (err) {
-    throw new HttpError(400, err.message);
-  }
+    if (request.status !== status) {
+      // Guard: validate transition through the centralized state machine.
+      try {
+        validateTransition('request', request.status, status);
+      } catch (err) {
+        throw new HttpError(400, err.message);
+      }
 
-  if (status === 'completed') {
-    const completedDonation = await Donation.findOne({
-      requestId: request._id,
-      status: 'completed',
-    });
-    if (!completedDonation) {
-      throw new HttpError(400, 'Cannot complete request: no completed donation found for this request. Use cancel instead.');
+      if (status === 'completed') {
+        const completedDonation = await Donation.findOne({
+          requestId: request._id,
+          status: 'completed',
+        });
+        if (!completedDonation) {
+          throw new HttpError(400, 'Cannot complete request: no completed donation found for this request. Use cancel instead.');
+        }
+      }
+
+      if (status === 'accepted' && !request.acceptedDonationId) {
+        throw new HttpError(400, 'Cannot mark request accepted without an accepted donation');
+      }
+
+      request.status = status;
     }
   }
 
-  if (status === 'accepted' && !request.acceptedDonationId) {
-    throw new HttpError(400, 'Cannot mark request accepted without an accepted donation');
+  // If other details are provided to be updated, check terminal state guard first
+  const isUpdatingDetails =
+    bloodType !== undefined ||
+    bloodTypes !== undefined ||
+    urgency !== undefined ||
+    requiredBy !== undefined ||
+    quantity !== undefined ||
+    unitsNeeded !== undefined ||
+    patientType !== undefined ||
+    contactNumber !== undefined ||
+    notes !== undefined ||
+    patientDetails !== undefined;
+
+  if (isUpdatingDetails) {
+    if (['completed', 'cancelled', 'expired'].includes(request.status)) {
+      throw new HttpError(400, `Cannot update details of a request with terminal status "${request.status}"`);
+    }
+
+    if (bloodType !== undefined || bloodTypes !== undefined) {
+      const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
+      const normalizedBloodTypes = normalizeBloodTypeList(bloodTypeInput);
+      if (normalizedBloodTypes.length === 0 && ['blood', 'double_red_cells'].includes(request.type)) {
+        throw new HttpError(400, 'Blood type is required for blood or double red cells requests');
+      }
+      request.bloodType = normalizedBloodTypes;
+    }
+
+    if (urgency !== undefined) {
+      if (!['low', 'medium', 'high', 'critical'].includes(urgency)) {
+        throw new HttpError(400, 'Urgency must be low, medium, high, or critical');
+      }
+      request.urgency = urgency;
+    }
+
+    if (requiredBy !== undefined) {
+      const requiredByDate = new Date(requiredBy);
+      if (Number.isNaN(requiredByDate.getTime())) {
+        throw new HttpError(400, 'Required date must be a valid date');
+      }
+      if (requiredByDate <= new Date()) {
+        throw new HttpError(400, 'Required date must be in the future');
+      }
+      request.requiredBy = requiredByDate;
+    }
+
+    if (unitsNeeded !== undefined || quantity !== undefined) {
+      const val = Number(unitsNeeded ?? quantity);
+      if (!Number.isInteger(val) || val < 1) {
+        throw new HttpError(400, 'Units needed must be at least 1');
+      }
+      request.unitsNeeded = val;
+      request.quantity = val;
+    }
+
+    if (patientType !== undefined) {
+      request.patientType = patientType;
+    }
+
+    if (contactNumber !== undefined) {
+      if (contactNumber && !/^\+?[0-9]{10,15}$/.test(contactNumber)) {
+        throw new HttpError(400, 'Contact number must be a valid phone number');
+      }
+      request.contactNumber = contactNumber;
+    }
+
+    if (notes !== undefined || patientDetails !== undefined) {
+      request.notes = notes ?? patientDetails;
+    }
   }
 
-  // runValidators is intentionally omitted: past requiredBy date would fail
-  // validation on legitimate status updates (e.g. marking an old request completed)
   const session = await mongoose.startSession();
-  let updatedRequest;
   const cancelledAt = new Date();
   try {
     await session.withTransaction(async () => {
-      updatedRequest = await Request.findByIdAndUpdate(
-        requestId,
-        { status },
-        { returnDocument: 'after', session }
-      );
+      // Save changes if modified (this runs validations and pre-save hooks on the document)
+      await request.save({ session });
 
-      if (['completed', 'cancelled', 'expired'].includes(status)) {
+      if (status !== undefined && ['completed', 'cancelled', 'expired'].includes(status)) {
         await appointmentService.cancelActiveAppointmentsForRequest(requestId, {
           cancelledAt,
           notes: `Appointment cancelled because request was marked as ${status}`,
@@ -1011,13 +1087,18 @@ export const updateRequest = asyncHandler(async (req, res) => {
         });
       }
     });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      throw new HttpError(400, error.message);
+    }
+    throw error;
   } finally {
     session.endSession();
   }
 
-  const donations = await Donation.find({ requestId: updatedRequest._id });
-  const responseData = formatRequestDetailResponse(updatedRequest, donations);
-  response.success(res, 200, 'Request status updated successfully', responseData);
+  const donations = await Donation.find({ requestId: request._id });
+  const responseData = formatRequestDetailResponse(request, donations);
+  response.success(res, 200, 'Request updated successfully', responseData);
 });
 
 // Cancel request and all associated pending donations

@@ -140,6 +140,39 @@ describe('Auth Controller', () => {
     });
   });
 
+  describe('loginAdmin', () => {
+    it('accepts adminCode as an adminKey alias', async () => {
+      const req = makeMockReq({
+        body: {
+          email: 'admin@lifelink.demo',
+          password: 'AdminPass@123',
+          adminCode: 'ADMIN-DEMO-KEY-2026',
+        },
+      });
+      const res = makeMockRes();
+      const next = vi.fn();
+
+      authService.loginAdmin.mockResolvedValue({
+        admin: { _id: userId, email: 'admin@lifelink.demo', role: 'admin' },
+        accessToken: 'access_token',
+        refreshToken: 'refresh_token',
+      });
+
+      await authController.loginAdmin(req, res, next);
+
+      expect(authService.loginAdmin).toHaveBeenCalledWith({
+        email: 'admin@lifelink.demo',
+        password: 'AdminPass@123',
+        adminCode: 'ADMIN-DEMO-KEY-2026',
+        adminKey: 'ADMIN-DEMO-KEY-2026',
+        role: 'admin',
+      });
+      expect(res.status).toHaveBeenCalledWith(200);
+      expect(res.json.mock.calls[0][0].data.access_token).toBe('access_token');
+      expect(next).not.toHaveBeenCalled();
+    });
+  });
+
   describe('logout', () => {
     it('returns 200 on successful logout', async () => {
       const req = makeMockReq({

@@ -885,7 +885,8 @@ paths:
         - Auth
       summary: Admin/Superadmin login with email, password, and adminKey
       description: |-
-        Authenticate as admin or superadmin. Requires email, password, and adminKey secret.
+        Authenticate as admin or superadmin. Requires email, password, and an adminKey secret.
+        Send the secret as `adminKey`; legacy clients may send `adminCode` or `admin_key`.
         The adminKey is stored as a bcrypt hash server-side; the plaintext key is
         only known to the admin who received it at account creation/rotation.
 
@@ -899,7 +900,13 @@ paths:
               required:
                 - email
                 - password
-                - adminKey
+              anyOf:
+                - required:
+                    - adminKey
+                - required:
+                    - adminCode
+                - required:
+                    - admin_key
               properties:
                 email:
                   type: string
@@ -909,6 +916,15 @@ paths:
                   format: password
                 adminKey:
                   type: string
+                  description: Preferred admin secret field.
+                adminCode:
+                  type: string
+                  deprecated: true
+                  description: Legacy alias for adminKey.
+                admin_key:
+                  type: string
+                  deprecated: true
+                  description: Legacy alias for adminKey.
             example:
               email: admin@lifelink.demo
               password: AdminPass@123
@@ -2486,155 +2502,155 @@ paths:
                   status: pending
                   requestStatus: pending
                   urgency: critical
-                  /requests/nearby:
-                    get:
-                      tags:
-                        - Donor
-                      summary: Get nearby requests around the caller's coordinates
-                      description: |-
-                        Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.
-                        This endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.
-                        Current controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.
-                        When called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.
+  /requests/nearby:
+    get:
+      tags:
+        - Donor
+      summary: Get nearby requests around the caller's coordinates
+      description: |-
+        Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.
+        This endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.
+        Current controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.
+        When called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.
 
-                        **Migration Note**: This endpoint replaces the deprecated endpoints:
-                        - `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`
-                        - `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`
+        **Migration Note**: This endpoint replaces the deprecated endpoints:
+        - `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`
+        - `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`
 
-                        Note: donor callers receive a reduced request payload with distance fields omitted. Hospital/admin viewers continue to receive `distanceKm`, `distanceMeters`, `viewerLocation`, and `radiusKm` when a location is provided.
+        Note: donor callers receive a reduced request payload with distance fields omitted. Hospital/admin viewers continue to receive `distanceKm`, `distanceMeters`, `viewerLocation`, and `radiusKm` when a location is provided.
 
-                        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
-                      security:
-                        - bearerAuth: []
-                      parameters:
-                        - in: query
-                          name: lat
-                          schema:
-                            type: number
-                          required: false
-                          description: Viewer latitude used to compute distance and map positioning
-                          example: 30.0511
-                        - in: query
-                          name: lng
-                          schema:
-                            type: number
-                          required: false
-                          description: Viewer longitude used to compute distance and map positioning
-                          example: 31.2435
-                        - in: query
-                          name: radius
-                          schema:
-                            type: number
-                          description: Optional radius in kilometers. If omitted, the endpoint does not
-                            apply a radius filter.
-                          example: 25
-                        - in: query
-                          name: type
-                          schema:
-                            type: string
-                            enum:
-                              - blood
-                          description: Filter by request type
-                          example: blood
-                        - in: query
-                          name: bloodType
-                          schema:
-                            type: string
-                          description: Filter by blood type (for blood/plasma/platelets)
-                          example: O+
-                        - in: query
-                          name: urgency
-                          schema:
-                            type: string
-                            enum:
-                              - low
-                              - medium
-                              - high
-                              - critical
-                          description: |-
-                            Filter requests by urgency level.
-                            - Use `urgency=critical` or `urgency=high` to retrieve urgent requests.
-                            - This parameter replaces the deprecated `/donor/urgent-requests` endpoints.
-                            - If not specified, returns requests of all urgency levels.
-                          example: critical
-                        - in: query
-                          name: isEmergency
-                          schema:
-                            type: boolean
-                          description: When true, only emergency requests are returned
-                          example: true
-                        - in: query
-                          name: page
-                          schema:
-                            type: integer
-                            minimum: 1
-                          description: Page number for paginated response
-                          example: 1
-                        - in: query
-                          name: limit
-                          schema:
-                            type: integer
-                            minimum: 1
-                            maximum: 100
-                          description: Number of results per page
-                          example: 20
-                      responses:
-                        "200":
-                          description: Nearby requests retrieved successfully
-                          content:
-                            application/json:
-                              example:
-                                success: true
-                                message: Nearby requests retrieved successfully
-                                data:
-                                  requests:
-                                    - id: 69fe540565ff7785a031314f
-                                      requestId: 69fe540565ff7785a031314f
-                                      type: blood
-                                      bloodType:
-                                        - O+
-                                      hospitalName: Cairo Care Hospital
-                                      patientType: Emergency surgery support
-                                      contactNumber: "1044444444"
-                                      unitsNeeded: 3
-                                      isEmergency: true
-                                      createdAt: 2026-05-16T08:15:00.000Z
-                                      status: pending
-                                      requestStatus: pending
-                                      urgency: critical
-                                      requiredBy: 2026-05-20T00:00:00.000Z
-                                      locationHospital:
-                                        latitude: 30.0511
-                                        longitude: 31.2435
-                                      location:
-                                        lat: 30.0511
-                                        lng: 31.2435
-                                      hospital:
-                                        id: 69f3df915f42685cbbbcbb1b
-                                        name: Cairo Care Hospital
-                                        contactNumber: "1044444444"
-                                        address: Cairo, Egypt
-                                        latitude: 30.0511
-                                        longitude: 31.2435
-                                      distanceKm: 2.35
-                                      distanceMeters: 2350
-                                      distance: 2.35 km
-                                  pagination:
-                                    page: 1
-                                    limit: 20
-                                    total: 1
-                                    totalPages: 1
-                                  viewerLocation:
-                                    latitude: 30.0333
-                                    longitude: 31.2333
-                                  radiusKm: 25
-                        "400":
-                          description: Invalid geolocation or pagination query
-                        "401":
-                          description: Missing or invalid JWT
-                        "403":
-                          description: Role not allowed
-      
+        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: lat
+          schema:
+            type: number
+          required: false
+          description: Viewer latitude used to compute distance and map positioning
+          example: 30.0511
+        - in: query
+          name: lng
+          schema:
+            type: number
+          required: false
+          description: Viewer longitude used to compute distance and map positioning
+          example: 31.2435
+        - in: query
+          name: radius
+          schema:
+            type: number
+          description: Optional radius in kilometers. If omitted, the endpoint does not
+            apply a radius filter.
+          example: 25
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum:
+              - blood
+          description: Filter by request type
+          example: blood
+        - in: query
+          name: bloodType
+          schema:
+            type: string
+          description: Filter by blood type (for blood/plasma/platelets)
+          example: O+
+        - in: query
+          name: urgency
+          schema:
+            type: string
+            enum:
+              - low
+              - medium
+              - high
+              - critical
+          description: |-
+            Filter requests by urgency level.
+            - Use `urgency=critical` or `urgency=high` to retrieve urgent requests.
+            - This parameter replaces the deprecated `/donor/urgent-requests` endpoints.
+            - If not specified, returns requests of all urgency levels.
+          example: critical
+        - in: query
+          name: isEmergency
+          schema:
+            type: boolean
+          description: When true, only emergency requests are returned
+          example: true
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+          description: Page number for paginated response
+          example: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+          description: Number of results per page
+          example: 20
+      responses:
+        "200":
+          description: Nearby requests retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Nearby requests retrieved successfully
+                data:
+                  requests:
+                    - id: 69fe540565ff7785a031314f
+                      requestId: 69fe540565ff7785a031314f
+                      type: blood
+                      bloodType:
+                        - O+
+                      hospitalName: Cairo Care Hospital
+                      patientType: Emergency surgery support
+                      contactNumber: "1044444444"
+                      unitsNeeded: 3
+                      isEmergency: true
+                      createdAt: 2026-05-16T08:15:00.000Z
+                      status: pending
+                      requestStatus: pending
+                      urgency: critical
+                      requiredBy: 2026-05-20T00:00:00.000Z
+                      locationHospital:
+                        latitude: 30.0511
+                        longitude: 31.2435
+                      location:
+                        lat: 30.0511
+                        lng: 31.2435
+                      hospital:
+                        id: 69f3df915f42685cbbbcbb1b
+                        name: Cairo Care Hospital
+                        contactNumber: "1044444444"
+                        address: Cairo, Egypt
+                        latitude: 30.0511
+                        longitude: 31.2435
+                      distanceKm: 2.35
+                      distanceMeters: 2350
+                      distance: 2.35 km
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 1
+                    totalPages: 1
+                  viewerLocation:
+                    latitude: 30.0333
+                    longitude: 31.2333
+                  radiusKm: 25
+        "400":
+          description: Invalid geolocation or pagination query
+        "401":
+          description: Missing or invalid JWT
+        "403":
+          description: Role not allowed
+
   /requests/{id}/cancel:
     post:
       tags:
@@ -5636,7 +5652,7 @@ paths:
     put:
       tags:
         - Hospital
-      summary: Update the status of a hospital request
+      summary: Update the status or details of a hospital request
       security:
         - bearerAuth: []
       parameters:
@@ -5652,19 +5668,69 @@ paths:
           application/json:
             schema:
               type: object
-              required:
-                - status
               properties:
                 status:
                   type: string
                   enum:
                     - pending
+                    - accepted
                     - in-progress
                     - completed
                     - cancelled
+                    - expired
                   example: in-progress
+                bloodType:
+                  type: string
+                  enum:
+                    - A+
+                    - A-
+                    - B+
+                    - B-
+                    - AB+
+                    - AB-
+                    - O+
+                    - O-
+                bloodTypes:
+                  type: array
+                  items:
+                    type: string
+                    enum:
+                      - A+
+                      - A-
+                      - B+
+                      - B-
+                      - AB+
+                      - AB-
+                      - O+
+                      - O-
+                urgency:
+                  type: string
+                  enum:
+                    - low
+                    - medium
+                    - high
+                    - critical
+                requiredBy:
+                  type: string
+                  format: date-time
+                quantity:
+                  type: number
+                  minimum: 1
+                unitsNeeded:
+                  type: number
+                  minimum: 1
+                patientType:
+                  type: string
+                contactNumber:
+                  type: string
+                notes:
+                  type: string
+                patientDetails:
+                  type: string
             example:
               status: in-progress
+              urgency: high
+              unitsNeeded: 3
       responses:
         "200":
           description: Request status updated successfully

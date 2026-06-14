@@ -758,6 +758,93 @@ describe('PUT /hospital/requests/:requestId', () => {
 
     expect([403, 404]).toContain(res.status);
   });
+
+  it('updates request details successfully', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+    const req = await createRequest(hospital._id, {
+      status: 'pending',
+      bloodType: ['O+'],
+      unitsNeeded: 1,
+      urgency: 'low',
+    });
+
+    const newRequiredBy = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString();
+    const res = await request(app)
+      .put(`/hospital/requests/${req._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        bloodTypes: ['A-', 'O-'],
+        unitsNeeded: 3,
+        urgency: 'high',
+        requiredBy: newRequiredBy,
+        patientType: 'Adult Pediatric',
+        contactNumber: '01011112222',
+        notes: 'Updated patient notes',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.bloodTypes).toEqual(['A-', 'O-']);
+    expect(res.body.data.unitsNeeded).toBe(3);
+    expect(res.body.data.urgency).toBe('high');
+
+    const updatedDoc = await Request.findById(req._id);
+    expect(updatedDoc.bloodType).toEqual(['A-', 'O-']);
+    expect(updatedDoc.unitsNeeded).toBe(3);
+    expect(updatedDoc.urgency).toBe('high');
+    expect(updatedDoc.patientType).toBe('Adult Pediatric');
+    expect(updatedDoc.contactNumber).toBe('01011112222');
+    expect(updatedDoc.notes).toBe('Updated patient notes');
+  });
+
+  it('rejects invalid detail updates', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+    const req = await createRequest(hospital._id, { status: 'pending' });
+
+    // Invalid blood type
+    const res1 = await request(app)
+      .put(`/hospital/requests/${req._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ bloodTypes: ['X+'] });
+    expect(res1.status).toBe(400);
+
+    // Invalid urgency
+    const res2 = await request(app)
+      .put(`/hospital/requests/${req._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ urgency: 'immediate' });
+    expect(res2.status).toBe(400);
+
+    // Past requiredBy date
+    const res3 = await request(app)
+      .put(`/hospital/requests/${req._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ requiredBy: new Date(Date.now() - 1000).toISOString() });
+    expect(res3.status).toBe(400);
+
+    // Invalid unitsNeeded
+    const res4 = await request(app)
+      .put(`/hospital/requests/${req._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ unitsNeeded: 0 });
+    expect(res4.status).toBe(400);
+  });
+
+  it('rejects editing details of a terminal request', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+    const req = await createRequest(hospital._id, { status: 'cancelled' });
+
+    const res = await request(app)
+      .put(`/hospital/requests/${req._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ urgency: 'high' });
+
+    expect(res.status).toBe(400);
+    expect(res.body.message).toContain('Cannot update details of a request with terminal status');
+  });
 });
 
 // ═════════════════════════════════════════════════════════════════════════════

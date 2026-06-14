@@ -95,6 +95,9 @@ const normalizeLoginPayload = (body) => {
   if (!payload.email && payload.email_or_phone && String(payload.email_or_phone).includes('@')) {
     payload.email = String(payload.email_or_phone).trim().toLowerCase();
   }
+  if (!payload.adminKey) {
+    payload.adminKey = payload.admin_key ?? payload.adminCode;
+  }
   return payload;
 };
 
