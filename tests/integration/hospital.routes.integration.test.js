@@ -758,7 +758,6 @@ describe('PUT /hospital/requests/:requestId', () => {
 
     expect([403, 404]).toContain(res.status);
   });
-
   it('updates request details successfully', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
@@ -778,7 +777,7 @@ describe('PUT /hospital/requests/:requestId', () => {
         unitsNeeded: 3,
         urgency: 'high',
         requiredBy: newRequiredBy,
-        patientType: 'Adult Pediatric',
+        patientType: 'adult',
         contactNumber: '01011112222',
         notes: 'Updated patient notes',
       });
@@ -793,11 +792,39 @@ describe('PUT /hospital/requests/:requestId', () => {
     expect(updatedDoc.bloodType).toEqual(['A-', 'O-']);
     expect(updatedDoc.unitsNeeded).toBe(3);
     expect(updatedDoc.urgency).toBe('high');
-    expect(updatedDoc.patientType).toBe('Adult Pediatric');
+    expect(updatedDoc.patientType).toBe('adult');
     expect(updatedDoc.contactNumber).toBe('01011112222');
     expect(updatedDoc.notes).toBe('Updated patient notes');
   });
 
+  it('updates request details successfully with separate date and time', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+    const req = await createRequest(hospital._id, {
+      status: 'pending',
+      bloodType: ['O+'],
+      unitsNeeded: 1,
+      urgency: 'low',
+    });
+
+    const targetDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
+    const dateStr = targetDate.toISOString().slice(0, 10); // YYYY-MM-DD
+    const res = await request(app)
+      .put(`/hospital/requests/${req._id}`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        date: dateStr,
+        time: '02:30 PM',
+      });
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+
+    const updatedDoc = await Request.findById(req._id);
+    expect(updatedDoc.requiredBy.toISOString().slice(0, 10)).toBe(dateStr);
+    expect(updatedDoc.requiredBy.getHours()).toBe(14); // 2 PM
+    expect(updatedDoc.requiredBy.getMinutes()).toBe(30);
+  });
   it('rejects invalid detail updates', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);

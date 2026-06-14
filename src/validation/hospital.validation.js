@@ -12,6 +12,42 @@ import {
 
 const isValidNumber = (value) => Number.isFinite(Number(value));
 
+export const buildRequiredByDate = ({ requiredBy, date, time }) => {
+  if (requiredBy) return new Date(requiredBy);
+  if (!date) return null;
+
+  const scheduledDate = new Date(date);
+  if (Number.isNaN(scheduledDate.getTime())) return null;
+
+  if (time) {
+    const timeStr = String(time).trim();
+    let match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+    if (match) {
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+        scheduledDate.setHours(hour, minute, 0, 0);
+        return scheduledDate;
+      }
+    }
+
+    match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (match) {
+      let hour = Number(match[1]);
+      const minute = Number(match[2]);
+      const period = match[3].toUpperCase();
+      if (hour >= 1 && hour <= 12 && minute >= 0 && minute < 60) {
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
+        scheduledDate.setHours(hour, minute, 0, 0);
+        return scheduledDate;
+      }
+    }
+  }
+
+  return scheduledDate;
+};
+
 /**
  * Validate find compatible donors query parameters.
  */
@@ -68,19 +104,16 @@ export const validateBookAppointmentBody = (body = {}, appointmentDateObj) => {
   return { valid: errors.length === 0, errors };
 };
 
-/**
- * Validate create request body.
- */
 export const validateCreateRequestBody = (body = {}) => {
   const errors = [];
   const validUrgencies = ['low', 'medium', 'high', 'critical'];
 
-  const { type, urgency, requiredBy, isEmergency } = body;
+  const { type, urgency, requiredBy, date, time, isEmergency } = body;
   const bloodTypeInput = body.bloodTypes !== undefined ? body.bloodTypes : body.bloodType;
   const normalizedBloodTypes = normalizeBloodTypeList(bloodTypeInput);
 
-  if (!type || (!urgency && isEmergency !== true) || !requiredBy) {
-    errors.push('Type, urgency or emergency flag, and requiredBy are required');
+  if (!type || (!urgency && isEmergency !== true) || (!requiredBy && !date)) {
+    errors.push('Type, urgency or emergency flag, and requiredBy/date are required');
     return { valid: false, errors };
   }
 
@@ -112,8 +145,8 @@ export const validateCreateRequestBody = (body = {}) => {
     }
   }
 
-  const requiredByDate = new Date(requiredBy);
-  if (Number.isNaN(requiredByDate.getTime())) {
+  const requiredByDate = buildRequiredByDate({ requiredBy, date, time });
+  if (!requiredByDate || Number.isNaN(requiredByDate.getTime())) {
     errors.push('Required date must be a valid date');
   } else if (requiredByDate <= new Date()) {
     errors.push('Required date must be in the future');
@@ -121,6 +154,7 @@ export const validateCreateRequestBody = (body = {}) => {
 
   return { valid: errors.length === 0, errors, bloodTypes: normalizedBloodTypes };
 };
+
 
 /**
  * Validate create emergency request payload.

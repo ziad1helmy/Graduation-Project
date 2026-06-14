@@ -20,6 +20,7 @@ import {
   validateBookAppointmentBody,
   validateCreateRequestBody,
   validateCreateEmergencyRequestBody,
+  buildRequiredByDate,
 } from '../validation/hospital.validation.js';
 import { normalizeBloodTypeList, extractFirstBloodType } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
@@ -62,17 +63,30 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
   if (Number.isNaN(scheduledDate.getTime())) return null;
 
   if (time) {
-    const match = String(time).trim().match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-    if (!match) return null;
+    const timeStr = String(time).trim();
+    let match = timeStr.match(/^(\d{1,2}):(\d{2})$/);
+    if (match) {
+      const hour = Number(match[1]);
+      const minute = Number(match[2]);
+      if (hour >= 0 && hour < 24 && minute >= 0 && minute < 60) {
+        scheduledDate.setHours(hour, minute, 0, 0);
+        return scheduledDate;
+      }
+    }
 
-    let hour = Number(match[1]);
-    const minute = Number(match[2]);
-    const period = match[3].toUpperCase();
-
-    if (period === 'PM' && hour !== 12) hour += 12;
-    if (period === 'AM' && hour === 12) hour = 0;
-
-    scheduledDate.setHours(hour, minute, 0, 0);
+    match = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (match) {
+      let hour = Number(match[1]);
+      const minute = Number(match[2]);
+      const period = match[3].toUpperCase();
+      if (hour >= 1 && hour <= 12 && minute >= 0 && minute < 60) {
+        if (period === 'PM' && hour !== 12) hour += 12;
+        if (period === 'AM' && hour === 12) hour = 0;
+        scheduledDate.setHours(hour, minute, 0, 0);
+        return scheduledDate;
+      }
+    }
+    return null;
   }
 
   return scheduledDate;
@@ -725,6 +739,8 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
           bloodTypes,
           urgency,
           requiredBy,
+          date,
+          time,
           quantity,
           unitsNeeded,
           patientType,
@@ -739,7 +755,7 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
           ? validation.bloodTypes
           : normalizeBloodTypeList(bloodTypeInput);
 
-        const requiredByDate = new Date(requiredBy);
+        const requiredByDate = buildRequiredByDate({ requiredBy, date, time });
         const resolvedUnits = Number(unitsNeeded ?? quantity ?? 1);
         const resolvedUrgency = isEmergency === true ? 'critical' : urgency;
 
@@ -952,6 +968,8 @@ export const updateRequest = asyncHandler(async (req, res) => {
     bloodTypes,
     urgency,
     requiredBy,
+    date,
+    time,
     quantity,
     unitsNeeded,
     patientType,
@@ -1008,6 +1026,8 @@ export const updateRequest = asyncHandler(async (req, res) => {
     bloodTypes !== undefined ||
     urgency !== undefined ||
     requiredBy !== undefined ||
+    date !== undefined ||
+    time !== undefined ||
     quantity !== undefined ||
     unitsNeeded !== undefined ||
     patientType !== undefined ||
@@ -1036,9 +1056,14 @@ export const updateRequest = asyncHandler(async (req, res) => {
       request.urgency = urgency;
     }
 
-    if (requiredBy !== undefined) {
-      const requiredByDate = new Date(requiredBy);
-      if (Number.isNaN(requiredByDate.getTime())) {
+    if (requiredBy !== undefined || date !== undefined || time !== undefined) {
+      const baseRequiredBy = requiredBy || date || request.requiredBy;
+      const requiredByDate = buildRequiredByDate({
+        requiredBy,
+        date: date || baseRequiredBy,
+        time,
+      });
+      if (!requiredByDate || Number.isNaN(requiredByDate.getTime())) {
         throw new HttpError(400, 'Required date must be a valid date');
       }
       if (requiredByDate <= new Date()) {
