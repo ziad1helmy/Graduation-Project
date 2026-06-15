@@ -35,32 +35,27 @@ describe('Analytics Service', () => {
     expect(summary).toHaveProperty('aiInsights');
     expect(summary.totalDonors).toBeGreaterThan(0);
     expect(summary.criticalCases).toBeGreaterThan(0);
-  });
-
-  it('getDonationTrends aggregates monthly donation data', async () => {
-    const hospital = await createHospital();
-    const request = await createRequest(hospital._id);
-    const donor = await createDonor();
-
-    // Create donations for current month
-    await createDonation(donor._id, request._id, { status: 'completed', quantity: 1 });
-    await createDonation(donor._id, request._id, { status: 'completed', quantity: 1 });
-    await createDonation(donor._id, request._id, { status: 'cancelled' });
-
-    const result = await analyticsService.getDonationTrends(6);
-
-    expect(result).toHaveProperty('trends');
-    expect(result).toHaveProperty('dailyTrends');
-    expect(result).toHaveProperty('regionalBreakdown');
-    expect(Array.isArray(result.trends)).toBe(true);
-    const currentMonth = result.trends.find((t) => t.month === new Date().getMonth() + 1);
-    expect(currentMonth).toBeTruthy();
-    expect(currentMonth.total).toBeGreaterThanOrEqual(3);
-    expect(currentMonth.successRate).toBeTruthy();
-    expect(result.dailyTrends[0]).toHaveProperty('date');
-    expect(result.dailyTrends[0]).toHaveProperty('completed');
-    expect(result.dailyTrends[0]).toHaveProperty('pending');
-    expect(result.dailyTrends[0]).toHaveProperty('cancelled');
+    expect(Array.isArray(summary.criticalAlerts)).toBe(true);
+    if (summary.criticalAlerts.length > 0) {
+      expect(summary.criticalAlerts[0]).toHaveProperty('id');
+      expect(summary.criticalAlerts[0]).toHaveProperty('message');
+      expect(summary.criticalAlerts[0]).toHaveProperty('severity');
+      expect(summary.criticalAlerts[0]).toHaveProperty('createdAt');
+    }
+    expect(Array.isArray(summary.topDonors)).toBe(true);
+    if (summary.topDonors.length > 0) {
+      expect(summary.topDonors[0]).toHaveProperty('donorId');
+      expect(summary.topDonors[0]).toHaveProperty('fullName');
+      expect(summary.topDonors[0]).toHaveProperty('bloodType');
+      expect(summary.topDonors[0]).toHaveProperty('totalDonations');
+      expect(summary.topDonors[0]).toHaveProperty('points');
+      expect(summary.topDonors[0]).toHaveProperty('tier');
+      expect(summary.topDonors[0]).toHaveProperty('donorRank');
+    }
+    expect(Array.isArray(summary.aiInsights)).toBe(true);
+    if (summary.aiInsights.length > 0) {
+      expect(typeof summary.aiInsights[0]).toBe('string');
+    }
   });
 
   it('getBloodTypeDistribution returns donor and request distribution', async () => {
@@ -94,8 +89,16 @@ describe('Analytics Service', () => {
 
     expect(Array.isArray(topDonors)).toBe(true);
     expect(topDonors.length).toBeGreaterThan(0);
-    // Top donor should have more completed donations
-    expect(topDonors[0].completedDonations).toBeGreaterThanOrEqual(topDonors[topDonors.length - 1].completedDonations);
+    // Top donor should have more total donations and include donorRank
+    expect(topDonors[0].totalDonations).toBeGreaterThanOrEqual(topDonors[topDonors.length - 1].totalDonations);
+    expect(topDonors[0]).toHaveProperty('donorId');
+    expect(topDonors[0]).toHaveProperty('fullName');
+    expect(topDonors[0]).toHaveProperty('bloodType');
+    expect(topDonors[0]).toHaveProperty('totalDonations');
+    expect(topDonors[0]).toHaveProperty('points');
+    expect(topDonors[0]).toHaveProperty('tier');
+    expect(topDonors[0]).toHaveProperty('donorRank');
+    expect(topDonors[0].donorRank).toBe(1);
   });
 
   it('getLeaderboard ranks verified donors by DonorPoints balance', async () => {
@@ -121,23 +124,4 @@ describe('Analytics Service', () => {
     expect(leaderboard.leaderboard[0].pointsBalance).toBe(900);
   });
 
-  it('getGrowthMetrics tracks user, request, and donation growth', async () => {
-    // Create data
-    await createDonor();
-    await createHospital();
-    const hospital = await createHospital();
-    await createRequest(hospital._id);
-    const donor = await createDonor();
-    const request = await createRequest(hospital._id);
-    await createDonation(donor._id, request._id, { status: 'completed' });
-
-    const metrics = await analyticsService.getGrowthMetrics(6);
-
-    expect(metrics).toHaveProperty('userGrowth');
-    expect(metrics).toHaveProperty('requestGrowth');
-    expect(metrics).toHaveProperty('donationGrowth');
-    expect(Array.isArray(metrics.userGrowth)).toBe(true);
-    expect(Array.isArray(metrics.requestGrowth)).toBe(true);
-    expect(Array.isArray(metrics.donationGrowth)).toBe(true);
-  });
 });

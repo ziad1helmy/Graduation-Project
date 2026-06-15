@@ -142,30 +142,6 @@ describe('Admin Routes Integration', () => {
     expect(persisted.points.bloodDonation).toBe(250);
   });
 
-  it('GET /admin/statistics returns statistics summary', async () => {
-    await clearDatabase();
-    const admin = await createAdmin();
-    await createDonor();
-    await createHospital();
-
-    const token = signToken({ userId: admin._id.toString(), role: admin.role });
-
-    const response = await request(app)
-      .get('/admin/statistics')
-      .set('Authorization', `Bearer ${token}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('totalDonors');
-    expect(response.body.data).toHaveProperty('totalDonorsGrowth');
-    expect(response.body.data).toHaveProperty('activeRequests');
-    expect(response.body.data).toHaveProperty('weeklyTrends');
-    expect(response.body.data).toHaveProperty('criticalAlerts');
-    expect(response.body.data).toHaveProperty('bloodTypeDistribution');
-    expect(response.body.data).toHaveProperty('topDonors');
-    expect(response.body.data).toHaveProperty('aiInsights');
-  });
-
   it('GET /admin/alerts returns alerts summary', async () => {
     await clearDatabase();
     const admin = await createAdmin();

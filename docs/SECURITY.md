@@ -13,7 +13,6 @@
 | Password Hashing | bcryptjs (10 rounds) | ✅ |
 | JWT Access Tokens | HS256, 7-day TTL | ✅ |
 | JWT Refresh Tokens | HS256, 30-day TTL, blacklisted | ✅ |
-| 2FA (TOTP) | Custom HMAC-SHA1 implementation | ✅ |
 | OTP Hashing | SHA-256 before storage | ✅ |
 | Admin Third Factor | `adminKey` pre-shared secret | ✅ |
 | Soft Delete (not hard delete) | `deletedAt` field | ✅ |
@@ -48,23 +47,16 @@
 - Stored as **plaintext** in the `adminKey` field (acts as a pre-shared API key)
 - ⚠️ If `adminKey` is leaked, admin account is compromised even without email + password brute force
 
-### 2FA Implementation
-- Custom TOTP using Node.js `crypto` (HMAC-SHA1, counter = `floor(timestamp / 30000)`)
-- Implements RFC 6238 compatible TOTP logic
-- ⚠️ No time drift window — exact 30-second window only (no ±1 window tolerance)
-- Backup codes: 6 codes × 4-byte hex uppercase, one-time use
-
 ---
 
 ## Rate Limiting
 
-Three tiers of rate limiting:
+Two tiers of rate limiting:
 
 | Limiter | Window | Dev Max | Prod Max | Applied To |
 |---------|--------|---------|----------|-----------|
 | `limiter` (general) | 15 min | 200 | 60 | All routes (global) |
 | `authLimiter` | 15 min | 150 | 20 | Login/signup routes |
-| `strict2FALimiter` | 15 min | 50 | 10 | `POST /auth/2fa/verify` |
 
 **Test bypass**: In development, requests with `X-Test-Mode: true` header bypass rate limiting.
 
@@ -111,7 +103,6 @@ Security events are structured logs — integrate with a SIEM or log aggregation
 | Threat | Mitigation |
 |--------|-----------|
 | Brute force login | Auth rate limiter (20 req/15min prod) |
-| 2FA brute force | Strict 2FA limiter (10 req/15min prod) |
 | OTP brute force | Max 5 attempts per OTP record |
 | SQL/NoSQL injection | express-mongo-sanitize + Mongoose validation |
 | XSS | Helmet Content-Security-Policy headers |
@@ -129,14 +120,13 @@ Security events are structured logs — integrate with a SIEM or log aggregation
 
 1. **In-memory rate limiting only** — counters reset on restart and do not scale across multiple instances (see KNOWN_ISSUES.md)
 2. **`adminKey` plaintext storage** — consider hashing with bcrypt if treating it as a long-lived secret
-3. **2FA no time drift window** — strict 30-second TOTP window may cause UX issues with clock skew
-4. **`JWT_REFRESH_SECRET` optional** — should be required in production
-5. **`service-account.json` may be committed** — CRITICAL, see KNOWN_ISSUES.md
-6. **No HTTPS enforcement** — must be handled by reverse proxy (Nginx/Cloudflare) in production
-7. **`privacyMode` not enforced** — donor privacy mode flag has no API-level enforcement
-8. **No security audit logging to external systems** — logs are file-based only
-9. **No Redis-backed limiter** — only needed if the deployment expands beyond a single server or restarts must preserve counters
-10. **No SIEM integration** — only needed for centralized alerting and compliance-grade monitoring
+3. **`JWT_REFRESH_SECRET` optional** — should be required in production
+4. **`service-account.json` may be committed** — CRITICAL, see KNOWN_ISSUES.md
+5. **No HTTPS enforcement** — must be handled by reverse proxy (Nginx/Cloudflare) in production
+6. **`privacyMode` not enforced** — donor privacy mode flag has no API-level enforcement
+7. **No security audit logging to external systems** — logs are file-based only
+8. **No Redis-backed limiter** — only needed if the deployment expands beyond a single server or restarts must preserve counters
+9. **No SIEM integration** — only needed for centralized alerting and compliance-grade monitoring
 
 ---
 

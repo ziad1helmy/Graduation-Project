@@ -36,9 +36,10 @@ router.post('/system/maintenance', adminController.setMaintenanceMode);
 
 
 router.get('/system/maintenance', adminController.getMaintenanceStatus);
+router.get('/system-settings', adminController.getSystemSettings);
+router.put('/system-settings', adminController.updateSystemSettings);
 
 
-router.get('/statistics', adminController.getStatistics);
 router.get('/dashboard', adminController.getDashboard);
 
 router.get('/alerts', adminController.getAlerts);
@@ -167,23 +168,6 @@ router.patch('/requests/:id/cancel', adminController.cancelRequest);
 
 
 router.post('/requests/:id/broadcast', adminController.broadcastRequest);
-
-// ──────────────────────────────────────────────
-//  Analytics
-// ──────────────────────────────────────────────
-
-
-
-router.get('/analytics/donations', adminController.getDonationTrends);
-
-
-router.get('/analytics/blood-types', adminController.getBloodTypeDistribution);
-
-
-router.get('/analytics/top-donors', adminController.getTopDonors);
-
-
-router.get('/analytics/growth', adminController.getGrowthMetrics);
 
 // ──────────────────────────────────────────────
 //  Emergency

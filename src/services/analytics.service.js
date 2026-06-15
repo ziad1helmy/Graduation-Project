@@ -4,7 +4,7 @@ import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import DonorPoints from '../models/DonorPoints.model.js';
-import { calculateAge } from '../utils/age.js';
+
 import { getCompatibleDonorTypesForRequest } from '../utils/blood-type.js';
 import cache from '../utils/cache.js';
 import { logger } from '../utils/logger.js';
@@ -14,21 +14,10 @@ import { computeGrowth, safeEngine } from '../utils/insight-utils.js';
  * Analytics Service - Dashboard metrics, trends, and statistics
  */
 
-const DASHBOARD_CACHE_KEY = 'analytics:dashboard';
+const DASHBOARD_CACHE_KEY = 'analytics:dashboard:v2';
 const DASHBOARD_CACHE_TTL = 60;
 const DAYS_MS = 24 * 60 * 60 * 1000;
-const DONATION_COOLDOWN_DAYS = 56;
 
-const computeHealthStatus = (healthHistory) => {
-  if (!healthHistory) return 'Good';
-  if (healthHistory.chronicConditions?.length > 0) return 'Chronic';
-  if (healthHistory.recentIllness) return 'Recovering';
-  if (healthHistory.lastCheckupDate) {
-    const monthsAgo = (Date.now() - new Date(healthHistory.lastCheckupDate)) / (30 * DAYS_MS);
-    if (monthsAgo > 6) return 'Needs Checkup';
-  }
-  return 'Good';
-};
 
 const buildGrowthAggregation = (matchFilter, thirtyDaysAgo, sixtyDaysAgo) => [
   { $match: matchFilter },
@@ -125,56 +114,23 @@ const computeBloodTypeSupplyDemand = async () => {
   });
 };
 
-const formatLocationString = (location) => {
-  if (!location) return 'Unknown';
-  if (location.city && location.governorate) return `${location.city}, ${location.governorate}`;
-  return location.governorate || 'Unknown';
-};
-
 const computeCriticalAlerts = async () => {
-  const [requests, supplyDemand] = await Promise.all([
-    Request.find({
-      urgency: { $in: ['critical', 'high'] },
-      status: { $in: ['pending', 'in-progress'] },
-    })
-      .sort({ urgency: 1, createdAt: -1 })
-      .limit(10)
-      .populate({ path: 'hospitalId', select: '+phone fullName location' })
-      .lean(),
-    computeBloodTypeSupplyDemand(),
-  ]);
-
-  const supplyByType = supplyDemand.reduce((map, s) => ({ ...map, [s.bloodType]: s.available }), {});
+  const requests = await Request.find({
+    urgency: { $in: ['critical', 'high'] },
+    status: { $in: ['pending', 'in-progress'] },
+  })
+    .sort({ urgency: 1, createdAt: -1 })
+    .limit(10)
+    .lean();
 
   return requests.map((request) => {
-    const hospital = request.hospitalId;
     const bloodTypes = request.bloodType || [];
-
-    let totalAvailable = 0;
-    for (const bloodType of bloodTypes) {
-      totalAvailable += supplyByType[bloodType] || 0;
-    }
-
-    const matchPercentage = Math.min(100, (totalAvailable / Math.max(request.unitsNeeded || 1, 1)) * 100);
-    const alertType = request.urgency === 'critical'
-      ? 'critical'
-      : (request.isEmergency ? 'emergency' : 'system');
+    const alertType = request.urgency === 'critical' ? 'critical' : 'system';
 
     return {
       id: request._id.toString(),
-      title: request.patientType || 'Critical Blood Request',
-      type: alertType,
-      description: request.notes || `Critical request for ${bloodTypes.join(', ')} blood type(s).`,
-      unitsNeeded: request.unitsNeeded || request.quantity || 1,
-      bloodTypesNeeded: bloodTypes,
-      hospitalId: hospital?._id?.toString() || 'Unknown',
-      hospitalName: hospital?.fullName || 'Unknown Hospital',
-      hospitalContact: hospital?.phone || request.hospitalContact || '',
-      location: formatLocationString(hospital?.location),
-      latitude: hospital?.location?.coordinates?.lat || null,
-      longitude: hospital?.location?.coordinates?.lng || null,
-      predictMatchPercentage: parseFloat(matchPercentage.toFixed(1)),
-      date: request.createdAt?.toISOString(),
+      message: request.notes || `Critical request for ${bloodTypes.join(', ')} blood type(s).`,
+      severity: alertType,
       createdAt: request.createdAt?.toISOString(),
     };
   });
@@ -185,98 +141,7 @@ const computeBloodTypeMap = async () => {
   return dist.reduce((map, d) => ({ ...map, [d.bloodType]: d.donors }), {});
 };
 
-const deriveDonorEligibility = (user, donor, now) => {
-  if (user?.isSuspended) return false;
-  if (donor?.temporaryDeferralUntil && donor.temporaryDeferralUntil > now) return false;
-  if (!donor?.lastDonationDate) return true;
-  return (now - new Date(donor.lastDonationDate)) / DAYS_MS > DONATION_COOLDOWN_DAYS;
-};
 
-const formatDashboardDonor = (item, index, now) => {
-  const user = item.user;
-  const donor = item.donor;
-
-  return {
-    id: item._id.toString(),
-    name: user?.fullName || 'Unknown',
-    email: user?.email || '',
-    phoneNumber: donor?.phoneNumber || '',
-    bloodType: donor?.bloodType || '',
-    totalDonations: item.totalDonations || 0,
-    points: item.points?.pointsBalance || 0,
-    isEligibleToDonate: deriveDonorEligibility(user, donor, now),
-    isActive: !user?.isSuspended,
-    isVerified: user?.isEmailVerified || false,
-    location: user?.location?.city || 'Unknown',
-    gender: donor?.gender || 'unknown',
-    age: calculateAge(donor?.dateOfBirth),
-    weight: donor?.weight || null,
-    healthStatus: computeHealthStatus(donor?.healthHistory),
-    isBanned: user?.isSuspended || false,
-    donorRank: index + 1,
-    createdAt: user?.createdAt?.toISOString(),
-  };
-};
-
-const computeTopDonors = async (limit = 5) => {
-  const now = new Date();
-
-  const topDonors = await Donation.aggregate([
-    { $match: { status: 'completed' } },
-    {
-      $group: {
-        _id: '$donorId',
-        totalDonations: { $sum: 1 },
-        totalUnits: { $sum: '$quantity' },
-        lastDonation: { $max: '$completedDate' },
-      },
-    },
-    { $sort: { totalDonations: -1 } },
-    { $limit: limit },
-    {
-      $lookup: {
-        from: 'users',
-        let: { donorId: '$_id' },
-        pipeline: [
-          {
-            $match: {
-              $expr: {
-                $and: [
-                  { $eq: ['$_id', '$$donorId'] },
-                  { $eq: ['$role', 'donor'] },
-                  { $eq: ['$deletedAt', null] },
-                ],
-              },
-            },
-          },
-          { $project: { fullName: 1, email: 1, location: 1, isSuspended: 1, isEmailVerified: 1, createdAt: 1 } },
-        ],
-        as: 'user',
-      },
-    },
-    { $unwind: '$user' },
-    {
-      $lookup: {
-        from: 'donorpoints',
-        localField: '_id',
-        foreignField: 'donorId',
-        as: 'points',
-      },
-    },
-    { $unwind: { path: '$points', preserveNullAndEmptyArrays: true } },
-    {
-      $lookup: {
-        from: 'donors',
-        localField: 'user._id',
-        foreignField: '_id',
-        as: 'donor',
-      },
-    },
-    { $unwind: { path: '$donor', preserveNullAndEmptyArrays: true } },
-  ]);
-
-  return topDonors.map((item, index) => formatDashboardDonor(item, index, now));
-};
 
 // ─────────────────────────────────────────────────────────────────────────────
 //  AI Insights Engine
@@ -408,7 +273,11 @@ const generateAIInsights = async () => {
     safeEngine(() => surgeEngine(data), 'surge'),
   ]);
 
-  return insights.filter(Boolean).sort((a, b) => b.confidence - a.confidence).slice(0, 5);
+  return insights
+    .filter(Boolean)
+    .sort((a, b) => b.confidence - a.confidence)
+    .slice(0, 5)
+    .map((i) => `${i.title}: ${i.description}`);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -424,7 +293,7 @@ export const getDashboardSummary = async () => {
       computeWeeklyTrends(),
       computeCriticalAlerts(),
       computeBloodTypeMap(),
-      computeTopDonors(5),
+      getTopDonors(5),
       generateAIInsights(),
     ]);
 
@@ -440,153 +309,6 @@ export const getDashboardSummary = async () => {
   await cache.set(DASHBOARD_CACHE_KEY, result, DASHBOARD_CACHE_TTL);
   return result;
 };
-
-/**
- * Get monthly donation trends.
- * @param {number} months - Number of months to look back (default 6)
- */
-export const getDonationTrends = async (months = 6) => {
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - months);
-
-  const [monthlyTrends, dailyTrends, regionalBreakdown] = await Promise.all([
-    Donation.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      {
-        $group: {
-          _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' } },
-          total: { $sum: 1 },
-          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
-          pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-          totalUnits: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$quantity', 0] } },
-        },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]),
-    Donation.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      {
-        $group: {
-          _id: { year: { $year: '$createdAt' }, month: { $month: '$createdAt' }, day: { $dayOfMonth: '$createdAt' } },
-          total: { $sum: 1 },
-          completed: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, 1, 0] } },
-          cancelled: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } },
-          pending: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-          totalUnits: { $sum: { $cond: [{ $eq: ['$status', 'completed'] }, '$quantity', 0] } },
-        },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1, '_id.day': 1 } },
-    ]),
-    buildRegionalBreakdown(startDate),
-  ]);
-
-  return {
-    trends: monthlyTrends.map(formatMonthlyTrend),
-    dailyTrends: dailyTrends.map(formatDailyTrend),
-    regionalBreakdown,
-  };
-};
-
-const buildRegionalBreakdown = async (startDate) => {
-  const [requestResults, donationResults] = await Promise.all([
-    Request.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'hospitalId',
-          foreignField: '_id',
-          pipeline: [{ $match: { deletedAt: null } }, { $project: { location: 1 } }],
-          as: 'hospital',
-        },
-      },
-      { $unwind: { path: '$hospital', preserveNullAndEmptyArrays: true } },
-      {
-        $group: {
-          _id: { $ifNull: ['$hospital.location.governorate', 'Unknown'] },
-          requests: { $sum: 1 },
-          activeRequests: { $sum: { $cond: [{ $in: ['$status', ['pending', 'in-progress']] }, 1, 0] } },
-        },
-      },
-    ]),
-    Donation.aggregate([
-      { $match: { createdAt: { $gte: startDate }, status: 'completed' } },
-      {
-        $lookup: {
-          from: 'requests',
-          localField: 'requestId',
-          foreignField: '_id',
-          as: 'request',
-        },
-      },
-      { $unwind: { path: '$request', preserveNullAndEmptyArrays: true } },
-      {
-        $lookup: {
-          from: 'users',
-          localField: 'request.hospitalId',
-          foreignField: '_id',
-          pipeline: [{ $match: { deletedAt: null } }, { $project: { location: 1 } }],
-          as: 'hospital',
-        },
-      },
-      { $unwind: { path: '$hospital', preserveNullAndEmptyArrays: true } },
-      {
-        $group: {
-          _id: { $ifNull: ['$hospital.location.governorate', 'Unknown'] },
-          completed: { $sum: 1 },
-          donatedUnits: { $sum: '$quantity' },
-        },
-      },
-    ]),
-  ]);
-
-  const regionalMap = new Map();
-  for (const result of requestResults) {
-    regionalMap.set(String(result._id), {
-      governorate: String(result._id),
-      requests: result.requests || 0,
-      activeRequests: result.activeRequests || 0,
-      completed: 0,
-      donatedUnits: 0,
-    });
-  }
-
-  for (const result of donationResults) {
-    const key = String(result._id);
-    const existing = regionalMap.get(key) || { governorate: key, requests: 0, activeRequests: 0, completed: 0, donatedUnits: 0 };
-    existing.completed = result.completed || 0;
-    existing.donatedUnits = result.donatedUnits || 0;
-    regionalMap.set(key, existing);
-  }
-
-  return Array.from(regionalMap.values()).sort(
-    (a, b) => (b.requests + b.completed) - (a.requests + a.completed)
-  );
-};
-
-const formatSuccessRate = (completed, total) => total > 0 ? ((completed / total) * 100).toFixed(1) + '%' : '0%';
-
-const formatMonthlyTrend = (t) => ({
-  year: t._id.year,
-  month: t._id.month,
-  total: t.total,
-  completed: t.completed,
-  cancelled: t.cancelled,
-  pending: t.pending,
-  totalUnits: t.totalUnits,
-  successRate: formatSuccessRate(t.completed, t.total),
-});
-
-const formatDailyTrend = (t) => ({
-  date: `${t._id.year}-${String(t._id.month).padStart(2, '0')}-${String(t._id.day).padStart(2, '0')}`,
-  total: t.total,
-  completed: t.completed,
-  pending: t.pending,
-  cancelled: t.cancelled,
-  totalUnits: t.totalUnits,
-  successRate: formatSuccessRate(t.completed, t.total),
-});
 
 /**
  * Get blood type distribution for donors and active requests.
@@ -656,7 +378,7 @@ export const getTopDonors = async (limit = 10) => {
     {
       $project: {
         donorId: '$_id',
-        completedDonations: 1,
+        totalDonations: '$completedDonations',
         totalUnits: 1,
         lastDonation: 1,
         fullName: '$donor.fullName',
@@ -671,62 +393,7 @@ export const getTopDonors = async (limit = 10) => {
     },
   ]);
 
-  return topDonors;
-};
-
-/**
- * Get growth metrics over time (new users, requests, donations).
- * @param {number} months - Number of months to look back (default 6)
- */
-export const getGrowthMetrics = async (months = 6) => {
-  const startDate = new Date();
-  startDate.setMonth(startDate.getMonth() - months);
-
-  const [userGrowth, requestGrowth, donationGrowth] = await Promise.all([
-    User.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-          },
-          count: { $sum: 1 },
-          donors: { $sum: { $cond: [{ $eq: ['$role', 'donor'] }, 1, 0] } },
-          hospitals: { $sum: { $cond: [{ $eq: ['$role', 'hospital'] }, 1, 0] } },
-        },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]),
-    Request.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]),
-    Donation.aggregate([
-      { $match: { createdAt: { $gte: startDate } } },
-      {
-        $group: {
-          _id: {
-            year: { $year: '$createdAt' },
-            month: { $month: '$createdAt' },
-          },
-          count: { $sum: 1 },
-        },
-      },
-      { $sort: { '_id.year': 1, '_id.month': 1 } },
-    ]),
-  ]);
-
-  return { userGrowth, requestGrowth, donationGrowth };
+  return topDonors.map((d, i) => ({ ...d, donorRank: i + 1 }));
 };
 
 /**
@@ -737,26 +404,23 @@ export const getDonorStats = async (donorId) => {
     const donor = await Donor.findById(donorId).lean();
     if (!donor) throw new Error('Donor not found');
 
-    const [typeStats, responseCount] = await Promise.all([
-      Donation.aggregate([
-        { $match: { donorId: new mongoose.Types.ObjectId(donorId), status: 'completed' } },
-        {
-          $lookup: {
-            from: 'requests',
-            localField: 'requestId',
-            foreignField: '_id',
-            as: 'req',
-          },
+    const typeStats = await Donation.aggregate([
+      { $match: { donorId: new mongoose.Types.ObjectId(donorId), status: 'completed' } },
+      {
+        $lookup: {
+          from: 'requests',
+          localField: 'requestId',
+          foreignField: '_id',
+          as: 'req',
         },
-        { $unwind: { path: '$req', preserveNullAndEmptyArrays: true } },
-        {
-          $group: {
-            _id: { $ifNull: ['$req.type', 'blood'] },
-            count: { $sum: 1 },
-          },
+      },
+      { $unwind: { path: '$req', preserveNullAndEmptyArrays: true } },
+      {
+        $group: {
+          _id: { $ifNull: ['$req.type', 'blood'] },
+          count: { $sum: 1 },
         },
-      ]),
-      Donation.countDocuments({ donorId: new mongoose.Types.ObjectId(donorId) }),
+      },
     ]);
 
     const donationsByType = { blood: 0, plasma: 0, platelets: 0 };
@@ -776,7 +440,6 @@ export const getDonorStats = async (donorId) => {
       bloodType: donor.bloodType,
       pointsBalance: donor.pointsBalance || 0,
       totalDonations,
-      responseCount,
       donationsByType,
       lastDonationDate: donor.lastDonationDate,
       isSuspended: donor.isSuspended,
@@ -885,7 +548,7 @@ export const getDonationTypeStats = async () => {
 //  Analytics Overview (GET /analytics/overview)
 // ─────────────────────────────────────────────────────────────────────────────
 
-const OVERVIEW_CACHE_KEY = 'analytics:overview';
+const OVERVIEW_CACHE_KEY = 'analytics:overview:v2';
 const OVERVIEW_CACHE_TTL = 120;
 
 const computeGrowthRate = async () => {
@@ -935,31 +598,88 @@ const computeMonthlyTrend = async () => {
   return { values, labels };
 };
 
-const generateAIPredictions = async () => {
-  const [data, supplyDemand] = await Promise.all([precomputeTrendData(), computeBloodTypeSupplyDemand()]);
-  const predictions = [];
-
+const generateDemandPrediction = (data) => {
   const growthRate = computeWeekOverWeekGrowth(data.requestsLast7d, data.requestsLast14d);
+  const absGrowth = Math.abs(growthRate);
   if (growthRate > 0.10) {
-    predictions.push(`Blood demand expected to increase ${Math.round(growthRate * 100)}% next month based on historical trends.`);
+    return `Blood demand expected to increase ${Math.round(growthRate * 100)}% next month based on historical trends — consider scheduling additional donation drives and sending proactive alerts to O+ and A+ donors.`;
   }
-
-  const shortageEntry = supplyDemand.find((s) => s.ratio > 2.0);
-  if (shortageEntry) {
-    predictions.push(`${shortageEntry.bloodType} type shortage likely in 3 weeks — proactive donor outreach recommended.`);
+  if (growthRate > 0.05) {
+    return `Blood demand showing a steady ${Math.round(growthRate * 100)}% weekly increase. Monitor inventory levels closely over the next 2 weeks.`;
   }
+  if (growthRate < -0.15) {
+    return `Blood demand has declined ${Math.round(absGrowth * 100)}% in the past week. Consider reducing scheduled drive frequency and reviewing inventory redistribution across hospitals.`;
+  }
+  return null;
+};
 
+const generateShortagePredictions = (supplyDemand) => {
+  const predictions = [];
+  const sortedByRatio = [...supplyDemand].sort((a, b) => b.ratio - a.ratio);
+  for (const entry of sortedByRatio.slice(0, 2)) {
+    if (entry.ratio > 3.0) {
+      predictions.push(`${entry.bloodType} critically low — only ${entry.available} donors available against ${entry.unitsNeeded} units needed. Launch emergency campaign within 48 hours.`);
+    } else if (entry.ratio > 1.5) {
+      predictions.push(`${entry.bloodType} supply at risk with a ${entry.ratio.toFixed(1)}:1 demand-to-supply ratio. Proactive targeted outreach to ${entry.bloodType} donors recommended this week.`);
+    }
+  }
+  return predictions;
+};
+
+const generateRetentionPrediction = (data) => {
+  const { last30d, prev30d } = data.donorActivity;
+  if (prev30d <= 0) return null;
+  const retentionRate = (last30d / prev30d) * 100;
+  if (retentionRate < 70) {
+    return `Donor return rate has dropped to ${Math.round(retentionRate)}% — consider launching a re-engagement campaign with bonus points for returning donors this month.`;
+  }
+  if (retentionRate > 120) {
+    return `Donor retention has improved to ${Math.round(retentionRate)}% — current momentum is strong. Capitalize by introducing referral rewards to sustain growth.`;
+  }
+  return null;
+};
+
+const generatePeakDayPrediction = (data) => {
+  const dayMap = new Map(data.donationsByDay.map((d) => [d._id, d.count]));
+  const counts = [1, 2, 3, 4, 5, 6, 7].map((d) => dayMap.get(d) || 0);
+  const peakCount = Math.max(...counts);
+  const avgCount = counts.reduce((sum, c) => sum + c, 0) / 7;
+  if (peakCount <= avgCount * 1.4 || avgCount <= 0) return null;
+  const peakDayIndex = counts.indexOf(peakCount);
+  const pct = Math.round(((peakCount - avgCount) / avgCount) * 100);
+  return `${DAY_NAMES[peakDayIndex]} shows ${pct}% higher donation activity — schedule more mobile drives and staff on this day to maximize collections.`;
+};
+
+const generateWeekendPrediction = (data) => {
   const dayMap = new Map(data.donationsByDay.map((d) => [d._id, d.count]));
   const weekendCount = (dayMap.get(1) || 0) + (dayMap.get(7) || 0);
   const weekdayCount = [2, 3, 4, 5, 6].reduce((sum, d) => sum + (dayMap.get(d) || 0), 0);
   const avgWeekend = weekendCount / 2;
   const avgWeekday = weekdayCount / 5;
-  if (avgWeekend > avgWeekday * 1.2) {
-    const pct = Math.round(((avgWeekend - avgWeekday) / avgWeekday) * 100);
-    predictions.push(`Weekend donation drives show ${pct}% higher success rates.`);
-  }
+  if (avgWeekend <= avgWeekday * 1.2 || avgWeekday <= 0) return null;
+  const pct = Math.round(((avgWeekend - avgWeekday) / avgWeekday) * 100);
+  return `Weekend donation drives show ${pct}% higher success rates compared to weekdays. Prioritize weekend scheduling for upcoming emergency campaigns.`;
+};
 
-  return predictions;
+const generateAIPredictions = async () => {
+  const [data, supplyDemand] = await Promise.all([precomputeTrendData(), computeBloodTypeSupplyDemand()]);
+  const predictions = [];
+
+  const demand = generateDemandPrediction(data);
+  if (demand) predictions.push(demand);
+
+  predictions.push(...generateShortagePredictions(supplyDemand));
+
+  const retention = generateRetentionPrediction(data);
+  if (retention) predictions.push(retention);
+
+  const peakDay = generatePeakDayPrediction(data);
+  if (peakDay) predictions.push(peakDay);
+
+  const weekend = generateWeekendPrediction(data);
+  if (weekend) predictions.push(weekend);
+
+  return predictions.slice(0, 5);
 };
 
 export const getAnalyticsOverview = async () => {

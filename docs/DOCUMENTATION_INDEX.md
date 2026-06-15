@@ -11,7 +11,7 @@ This is the canonical documentation hub for LifeLink. All documents listed here 
 | [README.md](../README.md) | Project overview, quick start, tech stack, feature status |
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System architecture, layers, data flow, module map |
 | [API_REFERENCE.md](API_REFERENCE.md) | Comprehensive REST API reference (all endpoints) |
-| [AUTH_FLOW.md](AUTH_FLOW.md) | Authentication, authorization, 2FA, and FCM token flows |
+| [AUTH_FLOW.md](AUTH_FLOW.md) | Authentication, authorization, and FCM token flows |
 | [DATA_MODELS.md](DATA_MODELS.md) | MongoDB schema reference (all 25 models) |
 | [NOTIFICATION_SYSTEM.md](NOTIFICATION_SYSTEM.md) | FCM + in-app notification architecture |
 | [MATCHING_ENGINE.md](MATCHING_ENGINE.md) | Blood-type compatibility + geo-proximity matching |
@@ -55,7 +55,6 @@ These documents contain deeper technical analysis of specific subsystems. They r
 | `EMERGENCY_NOTIFICATION_SYSTEM.md` | Emergency broadcast design |
 | `LOCATION_FLOW_COMPLETE.md` | Geo-location handling flow |
 | `POINTS_SYSTEM.md` | Points calculation details |
-| `2FA_SYSTEM_REVIEW.md` | 2FA implementation review |
 | `SUPPORT_SYSTEM_REVIEW.md` | Support/help system review |
 | `TESTING_APPOINTMENTS.md` | Appointment testing scenarios |
 | `ARABIC_ENGLISH_SUPPORT.md` | i18n implementation |

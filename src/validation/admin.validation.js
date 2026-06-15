@@ -237,3 +237,62 @@ export const validateEmergencyBroadcastBody = (body) => {
 
   return { valid: errors.length === 0, errors };
 };
+
+const validateLocationField = (location, errors) => {
+  if (typeof location !== 'object' || location === null) {
+    errors.push('location must be an object');
+    return;
+  }
+  
+  if (location.city !== undefined && typeof location.city !== 'string') {
+    errors.push('location.city must be a string');
+  }
+  
+  if (location.governorate !== undefined && typeof location.governorate !== 'string') {
+    errors.push('location.governorate must be a string');
+  }
+  
+  if (location.coordinates !== undefined) {
+    if (typeof location.coordinates !== 'object' || location.coordinates === null) {
+      errors.push('location.coordinates must be an object');
+      return;
+    }
+    
+    const { lat, lng } = location.coordinates;
+    if (lat !== undefined && (typeof lat !== 'number' || lat < -90 || lat > 90)) {
+      errors.push('Valid latitude (lat) is required (-90 to 90)');
+    }
+    if (lng !== undefined && (typeof lng !== 'number' || lng < -180 || lng > 180)) {
+      errors.push('Valid longitude (lng) is required (-180 to 180)');
+    }
+  }
+};
+
+/**
+ * Validate admin profile update body.
+ */
+export const validateUpdateAdminProfileBody = (body) => {
+  const errors = [];
+
+  if (body.fullName !== undefined && typeof body.fullName !== 'string') {
+    errors.push('fullName must be a string');
+  }
+
+  if (body.email !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(body.email)) {
+    errors.push('Valid email is required');
+  }
+
+  if (body.phone !== undefined && typeof body.phone !== 'string') {
+    errors.push('phone must be a string');
+  }
+
+  if (body.address !== undefined && typeof body.address !== 'string') {
+    errors.push('address must be a string');
+  }
+
+  if (body.location !== undefined) {
+    validateLocationField(body.location, errors);
+  }
+
+  return { valid: errors.length === 0, errors };
+};

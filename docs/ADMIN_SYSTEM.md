@@ -36,7 +36,6 @@ POST /admin/login
 
 - `adminKey` is a 32-char random hex string generated at admin account creation
 - It is returned **once** on creation and stored as plaintext on the User document
-- Admin login also supports 2FA (same TOTP flow as donors)
 
 See [AUTH_FLOW.md](AUTH_FLOW.md) for full login flow details.
 

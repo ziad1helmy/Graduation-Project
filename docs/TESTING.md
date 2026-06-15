@@ -58,7 +58,7 @@ Test service logic in isolation (no HTTP, no real DB).
 Key areas with unit test coverage:
 - `matching.service` — blood type matrix, geo-scoring
 - `eligibility.service` — all 5 rules (age, deferral, travel, interval, hemoglobin)
-- `auth.service` — OTP generation, TOTP logic
+- `auth.service` — OTP generation
 - `reward.service` — points calculation, tier advancement
 
 ### Integration Tests
@@ -66,7 +66,7 @@ Key areas with unit test coverage:
 Test full HTTP request-response cycles with in-memory MongoDB.
 
 Key areas:
-- Auth flows: register, login, 2FA, OTP, FCM token
+- Auth flows: register, login, OTP, FCM token
 - Request lifecycle: create, accept, cancel, fulfill
 - Donation flow: respond, complete, eligibility check
 

@@ -33,8 +33,8 @@ Donor and Hospital extend the base User via Mongoose discriminators (the `__t` f
 - Blacklist entry TTL: matches token expiry (`expiresAt` field, TTL-indexed)
 
 ### Scoped Tokens (Internal)
-Used for 2FA intermediate state and similar temporary flows:
-- Payload includes: `{ ...userPayload, purpose: 'two_factor_auth' }` or `'password_reset'`
+Used for password reset intermediate state and similar temporary flows:
+- Payload includes: `{ ...userPayload, purpose: 'password_reset' }`
 - TTL: 10 minutes
 - Verified by checking `decoded.purpose === expectedPurpose`
 
@@ -93,12 +93,7 @@ POST /auth/hospital/login (hospital)
     ├── bcrypt.compare(password, hash)
     ├── Role check: user.role must match requested role
     ├── Hospital extra: user.hospitalId must match provided hospitalId
-    │
-    ├── Check 2FA: TwoFactor.findOne({ userId })
-    │   ├── 2FA enabled → Return { requires2FA: true, tempToken (10m scoped) }
-    │   └── 2FA disabled → Return { accessToken, refreshToken, user }
-    │
-    └── Hospital login also returns hospitalId in response
+    └── Return { accessToken, refreshToken, user }
 ```
 
 ---
@@ -112,8 +107,6 @@ POST /auth/admin/login
     ├── Find user where role IN ['admin', 'superadmin']
     ├── Check: not deleted, not suspended, email verified
     ├── bcrypt.compare(password, hash)
-    ├── String compare: user.adminKey === provided adminKey
-    ├── Check 2FA (same as donor flow)
     └── Return { accessToken, refreshToken, admin } (admin shape, not user shape)
 ```
 
@@ -121,52 +114,6 @@ POST /auth/admin/login
 
 ---
 
-## 2FA Flow
-
-### Setup
-
-```
-POST /auth/2fa/setup (requires auth)
-    │
-    ├── Generate 40-char hex secret
-    ├── Generate 6 backup codes (4-byte hex, uppercase)
-    ├── Store as pendingSecret + pendingBackupCodes in TwoFactor doc
-    └── Return { secret, backup_codes, qr_code: "otpauth://totp/LifeLink:email?secret=...&issuer=LifeLink" }
-```
-
-### Confirm Setup
-
-```
-POST /auth/2fa/confirm-setup (requires auth) { otp }
-    │
-    ├── Generate expected TOTP from pendingSecret (HMAC-SHA1, 30s window)
-    ├── Also accept backup code match
-    ├── If match: enabled = true, secret = pendingSecret, clear pending fields
-    └── Return { success: true }
-```
-
-### Verify (Login)
-
-```
-POST /auth/2fa/verify (rate-limited: 10/15min prod) { tempToken, otp }
-    │
-    ├── Verify tempToken (scoped, purpose = 'two_factor_auth')
-    ├── Generate expected TOTP from stored secret
-    ├── Accept backup code (removes used code from array)
-    └── Return { accessToken, refreshToken, user }
-```
-
-### Disable
-
-```
-POST /auth/2fa/disable (requires auth) { password }
-    │
-    ├── bcrypt.compare(password, user.password)
-    ├── Set enabled = false, secret = null, backupCodes = [], disabledAt = now
-    └── Return { success: true }
-```
-
----
 
 ## Logout Flow
 
@@ -283,7 +230,6 @@ Used on admin routes: `router.use(authMiddleware, requireRole('admin', 'superadm
 
 1. **OTP storage**: All OTPs (email verification + password reset) stored as SHA-256 hashes, never plaintext
 2. **Refresh token revocation**: SHA-256 hash of the raw refresh token is stored in blacklist (so raw token never persists)
-3. **Rate limiting on 2FA**: `strict2FALimiter` — 10 req/15min in production to prevent brute force
-4. **Timing safety**: Admin login uses `bcrypt.compare` (constant-time) for passwords
-5. **Email enumeration**: `forgotPassword` silently ignores "Account not found" — returns success regardless to prevent email enumeration
-6. **Hospital ID**: Hospital login requires the `hospitalId` field to match — prevents cross-hospital account access even with valid credentials
+3. **Timing safety**: Admin login uses `bcrypt.compare` (constant-time) for passwords
+4. **Email enumeration**: `forgotPassword` silently ignores "Account not found" — returns success regardless to prevent email enumeration
+5. **Hospital ID**: Hospital login requires the `hospitalId` field to match — prevents cross-hospital account access even with valid credentials

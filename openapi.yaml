@@ -4263,8 +4263,6 @@ paths:
                 properties:
                   totalResponses:
                     type: number
-                  responseCount:
-                    type: number
                   totalDonations:
                     type: number
                   completedDonations:
@@ -4277,7 +4275,6 @@ paths:
                     type: number
               example:
                 totalResponses: 11
-                responseCount: 11
                 totalDonations: 8
                 completedDonations: 8
                 pendingDonations: 2
@@ -7045,6 +7042,75 @@ paths:
           description: Non-admin role attempted to expire
         "404":
           description: Request not found
+  /admin/system-settings:
+    get:
+      summary: Retrieve system settings & admin profile details
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: System settings and admin details retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: System settings retrieved
+                data:
+                  admin:
+                    _id: "66f200000000000000000001"
+                    fullName: "Admin Name"
+                    email: "admin@lifelink.demo"
+                    role: "admin"
+                    position: "Super Admin"
+                    phone: "+201234567890"
+                    department: "IT Department"
+                    adminAccessKey: "Super Admin"
+                  settings:
+                    emergencyAlertsEnabled: true
+                    aiPredictionsEnabled: true
+                    maintenanceModeEnabled: false
+                  systemHealth:
+                    status: "healthy"
+                    uptime: "99.9%"
+                    lastChecked: "2026-06-12T10:00:00.000Z"
+    put:
+      summary: Update system settings
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                emergencyAlertsEnabled:
+                  type: boolean
+                aiPredictionsEnabled:
+                  type: boolean
+                maintenanceModeEnabled:
+                  type: boolean
+            example:
+              emergencyAlertsEnabled: true
+              aiPredictionsEnabled: true
+              maintenanceModeEnabled: false
+      responses:
+        "200":
+          description: System settings updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: System settings updated successfully
+                data:
+                  settings:
+                    emergencyAlertsEnabled: true
+                    aiPredictionsEnabled: true
+                    maintenanceModeEnabled: false
   /admin/system/health:
     get:
       summary: System health check
@@ -7062,12 +7128,16 @@ paths:
                 message: System health
                 data:
                   status: healthy
-                  uptime: 86423
-                  database: connected
-                  memory:
-                    used: 96 MB
-                    total: 128 MB
-                  timestamp: 2026-05-18T09:15:00.000Z
+                  uptime: 99.9%
+                  lastChecked: 2026-06-12T10:00:00.000Z
+                  services:
+                    database: online
+                    notificationService: warning
+                    qrScanner: online
+                    authService: online
+                    chatbot: online
+                  memoryUsage: 45%
+                  cpuUsage: 12%
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -7171,19 +7241,19 @@ paths:
                 message: Audit logs
                 data:
                   logs:
-                    - _id: 66f800000000000000000001
-                      adminId:
-                        _id: 66f200000000000000000001
-                        fullName: Noura Hassan
-                        email: admin@lifelink.demo
-                        role: admin
-                      action: user.suspend
-                      targetType: User
-                      targetId: 69f3df915f42685cbbbcbb18
-                      createdAt: 2026-05-18T08:50:00.000Z
-                  total: 1
-                  page: 1
-                  limit: 10
+                    - _id: log_001
+                      adminId: 66f200000000000000000001
+                      adminName: admin@lifelink.com
+                      action: Hospital Added
+                      targetId: 60d5ec49f0322c2c20e28f36
+                      targetType: user
+                      details: Suspended user michael@gmail.com for policy violation
+                      createdAt: 2026-06-12T10:00:00.000Z
+                  pagination:
+                    page: 1
+                    limit: 20
+                    total: 1
+                    totalPages: 1
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -7270,39 +7340,6 @@ paths:
               example:
                 success: true
                 message: Dashboard summary
-                data:
-                  users:
-                    total: 284
-                    donors: 231
-                    hospitals: 41
-                  requests:
-                    active: 19
-                    critical: 4
-                  donations:
-                    pending: 13
-                    completed: 428
-                  alerts:
-                    unverifiedUsers: 7
-                    suspendedUsers: 3
-                    criticalRequests: 4
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/statistics:
-    get:
-      summary: Get admin statistics summary
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Statistics summary
-          content:
-            application/json:
-              example:
-                success: true
-                message: Statistics summary
                 data:
                   users:
                     total: 284
@@ -7422,189 +7459,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/analytics/donations:
-    get:
-      summary: Monthly donation trends
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: months
-          schema:
-            type: integer
-            default: 6
-          example: 6
-      responses:
-        "200":
-          description: Donation trends (monthly + optional daily/regional breakdowns)
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donation trends
-                data:
-                  trends:
-                    - year: 2026
-                      month: 3
-                      total: 41
-                      completed: 35
-                      cancelled: 6
-                      totalUnits: 39
-                      successRate: 85.4%
-                    - year: 2026
-                      month: 4
-                      total: 52
-                      completed: 46
-                      cancelled: 6
-                      totalUnits: 51
-                      successRate: 88.5%
-                    - year: 2026
-                      month: 5
-                      total: 38
-                      completed: 32
-                      cancelled: 6
-                      totalUnits: 35
-                      successRate: 84.2%
-                  dailyTrends:
-                    - date: 2026-05-16
-                      completed: 3
-                      pending: 2
-                      cancelled: 0
-                      totalUnits: 3
-                    - date: 2026-05-17
-                      completed: 5
-                      pending: 1
-                      cancelled: 1
-                      totalUnits: 6
-                  regionalBreakdown:
-                    - governorate: Cairo
-                      requests: 10
-                      activeRequests: 4
-                      completed: 8
-                      donatedUnits: 8
-                    - governorate: Giza
-                      requests: 3
-                      activeRequests: 1
-                      completed: 1
-                      donatedUnits: 1
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/analytics/blood-types:
-    get:
-      summary: Blood type distribution
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Blood type distribution
-          content:
-            application/json:
-              example:
-                success: true
-                message: Blood type distribution
-                data:
-                  distribution:
-                    - bloodType: A+
-                      donors: 54
-                      activeRequests: 4
-                    - bloodType: O-
-                      donors: 12
-                      activeRequests: 6
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/analytics/top-donors:
-    get:
-      summary: Top donors leaderboard
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 10
-          example: 10
-      responses:
-        "200":
-          description: Top donors
-          content:
-            application/json:
-              example:
-                success: true
-                message: Top donors
-                data:
-                  topDonors:
-                    - donorId: 69f3df915f42685cbbbcbb18
-                      completedDonations: 12
-                      totalUnits: 12
-                      lastDonation: 2026-05-10T12:30:00.000Z
-                      fullName: Aya Hassan
-                      email: aya.hassan@lifelink.demo
-                      bloodType: O+
-                      location:
-                        city: Cairo
-                        governorate: Cairo
-                        coordinates:
-                          lat: 30.0444
-                          lng: 31.2357
-                      isActive: true
-                      isVerified: true
-                      points: 2400
-                      tier: gold
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/analytics/growth:
-    get:
-      summary: Growth metrics over time
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: months
-          schema:
-            type: integer
-            default: 6
-          example: 6
-      responses:
-        "200":
-          description: Growth metrics
-          content:
-            application/json:
-              example:
-                success: true
-                message: Growth metrics
-                data:
-                  userGrowth:
-                    - _id:
-                        year: 2026
-                        month: 3
-                      count: 18
-                      donors: 14
-                      hospitals: 3
-                  requestGrowth:
-                    - _id:
-                        year: 2026
-                        month: 3
-                      count: 11
-                  donationGrowth:
-                    - _id:
-                        year: 2026
-                        month: 3
-                      count: 35
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
   /analytics/dashboard:
     get:
       summary: Get dashboard summary with key metrics (Admin only)
@@ -7634,19 +7488,8 @@ paths:
                     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                   criticalAlerts:
                     - id: "alert1"
-                      title: "Critical Blood Shortage"
-                      type: "critical"
-                      description: "City Hospital is critically low on O- blood. Only 2 units remaining."
-                      unitsNeeded: 20
-                      bloodTypesNeeded: ["O-"]
-                      hospitalId: "H001"
-                      hospitalName: "City Hospital"
-                      hospitalContact: "+201141935341"
-                      location: "Cairo, Egypt"
-                      latitude: 30.0444
-                      longitude: 31.2357
-                      predictMatchPercentage: 75
-                      date: "2026-06-13T03:53:00.000Z"
+                      message: "Critical blood shortage: O- type at City Hospital"
+                      severity: "critical"
                       createdAt: "2026-06-13T03:53:00.000Z"
                   bloodTypeDistribution:
                     "O+": 900
@@ -7658,28 +7501,17 @@ paths:
                     "AB+": 80
                     "AB-": 60
                   topDonors:
-                    - id: "1"
-                      name: "Ahmed Mohamed"
-                      email: "ahmed@gmail.com"
-                      phoneNumber: "01012345678"
+                    - donorId: "60d5ec49f0322c2c20e28f36"
+                      fullName: "Ahmed Mohamed"
                       bloodType: "O+"
                       totalDonations: 12
-                      points: 240
-                      isEligibleToDonate: true
-                      isActive: true
-                      isVerified: true
-                      location: "Cairo"
-                      gender: "Male"
-                      age: 25
-                      weight: 75
-                      healthStatus: "Good"
-                      isBanned: false
+                      points: 2400
+                      tier: "gold"
                       donorRank: 1
-                      createdAt: "2023-05-10T00:00:00.000Z"
                   aiInsights:
-                    - title: "Predicted High Demand"
-                      description: "An increase of 30% in blood requests is predicted next week."
-                      confidence: 40
+                    - "Blood demand expected to increase 15% next month"
+                    - "O- type critically low — recommend emergency campaign"
+                    - "Donor retention rate improved by 8% this quarter"
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -7699,15 +7531,15 @@ paths:
                 success: true
                 message: Analytics overview retrieved
                 data:
-                  growthRate: "15%"
+                  growthRate: "+15%"
                   successRate: "80.5%"
                   monthlyTrend:
                     values: [100, 120, 150, 130, 170, 160, 180]
                     labels: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul"]
                   aiPredictions:
-                    - "Blood demand expected to increase 15% next month based on historical trends"
-                    - "O- type shortage likely in 3 weeks — proactive donor outreach recommended"
-                    - "Weekend donation drives show 23% higher success rates"
+                    - "Blood demand expected to increase 15% next month based on historical trends — consider scheduling additional donation drives and sending proactive alerts to O+ and A+ donors."
+                    - "O- type critically low with a 3.5:1 demand-to-supply ratio. Launch emergency campaign within 48 hours."
+                    - "Weekend donation drives show 23% higher success rates compared to weekdays. Prioritize weekend scheduling for upcoming emergency campaigns."
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -8121,9 +7953,13 @@ paths:
                     email: admin@lifelink.demo
                     role: admin
                     phone: "01122223333"
-                    address:
+                    address: 15 Al Tahrir Street, Cairo
+                    location:
                       city: Cairo
                       governorate: Cairo
+                      coordinates:
+                        lat: 30.0444
+                        lng: 31.2357
                     isVerified: true
                     isSuspended: false
                     createdAt: 2026-01-10T08:30:00.000Z
@@ -9607,40 +9443,6 @@ paths:
                     byBloodType:
                       A+: 8
                       O-: 4
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/requests/stats:
-    get:
-      summary: Get request statistics
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Request statistics
-          content:
-            application/json:
-              example:
-                success: true
-                message: Request statistics
-                data:
-                  total: 68
-                  byStatus:
-                    pending: 14
-                    in-progress: 5
-                    completed: 41
-                    cancelled: 8
-                  byUrgency:
-                    low: 2
-                    medium: 6
-                    high: 7
-                    critical: 4
-                  byBloodType:
-                    A+: 4
-                    B+: 3
-                    O-: 6
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."

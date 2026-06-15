@@ -107,7 +107,6 @@ All three share the same `users` MongoDB collection. Role-specific fields are is
 | SystemSettings | systemsettings | KV store (maintenance mode, etc.) |
 | RefreshTokenBlacklist | refreshtokenblacklists | Revoked refresh tokens |
 | OneTimeOtp | onetimeotps | Password reset OTPs |
-| TwoFactor | twofactors | 2FA secrets and backup codes |
 | PointsTransaction | pointstransactions | Reward points ledger |
 | RewardsConfig | rewardsconfigs | Configurable points values |
 | Badge | badges | Badge definitions |
@@ -170,7 +169,7 @@ All business logic lives here.
 | `auth.middleware.js` | JWT verification, user loading, suspension/soft-delete check |
 | `role.middleware.js` | Role-based access control (RBAC) |
 | `maintenance.middleware.js` | Blocks non-admin requests during maintenance |
-| `rateLimit.middleware.js` | Three limiters: general, auth, strict-2FA |
+| `rateLimit.middleware.js` | Two limiters: general, auth |
 | `error.middleware.js` | Global error handler with structured logging |
 
 ### `src/utils/`
@@ -234,7 +233,7 @@ All business logic lives here.
 
 ```
 Layers of defense:
-1. Rate Limiting     — Global (200/15m dev, 60/15m prod) + Auth (20/15m prod) + 2FA (10/15m prod)
+1. Rate Limiting     — Global (200/15m dev, 60/15m prod) + Auth (20/15m prod)
 2. Input Sanitization — express-mongo-sanitize prevents NoSQL injection
 3. HTTP Security     — Helmet sets 11 security response headers
 4. CORS             — Configurable origin via CORS_ORIGIN env
@@ -242,10 +241,9 @@ Layers of defense:
 6. Refresh Blacklist — Revoked tokens stored in MongoDB (TTL-indexed)
 7. Soft Deletes     — Deleted users blocked at auth middleware
 8. Suspension Check — Suspended users blocked at auth middleware
-9. 2FA             — TOTP (custom HMAC-SHA1 implementation)
-10. Admin Key       — Additional shared-secret required for admin login
-11. Password Hashing — bcryptjs, default 10 rounds
-12. OTP Hashing     — SHA-256 before storage
+9. Admin Key       — Additional shared-secret required for admin login
+10. Password Hashing — bcryptjs, default 10 rounds
+11. OTP Hashing     — SHA-256 before storage
 ```
 
 ---
@@ -270,13 +268,7 @@ Layers of defense:
 
 **Risk**: No runtime type inference. Validation logic can drift from actual model requirements.
 
-### Decision 4: Custom TOTP Implementation
 
-**Why**: Team built TOTP from scratch using Node.js `crypto` module (HMAC-SHA1, counter-based OTP).
-
-**Trade-off**: Implements RFC 6238 logic correctly but lacks battle-hardened edge cases handled by libraries like `otplib`. Time drift window is not explicitly handled.
-
----
 
 ## Performance Characteristics
 

@@ -25,10 +25,6 @@
 | POST | `/auth/change-password` | 🔒 | Change password (authenticated) |
 | GET  | `/auth/me` | 🔒 | Get current user profile |
 | POST | `/auth/validate-token` | 🔒 | Validate token + return user |
-| POST | `/auth/2fa/setup` | 🔒 | Begin 2FA setup |
-| POST | `/auth/2fa/confirm-setup` | 🔒 | Confirm 2FA with TOTP code |
-| POST | `/auth/2fa/verify` | Public | Complete 2FA login (tempToken) |
-| POST | `/auth/2fa/disable` | 🔒 | Disable 2FA (requires password) |
 | POST | `/auth/fcm-token` | 🔒 | Register/append FCM token |
 | PUT  | `/auth/fcm-token` | 🔒 | Replace all FCM tokens |
 | DELETE | `/auth/fcm-token` | 🔒 | Remove FCM token |

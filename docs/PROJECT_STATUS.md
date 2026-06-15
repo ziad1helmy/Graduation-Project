@@ -44,8 +44,6 @@
 - [x] Password change (authenticated)
 - [x] Forgot password via OTP email
 - [x] Reset password with OTP verification
-- [x] TOTP-based 2FA setup, confirm, verify, disable
-- [x] 2FA backup codes (6 codes, one-time use)
 - [x] FCM token registration, replacement, and removal
 - [x] FCM token removed on logout (fire-and-forget)
 - [x] Token validation endpoint (`POST /auth/validate-token`)
@@ -168,7 +166,6 @@
 #### Security
 - [x] Rate limiting: 60 req/15min prod, 200 req/15min dev
 - [x] Auth limiter: 20 req/15min prod
-- [x] Strict 2FA limiter: 10 req/15min prod
 - [x] E2E test bypass header (`x-test-mode: true`, dev only)
 - [x] Helmet security headers
 - [x] CORS (configurable origin)

@@ -144,6 +144,16 @@ const userSchema = new Schema(
       trim: true,
       default: null,
     },
+    position: {
+      type: String,
+      trim: true,
+      default: null,
+    },
+    department: {
+      type: String,
+      trim: true,
+      default: null,
+    },
     adminKey: {
       type: String,
       trim: true,

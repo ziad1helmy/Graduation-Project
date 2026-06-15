@@ -132,19 +132,15 @@
     // Admin
     '/admin/system/health': 'System & Health',
     '/admin/system/maintenance': 'System & Health',
+    '/admin/system-settings': 'System & Health',
     '/admin/audit-logs': 'System & Health',
     '/api/webhooks/resend': 'System & Health',
     '/health': 'System & Health',
     '/': 'System & Health',
 
     '/admin/dashboard': 'Dashboard & Statistics',
-    '/admin/statistics': 'Dashboard & Statistics',
     '/admin/blood-inventory-summary': 'Dashboard & Statistics',
     '/admin/alerts': 'Dashboard & Statistics',
-    '/admin/analytics/donations': 'Dashboard & Statistics',
-    '/admin/analytics/blood-types': 'Dashboard & Statistics',
-    '/admin/analytics/top-donors': 'Dashboard & Statistics',
-    '/admin/analytics/growth': 'Dashboard & Statistics',
     '/analytics/dashboard': 'Dashboard & Statistics',
     '/analytics/overview': 'Dashboard & Statistics',
 
@@ -175,7 +171,6 @@
     '/admin/permissions/roles/{role}': 'User Management',
 
     '/admin/requests': 'Requests & Moderation',
-    '/admin/requests/stats': 'Requests & Moderation',
     '/admin/requests/{id}': 'Requests & Moderation',
     '/admin/requests/{id}/donations': 'Requests & Moderation',
     '/admin/requests/{id}/fulfill': 'Requests & Moderation',

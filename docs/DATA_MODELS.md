@@ -219,23 +219,6 @@ Admin and superadmin accounts are stored as `User` documents with `role: 'admin'
 
 ---
 
-## TwoFactor
-
-**Collection**: `twofactors`
-
-| Field | Type | Notes |
-|-------|------|-------|
-| `userId` | ObjectId | Ref to User, unique |
-| `enabled` | Boolean | Default: false |
-| `secret` | String | Active TOTP secret |
-| `backupCodes` | [String] | One-time use backup codes |
-| `pendingSecret` | String | Pre-confirm secret |
-| `pendingBackupCodes` | [String] | Pre-confirm backup codes |
-| `verifiedAt` | Date | When 2FA was confirmed |
-| `disabledAt` | Date | |
-
----
-
 ## OneTimeOtp
 
 **Collection**: `onetimeotps`

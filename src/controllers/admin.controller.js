@@ -18,6 +18,7 @@ import {
   validateCancelRequestBody,
   validateEmergencyBroadcastBody,
   validateBanDonorBody,
+  validateUpdateAdminProfileBody,
 } from '../validation/admin.validation.js';
 import { validateRewardsConfigBody } from '../validation/reward.validation.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
@@ -37,6 +38,11 @@ export const getAdminProfile = asyncHandler(async (req, res) => {
 });
 
 export const updateAdminProfile = asyncHandler(async (req, res) => {
+  const validation = validateUpdateAdminProfileBody(req.body);
+  if (!validation.valid) {
+    throw new HttpError(400, validation.errors.join(', '));
+  }
+
   try {
     const { fullName, email, phone, address, location } = req.body;
 
@@ -136,7 +142,123 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
     { action, targetType, adminId },
     { page, limit }
   );
-  return response.success(res, 200, 'Audit logs', result);
+
+  const formattedLogs = result.logs.map((log) => {
+    const logObj = log.toObject ? log.toObject() : log;
+    const adminEmail = logObj.adminId?.email || 'System';
+
+    const actionMappings = {
+      'user.create_hospital': 'Hospital Added',
+      'user.ban_donor': 'Donor Banned',
+      'user.unban_donor': 'Donor Unbanned',
+      'user.suspend': 'User Suspended',
+      'user.unsuspend': 'User Unsuspended',
+      'user.delete': 'User Deleted',
+      'user.create_admin': 'Admin Added',
+      'system.maintenance': 'Maintenance Mode Updated',
+    };
+    const friendlyAction = actionMappings[logObj.action] || logObj.action;
+
+    let details = logObj.changes?.details || '';
+    if (!details) {
+      switch (logObj.action) {
+        case 'user.create_hospital':
+          details = `Added hospital account`;
+          break;
+        case 'user.ban_donor':
+          details = `Banned donor account (ID: ${logObj.targetId})`;
+          break;
+        case 'user.unban_donor':
+          details = `Unbanned donor account (ID: ${logObj.targetId})`;
+          break;
+        case 'user.suspend':
+          details = `Suspended user account (ID: ${logObj.targetId})`;
+          break;
+        case 'user.unsuspend':
+          details = `Unsuspended user account (ID: ${logObj.targetId})`;
+          break;
+        case 'user.delete':
+          details = `Soft-deleted user account (ID: ${logObj.targetId})`;
+          break;
+        case 'user.create_admin':
+          details = `Created admin account (ID: ${logObj.targetId})`;
+          break;
+        case 'system.maintenance':
+          details = `Updated system maintenance mode`;
+          break;
+        default:
+          details = `Performed action ${logObj.action} on ${logObj.targetType}`;
+      }
+    }
+
+    return {
+      _id: logObj._id,
+      adminId: logObj.adminId?._id || logObj.adminId || null,
+      adminName: adminEmail,
+      action: friendlyAction,
+      targetId: logObj.targetId,
+      targetType: logObj.targetType ? logObj.targetType.toLowerCase() : null,
+      details,
+      createdAt: logObj.createdAt,
+    };
+  });
+
+  const totalPages = Math.ceil(result.total / result.limit) || 1;
+  const pagination = {
+    page: result.page,
+    limit: result.limit,
+    total: result.total,
+    totalPages,
+  };
+
+  return response.success(res, 200, 'Audit logs', {
+    logs: formattedLogs,
+    pagination,
+  });
+});
+
+/** GET /admin/system-settings */
+export const getSystemSettings = asyncHandler(async (req, res) => {
+  const user = await adminService.getUserById(req.user._id, req.user.role, null, req.user._id.toString());
+  if (!user) {
+    throw new HttpError(404, 'Admin profile not found');
+  }
+
+  const userObj = user.toObject ? user.toObject() : user;
+  const admin = {
+    _id: userObj._id,
+    fullName: userObj.fullName,
+    email: userObj.email,
+    role: userObj.role,
+    position: userObj.position || (userObj.role === 'superadmin' ? 'Super Admin' : 'Admin'),
+    phone: userObj.phone || userObj.phoneNumber || '',
+    department: userObj.department || 'IT Department',
+    adminAccessKey: userObj.adminKey || (userObj.role === 'superadmin' ? 'Super Admin' : 'Admin'),
+  };
+
+  const settings = await adminService.getSystemSettingsObj();
+  const systemHealth = await adminService.getSystemHealth();
+
+  return response.success(res, 200, 'System settings retrieved', {
+    admin,
+    settings,
+    systemHealth,
+  });
+});
+
+/** PUT /admin/system-settings */
+export const updateSystemSettings = asyncHandler(async (req, res) => {
+  const { emergencyAlertsEnabled, aiPredictionsEnabled, maintenanceModeEnabled } = req.body;
+
+  const updatedSettings = await adminService.updateSystemSettings({
+    emergencyAlertsEnabled,
+    aiPredictionsEnabled,
+    maintenanceModeEnabled,
+  }, req.user._id);
+
+  return response.success(res, 200, 'System settings updated successfully', {
+    settings: updatedSettings,
+  });
 });
 
 const toInboundEmailResponse = (email) => {
@@ -701,38 +823,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Dashboard summary', summary);
 });
 
-/** GET /admin/statistics */
-export const getStatistics = asyncHandler(async (req, res) => {
-  const summary = await analyticsService.getDashboardSummary();
-  return response.success(res, 200, 'Statistics summary', summary);
-});
 
-/** GET /admin/analytics/donations */
-export const getDonationTrends = asyncHandler(async (req, res) => {
-  const months = parseInt(req.query.months) || 6;
-  const result = await analyticsService.getDonationTrends(months);
-  return response.success(res, 200, 'Donation trends', result);
-});
-
-/** GET /admin/analytics/blood-types */
-export const getBloodTypeDistribution = asyncHandler(async (req, res) => {
-  const distribution = await analyticsService.getBloodTypeDistribution();
-  return response.success(res, 200, 'Blood type distribution', { distribution });
-});
-
-/** GET /admin/analytics/top-donors */
-export const getTopDonors = asyncHandler(async (req, res) => {
-  const limit = parseInt(req.query.limit) || 10;
-  const topDonors = await analyticsService.getTopDonors(limit);
-  return response.success(res, 200, 'Top donors', { topDonors });
-});
-
-/** GET /admin/analytics/growth */
-export const getGrowthMetrics = asyncHandler(async (req, res) => {
-  const months = parseInt(req.query.months) || 6;
-  const growth = await analyticsService.getGrowthMetrics(months);
-  return response.success(res, 200, 'Growth metrics', growth);
-});
 
 // ──────────────────────────────────────────────
 //  Phase 5: Emergency

@@ -43,9 +43,8 @@ These P0 items are mostly deployment and environment hardening tasks. Items 2, 4
 | # | Item | Effort | Notes |
 |---|------|--------|-------|
 | 14 | Webhook handler implementation | Medium | Add signature verification + payload dispatch |
-| 15 | 2FA time drift window (±1 TOTP period) | Low | Improve UX for users with clock skew |
-| 16 | Redemption catalog API | Medium | Catalog of redeemable items, not just points deduction |
-| 17 | Donor waitlist for fully-matched requests | Medium | `WaitlistEntry` model exists but no management API |
+| 15 | Redemption catalog API | Medium | Catalog of redeemable items, not just points deduction |
+| 16 | Donor waitlist for fully-matched requests | Medium | `WaitlistEntry` model exists but no management API |
 
 ---
 
@@ -80,7 +79,7 @@ These P0 items are mostly deployment and environment hardening tasks. Items 2, 4
 
 | # | Item | Completed |
 |---|------|-----------|
-| ✅ | Multi-role authentication with 2FA | 2025 |
+| ✅ | Multi-role authentication | 2025 |
 | ✅ | Blood-type compatibility matching engine | 2025 |
 | ✅ | FCM push notification system | 2026 |
 | ✅ | Rewards / gamification system | 2025 |
