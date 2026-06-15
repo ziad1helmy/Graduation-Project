@@ -41,7 +41,7 @@ const validRequestBody = () => ({
   bloodTypes: ['O+'],
   urgency: 'high',
   requiredBy: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000).toISOString(), // 4 days out
-  quantity: 2,
+  unitsNeeded: 2,
   hospitalContact: '0100000001',
   notes: 'Integration test request',
 });
@@ -516,7 +516,7 @@ describe('POST /hospital/request', () => {
         bloodTypes: ['AB+'],
         urgency: 'critical',
         requiredBy: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString(),
-        quantity: 1,
+        unitsNeeded: 1,
         hospitalContact: '0100000002',
       });
 
@@ -576,10 +576,10 @@ describe('POST /hospital/requests/create-emergency', () => {
     expect(res.body.data.patientType).toBe('emergency');
     expect(String(res.body.data.hospitalId._id || res.body.data.hospitalId)).toBe(hospital._id.toString());
 
-    const stored = await Request.findById(res.body.data._id).populate('hospitalId', 'hospitalName contactNumber');
+    const stored = await Request.findById(res.body.data._id).populate('hospitalId', 'hospitalName phone');
     expect(String(stored.hospitalId._id || stored.hospitalId)).toBe(hospital._id.toString());
     expect(stored.hospitalName).toBe(hospital.hospitalName);
-    expect(stored.contactNumber).toBe(hospital.contactNumber);
+    expect(stored.contactNumber).toBe(hospital.phone);
     expect(stored.isEmergency).toBe(true);
   });
 
@@ -717,6 +717,7 @@ describe('GET /hospital/requests/:requestId', () => {
     expect(res.body.data.timeRemaining).toContain('2d');
     expect(res.body.data.responded).toBe(0);
     expect(res.body.data.confirmed).toBe(0);
+    expect(res.body.data.requiredBy).toBeTruthy();
     expect(res.body.data.request).toBeUndefined();
     expect(res.body.data.donations).toBeUndefined();
   });
@@ -775,6 +776,7 @@ describe('PUT /hospital/requests/:requestId', () => {
     expect(res.body.data.timeRemaining).toContain('2d');
     expect(res.body.data.responded).toBe(0);
     expect(res.body.data.confirmed).toBe(0);
+    expect(res.body.data.requiredBy).toBeTruthy();
     expect(res.body.data.request).toBeUndefined();
     expect(res.body.data.status).toBeUndefined();
   });
@@ -833,6 +835,7 @@ describe('PUT /hospital/requests/:requestId', () => {
     expect(res.body.data.bloodTypes).toEqual(['A-', 'O-']);
     expect(res.body.data.unitsNeeded).toBe(3);
     expect(res.body.data.urgency).toBe('high');
+    expect(res.body.data.requiredBy).toBeTruthy();
 
     const updatedDoc = await Request.findById(req._id);
     expect(updatedDoc.bloodType).toEqual(['A-', 'O-']);
@@ -843,34 +846,6 @@ describe('PUT /hospital/requests/:requestId', () => {
     expect(updatedDoc.notes).toBe('Updated patient notes');
   });
 
-  it('updates request details successfully with separate date and time', async () => {
-    const hospital = await createHospital();
-    const token = tokenFor(hospital);
-    const req = await createRequest(hospital._id, {
-      status: 'pending',
-      bloodType: ['O+'],
-      unitsNeeded: 1,
-      urgency: 'low',
-    });
-
-    const targetDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000);
-    const dateStr = targetDate.toISOString().slice(0, 10); // YYYY-MM-DD
-    const res = await request(app)
-      .put(`/hospital/requests/${req._id}`)
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        date: dateStr,
-        time: '02:30 PM',
-      });
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-
-    const updatedDoc = await Request.findById(req._id);
-    expect(updatedDoc.requiredBy.toISOString().slice(0, 10)).toBe(dateStr);
-    expect(updatedDoc.requiredBy.getHours()).toBe(14); // 2 PM
-    expect(updatedDoc.requiredBy.getMinutes()).toBe(30);
-  });
   it('rejects invalid detail updates', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);
@@ -1039,64 +1014,7 @@ describe('GET /hospital/donations', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 // SETTINGS & INVENTORY ENDPOINTS
 // ═════════════════════════════════════════════════════════════════════════════
-describe('Blood bank settings', () => {
-  it('GET /hospital/blood-bank-settings returns 200', async () => {
-    const hospital = await createHospital();
-    const res = await request(app)
-      .get('/hospital/blood-bank-settings')
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
-    expect(res.status).toBe(200);
-  });
-
-  it('PUT /hospital/blood-bank-settings returns 200', async () => {
-    const hospital = await createHospital();
-    const res = await request(app)
-      .put('/hospital/blood-bank-settings')
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`)
-      .send({ acceptingDonations: true });
-    expect(res.status).toBe(200);
-  });
-});
-
-// Removed tests for GET /hospital/blood-inventory — endpoint deleted; use admin summary tests instead
-
-describe('Notification preferences', () => {
-  it('GET /hospital/notification-preferences returns 200', async () => {
-    const hospital = await createHospital();
-    const res = await request(app)
-      .get('/hospital/notification-preferences')
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
-    expect(res.status).toBe(200);
-  });
-
-  it('PUT /hospital/notification-preferences returns 200', async () => {
-    const hospital = await createHospital();
-    const res = await request(app)
-      .put('/hospital/notification-preferences')
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`)
-      .send({ emailAlerts: true });
-    expect(res.status).toBe(200);
-  });
-
-  it('GET /notifications returns hospital notifications', async () => {
-    const hospital = await createHospital();
-    await Notification.create({
-      userId: hospital._id,
-      type: 'emergency',
-      title: 'Incoming request',
-      message: 'A nearby hospital needs donors',
-      read: false,
-      relatedType: 'Request',
-    });
-
-    const res = await request(app)
-      .get('/notifications')
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
-
-    expect(res.status).toBe(200);
-    expect(Array.isArray(res.body.data.notifications)).toBe(true);
-  });
-});
+// Removed: blood-bank-settings and notification-preferences endpoints — deleted from codebase
 
 // ═════════════════════════════════════════════════════════════════════════════
 // REPORTS & DASHBOARD

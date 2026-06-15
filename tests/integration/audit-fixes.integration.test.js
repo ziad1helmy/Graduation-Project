@@ -14,12 +14,11 @@ const tokenFor = (user) =>
   signToken({ userId: user._id.toString(), role: user.role, isEmailVerified: true });
 
 describe('Audit business-rule fixes', () => {
-  it('accepting a request creates a pending donation without decrementing request quantity', async () => {
+  it('accepting a request creates a pending donation without decrementing request unitsNeeded', async () => {
     const donor = await createDonor({ bloodType: 'O+' });
     const hospital = await createHospital();
     const bloodRequest = await createRequest(hospital._id, {
       bloodType: 'O+',
-      quantity: 1,
       unitsNeeded: 1,
       status: 'pending',
     });
@@ -35,7 +34,6 @@ describe('Audit business-rule fixes', () => {
     const donation = await Donation.findOne({ requestId: bloodRequest._id, donorId: donor._id });
 
     expect(updatedRequest.status).toBe('accepted');
-    expect(updatedRequest.quantity).toBe(1);
     expect(updatedRequest.unitsNeeded).toBe(1);
     expect(donation.status).toBe('pending');
   });

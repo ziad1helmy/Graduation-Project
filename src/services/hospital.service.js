@@ -39,7 +39,6 @@ export const createHospitalByAdmin = async (data, adminId) => {
   const hospital = await Hospital.create({
     fullName: String(data.name).trim(),
     hospitalName: String(data.name).trim(),
-    name: String(data.name).trim(),
     type: String(data.type).trim(),
     email: normalizedEmail,
     password: generatedPassword,
@@ -47,7 +46,6 @@ export const createHospitalByAdmin = async (data, adminId) => {
     isEmailVerified: true,
     emailVerifiedAt: new Date(),
     phone: String(data.phone).trim(),
-    contactNumber: String(data.phone).trim(),
     address: data.address ?? null,
     city: data.city ? String(data.city).trim() : null,
     state: data.state ? String(data.state).trim() : null,

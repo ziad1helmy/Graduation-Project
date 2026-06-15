@@ -596,7 +596,6 @@ describe('Admin Routes Integration', () => {
       requiredBy: new Date(Date.now() + 2 * 60 * 60 * 1000),
       hospitalContact: '01001112233',
       hospitalName: 'Test Hospital',
-      locationHospital: { latitude: 30.0444, longitude: 31.2357 },
     });
 
     const token = signToken({ userId: admin._id.toString(), role: admin.role });

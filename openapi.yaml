@@ -4518,9 +4518,7 @@ paths:
         - Hospital
       summary: Get the authenticated hospital profile
       description: |-
-        Retrieve the authenticated hospital's profile information including license, contact details, blood inventory, and location coordinates
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
+        Retrieves the complete profile details, contact information, working hours, notification preferences, and account statistics in a single call.
       security:
         - bearerAuth: []
       responses:
@@ -4530,54 +4528,33 @@ paths:
             application/json:
               example:
                 success: true
-                message: Hospital profile retrieved successfully
                 data:
-                  _id: 66f100000000000000000001
-                  fullName: Cairo Care Operations
-                  hospitalName: Cairo Care Hospital
-                  type: hospital
-                  hospitalType: General Hospital
-                  email: info@cairocare.demo
-                  role: hospital
-                  contactNumber: "1044444444"
-                  phone: "1044444444"
-                  address:
-                    city: Cairo
-                    governorate: Cairo
-                  city: Cairo
-                  state: Cairo
-                  zipCode: "11511"
-                  hospitalId: cairo-care-hospital
-                  adminContactName: Dr. Sara Mahmoud
-                  adminContactPhone: "01123456789"
-                  emergencyContact: "01055555555"
-                  bloodBanksAvailable:
-                    - O+
-                    - O-
-                    - A+
-                  capacity: 120
-                  location:
-                    city: Cairo
-                    governorate: Cairo
-                    coordinates:
-                      lat: 30.0444
-                      lng: 31.2357
-                  stats:
-                    totalRequests: 11
-                    pendingRequests: 3
-                    completedRequests: 7
-                    cancelledRequests: 1
-                    expiredRequests: 0
-                    totalDonors: 9
-                    totalDonations: 9
-                    completedDonations: 9
-                  workingHours: 9AM - 5PM
+                  hospitalName: Metro General Hospital
+                  department: Emergency Department
+                  phone: "+1 (555) 987-6543"
+                  email: emergency@metrohealth.com
+                  address: 123 Medical Center Dr, City
+                  workingHours:
+                    openingHour: 8
+                    closingHour: 19
+                    slotsPerHour: 8
+                  notifications:
+                    pushNotifications: true
+                    emergencyAlerts: true
+                    emailNotifications: true
+                    smsAlerts: true
+                  statistics:
+                    totalRequests: 47
+                    fulfilled: 42
+                    active: 3
+                    successRate: 89
         "401":
           description: Missing or invalid JWT token
     put:
       tags:
         - Hospital
       summary: Update the authenticated hospital profile
+      description: Updates the hospital's basic profile details.
       security:
         - bearerAuth: []
       requestBody:
@@ -4587,87 +4564,35 @@ paths:
             schema:
               type: object
               properties:
-                fullName:
-                  type: string
-                  example: Cairo Care Operations
                 hospitalName:
                   type: string
-                  example: Cairo Care Hospital
-                contactNumber:
+                  example: Metro General Hospital
+                department:
                   type: string
-                  example: "1044444444"
+                  example: Emergency Department
+                phone:
+                  type: string
+                  example: "+1 (555) 987-6543"
+                email:
+                  type: string
+                  example: emergency@metrohealth.com
                 address:
-                  type: object
-                  properties:
-                    city:
-                      type: string
-                      example: Cairo
-                    governorate:
-                      type: string
-                      example: Cairo
-                location:
-                  type: object
-                  properties:
-                    city:
-                      type: string
-                      example: Cairo
-                    governorate:
-                      type: string
-                      example: Cairo
-                    coordinates:
-                      type: object
-                      properties:
-                        lat:
-                          type: number
-                          example: 30.0511
-                        lng:
-                          type: number
-                          example: 31.2435
+                  type: string
+                  example: 123 Medical Center Dr, City
             example:
-              fullName: Cairo Care Operations
-
-              hospitalName: Cairo Care Hospital
-              contactNumber: "1044444444"
-              address:
-                city: Cairo
-                governorate: Cairo
-              location:
-                city: Cairo
-                governorate: Cairo
-                coordinates:
-                  lat: 30.0511
-                  lng: 31.2435
+              hospitalName: Metro General Hospital
+              department: Emergency Department
+              phone: "+1 (555) 987-6543"
+              email: emergency@metrohealth.com
+              address: 123 Medical Center Dr, City
       responses:
         "200":
-          description: Hospital profile updated successfully
+          description: Profile updated successfully
           content:
             application/json:
               example:
                 success: true
-                message: Hospital profile updated successfully
-                data:
-                  _id: 66f100000000000000000001
-                  fullName: Cairo Care Operations
-                  hospitalName: Cairo Care Hospital
-                  type: hospital
-                  hospitalType: General Hospital
-                  contactNumber: "1044444444"
-                  hospitalId: cairo-care-hospital
-                  location:
-                    city: Cairo
-                    governorate: Cairo
-                    coordinates:
-                      lat: 30.0511
-                      lng: 31.2435
-                  stats:
-                    totalRequests: 11
-                    pendingRequests: 3
-                    completedRequests: 7
-                    cancelledRequests: 1
-                    expiredRequests: 0
-                    totalDonors: 9
-                    totalDonations: 9
-                    completedDonations: 9
+                message: Profile updated successfully
         "400":
           description: Validation error
         "401":
@@ -4676,11 +4601,12 @@ paths:
           description: Access denied - hospital role required
         "404":
           description: Hospital profile not found
-  /hospital/profile/location:
+  /hospital/profile/working-hours:
     put:
       tags:
         - Hospital
-      summary: Update hospital location profile
+      summary: Update working hours
+      description: Persists opening hours, closing hours, and slot limits.
       security:
         - bearerAuth: []
       requestBody:
@@ -4690,18 +4616,151 @@ paths:
             schema:
               type: object
               properties:
-                address:
+                openingHour:
+                  type: integer
+                  example: 8
+                closingHour:
+                  type: integer
+                  example: 19
+                slotsPerHour:
+                  type: integer
+                  example: 8
+            example:
+              openingHour: 8
+              closingHour: 19
+              slotsPerHour: 8
+      responses:
+        "200":
+          description: Working hours updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Working hours updated successfully
+        "400":
+          description: Validation error
+        "401":
+          description: Missing or invalid JWT token
+        "404":
+          description: Hospital profile not found
+  /hospital/profile/notifications:
+    put:
+      tags:
+        - Hospital
+      summary: Update notification preferences
+      description: Saves the hospital's custom communication channel toggle settings.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                pushNotifications:
+                  type: boolean
+                  example: false
+                emergencyAlerts:
+                  type: boolean
+                  example: true
+                emailNotifications:
+                  type: boolean
+                  example: true
+                smsAlerts:
+                  type: boolean
+                  example: false
+            example:
+              pushNotifications: false
+              emergencyAlerts: true
+              emailNotifications: true
+              smsAlerts: false
+      responses:
+        "200":
+          description: Preferences saved
+          content:
+            application/json:
+              example:
+                success: true
+                message: Preferences saved
+        "400":
+          description: Validation error
+        "401":
+          description: Missing or invalid JWT token
+        "404":
+          description: Hospital profile not found
+  /hospital/profile/password:
+    put:
+      tags:
+        - Hospital
+      summary: Change password
+      description: Safely changes the account credentials by verifying the current password.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                currentPassword:
                   type: string
-                  example: "123 El-Tahrir St"
-                city:
+                  format: password
+                  example: OldPass@123
+                newPassword:
                   type: string
-                  example: "Cairo"
-                governorate:
+                  format: password
+                  example: NewPass@456
+                confirmPassword:
                   type: string
-                  example: "Cairo"
-                postalCode:
-                  type: string
-                  example: "11511"
+                  format: password
+                  example: NewPass@456
+            example:
+              currentPassword: OldPass@123
+              newPassword: NewPass@456
+              confirmPassword: NewPass@456
+      responses:
+        "200":
+          description: Password updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Password updated successfully
+        "400":
+          description: Validation error
+        "401":
+          description: Missing or invalid JWT token
+        "404":
+          description: Hospital profile not found
+  /hospital/profile/location:
+    put:
+      tags:
+        - Hospital
+      summary: Update hospital location coordinates
+      description: Updates the hospital's geographic coordinates.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                lat:
+                  type: number
+                  example: 30.0444
+                lng:
+                  type: number
+                  example: 31.2357
+              required:
+                - lat
+                - lng
+            example:
+              lat: 30.0444
+              lng: 31.2357
       responses:
         "200":
           description: Hospital location updated successfully
@@ -4710,590 +4769,13 @@ paths:
               example:
                 success: true
                 message: Hospital location updated successfully
-                data:
-                  _id: 66f100000000000000000001
-                  fullName: Cairo Care Operations
-                  hospitalName: Cairo Care Hospital
-                  type: hospital
-                  hospitalType: General Hospital
-                  contactNumber: "1044444444"
-                  address:
-                    street: "123 El-Tahrir St"
-                    city: "Cairo"
-                    governorate: "Cairo"
-                    postalCode: "11511"
-                  city: "Cairo"
-                  state: "Cairo"
-                  zipCode: "11511"
-                  location:
-                    city: "Cairo"
-                    governorate: "Cairo"
-                    coordinates:
-                      lat: 30.0444
-                      lng: 31.2357
-                  stats:
-                    totalRequests: 11
-                    pendingRequests: 3
-                    completedRequests: 7
-                    cancelledRequests: 1
-                    expiredRequests: 0
-                    totalDonors: 9
-                    totalDonations: 9
-                    completedDonations: 9
         "401":
           description: Missing or invalid JWT token
         "403":
           description: Access denied - role not allowed
         "404":
           description: Hospital profile not found
-  /hospital/appointment-settings:
-    get:
-      tags:
-        - Hospital
-      summary: Get hospital appointment settings
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Appointment settings retrieved successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - success
-                  - message
-                  - data
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Appointment settings retrieved successfully
-                  data:
-                    type: object
-                    required:
-                      - openingTime
-                      - closingTime
-                      - workingDays
-                      - defaultSlotsPerHour
-                      - hourlySlots
-                      - totalDailyCapacity
-                      - isActive
-                      - supportedDonationTypes
-                      - minAdvanceHours
-                      - maxAdvanceDays
-                      - preparationTips
-                      - rescheduleAllowed
-                      - maxReschedules
-                      - cancellationAllowedHours
-                    properties:
-                      openingTime:
-                        type: string
-                        example: 08:00
-                      closingTime:
-                        type: string
-                        example: 19:00
-                      workingDays:
-                        type: array
-                        items:
-                          type: string
-                        example:
-                          - Monday
-                          - Tuesday
-                          - Wednesday
-                          - Thursday
-                          - Friday
-                          - Saturday
-                      defaultSlotsPerHour:
-                        type: integer
-                        example: 4
-                      hourlySlots:
-                        type: object
-                        additionalProperties:
-                          type: integer
-                        example:
-                          08:00: 4
-                          09:00: 4
-                          10:00: 4
-                          11:00: 4
-                          12:00: 4
-                          13:00: 4
-                          14:00: 4
-                          15:00: 4
-                          16:00: 4
-                          17:00: 4
-                          18:00: 4
-                      totalDailyCapacity:
-                        type: integer
-                        example: 44
-                      isActive:
-                        type: boolean
-                        example: true
-                      supportedDonationTypes:
-                        type: array
-                        items:
-                          type: string
-                        example:
-                          - Whole
-                          - Plasma
-                          - Platelets
-                          - Double Red Cells
-                      minAdvanceHours:
-                        type: integer
-                        example: 24
-                      maxAdvanceDays:
-                        type: integer
-                        example: 30
-                      preparationTips:
-                        type: array
-                        items:
-                          type: string
-                        example:
-                          - Eat a healthy meal before donation
-                          - Drink plenty of water
-                          - Bring a valid ID
-                          - Get a good night's sleep
-                      rescheduleAllowed:
-                        type: boolean
-                        example: true
-                      maxReschedules:
-                        type: integer
-                        example: 3
-                      cancellationAllowedHours:
-                        type: integer
-                        example: 12
-              example:
-                success: true
-                message: Appointment settings retrieved successfully
-                data:
-                  openingTime: 08:00
-                  closingTime: 19:00
-                  workingDays:
-                    - Monday
-                    - Tuesday
-                    - Wednesday
-                    - Thursday
-                    - Friday
-                    - Saturday
-                  defaultSlotsPerHour: 4
-                  hourlySlots:
-                    08:00: 4
-                    09:00: 4
-                    10:00: 4
-                    11:00: 4
-                    12:00: 4
-                    13:00: 4
-                    14:00: 4
-                    15:00: 4
-                    16:00: 4
-                    17:00: 4
-                    18:00: 4
-                  totalDailyCapacity: 44
-                  isActive: true
-                  supportedDonationTypes:
-                    - Whole
-                    - Plasma
-                    - Platelets
-                    - Double Red Cells
-                  minAdvanceHours: 24
-                  maxAdvanceDays: 30
-                  preparationTips:
-                    - Eat a healthy meal before donation
-                    - Drink plenty of water
-                    - Bring a valid ID
-                    - Get a good night's sleep
-                  rescheduleAllowed: true
-                  maxReschedules: 3
-                  cancellationAllowedHours: 12
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    put:
-      tags:
-        - Hospital
-      summary: Update hospital appointment settings
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                openingTime:
-                  type: string
-                  pattern: ^(?:[01]\\d|2[0-3]):00$
-                  example: 08:00
-                closingTime:
-                  type: string
-                  pattern: ^(?:[01]\\d|2[0-3]):00$
-                  example: 19:00
-                workingDays:
-                  type: array
-                  items:
-                    type: string
-                  example:
-                    - Monday
-                    - Tuesday
-                    - Wednesday
-                    - Thursday
-                    - Friday
-                    - Saturday
-                defaultSlotsPerHour:
-                  type: integer
-                  minimum: 1
-                  maximum: 100
-                  example: 4
-                hourlySlots:
-                  type: object
-                  additionalProperties:
-                    type: integer
-                    minimum: 0
-                    maximum: 100
-                  example:
-                    08:00: 4
-                    09:00: 4
-                    10:00: 4
-                    11:00: 4
-                    12:00: 4
-                    13:00: 4
-                    14:00: 4
-                    15:00: 4
-                    16:00: 4
-                    17:00: 4
-                    18:00: 4
-                setAllSlotsTo:
-                  type: integer
-                  minimum: 0
-                  maximum: 100
-                  description: Quick action to set every active hour to one value.
-                  example: 4
-                closeAllSlots:
-                  type: boolean
-                  description: Quick action to close all slots by setting each hour to 0.
-                  example: false
-                isActive:
-                  type: boolean
-                  example: true
-                supportedDonationTypes:
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                      - Whole
-                      - Plasma
-                      - Platelets - Double Red Cells - Double Red Cells
-                  example:
-                    - Whole
-                    - Plasma
-                    - Platelets - Double Red Cells - Double Red Cells
-                minAdvanceHours:
-                  type: integer
-                  minimum: 0
-                  example: 24
-                maxAdvanceDays:
-                  type: integer
-                  minimum: 0
-                  example: 30
-                preparationTips:
-                  type: array
-                  items:
-                    type: string
-                  example:
-                    - Eat a healthy meal before donation
-                    - Drink plenty of water
-                    - Bring a valid ID
-                    - Get a good night's sleep
-                rescheduleAllowed:
-                  type: boolean
-                  example: true
-                maxReschedules:
-                  type: integer
-                  minimum: 0
-                  example: 3
-                cancellationAllowedHours:
-                  type: integer
-                  minimum: 0
-                  example: 12
-            example:
-              openingTime: 08:00
-              closingTime: 19:00
-              workingDays:
-                - Monday
-                - Tuesday
-                - Wednesday
-                - Thursday
-                - Friday
-                - Saturday
-              defaultSlotsPerHour: 4
-              hourlySlots:
-                08:00: 4
-                09:00: 4
-                10:00: 4
-                11:00: 4
-                12:00: 4
-                13:00: 4
-                14:00: 4
-                15:00: 4
-                16:00: 4
-                17:00: 4
-                18:00: 4
-              isActive: true
-              supportedDonationTypes:
-                - Whole
-                - Plasma
-                - Platelets - Double Red Cells - Double Red Cells
-              minAdvanceHours: 24
-              maxAdvanceDays: 30
-              preparationTips:
-                - Eat a healthy meal before donation
-                - Drink plenty of water
-                - Bring a valid ID
-                - Get a good night's sleep
-              rescheduleAllowed: true
-              maxReschedules: 3
-              cancellationAllowedHours: 12
-      responses:
-        "200":
-          description: Appointment settings updated successfully
-          content:
-            application/json:
-              schema:
-                type: object
-                required:
-                  - success
-                  - message
-                  - data
-                properties:
-                  success:
-                    type: boolean
-                    example: true
-                  message:
-                    type: string
-                    example: Appointment settings updated successfully
-                  data:
-                    type: object
-                    properties:
-                      openingTime:
-                        type: string
-                      closingTime:
-                        type: string
-                      workingDays:
-                        type: array
-                        items:
-                          type: string
-                      defaultSlotsPerHour:
-                        type: integer
-                      hourlySlots:
-                        type: object
-                        additionalProperties:
-                          type: integer
-                      totalDailyCapacity:
-                        type: integer
-                      isActive:
-                        type: boolean
-                      supportedDonationTypes:
-                        type: array
-                        items:
-                          type: string
-                      minAdvanceHours:
-                        type: integer
-                      maxAdvanceDays:
-                        type: integer
-                      preparationTips:
-                        type: array
-                        items:
-                          type: string
-                      rescheduleAllowed:
-                        type: boolean
-                      maxReschedules:
-                        type: integer
-                      cancellationAllowedHours:
-                        type: integer
-              example:
-                success: true
-                message: Appointment settings updated successfully
-                data:
-                  openingTime: 08:00
-                  closingTime: 19:00
-                  workingDays:
-                    - Monday
-                    - Tuesday
-                    - Wednesday
-                    - Thursday
-                    - Friday
-                    - Saturday
-                  defaultSlotsPerHour: 4
-                  hourlySlots:
-                    08:00: 4
-                    09:00: 4
-                    10:00: 4
-                    11:00: 4
-                    12:00: 4
-                    13:00: 4
-                    14:00: 4
-                    15:00: 4
-                    16:00: 4
-                    17:00: 4
-                    18:00: 4
-                  totalDailyCapacity: 44
-                  isActive: true
-                  supportedDonationTypes:
-                    - Whole
-                    - Plasma
-                    - Platelets
-                    - Double Red Cells
-                  minAdvanceHours: 24
-                  maxAdvanceDays: 30
-                  preparationTips:
-                    - Eat a healthy meal before donation
-                    - Drink plenty of water
-                    - Bring a valid ID
-                    - Get a good night's sleep
-                  rescheduleAllowed: true
-                  maxReschedules: 3
-                  cancellationAllowedHours: 12
-        "400":
-          description: Validation error
-        "401":
-          description: Missing or invalid JWT
-        "403":
-          description: Role not allowed
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /hospital/blood-bank-settings:
-    get:
-      tags:
-        - Hospital
-      summary: Get hospital blood bank settings
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Blood bank settings retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Blood bank settings retrieved successfully
-                data:
-                  bloodBankSettings:
-                    criticalThreshold:
-                      O-: 2
-                      A-: 3
-                    lowThreshold:
-                      O-: 6
-                      A-: 8
-                    automaticNotifications: true
-                    notificationEmail: bloodbank@cairocare.demo
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    put:
-      tags:
-        - Hospital
-      summary: Update hospital blood bank settings
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-            example:
-              criticalThreshold:
-                O+: 4
-                A-: 2
-              lowThreshold:
-                O+: 12
-                A-: 8
-              automaticNotifications: true
-              notificationEmail: ops@cairocare.demo
-      responses:
-        "200":
-          description: Blood bank settings updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Blood bank settings updated successfully
-                data:
-                  bloodBankSettings:
-                    criticalThreshold:
-                      O-: 3
-                      A-: 4
-                    lowThreshold:
-                      O-: 7
-                      A-: 9
-                    automaticNotifications: true
-                    notificationEmail: ops-alerts@cairocare.demo
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /hospital/notification-preferences:
-    get:
-      tags:
-        - Hospital
-      summary: Get hospital notification preferences
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Notification preferences retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Notification preferences retrieved successfully
-                data:
-                  notificationPreferences:
-                    email: true
-                    push: true
-                    sms: false
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    put:
-      tags:
-        - Hospital
-      summary: Update hospital notification preferences
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-            example:
-              email: true
-              push: true
-              sms: false
-      responses:
-        "200":
-          description: Notification preferences updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Notification preferences updated successfully
-                data:
-                  notificationPreferences:
-                    email: true
-                    push: false
-                    sms: true
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
+  # Removed /hospital/appointment-settings, /hospital/blood-bank-settings, /hospital/notification-preferences — endpoints deleted
   # Removed /hospital/blood-inventory: endpoint deleted from codebase
   /hospital/request:
     post:
@@ -5637,18 +5119,12 @@ paths:
           name: status
           schema:
             type: string
-            enum:
-              - pending
-              - in-progress
-              - completed
-              - cancelled
-          example: pending
+          description: Comma-separated status values (e.g. pending,accepted,in-progress)
+          example: pending,accepted,in-progress
         - in: query
           name: type
           schema:
             type: string
-            enum:
-              - blood
           example: blood
         - in: query
           name: limit
@@ -5741,6 +5217,7 @@ paths:
                 success: true
                 message: Request details retrieved successfully
                 data:
+                  requiredBy: "2026-06-20T14:30:00.000Z"
                   bloodTypes:
                     - A-
                     - O-
@@ -5822,13 +5299,6 @@ paths:
                 requiredBy:
                   type: string
                   format: date-time
-                date:
-                  type: string
-                  format: date
-                  description: "Alternative to requiredBy, specifies the deadline date (YYYY-MM-DD)"
-                time:
-                  type: string
-                  description: "Alternative to requiredBy, specifies the deadline time (HH:MM or HH:MM AM/PM)"
                 quantity:
                   type: number
                   minimum: 1
@@ -5857,8 +5327,7 @@ paths:
                 - A-
               urgency: high
               unitsNeeded: 3
-              date: "2026-06-20"
-              time: "12:00 PM"
+              requiredBy: "2026-06-20T14:30:00.000Z"
               patientType: general
               contactNumber: "01099998888"
               patientDetails: Patient needs whole blood transfusion
@@ -5871,6 +5340,7 @@ paths:
                 success: true
                 message: Request status updated successfully
                 data:
+                  requiredBy: "2026-06-20T14:30:00.000Z"
                   bloodTypes:
                     - A-
                   unitsNeeded: 2
@@ -9641,19 +9111,6 @@ paths:
           schema:
             type: string
           example: 69fe540565ff7785a031314f
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reason
-              properties:
-                reason:
-                  type: string
-            example:
-              reason: Transferred to another hospital
       responses:
         "200":
           description: Request cancelled
@@ -9666,9 +9123,6 @@ paths:
                   request:
                     _id: 69fe540565ff7785a0313150
                     status: cancelled
-                    notes: |-
-                      Transferred to another hospital
-                      [Admin cancelled]: Transferred to another hospital
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."

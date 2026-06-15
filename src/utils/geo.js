@@ -43,10 +43,6 @@ export const extractLocation = (obj, type = 'auto') => {
 
   if (type === 'auto' || type === 'request') {
     candidates.push(
-      // Request: locationHospital.{latitude,longitude}
-      [obj.locationHospital?.latitude, obj.locationHospital?.longitude],
-      // Request: hospitalLocation.{lat,lng}
-      [obj.hospitalLocation?.lat, obj.hospitalLocation?.lng],
       // Request: hospitalLocationGeo.coordinates[1], [0]
       [obj.hospitalLocationGeo?.coordinates?.[1], obj.hospitalLocationGeo?.coordinates?.[0]],
     );

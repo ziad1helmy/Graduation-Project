@@ -127,7 +127,7 @@ export const acceptRequest = async ({ donorId, requestId, quantity = 1 } = {}) =
       const [created] = await Donation.create([{
         donorId: donor._id,
         requestId: request._id,
-        quantity: quantity || request.unitsNeeded || request.quantity || 1,
+        quantity: quantity || request.unitsNeeded || 1,
         status: 'pending',
         qrToken,
         qrExpiresAt,

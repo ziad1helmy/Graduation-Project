@@ -106,15 +106,28 @@ describe('Hospital Controller', () => {
       const mockHospital = {
         _id: hospitalId,
         hospitalName: 'General Hospital',
+        fullName: 'General Hospital',
+        department: 'Emergency',
+        phone: '+1 (555) 987-6543',
+        email: 'test@hospital.com',
+        address: '123 Medical Center Dr, City',
+        workingHoursStart: 8,
+        workingHoursEnd: 19,
+        slotsPerHour: 8,
         select: vi.fn().mockReturnThis(),
       };
       Hospital.findById.mockReturnValue(mockHospital);
+      HospitalSettings.findOne.mockResolvedValue(null);
 
       await hospitalController.getProfile(req, res, next);
 
       expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json.mock.calls[0][0].data.hospitalName).toBe('General Hospital');
+      const body = res.json.mock.calls[0][0];
+      expect(body.data.hospitalName).toBe('General Hospital');
+      expect(body.data.workingHours).toEqual({ openingHour: 8, closingHour: 19, slotsPerHour: 8 });
+      expect(body.data.notifications.pushNotifications).toBe(true);
+      expect(body.data.statistics).toHaveProperty('totalRequests');
     });
 
     it('returns 404 when hospital profile is not found', async () => {
@@ -174,10 +187,10 @@ describe('Hospital Controller', () => {
   });
 
   describe('updateProfile', () => {
-    it('returns 200 and updated hospital profile', async () => {
+    it('returns 200 and success message', async () => {
       const req = makeMockReq({
         user: { userId: hospitalId, role: 'hospital' },
-        body: { hospitalName: 'Updated Name', contactNumber: '01000000000' },
+        body: { hospitalName: 'Updated Name', phone: '+1 (555) 987-6543' },
       });
       const res = makeMockRes();
       const next = vi.fn();
@@ -185,13 +198,12 @@ describe('Hospital Controller', () => {
       const mockHospital = {
         _id: hospitalId,
         hospitalName: 'Old Name',
-        contactNumber: '01000000000',
+        phone: null,
+        department: null,
+        fullName: 'Old Name',
+        email: 'test@hospital.com',
+        address: null,
         save: vi.fn().mockResolvedValue(true),
-        toObject: vi.fn().mockReturnValue({
-          _id: hospitalId,
-          hospitalName: 'Updated Name',
-          contactNumber: '01000000000',
-        }),
       };
       Hospital.findById.mockResolvedValue(mockHospital);
 
@@ -199,7 +211,7 @@ describe('Hospital Controller', () => {
 
       expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json.mock.calls[0][0].data.hospitalName).toBe('Updated Name');
+      expect(res.json.mock.calls[0][0].message).toBe('Profile updated successfully');
     });
   });
 
@@ -224,7 +236,7 @@ describe('Hospital Controller', () => {
 
       const mockHospital = {
         _id: hospitalId,
-        contactNumber: '01000000000',
+        phone: '01000000000',
         location: { coordinates: { lat: 30, lng: 31 } },
         hospitalName: 'General Hospital',
       };

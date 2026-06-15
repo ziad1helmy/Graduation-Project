@@ -104,10 +104,10 @@
     '/hospital/activity': 'Dashboard & Analytics',
 
     '/hospital/profile': 'Profile & Configuration',
+    '/hospital/profile/working-hours': 'Profile & Configuration',
+    '/hospital/profile/notifications': 'Profile & Configuration',
+    '/hospital/profile/password': 'Profile & Configuration',
     '/hospital/profile/location': 'Profile & Configuration',
-    '/hospital/appointment-settings': 'Profile & Configuration',
-    '/hospital/blood-bank-settings': 'Profile & Configuration',
-    '/hospital/notification-preferences': 'Profile & Configuration',
 
     // '/hospital/blood-inventory': 'Inventory Management', // removed — endpoint deleted
 

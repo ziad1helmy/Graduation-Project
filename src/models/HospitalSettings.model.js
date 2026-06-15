@@ -121,9 +121,10 @@ const hospitalSettingsSchema = new mongoose.Schema(
       },
     },
     notificationPreferences: {
-      email: { type: Boolean, default: true },
-      push: { type: Boolean, default: true },
-      sms: { type: Boolean, default: false },
+      pushNotifications: { type: Boolean, default: true },
+      emergencyAlerts: { type: Boolean, default: true },
+      emailNotifications: { type: Boolean, default: true },
+      smsAlerts: { type: Boolean, default: false },
     },
     appointmentSettings: {
       type: appointmentSettingsSchema,
@@ -150,7 +151,7 @@ const hospitalSettingsSchema = new mongoose.Schema(
       }),
     },
   },
-  { timestamps: true }
+  { timestamps: true, strict: 'throw' }
 );
 
 const HospitalSettings = mongoose.model('HospitalSettings', hospitalSettingsSchema);

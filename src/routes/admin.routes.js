@@ -102,6 +102,8 @@ router.get('/admins', requireRole('superadmin'), adminController.getAllAdmins);
 
 router.get('/admins/:id', requireRole('superadmin'), adminController.getAdminById);
 
+router.post('/admins/:id/rotate-key', requireRole('superadmin'), adminController.rotateAdminKey);
+
 // Donor management
 
 router.put('/donors/:id', adminController.updateDonor);

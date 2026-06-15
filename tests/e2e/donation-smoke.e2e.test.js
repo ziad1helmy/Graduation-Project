@@ -51,7 +51,7 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
         bloodType: 'O+',
         urgency: 'high',
         requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString(),
-        quantity: 2,
+        unitsNeeded: 2,
         notes: 'Urgent request for integration test'
       });
       

@@ -32,8 +32,6 @@ vi.mock('../../src/utils/geo.js', () => ({
     if (!obj || typeof obj !== 'object') return null;
     // Mirror the field paths in extractLocation() in src/utils/geo.js
     const candidates = [
-      [obj.locationHospital?.latitude, obj.locationHospital?.longitude],
-      [obj.hospitalLocation?.lat, obj.hospitalLocation?.lng],
       [obj.hospitalLocationGeo?.coordinates?.[1], obj.hospitalLocationGeo?.coordinates?.[0]],
       [obj.hospitalId?.location?.coordinates?.lat ?? obj.hospitalId?.lat,
        obj.hospitalId?.location?.coordinates?.lng ?? obj.hospitalId?.long],
@@ -579,14 +577,6 @@ describe('shared nearby matching engine', () => {
     const nearRequest = await createRequest(nearHospital._id, {
       bloodType: 'O+',
       status: 'pending',
-      locationHospital: {
-        latitude: nearHospital.location.coordinates.lat,
-        longitude: nearHospital.location.coordinates.lng,
-      },
-      hospitalLocation: {
-        lat: nearHospital.location.coordinates.lat,
-        lng: nearHospital.location.coordinates.lng,
-      },
       hospitalLocationGeo: {
         type: 'Point',
         coordinates: [nearHospital.location.coordinates.lng, nearHospital.location.coordinates.lat],
@@ -595,14 +585,6 @@ describe('shared nearby matching engine', () => {
     const farRequest = await createRequest(farHospital._id, {
       bloodType: 'O+',
       status: 'pending',
-      locationHospital: {
-        latitude: farHospital.location.coordinates.lat,
-        longitude: farHospital.location.coordinates.lng,
-      },
-      hospitalLocation: {
-        lat: farHospital.location.coordinates.lat,
-        lng: farHospital.location.coordinates.lng,
-      },
       hospitalLocationGeo: {
         type: 'Point',
         coordinates: [farHospital.location.coordinates.lng, farHospital.location.coordinates.lat],
@@ -690,14 +672,6 @@ describe('shared nearby matching engine', () => {
       bloodType: 'O+',
       urgency: 'medium',
       status: 'pending',
-      locationHospital: {
-        latitude: hospital.location.coordinates.lat,
-        longitude: hospital.location.coordinates.lng,
-      },
-      hospitalLocation: {
-        lat: hospital.location.coordinates.lat,
-        lng: hospital.location.coordinates.lng,
-      },
       hospitalLocationGeo: {
         type: 'Point',
         coordinates: [hospital.location.coordinates.lng, hospital.location.coordinates.lat],
@@ -709,14 +683,6 @@ describe('shared nearby matching engine', () => {
       bloodType: 'O+',
       urgency: 'critical',
       status: 'pending',
-      locationHospital: {
-        latitude: hospital.location.coordinates.lat,
-        longitude: hospital.location.coordinates.lng,
-      },
-      hospitalLocation: {
-        lat: hospital.location.coordinates.lat,
-        lng: hospital.location.coordinates.lng,
-      },
       hospitalLocationGeo: {
         type: 'Point',
         coordinates: [hospital.location.coordinates.lng, hospital.location.coordinates.lat],

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import authMiddleware from '../middlewares/auth.middleware.js';
 import requireRole from '../middlewares/role.middleware.js';
+import { limitDonorBookings, limitDonorCancellations } from '../middlewares/donor-rate-limit.middleware.js';
 import * as ctrl from '../controllers/appointment.controller.js';
 
 // ─── API CONTRACT ────────────────────────────────────────────────────────────
@@ -15,7 +16,7 @@ const router = Router();
 router.use(authMiddleware, requireRole('donor'));
 
 
-router.post('/', ctrl.bookAppointment);
+router.post('/', limitDonorBookings, ctrl.bookAppointment);
 
 
 router.get('/available-slots', ctrl.getAvailableSlots);
@@ -30,7 +31,7 @@ router.get('/:appointmentId', ctrl.getAppointmentById);
 router.patch('/:appointmentId', ctrl.rescheduleAppointment);
 
 
-router.delete('/:appointmentId', ctrl.cancelAppointment);
+router.delete('/:appointmentId', limitDonorCancellations, ctrl.cancelAppointment);
 
 export default router;
 

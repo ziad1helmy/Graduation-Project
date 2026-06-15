@@ -71,7 +71,7 @@ describe('Hospital Request Flow Safety Checks', () => {
 
   it('re-runs eligibility at the final hospital confirmation step and rejects donation/reopens request if check fails', async () => {
     const hospital = await createHospital();
-    const requestRecord = await createRequest(hospital._id, { bloodType: 'O+', unitsNeeded: 1, quantity: 1 });
+    const requestRecord = await createRequest(hospital._id, { bloodType: 'O+', unitsNeeded: 1 });
     const donor = await createDonor({ bloodType: 'O+' });
 
     const donorToken = tokenFor(donor);

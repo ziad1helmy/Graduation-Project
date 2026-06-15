@@ -585,12 +585,12 @@ export const getUrgentRequests = async (req, res, next) => {
         title: `Urgent ${String(r.type || 'request').replace(/^./, (char) => char.toUpperCase())} Request — ${bloodTypeLabel || ''}`.trim(),
         bloodType: bloodTypes,
         bloodTypeLabel,
-        unitsNeeded: r.quantity || 1,
+        unitsNeeded: r.unitsNeeded || 1,
         hospitalName: hospital?.hospitalName || hospital?.fullName || null,
         distance,
         isEmergency: r.urgency === 'critical',
         patientType: r.type || 'blood',
-        contactNumber: hospital?.contactNumber || null,
+        contactNumber: hospital?.phone || null,
         createdAt: r.createdAt,
         location: (hLat && hLng) ? { lat: hLat, lng: hLng } : null,
       };
@@ -609,7 +609,7 @@ export const getUrgentRequestDetails = async (req, res, next) => {
       _id: req.params.requestId,
       urgency: { $in: ['high', 'critical'] },
       status: { $in: ['pending', 'in-progress'] },
-    }).populate('hospitalId', 'fullName hospitalName address contactNumber lat long');
+    }).populate('hospitalId', 'fullName hospitalName address phone lat long');
 
     if (!request) {
       return response.error(res, 404, 'Urgent request not found');
@@ -623,9 +623,9 @@ export const getUrgentRequestDetails = async (req, res, next) => {
         title: `Urgent ${String(request.type || 'request').replace(/^./, (char) => char.toUpperCase())} Request — ${formatBloodTypeLabel(request.bloodType) || ''}`.trim(),
         bloodType: normalizeBloodTypeList(request.bloodType),
         bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
-        unitsNeeded: request.quantity || 1,
+        unitsNeeded: request.unitsNeeded || 1,
         hospitalName: hospital?.hospitalName || hospital?.fullName || null,
-        contactNumber: hospital?.contactNumber || null,
+        contactNumber: hospital?.phone || null,
         isEmergency: request.urgency === 'critical',
         patientType: request.type || 'blood',
         createdAt: request.createdAt,
@@ -673,7 +673,7 @@ export const declineUrgentRequest = async (req, res, next) => {
     const declinedResponse = await Donation.create({
       donorId: req.user.userId,
       requestId,
-      quantity: request.quantity || 1,
+      quantity: request.unitsNeeded || 1,
       status: 'cancelled',
       notes: reason ? `Declined urgent request: ${reason}` : 'Declined urgent request',
     });
@@ -720,7 +720,7 @@ export const declineUrgentRequest = async (req, res, next) => {
 //     const declinedResponse = await Donation.create({
 //       donorId: req.user.userId,
 //       requestId,
-//       quantity: request.quantity || 1,
+//       quantity: request.unitsNeeded || 1,
 //       status: 'cancelled',
 //       notes: reason ? `Declined urgent request: ${reason}` : 'Declined urgent request',
 //     });

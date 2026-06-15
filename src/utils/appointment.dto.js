@@ -1,7 +1,7 @@
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
 
 const DONOR_DETAILS_SELECT = 'fullName phoneNumber bloodType email gender dateOfBirth';
-const HOSPITAL_DETAILS_SELECT = 'fullName hospitalName address contactNumber location';
+const HOSPITAL_DETAILS_SELECT = 'fullName hospitalName address phone location';
 const REQUEST_DETAILS_SELECT = 'type bloodType organType urgency unitsNeeded quantity notes hospitalId hospitalName';
 
 const DONATION_TYPE_ALIASES = new Map([
@@ -24,7 +24,7 @@ export const appointmentPopulateOptions = [
 ];
 
 export const donorAppointmentPopulateOptions = [
-  { path: 'hospitalId', select: 'fullName hospitalName address location contactNumber' },
+  { path: 'hospitalId', select: 'fullName hospitalName address location phone' },
 ];
 
 const toPlainObject = (value) => {
@@ -106,7 +106,7 @@ const buildHospitalDetails = (source) => {
     hospitalName,
     fullName: source.fullName ?? null,
     address: source.address ?? null,
-    contactNumber: source.contactNumber ?? null,
+    contactNumber: source.phone ?? null,
     location: source.location ?? null,
   };
 };
@@ -120,7 +120,7 @@ const buildDonorHospitalReference = (source) => {
     hospitalName: source.hospitalName || source.name || source.fullName || null,
     address: source.address || null,
     location: source.location || null,
-    contactNumber: source.contactNumber || null,
+    contactNumber: source.phone || null,
   };
 };
 

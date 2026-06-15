@@ -506,7 +506,7 @@ export const getDonationDetails = async (donationId) => {
       })
       .populate({
         path: 'requestId',
-        populate: { path: 'hospitalId', select: 'name hospitalName address contactNumber' },
+        populate: { path: 'hospitalId', select: 'name hospitalName address phone' },
       });
 
     return donation;

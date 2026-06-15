@@ -372,6 +372,7 @@ export const toAdminUserListItem = (user) => {
     isEmailVerified: isVerified,
     joinedAt,
     createdAt: joinedAt,
+    totalDonations: object.totalDonations ?? 0,
   };
 };
 
@@ -650,7 +651,7 @@ export const createHospital = async (data, adminId) => {
       name: data.fullName || data.name || data.hospitalName,
       type: data.type || 'hospital',
       email: data.email,
-      phone: data.contactNumber || data.phone || data.adminContactPhone || data.emergencyContactNumber,
+      phone: data.phone || data.adminContactPhone || data.emergencyContactNumber,
       address: data.address || null,
       city: data.city,
       state: data.state,
@@ -1213,7 +1214,7 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
 
   const [requests, total, stats] = await Promise.all([
     Request.find(query)
-      .populate('hospitalId', 'fullName email hospitalName address contactNumber location')
+      .populate('hospitalId', 'fullName email hospitalName address phone location')
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit),
@@ -1284,7 +1285,7 @@ export const toAdminRequestListItem = (request) => {
 
   const hospitalContact = object.hospitalContact
     || object.contactNumber
-    || object.hospitalId?.contactNumber
+    || object.hospitalId?.phone
     || null;
 
   const location = object.hospitalId?.address
@@ -1300,7 +1301,7 @@ export const toAdminRequestListItem = (request) => {
     hospitalContact,
     location,
     urgencyLevel: object.urgency,
-    unitsRequested: object.unitsNeeded ?? object.quantity ?? 1,
+    unitsRequested: object.unitsNeeded ?? 1,
     completionTimeInHours: object.requiredBy
       ? Math.max(0, Math.ceil((new Date(object.requiredBy).getTime() - Date.now()) / (1000 * 60 * 60)))
       : 0,
@@ -1388,7 +1389,7 @@ export const getBloodInventorySummary = async (hospitalId = null) => {
     if (requestBloodTypes.length === 0) continue;
     for (const bloodType of requestBloodTypes) {
       if (!inventory[bloodType]) continue;
-      inventory[bloodType].requestedUnits += Number(request.quantity || 1);
+      inventory[bloodType].requestedUnits += Number(request.unitsNeeded || 1);
     }
   }
 
@@ -1442,7 +1443,7 @@ export const getBloodInventorySummary = async (hospitalId = null) => {
  */
 export const getRequestDetails = async (id) => {
   const request = await Request.findById(id)
-    .populate('hospitalId', 'fullName email hospitalName address contactNumber');
+    .populate('hospitalId', 'fullName email hospitalName address phone');
 
   if (!request) return null;
 
@@ -1777,7 +1778,7 @@ export const getCriticalRequests = async () => {
     urgency: { $in: ['critical', 'high'] },
     status: { $in: ['pending', 'in-progress'] },
   })
-    .populate('hospitalId', 'fullName hospitalName location contactNumber')
+    .populate('hospitalId', 'fullName hospitalName location phone')
     .sort({ urgency: 1, createdAt: -1 }); // critical first
 
   return requests;
