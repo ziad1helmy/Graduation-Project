@@ -49,10 +49,21 @@ export const getAnalyticsOverview = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Analytics overview retrieved', overview);
 });
 
+/**
+ * GET /admin/analytics/top-donors
+ * Get top donors leaderboard by completed donations (Admin)
+ */
+export const getTopDonors = asyncHandler(async (req, res) => {
+  const limit = parseInt(req.query.limit) || 10;
+  const topDonors = await analyticsService.getTopDonors(limit);
+  return response.success(res, 200, 'Top donors', { topDonors });
+});
+
 export default {
   getMyStats,
   getLeaderboard,
   getDonationTypeStats,
   getDashboardSummary,
   getAnalyticsOverview,
+  getTopDonors,
 };

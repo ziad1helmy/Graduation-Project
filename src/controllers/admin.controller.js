@@ -819,7 +819,7 @@ export const broadcastRequest = asyncHandler(async (req, res) => {
 
 /** GET /admin/analytics/dashboard */
 export const getDashboard = asyncHandler(async (req, res) => {
-  const summary = await analyticsService.getDashboardSummary();
+  const summary = await analyticsService.getLegacyDashboardSummary();
   return response.success(res, 200, 'Dashboard summary', summary);
 });
 

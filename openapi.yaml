@@ -7504,7 +7504,7 @@ paths:
                     - donorId: "60d5ec49f0322c2c20e28f36"
                       fullName: "Ahmed Mohamed"
                       bloodType: "O+"
-                      totalDonations: 12
+                      completedDonations: 12
                       points: 2400
                       tier: "gold"
                       donorRank: 1
@@ -7512,6 +7512,50 @@ paths:
                     - "Blood demand expected to increase 15% next month"
                     - "O- type critically low — recommend emergency campaign"
                     - "Donor retention rate improved by 8% this quarter"
+      description: "Demo seed available via `npm run seed-demo`. Base URL example:
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
+  /admin/analytics/top-donors:
+    get:
+      summary: Top donors leaderboard
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          example: 10
+      responses:
+        "200":
+          description: Top donors
+          content:
+            application/json:
+              example:
+                success: true
+                message: Top donors
+                data:
+                  topDonors:
+                    - donorId: 69f3df915f42685cbbbcbb18
+                      completedDonations: 12
+                      totalUnits: 12
+                      lastDonation: 2026-05-10T12:30:00.000Z
+                      fullName: Aya Hassan
+                      email: aya.hassan@lifelink.demo
+                      bloodType: O+
+                      location:
+                        city: Cairo
+                        governorate: Cairo
+                        coordinates:
+                          lat: 30.0444
+                          lng: 31.2357
+                      isActive: true
+                      isVerified: true
+                      points: 2400
+                      tier: gold
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -9550,7 +9594,7 @@ paths:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
   /admin/requests/{id}/fulfill:
-    patch:
+    post:
       summary: Mark a request as fulfilled
       tags:
         - Admin
@@ -9629,7 +9673,7 @@ paths:
         https://graduation-project-cy61.onrender.com This operation includes a
         seeded demo request example."
   /admin/requests/{id}/broadcast:
-    post:
+    patch:
       summary: Broadcast request to eligible donors
       tags:
         - Admin

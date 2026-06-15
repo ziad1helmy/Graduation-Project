@@ -3,6 +3,7 @@ import authMiddleware from '../middlewares/auth.middleware.js';
 import requireRole from '../middlewares/role.middleware.js';
 import * as adminController from '../controllers/admin.controller.js';
 import * as hospitalController from '../controllers/hospital.controller.js';
+import * as analyticsController from '../controllers/analytics.controller.js';
 
 // ─── API CONTRACT ────────────────────────────────────────────────────────────
 // Swagger/OpenAPI documentation for this router lives in /openapi.yaml
@@ -41,6 +42,8 @@ router.put('/system-settings', adminController.updateSystemSettings);
 
 
 router.get('/dashboard', adminController.getDashboard);
+
+router.get('/analytics/top-donors', analyticsController.getTopDonors);
 
 router.get('/alerts', adminController.getAlerts);
 
@@ -161,13 +164,13 @@ router.get('/requests/:id', adminController.getRequestDetails);
 router.get('/requests/:id/donations', adminController.getRequestDonations);
 
 
-router.patch('/requests/:id/fulfill', adminController.fulfillRequest);
+router.post('/requests/:id/fulfill', adminController.fulfillRequest);
 
 
 router.patch('/requests/:id/cancel', adminController.cancelRequest);
 
 
-router.post('/requests/:id/broadcast', adminController.broadcastRequest);
+router.patch('/requests/:id/broadcast', adminController.broadcastRequest);
 
 // ──────────────────────────────────────────────
 //  Emergency

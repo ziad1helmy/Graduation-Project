@@ -1544,11 +1544,6 @@ export const fulfillRequest = async (id, adminId) => {
     throw new Error('Request is already fulfilled');
   }
 
-  const completedDonation = await Donation.findOne({ requestId: request._id, status: 'completed' });
-  if (!completedDonation) {
-    throw new Error('Cannot fulfill request without a completed donation');
-  }
-
   validateTransition('request', request.status, 'completed', { isAdminOverride: true });
 
   request.status = 'completed';
