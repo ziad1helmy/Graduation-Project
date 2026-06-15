@@ -378,7 +378,7 @@ export const getTopDonors = async (limit = 10) => {
     {
       $project: {
         donorId: '$_id',
-        totalDonations: '$completedDonations',
+        completedDonations: '$completedDonations',
         totalUnits: 1,
         lastDonation: 1,
         fullName: '$donor.fullName',
@@ -680,6 +680,43 @@ const generateAIPredictions = async () => {
   if (weekend) predictions.push(weekend);
 
   return predictions.slice(0, 5);
+};
+
+/**
+ * Legacy dashboard summary returning the old nested format for /admin/dashboard.
+ * Shape: { users: { total, donors, hospitals }, requests: { active, critical },
+ *          donations: { pending, completed }, alerts: {} }
+ */
+const LEGACY_DASHBOARD_CACHE_KEY = 'analytics:dashboard:legacy';
+const LEGACY_DASHBOARD_CACHE_TTL = 60;
+
+export const getLegacyDashboardSummary = async () => {
+  const cached = await cache.get(LEGACY_DASHBOARD_CACHE_KEY);
+  if (cached) return cached;
+
+  const [
+    totalUsers, donorCount, hospitalCount,
+    activeRequests, criticalRequests,
+    completedDonations, pendingDonations,
+  ] = await Promise.all([
+    User.countDocuments({ deletedAt: null }),
+    User.countDocuments({ role: 'donor', deletedAt: null }),
+    User.countDocuments({ role: 'hospital', deletedAt: null }),
+    Request.countDocuments({ status: { $in: ['pending', 'in-progress'] } }),
+    Request.countDocuments({ urgency: 'critical', status: { $in: ['pending', 'in-progress'] } }),
+    Donation.countDocuments({ status: 'completed' }),
+    Donation.countDocuments({ status: 'pending' }),
+  ]);
+
+  const result = {
+    users: { total: totalUsers, donors: donorCount, hospitals: hospitalCount },
+    requests: { active: activeRequests, critical: criticalRequests },
+    donations: { pending: pendingDonations, completed: completedDonations },
+    alerts: {},
+  };
+
+  await cache.set(LEGACY_DASHBOARD_CACHE_KEY, result, LEGACY_DASHBOARD_CACHE_TTL);
+  return result;
 };
 
 export const getAnalyticsOverview = async () => {

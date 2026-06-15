@@ -93,7 +93,7 @@ describe('Analytics API Integration', () => {
         expect(donor).toHaveProperty('donorId');
         expect(donor).toHaveProperty('fullName');
         expect(donor).toHaveProperty('bloodType');
-        expect(donor).toHaveProperty('totalDonations');
+        expect(donor).toHaveProperty('completedDonations');
         expect(donor).toHaveProperty('points');
         expect(donor).toHaveProperty('tier');
         expect(donor).toHaveProperty('donorRank');

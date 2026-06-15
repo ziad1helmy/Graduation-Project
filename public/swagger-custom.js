@@ -140,6 +140,7 @@
 
     '/admin/dashboard': 'Dashboard & Statistics',
     '/admin/blood-inventory-summary': 'Dashboard & Statistics',
+    '/admin/analytics/top-donors': 'Dashboard & Statistics',
     '/admin/alerts': 'Dashboard & Statistics',
     '/analytics/dashboard': 'Dashboard & Statistics',
     '/analytics/overview': 'Dashboard & Statistics',

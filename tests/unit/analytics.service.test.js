@@ -47,7 +47,7 @@ describe('Analytics Service', () => {
       expect(summary.topDonors[0]).toHaveProperty('donorId');
       expect(summary.topDonors[0]).toHaveProperty('fullName');
       expect(summary.topDonors[0]).toHaveProperty('bloodType');
-      expect(summary.topDonors[0]).toHaveProperty('totalDonations');
+      expect(summary.topDonors[0]).toHaveProperty('completedDonations');
       expect(summary.topDonors[0]).toHaveProperty('points');
       expect(summary.topDonors[0]).toHaveProperty('tier');
       expect(summary.topDonors[0]).toHaveProperty('donorRank');
@@ -90,11 +90,11 @@ describe('Analytics Service', () => {
     expect(Array.isArray(topDonors)).toBe(true);
     expect(topDonors.length).toBeGreaterThan(0);
     // Top donor should have more total donations and include donorRank
-    expect(topDonors[0].totalDonations).toBeGreaterThanOrEqual(topDonors[topDonors.length - 1].totalDonations);
+    expect(topDonors[0].completedDonations).toBeGreaterThanOrEqual(topDonors[topDonors.length - 1].completedDonations);
     expect(topDonors[0]).toHaveProperty('donorId');
     expect(topDonors[0]).toHaveProperty('fullName');
     expect(topDonors[0]).toHaveProperty('bloodType');
-    expect(topDonors[0]).toHaveProperty('totalDonations');
+    expect(topDonors[0]).toHaveProperty('completedDonations');
     expect(topDonors[0]).toHaveProperty('points');
     expect(topDonors[0]).toHaveProperty('tier');
     expect(topDonors[0]).toHaveProperty('donorRank');
