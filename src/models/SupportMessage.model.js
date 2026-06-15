@@ -52,9 +52,13 @@ const supportMessageSchema = new mongoose.Schema(
       default: null,
     },
   },
-  { timestamps: true }
+  { timestamps: true, strict: 'throw' }
 );
 
+supportMessageSchema.index({ userId: 1 });
+supportMessageSchema.index({ status: 1 });
+supportMessageSchema.index({ category: 1 });
+supportMessageSchema.index({ status: 1, createdAt: -1 });
 supportMessageSchema.index({ createdAt: -1 });
 
 const SupportMessage = mongoose.model('SupportMessage', supportMessageSchema);

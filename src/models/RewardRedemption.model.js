@@ -61,6 +61,7 @@ const rewardRedemptionSchema = new mongoose.Schema(
 );
 
 rewardRedemptionSchema.index({ donorId: 1, createdAt: -1 });
+rewardRedemptionSchema.index({ rewardId: 1 });
 rewardRedemptionSchema.index({ status: 1 });
 
 // Auto-generate confirmation code before saving

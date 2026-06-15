@@ -438,7 +438,7 @@ export const searchCompatibleDonors = async ({
     if (searchHasLocation) {
       const match = await evaluateMatch(donor, {
         ...searchRequest,
-        locationHospital: { latitude: geoPoint.latitude, longitude: geoPoint.longitude },
+        hospitalLocationGeo: { type: 'Point', coordinates: [geoPoint.longitude, geoPoint.latitude] },
       }, { radiusKm: normalizedRadiusKm, allowOptedOut: participation === false });
 
       if (!match.matched) {
@@ -501,11 +501,11 @@ export const findNearbyRequests = async ({
   const requests = await fetchRequestsWithGeoFallback({
     geoQueryBuilder: geoQueryBuilder.populate(
       'hospitalId',
-      'fullName hospitalName address contactNumber location'
+      'fullName hospitalName address phone location'
     ).limit(limit),
     fallbackQuery: baseQuery.populate(
       'hospitalId',
-      'fullName hospitalName address contactNumber location'
+      'fullName hospitalName address phone location'
     ).limit(limit),
     logMeta: { location, radiusKm },
   });

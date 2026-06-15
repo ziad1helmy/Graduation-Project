@@ -353,9 +353,9 @@ describe('getDonorRewards', () => {
 //  respondToRequest  (accept — decrements unitsNeeded + auto-closes at 0)
 // =============================================================================
 describe('respondToRequest — accept', () => {
-  it('keeps request quantity unchanged on accept', async () => {
+  it('keeps request unitsNeeded unchanged on accept', async () => {
     const hospital = await createHospital();
-    const request = await createRequest(hospital._id, { urgency: 'high', quantity: 3, status: 'pending' });
+    const request = await createRequest(hospital._id, { urgency: 'high', unitsNeeded: 3, status: 'pending' });
     const donor = await createDonor();
 
     const res = makeRes();
@@ -370,13 +370,13 @@ describe('respondToRequest — accept', () => {
     expect(res.status).toHaveBeenCalledWith(201);
     const { default: Request } = await import('../../src/models/Request.model.js');
     const updated = await Request.findById(request._id);
-    expect(updated.quantity).toBe(3);
+    expect(updated.unitsNeeded).toBe(3);
     expect(updated.status).toBe('accepted');
   });
 
-  it('does not auto-close request when accepted quantity equals requested quantity', async () => {
+  it('does not auto-close request when accepted quantity equals requested unitsNeeded', async () => {
     const hospital = await createHospital();
-    const request = await createRequest(hospital._id, { urgency: 'critical', quantity: 1, status: 'pending' });
+    const request = await createRequest(hospital._id, { urgency: 'critical', unitsNeeded: 1, status: 'pending' });
     const donor = await createDonor();
 
     const res = makeRes();
@@ -395,7 +395,7 @@ describe('respondToRequest — accept', () => {
 
   it('prevents duplicate acceptance', async () => {
     const hospital = await createHospital();
-    const request = await createRequest(hospital._id, { urgency: 'high', quantity: 5 });
+    const request = await createRequest(hospital._id, { urgency: 'high', unitsNeeded: 5 });
     const donor = await createDonor();
 
     await Donation.create({ donorId: donor._id, requestId: request._id, quantity: 1, status: 'pending' });

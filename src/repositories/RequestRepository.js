@@ -232,7 +232,7 @@ class RequestRepository extends BaseRepository {
       }
 
       const newQuantityReceived = (request.quantityReceived || 0) + quantity;
-      const newStatus = newQuantityReceived >= request.quantity ? 'fulfilled' : 'partial';
+      const newStatus = newQuantityReceived >= request.unitsNeeded ? 'fulfilled' : 'partial';
 
       return await this.updateById(requestId, {
         quantityReceived: newQuantityReceived,

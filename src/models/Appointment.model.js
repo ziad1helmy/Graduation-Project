@@ -10,22 +10,27 @@ const appointmentSchema = new mongoose.Schema(
     },
 
     donorDetails: {
-      fullName: {
-        type: String,
+      donorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'User',
         default: null,
       },
-      phoneNumber: {
-        type: String,
+      id: {
+        type: mongoose.Schema.Types.ObjectId,
         default: null,
       },
-      bloodType: {
-        type: String,
+      _id: {
+        type: mongoose.Schema.Types.ObjectId,
         default: null,
       },
-      email: {
-        type: String,
-        default: null,
-      },
+      firstName: { type: String, default: null },
+      lastName: { type: String, default: null },
+      fullName: { type: String, default: null },
+      phoneNumber: { type: String, default: null },
+      bloodType: { type: String, default: null },
+      email: { type: String, default: null },
+      gender: { type: String, default: null },
+      dateOfBirth: { type: Date, default: null },
     },
 
     hospitalId: {
@@ -170,14 +175,19 @@ const appointmentSchema = new mongoose.Schema(
         },
       ],
       default: [],
+      validate: {
+        validator: function (v) { return v.length <= 10; },
+        message: 'Reschedule history cannot exceed 10 entries',
+      },
     },
   },
-  { timestamps: true }
+  { timestamps: true, strict: 'throw' }
 );
 
 appointmentSchema.index({ donorId: 1 });
 appointmentSchema.index({ hospitalId: 1 });
 appointmentSchema.index({ status: 1 });
+appointmentSchema.index({ appointmentDate: 1 });
 appointmentSchema.index({ donorId: 1, hospitalId: 1, status: 1 }, { unique: true, sparse: true, partialFilterExpression: { status: { $in: ['pending', 'confirmed'] } } });
 
 const Appointment = mongoose.model('Appointment', appointmentSchema);

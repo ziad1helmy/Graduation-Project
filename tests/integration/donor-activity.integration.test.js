@@ -81,7 +81,7 @@ describe('Donor Activity Integration', () => {
           type: 'blood',
           bloodType: testDonor.bloodType,
           urgency: 'critical',
-          quantity: 2,
+          unitsNeeded: 2,
         });
 
         const declinedDonation = await Donation.create({
@@ -101,7 +101,7 @@ describe('Donor Activity Integration', () => {
           type: 'platelets',
           bloodType: testDonor.bloodType,
           urgency: 'high',
-          quantity: 1,
+          unitsNeeded: 1,
         });
 
         const declinedDonation = await Donation.create({
@@ -120,7 +120,7 @@ describe('Donor Activity Integration', () => {
           type: 'blood',
           bloodType: testDonor.bloodType,
           urgency: 'critical',
-          quantity: 1,
+          unitsNeeded: 1,
         });
 
         const declinedDonation = await Donation.create({

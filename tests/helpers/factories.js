@@ -60,16 +60,13 @@ export async function createHospital(overrides = {}) {
   const n = nextNum();
   const phone = String(n).padStart(11, '1').slice(-11);
   return Hospital.create({
-    fullName: `Test Hospital Admin ${n}`,
-    name: `Test Hospital ${n}`,
+    fullName: `Test Hospital ${n}`,
     hospitalName: `Test Hospital ${n}`,
-    hospitalId: `HOSP-TEST-${n}`,
     email: `hospital${n}_${Date.now()}@test.com`,
     password: 'TestPass@123',
     role: 'hospital',
     type: 'hospital',
     phone,
-    contactNumber: phone,
     hospitalId: `HOSP-TEST-${n}`,
     address: { city: 'Cairo', governorate: 'Cairo' },
     city: 'Cairo',
@@ -98,16 +95,8 @@ export async function createRequest(hospitalId, overrides = {}) {
     urgency: 'high',
     status: 'pending',
     requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days
-    quantity: 2,
+    unitsNeeded: 2,
     hospitalContact: '1044444444',
-    locationHospital: {
-      latitude: 30.0511,
-      longitude: 31.2435,
-    },
-    hospitalLocation: {
-      lat: 30.0511,
-      lng: 31.2435,
-    },
     hospitalLocationGeo: {
       type: 'Point',
       coordinates: [31.2435, 30.0511],

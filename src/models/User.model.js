@@ -251,6 +251,8 @@ userSchema.post('findByIdAndUpdate', async function () {
     const { default: Notification } = await import('./Notification.model.js');
 
     const session = this.session || (await mongoose.startSession());
+    let ownedSession = !this.session;
+    if (ownedSession) await session.startTransaction();
 
     try {
       // Get user details to determine role
@@ -341,9 +343,9 @@ userSchema.post('findByIdAndUpdate', async function () {
         role: fullUser.role,
       });
 
-      if (!this.session) await session.commitTransaction();
+      if (ownedSession) await session.commitTransaction();
     } catch (error) {
-      if (!this.session) await session.abortTransaction();
+      if (ownedSession) await session.abortTransaction();
       logger.error('User cascade deletion failed', {
         userId,
         error: error.message,

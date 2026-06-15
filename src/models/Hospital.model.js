@@ -3,13 +3,6 @@ import User from './User.model.js';
 import { normalizeArabic } from '../utils/textNormalization.js';
 
 const hospitalSchema = new mongoose.Schema({
-    name: {
-        type: String,
-        required: [true, 'Hospital name is required'],
-        trim: true,
-        minlength: [3, 'Hospital name must be at least 3 characters long'],
-        maxlength: [200, 'Hospital name must be less than 200 characters long'],
-    },
     type: {
         type: String,
         trim: true,
@@ -82,6 +75,11 @@ const hospitalSchema = new mongoose.Schema({
         enum: ['O+', 'O-', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-'],
         default: [],
     },
+    // Deprecated — kept for backward compatibility with existing documents
+    name: { type: String, trim: true },
+    // Deprecated — kept for backward compatibility with existing documents
+    contactNumber: { type: String, trim: true, default: null },
+
     capacity: {
         type: Number,
         default: null,
@@ -99,7 +97,6 @@ const hospitalSchema = new mongoose.Schema({
         min: -180,
         max: 180,
     },
-    // Backward-compatible legacy fields still used by older controllers and selectors.
     hospitalName: {
         type: String,
         trim: true,
@@ -109,11 +106,6 @@ const hospitalSchema = new mongoose.Schema({
         lowercase: true,
         trim: true,
         index: true,
-    },
-    contactNumber: {
-        type: String,
-        trim: true,
-        default: null,
     },
 
     // Dev 2 Task 7: Appointment slot configuration
@@ -139,40 +131,25 @@ const hospitalSchema = new mongoose.Schema({
 // Indexes for efficient queries
 hospitalSchema.index({ hospitalName: 1 });
 
-// Normalize legacy and new hospital display names before saving
+// Sync display names and normalize before saving
 hospitalSchema.pre('save', function () {
     if (!this.type) {
         this.type = 'hospital';
     }
 
-    if (this.isModified('fullName')) {
-        this.name = this.fullName;
+    if (this.isModified('fullName') && !this.isModified('hospitalName')) {
         this.hospitalName = this.fullName;
-    } else if (this.isModified('hospitalName')) {
-        this.name = this.hospitalName;
+    } else if (this.isModified('hospitalName') && !this.isModified('fullName')) {
         this.fullName = this.hospitalName;
-    } else if (this.isModified('name')) {
-        this.hospitalName = this.name;
-        this.fullName = this.name;
+    } else if (!this.hospitalName && this.fullName) {
+        this.hospitalName = this.fullName;
+    } else if (!this.fullName && this.hospitalName) {
+        this.fullName = this.hospitalName;
     }
 
-    if (this.isModified('phone') && !this.isModified('contactNumber')) {
-        this.contactNumber = this.phone;
-    }
-    if (this.isModified('contactNumber') && !this.isModified('phone')) {
-        this.phone = this.contactNumber;
-    }
-
-    if (!this.phone && this.contactNumber) {
-        this.phone = this.contactNumber;
-    }
-    if (!this.contactNumber && this.phone) {
-        this.contactNumber = this.phone;
-    }
-
-    const normalizedName = this.name || this.hospitalName;
-    if (normalizedName) {
-        this.hospitalNameNormalized = normalizeArabic(normalizedName);
+    const displayName = this.hospitalName || this.fullName;
+    if (displayName) {
+        this.hospitalNameNormalized = normalizeArabic(displayName);
     }
 });
 

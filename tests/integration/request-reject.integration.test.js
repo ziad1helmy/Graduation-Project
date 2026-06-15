@@ -23,7 +23,7 @@ describe('Request rejection lifecycle', () => {
     const hospital = await createHospital();
     const requestRecord = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -118,7 +118,7 @@ describe('Request rejection lifecycle', () => {
     const hospital = await createHospital();
     const requestRecord = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });

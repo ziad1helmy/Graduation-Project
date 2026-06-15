@@ -129,7 +129,7 @@ const donationSchema = new mongoose.Schema(
     },
 
     // Track if donation was auto-cancelled due to missing appointment
-    autoCompiledAt: {
+    autoCancelledAt: {
       type: Date,
       default: null,
     },
@@ -198,13 +198,11 @@ const donationSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    strict: 'throw',
   }
 );
 
 // Indexes for efficient queries
-donationSchema.index({ donorId: 1 });
-donationSchema.index({ requestId: 1 });
-donationSchema.index({ status: 1 });
 donationSchema.index({ donorId: 1, status: 1 });
 donationSchema.index({ requestId: 1, status: 1 });
 donationSchema.index({ arrivalDeadline: 1 });
@@ -226,7 +224,6 @@ donationSchema.index(
   }
 );
 
-donationSchema.index({ createdAt: 1 });
 donationSchema.index({ donorId: 1, status: 1, createdAt: 1 });
 
 /**
@@ -273,7 +270,7 @@ donationSchema.pre('save', async function() {
  *     {
  *       $set: { 
  *         status: 'cancelled',
- *         autoCompiledAt: new Date(),
+ *         autoCancelledAt: new Date(),
  *         notes: 'Auto-cancelled: Appointment not scheduled within deadline'
  *       }
  *     }

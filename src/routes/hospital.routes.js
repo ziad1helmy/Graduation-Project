@@ -32,11 +32,10 @@ router.get('/appointments/:appointmentId', hospitalController.getAppointmentDeta
 // Profile routes
 router.get('/profile', hospitalController.getProfile);
 router.put('/profile', hospitalController.updateProfile);
+router.put('/profile/working-hours', hospitalController.updateWorkingHours);
+router.put('/profile/notifications', hospitalController.updateNotificationPreferences);
+router.put('/profile/password', hospitalController.changePassword);
 router.put('/profile/location', hospitalController.updateProfileLocation);
-
-// Appointment settings routes
-router.get('/appointment-settings', hospitalController.getAppointmentSettings);
-router.put('/appointment-settings', hospitalController.updateAppointmentSettings);
 
 // Request management routes
 router.post('/request', hospitalController.createRequest);
@@ -67,12 +66,6 @@ router.get('/notifications/:id', notificationController.getNotificationById);
 router.delete('/notifications/:id', notificationController.deleteNotificationById);
 
 
-// Extended compatibility features
-router.get('/blood-bank-settings', hospitalController.getBloodBankSettings);
-router.put('/blood-bank-settings', hospitalController.updateBloodBankSettings);
-// Removed: GET /hospital/blood-inventory handled by admin summary endpoint
-router.get('/notification-preferences', hospitalController.getNotificationPreferences);
-router.put('/notification-preferences', hospitalController.updateNotificationPreferences);
 router.get('/reports/monthly', hospitalController.getMonthlyReports);
 
 export default router;

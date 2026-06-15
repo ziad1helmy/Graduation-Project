@@ -58,7 +58,7 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
       bloodType: ['O+'],
       urgency: 'critical',
       status: 'pending',
-      hospitalLocation: { lat: 30.01, lng: 31.01 },
+      hospitalLocationGeo: { type: 'Point', coordinates: [31.01, 30.01] },
     });
 
     requestId = reqObj._id.toString();

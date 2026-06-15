@@ -20,7 +20,7 @@ describe('Request Details Integration', () => {
       bloodType: donor.bloodType,
       urgency: 'critical',
       patientType: 'accident',
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       unitsNeeded: 3,
       isEmergency: true,
     });
@@ -40,7 +40,7 @@ describe('Request Details Integration', () => {
     expect(respBlood).toBe(donor.bloodType);
     expect(response.body.data.hospitalName).toContain('Test Hospital');
     expect(response.body.data.patientType).toBe('accident');
-    expect(response.body.data.contactNumber).toBe(hospital.contactNumber);
+    expect(response.body.data.contactNumber).toBe(hospital.phone);
     expect(response.body.data.unitsNeeded).toBe(3);
     expect(response.body.data.isEmergency).toBe(true);
     expect(response.body.data.location).toEqual({ lat: 30.0511, lng: 31.2435 });
@@ -55,7 +55,7 @@ describe('Request Details Integration', () => {
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
       patientType: 'surgery',
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -96,7 +96,7 @@ describe('Request Details Integration', () => {
     const donor = await createDonor();
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -172,14 +172,6 @@ describe('Request Details Integration', () => {
       bloodType: donor.bloodType,
       urgency: 'critical',
       isEmergency: true,
-      locationHospital: {
-        latitude: nearHospital.location.coordinates.lat,
-        longitude: nearHospital.location.coordinates.lng,
-      },
-      hospitalLocation: {
-        lat: nearHospital.location.coordinates.lat,
-        lng: nearHospital.location.coordinates.lng,
-      },
       hospitalLocationGeo: {
         type: 'Point',
         coordinates: [nearHospital.location.coordinates.lng, nearHospital.location.coordinates.lat],
@@ -189,14 +181,6 @@ describe('Request Details Integration', () => {
       bloodType: donor.bloodType,
       urgency: 'critical',
       isEmergency: true,
-      locationHospital: {
-        latitude: farHospital.location.coordinates.lat,
-        longitude: farHospital.location.coordinates.lng,
-      },
-      hospitalLocation: {
-        lat: farHospital.location.coordinates.lat,
-        lng: farHospital.location.coordinates.lng,
-      },
       hospitalLocationGeo: {
         type: 'Point',
         coordinates: [farHospital.location.coordinates.lng, farHospital.location.coordinates.lat],
@@ -224,7 +208,7 @@ describe('Request Details Integration', () => {
     const hospital = await createHospital();
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -274,7 +258,7 @@ describe('Request Details Integration', () => {
     const hospital = await createHospital();
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -312,7 +296,7 @@ describe('Request Details Integration', () => {
     const hospital = await createHospital();
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -350,7 +334,7 @@ describe('Request Details Integration', () => {
     const hospital = await createHospital();
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -391,7 +375,7 @@ describe('Request Details Integration', () => {
     const hospital = await createHospital();
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -433,7 +417,7 @@ describe('Request Details Integration', () => {
     const hospital = await createHospital();
     const urgentRequest = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
     });
@@ -463,7 +447,7 @@ describe('Request Details Integration', () => {
       bloodType: donor.bloodType,
       urgency: 'critical',
       patientType: 'accident',
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       unitsNeeded: 3,
       isEmergency: true,
     });
@@ -561,7 +545,7 @@ describe('Request Details Integration', () => {
       bloodType: donor.bloodType,
       urgency: 'critical',
       patientType: 'accident',
-      contactNumber: hospital.contactNumber,
+      contactNumber: hospital.phone,
       unitsNeeded: 3,
       isEmergency: true,
     });

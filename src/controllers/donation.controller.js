@@ -40,7 +40,7 @@ const isChecklistComplete = (checklist = {}) => {
 const populateAppointmentForVerification = (query) => {
   return query
     .populate('donorId', 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason')
-    .populate('hospitalId', 'fullName hospitalName contactNumber location')
+    .populate('hospitalId', 'fullName hospitalName phone location')
     .populate('requestId', 'type bloodType urgency quantity unitsNeeded isEmergency hospitalContact hospitalName contactNumber requiredBy status');
 };
 
@@ -66,7 +66,7 @@ const buildVerificationPayload = (appointment, eligibility, sessionId = null, tr
             id: hospital._id,
             fullName: hospital.fullName || null,
             hospitalName: hospital.hospitalName || null,
-            contactNumber: hospital.contactNumber || null,
+            contactNumber: hospital.phone || null,
             location: hospital.location || null,
           }
         : null,
@@ -120,7 +120,7 @@ const buildDonationVerificationPayload = (donation, eligibility, sessionId = nul
             id: hospital._id,
             fullName: hospital.fullName || null,
             hospitalName: hospital.hospitalName || null,
-            contactNumber: hospital.contactNumber || null,
+            contactNumber: hospital.phone || null,
             location: hospital.location || null,
           }
         : null,
@@ -138,7 +138,7 @@ const buildDonationVerificationPayload = (donation, eligibility, sessionId = nul
             id: hospital._id,
             fullName: hospital.fullName || null,
             hospitalName: hospital.hospitalName || null,
-            contactNumber: hospital.contactNumber || null,
+            contactNumber: hospital.phone || null,
             location: hospital.location || null,
           }
         : null,
@@ -441,7 +441,7 @@ export const verifyQr = asyncHandler(async (req, res) => {
     // Look up donation directly
     donation = await Donation.findOne({ qrToken }).populate([
       { path: 'donorId', select: 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason' },
-      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName contactNumber location' } },
+      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName phone location' } },
     ]);
 
     if (!donation || !donation.requestId) {
@@ -536,7 +536,7 @@ export const verifyQr = asyncHandler(async (req, res) => {
       { returnDocument: 'after' }
     ).populate([
       { path: 'donorId', select: 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason' },
-      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName contactNumber location' } },
+      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName phone location' } },
     ]);
 
     if (!updatedDonation) throw new HttpError(409, 'QR code already used');
@@ -627,7 +627,7 @@ export const confirmArrival = asyncHandler(async (req, res) => {
   if (!appointment) {
     donation = await Donation.findById(appointmentId).populate([
       { path: 'donorId', select: 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason' },
-      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName contactNumber location' } },
+      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName phone location' } },
     ]);
 
     if (!donation || !donation.requestId) {
@@ -717,7 +717,7 @@ export const confirmArrival = asyncHandler(async (req, res) => {
       { returnDocument: 'after' }
     ).populate([
       { path: 'donorId', select: 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason' },
-      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName contactNumber location' } },
+      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName phone location' } },
     ]);
 
     if (!updatedDonation) {

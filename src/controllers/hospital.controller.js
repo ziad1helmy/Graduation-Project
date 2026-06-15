@@ -14,8 +14,10 @@ import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as hospitalService from '../services/hospital.service.js';
+import * as authService from '../services/auth.service.js';
+import { ERR } from '../utils/errorCodes.js';
 import { validateCreateHospitalByAdminBody } from '../validation/admin.validation.js';
-import { DEFAULT_SUPPORTED_DONATION_TYPES, DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
+import { DONATION_TYPE_LABELS } from '../constants/donation.constants.js';
 import {
   validateFindDonorsQuery,
   validateBookAppointmentBody,
@@ -28,31 +30,9 @@ import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { validateTransition } from '../utils/state-machine.js';
 import { parseLatLng, extractLocation } from '../utils/geo.js';
 import { formatDistance } from '../utils/format.js';
-import { toNumber, toLocation, parseBooleanQuery, toPlainObject } from '../utils/query.js';
+import { toNumber, toLocation, parseBooleanQuery } from '../utils/query.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
-
-const normalizeLocationInput = (location) => {
-  if (!location || typeof location !== 'object') return null;
-
-  const normalized = {};
-  if (location.city) normalized.city = location.city;
-  if (location.governorate || location.governrate) {
-    normalized.governorate = location.governorate || location.governrate;
-  }
-
-  const rawLat = location.coordinates?.lat ?? location.latitude ?? location.lat;
-  const rawLng = location.coordinates?.lng ?? location.longitude ?? location.lng;
-  const lat = rawLat === '' || rawLat === undefined || rawLat === null ? undefined : Number(rawLat);
-  const lng = rawLng === '' || rawLng === undefined || rawLng === null ? undefined : Number(rawLng);
-
-  if (Number.isFinite(lat) && Number.isFinite(lng)) {
-    normalized.coordinates = { lat, lng };
-    normalized.lastUpdated = new Date();
-  }
-
-  return Object.keys(normalized).length ? normalized : null;
-};
 
 const EMERGENCY_REQUEST_REQUIRED_BY_MS = 24 * 60 * 60 * 1000;
 
@@ -94,303 +74,6 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
 };
     
 const resolveHospitalCoordinates = (hospital) => extractLocation(hospital, 'hospital');
-
-const APPOINTMENT_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-      
-const DEFAULT_APPOINTMENT_CLOSING_TIME = '19:00';
-const DEFAULT_APPOINTMENT_WORKING_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-const DEFAULT_APPOINTMENT_PREPARATION_TIPS = [
-  'Eat a healthy meal before donation',
-  'Drink plenty of water',
-  'Bring a valid ID',
-  "Get a good night's sleep",
-];
-const APPOINTMENT_TIME_PATTERN = /^(?:[01]\d|2[0-3]):00$/;
-
-const formatHourLabel = (hour) => `${String(hour).padStart(2, '0')}:00`;
-
-const parseHourLabel = (value) => {
-  if (typeof value !== 'string' || !APPOINTMENT_TIME_PATTERN.test(value)) {
-    return null;
-  }
-
-  const [hourPart, minutePart] = value.split(':').map(Number);
-  if (minutePart !== 0) {
-    return null;
-  }
-
-  return hourPart;
-};
-
-const buildHourlySlots = (openingTime, closingTime, slotsPerHour, preservedSlots = {}, overrides = {}) => {
-  const startHour = parseHourLabel(openingTime);
-  const endHour = parseHourLabel(closingTime);
-
-  if (startHour === null || endHour === null || endHour <= startHour) {
-    return null;
-  }
-
-  const preserved = toPlainObject(preservedSlots);
-  const provided = toPlainObject(overrides);
-  const hourlySlots = {};
-
-  for (let hour = startHour; hour < endHour; hour += 1) {
-    const label = formatHourLabel(hour);
-
-    if (Object.prototype.hasOwnProperty.call(provided, label)) {
-      hourlySlots[label] = Number(provided[label]);
-      continue;
-    }
-
-    if (Object.prototype.hasOwnProperty.call(preserved, label)) {
-      hourlySlots[label] = Number(preserved[label]);
-      continue;
-    }
-
-    hourlySlots[label] = Number(slotsPerHour);
-  }
-
-  return hourlySlots;
-};
-
-const sumHourlySlots = (hourlySlots = {}) => Object.values(hourlySlots).reduce((total, value) => total + Number(value || 0), 0);
-
-const getDefaultAppointmentSettings = () => {
-  const hourlySlots = buildHourlySlots(
-    DEFAULT_APPOINTMENT_OPENING_TIME,
-    DEFAULT_APPOINTMENT_CLOSING_TIME,
-    4
-  );
-
-  return {
-    openingTime: DEFAULT_APPOINTMENT_OPENING_TIME,
-    closingTime: DEFAULT_APPOINTMENT_CLOSING_TIME,
-    workingDays: [...DEFAULT_APPOINTMENT_WORKING_DAYS],
-    defaultSlotsPerHour: 4,
-    hourlySlots,
-    totalDailyCapacity: sumHourlySlots(hourlySlots),
-    isActive: true,
-    supportedDonationTypes: [...DEFAULT_SUPPORTED_DONATION_TYPES],
-    minAdvanceHours: 24,
-    maxAdvanceDays: 30,
-    preparationTips: [...DEFAULT_APPOINTMENT_PREPARATION_TIPS],
-    rescheduleAllowed: true,
-    maxReschedules: 3,
-    cancellationAllowedHours: 12,
-  };
-};
-
-const normalizeAppointmentSettings = (settings, payload = {}) => {
-  const current = {
-    ...getDefaultAppointmentSettings(),
-    ...(settings || {}),
-  };
-
-  const errors = [];
-
-  const openingTime = payload.openingTime ?? current.openingTime;
-  const closingTime = payload.closingTime ?? current.closingTime;
-  const defaultSlotsPerHour = payload.defaultSlotsPerHour ?? current.defaultSlotsPerHour;
-
-  if (typeof openingTime !== 'string' || !APPOINTMENT_TIME_PATTERN.test(openingTime)) {
-    errors.push('openingTime must be in HH:mm format and aligned to the hour');
-  }
-
-  if (typeof closingTime !== 'string' || !APPOINTMENT_TIME_PATTERN.test(closingTime)) {
-    errors.push('closingTime must be in HH:mm format and aligned to the hour');
-  }
-
-  const startHour = parseHourLabel(openingTime);
-  const endHour = parseHourLabel(closingTime);
-  if (startHour !== null && endHour !== null && endHour <= startHour) {
-    errors.push('closingTime must be later than openingTime');
-  }
-
-  if (!Number.isInteger(Number(defaultSlotsPerHour)) || Number(defaultSlotsPerHour) < 1 || Number(defaultSlotsPerHour) > 100) {
-    errors.push('defaultSlotsPerHour must be an integer between 1 and 100');
-  }
-
-  const validateStringArray = (value, fieldName, allowedValues, allowEmpty = true) => {
-    if (value === undefined) return undefined;
-    if (!Array.isArray(value)) {
-      errors.push(`${fieldName} must be an array`);
-      return undefined;
-    }
-
-    const normalized = [];
-    for (const item of value) {
-      if (typeof item !== 'string' || !allowedValues.includes(item)) {
-        errors.push(`${fieldName} contains an invalid value: ${item}`);
-        continue;
-      }
-      if (!normalized.includes(item)) {
-        normalized.push(item);
-      }
-    }
-
-    if (!allowEmpty && normalized.length === 0) {
-      errors.push(`${fieldName} must contain at least one value`);
-    }
-
-    return normalized;
-  };
-
-  const workingDays = validateStringArray(payload.workingDays, 'workingDays', APPOINTMENT_DAYS);
-  const supportedDonationTypes = validateStringArray(
-    payload.supportedDonationTypes,
-    'supportedDonationTypes',
-    DEFAULT_SUPPORTED_DONATION_TYPES
-  );
-
-  const preparationTips = payload.preparationTips === undefined
-    ? undefined
-    : Array.isArray(payload.preparationTips) && payload.preparationTips.every((tip) => typeof tip === 'string' && tip.trim())
-      ? payload.preparationTips
-      : (() => {
-          errors.push('preparationTips must be an array of non-empty strings');
-          return undefined;
-        })();
-
-  const booleanFields = ['isActive', 'rescheduleAllowed'];
-  for (const field of booleanFields) {
-    if (payload[field] !== undefined && typeof payload[field] !== 'boolean') {
-      errors.push(`${field} must be a boolean`);
-    }
-  }
-
-  const numericFields = [
-    ['minAdvanceHours', 0, 3650],
-    ['maxAdvanceDays', 0, 3650],
-    ['maxReschedules', 0, 100],
-    ['cancellationAllowedHours', 0, 3650],
-  ];
-  for (const [field, minValue, maxValue] of numericFields) {
-    if (payload[field] === undefined) continue;
-    const value = Number(payload[field]);
-    if (!Number.isInteger(value) || value < minValue || value > maxValue) {
-      errors.push(`${field} must be an integer between ${minValue} and ${maxValue}`);
-    }
-  }
-
-  let quickActionValue;
-  if (payload.setAllSlotsTo !== undefined && payload.closeAllSlots !== undefined) {
-    errors.push('Use either setAllSlotsTo or closeAllSlots, not both');
-  }
-
-  if (payload.setAllSlotsTo !== undefined) {
-    const value = Number(payload.setAllSlotsTo);
-    if (!Number.isInteger(value) || value < 0 || value > 100) {
-      errors.push('setAllSlotsTo must be an integer between 0 and 100');
-    } else {
-      quickActionValue = value;
-    }
-  }
-
-  if (payload.closeAllSlots !== undefined && typeof payload.closeAllSlots !== 'boolean') {
-    errors.push('closeAllSlots must be a boolean');
-  }
-
-  const providedHourlySlots = payload.hourlySlots && typeof payload.hourlySlots === 'object' && !Array.isArray(payload.hourlySlots)
-    ? payload.hourlySlots
-    : undefined;
-
-  if (payload.hourlySlots !== undefined && !providedHourlySlots) {
-    errors.push('hourlySlots must be an object keyed by HH:mm');
-  }
-
-  const generatedHourlySlots = buildHourlySlots(
-    openingTime,
-    closingTime,
-    defaultSlotsPerHour,
-    current.hourlySlots,
-    providedHourlySlots || {}
-  );
-
-  if (!generatedHourlySlots) {
-    errors.push('hourlySlots could not be generated for the supplied openingTime and closingTime');
-  }
-
-  if (providedHourlySlots && generatedHourlySlots) {
-    const allowedKeys = new Set(Object.keys(generatedHourlySlots));
-    for (const [hour, value] of Object.entries(providedHourlySlots)) {
-      if (!APPOINTMENT_TIME_PATTERN.test(hour) || !allowedKeys.has(hour)) {
-        errors.push(`hourlySlots contains an invalid time key: ${hour}`);
-        continue;
-      }
-
-      const numericValue = Number(value);
-      if (!Number.isInteger(numericValue) || numericValue < 0 || numericValue > 100) {
-        errors.push(`hourlySlots.${hour} must be an integer between 0 and 100`);
-      }
-    }
-  }
-
-  if (errors.length) {
-    return { errors };
-  }
-
-  const hourlySlots = {};
-  for (const hour of Object.keys(generatedHourlySlots)) {
-    if (payload.closeAllSlots === true) {
-      hourlySlots[hour] = 0;
-      continue;
-    }
-
-    if (quickActionValue !== undefined) {
-      hourlySlots[hour] = quickActionValue;
-      continue;
-    }
-
-    if (providedHourlySlots && providedHourlySlots[hour] !== undefined) {
-      hourlySlots[hour] = Number(providedHourlySlots[hour]);
-      continue;
-    }
-
-    hourlySlots[hour] = Number(generatedHourlySlots[hour]);
-  }
-
-  return {
-    errors: [],
-    appointmentSettings: {
-      openingTime,
-      closingTime,
-      workingDays: workingDays ?? current.workingDays,
-      defaultSlotsPerHour: Number(defaultSlotsPerHour),
-      hourlySlots,
-      totalDailyCapacity: sumHourlySlots(hourlySlots),
-      isActive: payload.isActive !== undefined ? payload.isActive : current.isActive ?? true,
-      supportedDonationTypes: supportedDonationTypes ?? current.supportedDonationTypes,
-      minAdvanceHours: payload.minAdvanceHours !== undefined ? Number(payload.minAdvanceHours) : current.minAdvanceHours,
-      maxAdvanceDays: payload.maxAdvanceDays !== undefined ? Number(payload.maxAdvanceDays) : current.maxAdvanceDays,
-      preparationTips: preparationTips ?? current.preparationTips,
-      rescheduleAllowed: payload.rescheduleAllowed !== undefined ? payload.rescheduleAllowed : current.rescheduleAllowed ?? true,
-      maxReschedules: payload.maxReschedules !== undefined ? Number(payload.maxReschedules) : current.maxReschedules,
-      cancellationAllowedHours: payload.cancellationAllowedHours !== undefined
-        ? Number(payload.cancellationAllowedHours)
-        : current.cancellationAllowedHours,
-    },
-  };
-};
-
-const getOrCreateHospitalSettings = async (hospitalId) => {
-  let settings = await HospitalSettings.findOne({ hospitalId });
-
-  if (!settings) {
-    settings = new HospitalSettings({
-      hospitalId,
-      appointmentSettings: getDefaultAppointmentSettings(),
-    });
-    await settings.save();
-    return settings;
-  }
-
-  if (!settings.appointmentSettings) {
-    settings.appointmentSettings = getDefaultAppointmentSettings();
-    await settings.save();
-  }
-
-  return settings;
-};
 
 /**
  * Hospital Controller - Handles hospital-specific operations
@@ -484,13 +167,50 @@ export const getProfile = asyncHandler(async (req, res) => {
   if (!hospital) {
     throw new HttpError(404, 'Hospital profile not found');
   }
-  const stats = await buildHospitalProfileStats(req.user.userId);
-  response.success(res, 200, 'Hospital profile retrieved successfully', toHospitalProfilePayload(hospital, stats));
+
+  const [stats, settings] = await Promise.all([
+    buildHospitalProfileStats(req.user.userId),
+    HospitalSettings.findOne({ hospitalId: req.user.userId }),
+  ]);
+
+  const totalRequests = stats.totalRequests;
+  const fulfilled = stats.completedRequests;
+  const active = (stats.pendingRequests ?? 0) + (stats.cancelledRequests ?? 0) > 0
+    ? stats.totalRequests - fulfilled - (stats.cancelledRequests ?? 0) - (stats.expiredRequests ?? 0)
+    : 0;
+  const successRate = totalRequests > 0 ? Math.round((fulfilled / totalRequests) * 100) : 0;
+
+  const prefs = settings?.notificationPreferences || {};
+
+  response.success(res, 200, 'Hospital profile retrieved successfully', {
+    hospitalName: hospital.hospitalName || hospital.fullName || hospital.name,
+    department: hospital.department || null,
+    phone: hospital.phone || null,
+    email: hospital.email,
+    address: typeof hospital.address === 'string' ? hospital.address : hospital.address ? JSON.stringify(hospital.address) : null,
+    workingHours: {
+      openingHour: hospital.workingHoursStart ?? 9,
+      closingHour: hospital.workingHoursEnd ?? 17,
+      slotsPerHour: hospital.slotsPerHour ?? 5,
+    },
+    notifications: {
+      pushNotifications: prefs.pushNotifications ?? true,
+      emergencyAlerts: prefs.emergencyAlerts ?? true,
+      emailNotifications: prefs.emailNotifications ?? true,
+      smsAlerts: prefs.smsAlerts ?? false,
+    },
+    statistics: {
+      totalRequests,
+      fulfilled,
+      active,
+      successRate,
+    },
+  });
 });
 
 export const toHospitalRequestResponse = (requestDoc, metrics = {}) => {
   const request = requestDoc?.toObject ? requestDoc.toObject() : { ...requestDoc };
-  const unitsNeeded = Number(request.unitsNeeded ?? request.quantity ?? 1);
+  const unitsNeeded = Number(request.unitsNeeded ?? 1);
   const status = request.status || null;
   const isFulfilled = status === 'completed';
 
@@ -688,25 +408,24 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
 
 // Update hospital profile
 export const updateProfile = asyncHandler(async (req, res) => {
-  const { fullName, hospitalName, contactNumber, address, location } = req.body;
+  const { hospitalName, department, phone, email, address } = req.body;
 
   const hospital = await Hospital.findById(req.user.userId);
   if (!hospital) {
     throw new HttpError(404, 'Hospital profile not found');
   }
 
-  if (fullName) hospital.fullName = fullName;
-  if (hospitalName) hospital.hospitalName = hospitalName;
-  if (contactNumber) hospital.contactNumber = contactNumber;
-  if (address) {
-    hospital.address = {
-      ...address,
-      ...(address.governrate && !address.governorate ? { governorate: address.governrate } : {}),
-    };
-    delete hospital.address.governrate;
+  if (hospitalName !== undefined) {
+    hospital.hospitalName = hospitalName;
+    hospital.fullName = hospitalName;
+    hospital.name = hospitalName;
   }
-  const normalizedLocation = normalizeLocationInput(location);
-  if (normalizedLocation) hospital.location = normalizedLocation;
+  if (department !== undefined) hospital.department = department;
+  if (phone !== undefined) {
+    hospital.phone = phone;
+  }
+  if (email !== undefined) hospital.email = email;
+  if (address !== undefined) hospital.address = address;
 
   try {
     await hospital.save();
@@ -717,41 +436,74 @@ export const updateProfile = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  const stats = await buildHospitalProfileStats(req.user.userId);
-
-  response.success(res, 200, 'Hospital profile updated successfully', toHospitalProfilePayload(hospital, stats));
+  response.success(res, 200, 'Profile updated successfully');
 });
 
-export const updateProfileLocation = asyncHandler(async (req, res) => {
-  const { address, city, governorate, postalCode } = req.body;
+export const updateWorkingHours = asyncHandler(async (req, res) => {
+  const { openingHour, closingHour, slotsPerHour } = req.body;
+
   const hospital = await Hospital.findById(req.user.userId);
   if (!hospital) {
     throw new HttpError(404, 'Hospital profile not found');
   }
 
-  const nextAddress = {
-    ...(typeof hospital.address === 'object' && hospital.address !== null ? hospital.address : {}),
-    ...(address !== undefined ? { street: address } : {}),
-    ...(city !== undefined ? { city } : {}),
-    ...(governorate !== undefined ? { governorate } : {}),
-    ...(postalCode !== undefined ? { postalCode } : {}),
-  };
+  if (openingHour !== undefined) {
+    if (!Number.isInteger(openingHour) || openingHour < 0 || openingHour > 23) {
+      throw new HttpError(400, 'openingHour must be an integer between 0 and 23');
+    }
+    hospital.workingHoursStart = openingHour;
+  }
+  if (closingHour !== undefined) {
+    if (!Number.isInteger(closingHour) || closingHour < 0 || closingHour > 23) {
+      throw new HttpError(400, 'closingHour must be an integer between 0 and 23');
+    }
+    hospital.workingHoursEnd = closingHour;
+  }
+  if (slotsPerHour !== undefined) {
+    if (!Number.isInteger(slotsPerHour) || slotsPerHour < 1) {
+      throw new HttpError(400, 'slotsPerHour must be a positive integer');
+    }
+    hospital.slotsPerHour = slotsPerHour;
+  }
 
-  hospital.address = nextAddress;
-  if (city !== undefined) hospital.city = city;
-  if (governorate !== undefined) hospital.state = governorate;
-  if (postalCode !== undefined) hospital.zipCode = postalCode;
+  await hospital.save();
+
+  response.success(res, 200, 'Working hours updated successfully');
+});
+
+export const updateProfileLocation = asyncHandler(async (req, res) => {
+  const { lat, lng } = req.body;
+
+  if (lat === undefined || lng === undefined) {
+    throw new HttpError(400, 'lat and lng are required');
+  }
+
+  const parsedLat = Number(lat);
+  const parsedLng = Number(lng);
+
+  if (!Number.isFinite(parsedLat) || parsedLat < -90 || parsedLat > 90) {
+    throw new HttpError(400, 'lat must be a valid number between -90 and 90');
+  }
+  if (!Number.isFinite(parsedLng) || parsedLng < -180 || parsedLng > 180) {
+    throw new HttpError(400, 'lng must be a valid number between -180 and 180');
+  }
+
+  const hospital = await Hospital.findById(req.user.userId);
+  if (!hospital) {
+    throw new HttpError(404, 'Hospital profile not found');
+  }
+
+  hospital.lat = parsedLat;
+  hospital.long = parsedLng;
   hospital.location = {
     ...(hospital.location?.toObject ? hospital.location.toObject() : hospital.location || {}),
-    ...(city !== undefined ? { city } : {}),
-    ...(governorate !== undefined ? { governorate } : {}),
+    coordinates: { lat: parsedLat, lng: parsedLng },
     lastUpdated: new Date(),
   };
 
   await hospital.save();
 
-  const stats = await buildHospitalProfileStats(req.user.userId);
-  return response.success(res, 200, 'Hospital location updated successfully', toHospitalProfilePayload(hospital, stats));
+  response.success(res, 200, 'Hospital location updated successfully');
 });
 
 const buildDonationMetricsByRequest = async (requestIds) => {
@@ -784,13 +536,13 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
     throw new HttpError(400, validation.errors[0]);
   }
 
-  const hospital = await Hospital.findById(req.user.userId).select('contactNumber location fullName hospitalName');
+  const hospital = await Hospital.findById(req.user.userId).select('phone location fullName hospitalName');
   if (!hospital) {
     throw new HttpError(404, 'Hospital profile not found');
   }
 
-  if (!hospital.contactNumber) {
-    throw new HttpError(400, 'Hospital contact number is required before creating a request');
+  if (!hospital.phone) {
+    throw new HttpError(400, 'Hospital phone number is required before creating a request');
   }
 
   const locationLatitude = hospital?.location?.coordinates?.lat;
@@ -799,12 +551,11 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
   const requestData = emergencyOnly
     ? {
         hospitalId: req.user.userId,
-        hospitalContact: hospital.contactNumber,
-        contactNumber: hospital.contactNumber,
+        hospitalContact: hospital.phone,
+        contactNumber: hospital.phone,
         type: 'blood',
         urgency: 'critical',
         requiredBy: new Date(Date.now() + EMERGENCY_REQUEST_REQUIRED_BY_MS),
-        quantity: validation.unitsNeeded,
         unitsNeeded: validation.unitsNeeded,
         patientType: validation.patientDetails,
         isEmergency: true,
@@ -840,12 +591,11 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
 
         return {
           hospitalId: req.user.userId,
-          hospitalContact: hospital.contactNumber,
-          contactNumber: contactNumber || hospital.contactNumber,
+          hospitalContact: hospital.phone,
+          contactNumber: contactNumber || hospital.phone,
           type,
           urgency: resolvedUrgency,
           requiredBy: requiredByDate,
-          quantity: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
           unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
           patientType: patientType || null,
           isEmergency: isEmergency === true || resolvedUrgency === 'critical',
@@ -855,14 +605,6 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
       })();
 
   // Snapshot hospital location and display name at time of request
-  requestData.locationHospital = {
-    latitude: locationLatitude,
-    longitude: locationLongitude,
-  };
-  requestData.hospitalLocation = {
-    lat: locationLatitude,
-    lng: locationLongitude,
-  };
   if (Number.isFinite(locationLatitude) && Number.isFinite(locationLongitude)) {
     requestData.hospitalLocationGeo = {
       type: 'Point',
@@ -907,7 +649,7 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
     session.endSession();
   }
 
-  await donRequest.populate('hospitalId', 'fullName hospitalName address contactNumber');
+  await donRequest.populate('hospitalId', 'fullName hospitalName address phone');
 
   response.success(res, 201, 'Donation request created successfully', toHospitalRequestResponse(donRequest));
 
@@ -955,15 +697,19 @@ export const createRequest = asyncHandler((req, res) => createRequestFromHospita
 
 export const createEmergencyRequest = asyncHandler((req, res) => createRequestFromHospital(req, res, { emergencyOnly: true }));
 
-// Get hospital's requests — supports ?page=1&limit=10
+// Get hospital's requests — supports ?page=1&limit=10&status=pending,accepted,in-progress
 export const getRequests = asyncHandler(async (req, res) => {
   const { status, type } = req.query;
   const { offset, limit, page } = parsePagination(req.query);
 
   const filter = { hospitalId: req.user.userId };
 
-  if (status && ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
-    filter.status = status;
+  const allowedStatuses = ['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'];
+  if (status) {
+    const statuses = status.split(',').map((s) => s.trim()).filter((s) => allowedStatuses.includes(s));
+    if (statuses.length > 0) {
+      filter.status = statuses.length === 1 ? statuses[0] : { $in: statuses };
+    }
   }
   if (type && ['blood', 'plasma', 'platelets', 'double_red_cells'].includes(type)) {
     filter.type = type;
@@ -975,9 +721,20 @@ export const getRequests = asyncHandler(async (req, res) => {
   ]);
   const requestMetrics = await buildDonationMetricsByRequest(requests.map((item) => item._id));
 
+  const totalPages = Math.ceil(total / limit) || 1;
+
   response.success(res, 200, 'Requests retrieved successfully', {
-    requests: requests.map((item) => toHospitalRequestResponse(item, requestMetrics.get(item._id.toString()))),
-    pagination: paginationMeta(total, page, limit),
+    requests: requests.map((item) => {
+      const r = toHospitalRequestResponse(item, requestMetrics.get(item._id.toString()));
+      delete r.hospital;
+      return r;
+    }),
+    pagination: {
+      total,
+      page,
+      limit,
+      totalPages,
+    },
   });
 });
 
@@ -1002,6 +759,7 @@ const formatRequestDetailResponse = (request, donations) => {
   }
 
   return {
+    requiredBy: request.requiredBy,
     bloodTypes: request.bloodType,
     unitsNeeded: request.unitsNeeded,
     urgency: request.urgency,
@@ -1017,7 +775,7 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
 
   const request = await Request.findById(requestId).populate(
     'hospitalId',
-    'fullName hospitalName address contactNumber'
+    'fullName hospitalName address phone'
   );
 
   if (!request) {
@@ -1145,8 +903,6 @@ export const updateRequest = asyncHandler(async (req, res) => {
     bloodTypes,
     urgency,
     requiredBy,
-    date,
-    time,
     quantity,
     unitsNeeded,
     patientType,
@@ -1203,8 +959,6 @@ export const updateRequest = asyncHandler(async (req, res) => {
     bloodTypes !== undefined ||
     urgency !== undefined ||
     requiredBy !== undefined ||
-    date !== undefined ||
-    time !== undefined ||
     quantity !== undefined ||
     unitsNeeded !== undefined ||
     patientType !== undefined ||
@@ -1233,14 +987,9 @@ export const updateRequest = asyncHandler(async (req, res) => {
       request.urgency = urgency;
     }
 
-    if (requiredBy !== undefined || date !== undefined || time !== undefined) {
-      const baseRequiredBy = requiredBy || date || request.requiredBy;
-      const requiredByDate = buildRequiredByDate({
-        requiredBy,
-        date: date || baseRequiredBy,
-        time,
-      });
-      if (!requiredByDate || Number.isNaN(requiredByDate.getTime())) {
+    if (requiredBy !== undefined) {
+      const requiredByDate = new Date(requiredBy);
+      if (Number.isNaN(requiredByDate.getTime())) {
         throw new HttpError(400, 'Required date must be a valid date');
       }
       if (requiredByDate <= new Date()) {
@@ -1255,7 +1004,6 @@ export const updateRequest = asyncHandler(async (req, res) => {
         throw new HttpError(400, 'Units needed must be at least 1');
       }
       request.unitsNeeded = val;
-      request.quantity = val;
     }
 
     if (patientType !== undefined) {
@@ -1433,65 +1181,64 @@ export const getDonations = asyncHandler(async (req, res) => {
   });
 });
 
-export const getBloodBankSettings = asyncHandler(async (req, res) => {
-  const settings = await HospitalSettings.findOne({ hospitalId: req.user.userId });
-  return response.success(res, 200, 'Blood bank settings retrieved successfully', {
-    bloodBankSettings: settings?.bloodBankSettings || {
-      criticalThreshold: {},
-      lowThreshold: {},
-      automaticNotifications: true,
-      notificationEmail: null,
-    },
-  });
-});
-
-export const updateBloodBankSettings = asyncHandler(async (req, res) => {
-  const { criticalThreshold, lowThreshold, automaticNotifications, notificationEmail } = req.body;
-
-  const settings = await HospitalSettings.findOneAndUpdate(
-    { hospitalId: req.user.userId },
-    {
-      $set: {
-        'bloodBankSettings.criticalThreshold': criticalThreshold || {},
-        'bloodBankSettings.lowThreshold': lowThreshold || {},
-        'bloodBankSettings.automaticNotifications': automaticNotifications !== undefined ? Boolean(automaticNotifications) : true,
-        'bloodBankSettings.notificationEmail': notificationEmail || null,
-      },
-      $setOnInsert: { hospitalId: req.user.userId },
-    },
-    { upsert: true, returnDocument: 'after' }
-  );
-
-  return response.success(res, 200, 'Blood bank settings updated successfully', {
-    bloodBankSettings: settings.bloodBankSettings,
-  });
-});
-
-export const getNotificationPreferences = asyncHandler(async (req, res) => {
-  const settings = await HospitalSettings.findOne({ hospitalId: req.user.userId });
-  return response.success(res, 200, 'Notification preferences retrieved successfully', {
-    notificationPreferences: settings?.notificationPreferences || { email: true, push: true, sms: false },
-  });
-});
+// Removed: getBloodBankSettings, updateBloodBankSettings, getNotificationPreferences — endpoints deleted
 
 export const updateNotificationPreferences = asyncHandler(async (req, res) => {
-  const { email, push, sms } = req.body;
-  const settings = await HospitalSettings.findOneAndUpdate(
+  const { pushNotifications, emergencyAlerts, emailNotifications, smsAlerts } = req.body;
+
+  const updateFields = {};
+
+  if (pushNotifications !== undefined) {
+    updateFields['notificationPreferences.pushNotifications'] = Boolean(pushNotifications);
+  }
+
+  if (emergencyAlerts !== undefined) {
+    updateFields['notificationPreferences.emergencyAlerts'] = Boolean(emergencyAlerts);
+  }
+
+  if (emailNotifications !== undefined) {
+    updateFields['notificationPreferences.emailNotifications'] = Boolean(emailNotifications);
+  }
+
+  if (smsAlerts !== undefined) {
+    updateFields['notificationPreferences.smsAlerts'] = Boolean(smsAlerts);
+  }
+
+  await HospitalSettings.findOneAndUpdate(
     { hospitalId: req.user.userId },
-    {
-      $set: {
-        'notificationPreferences.email': email !== undefined ? Boolean(email) : true,
-        'notificationPreferences.push': push !== undefined ? Boolean(push) : true,
-        'notificationPreferences.sms': sms !== undefined ? Boolean(sms) : false,
-      },
-      $setOnInsert: { hospitalId: req.user.userId },
-    },
+    { $set: updateFields, $setOnInsert: { hospitalId: req.user.userId } },
     { upsert: true, returnDocument: 'after' }
   );
 
-  return response.success(res, 200, 'Notification preferences updated successfully', {
-    notificationPreferences: settings.notificationPreferences,
-  });
+  return response.success(res, 200, 'Preferences saved');
+});
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword, confirmPassword } = req.body;
+
+  if (!currentPassword || !newPassword || !confirmPassword) {
+    throw new HttpError(400, 'currentPassword, newPassword, and confirmPassword are required');
+  }
+  if (newPassword !== confirmPassword) {
+    throw new HttpError(400, 'newPassword and confirmPassword must match');
+  }
+
+  try {
+    await authService.changePassword(req.user.userId, { currentPassword, newPassword });
+  } catch (error) {
+    if (error.message === ERR.AUTH_CURRENT_PASSWORD_INCORRECT) {
+      throw new HttpError(400, error.message);
+    }
+    if (
+      error.message.includes('required') ||
+      error.message.includes('must be different')
+    ) {
+      throw new HttpError(400, error.message);
+    }
+    throw error;
+  }
+
+  response.success(res, 200, 'Password updated successfully');
 });
 
 // Removed: `getBloodInventory` handler — hospital inventory access consolidated
@@ -1554,66 +1301,27 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
   endDate.setMonth(endDate.getMonth() + 1);
   const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
 
-  // Requests created in the month
-  const requests = await Request.find({
-    hospitalId: hospitalObjectId,
-    createdAt: { $gte: startDate, $lt: endDate },
-  }).select('status urgency requiredBy createdAt');
+  const [requests, donationsAgg] = await Promise.all([
+    Request.find({
+      hospitalId: hospitalObjectId,
+      createdAt: { $gte: startDate, $lt: endDate },
+    }).select('status urgency'),
+    Donation.aggregate([
+      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+      { $unwind: '$request' },
+      { $match: { 'request.hospitalId': hospitalObjectId, 'request.createdAt': { $gte: startDate, $lt: endDate } } },
+    ]),
+  ]);
 
   const totalRequests = requests.length;
-  const openRequests = requests.filter((r) => r.status === 'pending').length;
   const activeRequests = requests.filter((r) => ['pending', 'in-progress'].includes(r.status)).length;
   const totalCompleted = requests.filter((r) => r.status === 'completed').length;
   const totalCancelled = requests.filter((r) => r.status === 'cancelled').length;
   const emergencyRequests = requests.filter((r) => r.urgency === 'critical' || r.urgency === 'high').length;
-
-  // Donations for requests that were created in the month (join by request.createdAt)
-  const donationsAgg = await Donation.aggregate([
-    { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-    { $unwind: '$request' },
-    { $match: { 'request.hospitalId': hospitalObjectId, 'request.createdAt': { $gte: startDate, $lt: endDate } } },
-  ]);
-
-  const responseCount = donationsAgg.length;
   const totalResponses = donationsAgg.length;
-  const confirmedDonorCount = new Set(donationsAgg.filter((d) => ['scheduled', 'completed'].includes(d.status)).map((d) => d.donorId?.toString())).size;
 
-  // Request deadline metrics
+  // Donations created today for this hospital
   const now = new Date();
-  const dueSoonThreshold = new Date(now.getTime() + 48 * 60 * 60 * 1000);
-  const overdueCount = requests.filter((r) => r.requiredBy && r.requiredBy < now && r.status !== 'completed').length;
-  const dueSoonCount = requests.filter((r) => r.requiredBy && r.requiredBy >= now && r.requiredBy <= dueSoonThreshold && r.status !== 'completed').length;
-  const avgDaysToRequiredBy = requests.length
-    ? Math.round(
-        requests.reduce((sum, r) => sum + ((r.requiredBy?.getTime() || 0) - r.createdAt.getTime()) / (1000 * 60 * 60 * 24), 0) /
-          requests.length
-      )
-    : 0;
-
-  // Recent activity (donations) in last 7 days for this hospital
-  const recentStart = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  const recentAgg = await Donation.aggregate([
-    { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-    { $unwind: '$request' },
-    { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: recentStart } } },
-    { $count: 'count' },
-  ]);
-  const recentActivityCount = recentAgg[0]?.count || 0;
-  const recentCompletedDonationAgg = await Donation.aggregate([
-    { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-    { $unwind: '$request' },
-    {
-      $match: {
-        'request.hospitalId': hospitalObjectId,
-        createdAt: { $gte: recentStart },
-        status: 'completed',
-      },
-    },
-    { $count: 'count' },
-  ]);
-  const recentCompletedDonationCount = recentCompletedDonationAgg[0]?.count || 0;
-
-  // Donations created today for this hospital (used by Hospital dashboard widget)
   const startOfToday = new Date(now);
   startOfToday.setHours(0, 0, 0, 0);
   const endOfToday = new Date(startOfToday);
@@ -1621,12 +1329,7 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
   const responsesTodayAgg = await Donation.aggregate([
     { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
     { $unwind: '$request' },
-    {
-      $match: {
-        'request.hospitalId': hospitalObjectId,
-        createdAt: { $gte: startOfToday, $lt: endOfToday },
-      },
-    },
+    { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: startOfToday, $lt: endOfToday } } },
     { $count: 'count' },
   ]);
   const responsesToday = responsesTodayAgg[0]?.count || 0;
@@ -1634,21 +1337,12 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Monthly report retrieved successfully', {
     month,
     totalRequests,
-    openRequests,
     activeRequests,
     totalCompleted,
     totalCancelled,
     emergencyRequests,
-    responseCount,
-    totalResponses,
     totalDonations: totalResponses,
-    completedDonations: donationsAgg.filter((d) => d.status === 'completed').length,
-    confirmedDonorCount,
-    overdueCount,
-    dueSoonCount,
-    avgDaysToRequiredBy,
-    recentActivityCount,
-    recentCompletedDonationCount,
+    totalResponses,
     responsesToday,
   });
 });
@@ -1659,8 +1353,8 @@ const toRequestActivity = (request) => ({
   type: request.status === 'completed' ? 'request_fulfilled' : 'request_created',
   title: `${request.status === 'completed' ? 'Request fulfilled' : 'Request created'} - ${activityBloodTypeLabel(request)}`,
   subtitle: request.status === 'completed'
-    ? `units received ${request.unitsNeeded ?? request.quantity ?? 1}`
-    : `units needed ${request.unitsNeeded ?? request.quantity ?? 1}`,
+    ? `units received ${request.unitsNeeded ?? 1}`
+    : `units needed ${request.unitsNeeded ?? 1}`,
   status: request.status === 'completed' ? 'completed' : 'active',
   timestamp: (request.completedAt || request.createdAt).toISOString(),
 });
@@ -1684,7 +1378,7 @@ export const getActivity = asyncHandler(async (req, res) => {
 
   const [requests, donations] = await Promise.all([
     Request.find({ hospitalId: hospitalObjectId })
-      .select('bloodType unitsNeeded quantity status createdAt completedAt')
+      .select('bloodType unitsNeeded status createdAt completedAt')
       .sort({ createdAt: -1 })
       .limit(limit),
     Donation.aggregate([
@@ -1907,23 +1601,4 @@ export const createHospital = asyncHandler(async (req, res) => {
 });
 
 
-// GET /hospital/appointment-settings
-export const getAppointmentSettings = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateHospitalSettings(req.user.userId);
-  return response.success(res, 200, 'Appointment settings retrieved successfully', settings.appointmentSettings);
-});
-
-// PUT /hospital/appointment-settings
-export const updateAppointmentSettings = asyncHandler(async (req, res) => {
-  const settings = await getOrCreateHospitalSettings(req.user.userId);
-  const normalized = normalizeAppointmentSettings(settings.appointmentSettings, req.body);
-
-  if (normalized.errors.length) {
-    throw new HttpError(400, normalized.errors.join(', '));
-  }
-
-  settings.appointmentSettings = normalized.appointmentSettings;
-  await settings.save();
-
-  return response.success(res, 200, 'Appointment settings updated successfully', settings.appointmentSettings);
-});
+// Removed: getAppointmentSettings, updateAppointmentSettings — endpoints deleted

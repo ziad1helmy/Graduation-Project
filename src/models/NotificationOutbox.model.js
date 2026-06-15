@@ -38,10 +38,13 @@ const notificationOutboxSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    strict: 'throw',
   }
 );
 
 notificationOutboxSchema.index({ requestId: 1 });
+notificationOutboxSchema.index({ status: 1 });
+notificationOutboxSchema.index({ createdAt: 1 }, { expireAfterSeconds: 30 * 24 * 60 * 60 });
 
 const NotificationOutbox = mongoose.model('NotificationOutbox', notificationOutboxSchema);
 

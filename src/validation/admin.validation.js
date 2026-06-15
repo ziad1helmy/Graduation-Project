@@ -202,15 +202,7 @@ export const validateListRequestsQuery = (query) => {
 /**
  * Validate cancel request body.
  */
-export const validateCancelRequestBody = (body) => {
-  const errors = [];
-
-  if (!body.reason || typeof body.reason !== 'string' || body.reason.trim().length === 0) {
-    errors.push('reason (string) is required');
-  }
-
-  return { valid: errors.length === 0, errors };
-};
+export const validateCancelRequestBody = () => ({ valid: true, errors: [] });
 
 /**
  * Validate emergency broadcast body.

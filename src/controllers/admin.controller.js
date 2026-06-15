@@ -15,7 +15,6 @@ import {
   validateCreateHospitalBody,
   validateCreateAdminBody,
   validateListRequestsQuery,
-  validateCancelRequestBody,
   validateEmergencyBroadcastBody,
   validateBanDonorBody,
   validateUpdateAdminProfileBody,
@@ -774,11 +773,6 @@ export const fulfillRequest = asyncHandler(async (req, res) => {
 /** PATCH /admin/requests/:id/cancel */
 export const cancelRequest = asyncHandler(async (req, res) => {
   try {
-    const validation = validateCancelRequestBody(req.body);
-    if (!validation.valid) {
-      throw new HttpError(400, validation.errors.join(', '));
-    }
-
     const request = await adminService.cancelRequest(req.params.id, req.body.reason, req.user._id);
     if (!request) {
       throw new HttpError(404, 'Request not found');

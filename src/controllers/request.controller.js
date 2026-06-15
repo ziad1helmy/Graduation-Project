@@ -82,7 +82,7 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
     || null;
   const contactNumber = request.contactNumber
     || request.hospitalContact
-    || request.hospitalId?.contactNumber
+    || request.hospitalId?.phone
     || null;
 
   const payload = {
@@ -91,9 +91,9 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
     bloodType: normalizeBloodTypeList(request.bloodType),
     bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
     hospitalName,
-    patientType: request.patientType || request.cause || null,
+    patientType: request.patientType || null,
     contactNumber,
-    unitsNeeded: request.unitsNeeded ?? request.quantity ?? 1,
+    unitsNeeded: request.unitsNeeded ?? 1,
     isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
     createdAt: request.createdAt,
     status: request.status,
@@ -101,12 +101,6 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
     urgency: request.urgency,
     type: request.type,
     requiredBy: request.requiredBy,
-    locationHospital: requestLocation
-      ? {
-          latitude: requestLocation.latitude,
-          longitude: requestLocation.longitude,
-        }
-      : null,
     location: toLocation(requestLocation),
     qrToken: donorActiveQr ? donorActiveQr.qrToken : (request.qrToken || null),
     qrCreatedAt: donorActiveQr ? donorActiveQr.qrCreatedAt : (request.qrCreatedAt || null),
@@ -142,7 +136,7 @@ export const buildDonorRequestSummary = (request, viewerLocation = null) => {
   const requestLocation = getRequestCoordinates(request);
   const contactNumber = request.contactNumber
     || request.hospitalContact
-    || request.hospitalId?.contactNumber
+    || request.hospitalId?.phone
     || null;
 
   return {
@@ -150,9 +144,9 @@ export const buildDonorRequestSummary = (request, viewerLocation = null) => {
     id: request._id.toString(),
     requestId: request._id.toString(),
     posted: request.createdAt || null,
-    patientType: request.patientType || request.cause || null,
+    patientType: request.patientType || null,
     contactNumber,
-    unitsNeeded: request.unitsNeeded ?? request.quantity ?? 1,
+    unitsNeeded: request.unitsNeeded ?? 1,
     hospitalName,
     hospitalLatitude: requestLocation?.latitude ?? null,
     hospitalLongitude: requestLocation?.longitude ?? null,
@@ -182,7 +176,7 @@ const filterNearbyRequests = (requests, viewerLocation, radiusKm = null) => {
 };
 
 const populateRequest = (query) => {
-  return query.populate('hospitalId', 'fullName hospitalName address contactNumber location');
+  return query.populate('hospitalId', 'fullName hospitalName address phone location');
 };
 
 const normalizeRequestIfExpired = async (request) => {
@@ -424,9 +418,9 @@ export const verifyQr = asyncHandler(async (req, res) => {
     hospitalName: request.hospitalName || request.hospitalId?.hospitalName || request.hospitalId?.fullName || null,
     bloodType: normalizeBloodTypeList(request.bloodType),
     bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
-    patientType: request.patientType || request.cause || null,
-    contactNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.contactNumber || null,
-    unitsNeeded: request.unitsNeeded ?? request.quantity ?? 1,
+    patientType: request.patientType || null,
+    contactNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.phone || null,
+    unitsNeeded: request.unitsNeeded ?? 1,
     isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
     createdAt: request.createdAt,
     requestStatus: request.status,
@@ -1024,7 +1018,7 @@ export const getAcceptedRequests = asyncHandler(async (req, res) => {
 
   const requestIds = donations.map((d) => d.requestId).filter(Boolean);
   const requests = await Request.find({ _id: { $in: requestIds } })
-    .populate('hospitalId', 'fullName hospitalName address contactNumber location');
+    .populate('hospitalId', 'fullName hospitalName address phone location');
 
   const requestMap = new Map(requests.map((r) => [r._id.toString(), r]));
   const donationMap = new Map(donations.map((d) => [d.requestId?.toString(), d]));
@@ -1050,14 +1044,13 @@ const items = requests
         bloodType: normalizeBloodTypeList(r.bloodType),
         bloodTypeLabel: formatBloodTypeLabel(r.bloodType),
         urgency: r.urgency,
-        unitsNeeded: r.unitsNeeded ?? r.quantity ?? 1,
-        patientType: r.patientType || r.cause || null,
+        unitsNeeded: r.unitsNeeded ?? 1,
+        patientType: r.patientType || null,
         isEmergency: Boolean(r.isEmergency || r.urgency === 'critical'),
         hospitalName: r.hospitalName || r.hospitalId?.hospitalName || r.hospitalId?.fullName || null,
-        contactNumber: r.contactNumber || r.hospitalContact || r.hospitalId?.contactNumber || null,
+        contactNumber: r.contactNumber || r.hospitalContact || r.hospitalId?.phone || null,
         hospitalId: r.hospitalId?._id?.toString?.() || r.hospitalId?.toString?.() || null,
         hospitalAddress: r.hospitalId?.address || null,
-        hospitalLocation: r.locationHospital || null,
       };
     });
 
@@ -1144,9 +1137,9 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
       bloodType: normalizeBloodTypeList(request.bloodType),
       bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
       type: request.type,
-      unitsNeeded: request.unitsNeeded ?? request.quantity ?? 1,
+      unitsNeeded: request.unitsNeeded ?? 1,
       urgency: request.urgency,
-      patientType: request.patientType || request.cause || null,
+      patientType: request.patientType || null,
       notes: request.notes || null,
       isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
       requiredBy: request.requiredBy,
@@ -1155,9 +1148,9 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
     hospital: {
       id: request.hospitalId?._id?.toString?.() || request.hospitalId?.toString?.() || null,
       hospitalName: request.hospitalName || request.hospitalId?.hospitalName || request.hospitalId?.fullName || null,
-      phoneNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.contactNumber || null,
+      phoneNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.phone || null,
       address: request.hospitalId?.address || null,
-      location: request.locationHospital || null,
+      location: request.hospitalLocationGeo || null,
     },
   });
 });

@@ -101,7 +101,7 @@ describe('Notification Service', () => {
       },
     });
 
-    await request.populate('hospitalId', 'fullName hospitalName address location contactNumber');
+    await request.populate('hospitalId', 'fullName hospitalName address location phone');
 
     const items = await notificationService.notifyRequest(
       [eligibleDonor._id, optedOutDonor._id, incompatibleDonor._id],
@@ -123,7 +123,7 @@ describe('Notification Service', () => {
       unitsNeeded: 2,
     });
     const donor = await createDonor({ bloodType: 'O+' });
-    await request.populate('hospitalId', 'fullName hospitalName address location contactNumber');
+    await request.populate('hospitalId', 'fullName hospitalName address location phone');
 
     const data = buildEmergencyRequestNotificationData(request, donor);
 

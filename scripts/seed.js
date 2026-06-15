@@ -61,7 +61,7 @@ const seedTestAccounts = async () => {
       emailVerifiedAt: new Date(),
       hospitalName: 'General Test Hospital',
       hospitalId: 'TEST-HOSP-001',
-      contactNumber: '2000000000',
+      phone: '2000000000',
       address: {
         city: 'Test City',
         governorate: 'Test Governorate',
@@ -96,7 +96,7 @@ const seedTestAccounts = async () => {
       status: 'pending',
       requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
       quantity: 2,
-      hospitalContact: hospital.contactNumber,
+      hospitalContact: hospital.phone,
       hospitalLocation: donor.location?.coordinates || { lat: 30.0444, lng: 31.2357 },
       hospitalName: hospital.hospitalName || hospital.fullName,
       notes: '[seed] donor-history request',

@@ -8,7 +8,7 @@ const helpDocumentSchema = new mongoose.Schema(
     documentUrl: { type: String, required: true },
     updatedAt: { type: Date, default: () => new Date() },
   },
-  { timestamps: true }
+  { timestamps: true, strict: 'throw' }
 );
 
 const HelpDocument = mongoose.model('HelpDocument', helpDocumentSchema);

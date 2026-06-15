@@ -49,6 +49,21 @@ const requestSchema = new mongoose.Schema(
       default: 1,
     },
 
+    // Deprecated — kept for backward compatibility with existing documents
+    quantity: { type: Number, min: 1, default: 1 },
+    // Deprecated — kept for backward compatibility with existing documents
+    cause: { type: String },
+    // Deprecated — kept for backward compatibility with existing documents
+    locationHospital: {
+      latitude: { type: Number },
+      longitude: { type: Number },
+    },
+    // Deprecated — kept for backward compatibility with existing documents
+    hospitalLocation: {
+      lat: { type: Number },
+      lng: { type: Number },
+    },
+
     isEmergency: {
       type: Boolean,
       default: false,
@@ -82,15 +97,6 @@ const requestSchema = new mongoose.Schema(
         },
         message: 'Blood type is required for blood, plasma, and platelet donation requests and must contain at least one valid blood type',
       },
-    },
-    // Cause of the request, e.g. accident, surgery, etc. This helps the donor understand the urgency of the request.
-    cause: {
-      type: String,
-      enum: {
-        values: PATIENT_TYPE_ENUM,
-        message: `Cause must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`,
-      },
-      default: 'general',
     },
     urgency: {
       type: String,
@@ -136,12 +142,6 @@ const requestSchema = new mongoose.Schema(
       },
     },
     
-    quantity: {
-      type: Number,
-      min: [1, 'Quantity must be at least 1'],
-      default: 1,
-    },
-    
     notes: {
       type: String,
       maxlength: [500, 'Notes cannot exceed 500 characters'],
@@ -157,10 +157,6 @@ const requestSchema = new mongoose.Schema(
         message: 'Hospital contact number must be 10-11 digits long',
       },
     },
-    locationHospital: {
-      latitude: { type: Number },
-      longitude: { type: Number },
-    },
     hospitalLocationGeo: {
       type: {
         type: String,
@@ -170,10 +166,6 @@ const requestSchema = new mongoose.Schema(
         type: [Number],
         default: undefined,
       },
-    },
-    hospitalLocation: {
-      lat: { type: Number },
-      lng: { type: Number },
     },
     hospitalName: {
       type: String,
@@ -252,12 +244,11 @@ const requestSchema = new mongoose.Schema(
   },
   {
     timestamps: true,
+    strict: 'throw',
   }
 );
 
 // Indexes for efficient queries
-requestSchema.index({ status: 1 });
-requestSchema.index({ urgency: 1 });
 requestSchema.index({ hospitalId: 1, status: 1 });
 requestSchema.index({ urgency: 1, status: 1 });
 requestSchema.index({ acceptedBy: 1, status: 1 });
@@ -271,35 +262,23 @@ requestSchema.pre('init', function normalizeHydratedRequest(doc) {
   }
 });
 
-// Ensure location fields and request quantity fields remain synchronized.
-// - `locationHospital` containing `{ latitude, longitude }` is canonical for coordinate storage.
-// - `hospitalLocationGeo` containing a GeoJSON `Point` with `[longitude, latitude]` is canonical for geospatial query operations.
-// - `hospitalLocation` containing `{ lat, lng }` is maintained for backward compatibility.
-// - `unitsNeeded` is canonical internally for quantity tracker, synced with `quantity` for backward compatibility.
+// Sync deprecated fields with canonical ones for backward compatibility.
 requestSchema.pre('validate', function syncRequestFields() {
   try {
-    // 1. Synchronize unitsNeeded and quantity
-    const hasUnits = this.unitsNeeded !== undefined && this.unitsNeeded !== null;
-    const hasQuantity = this.quantity !== undefined && this.quantity !== null;
-
-    if (this.isModified('unitsNeeded') || (hasUnits && !hasQuantity)) {
-      this.quantity = this.unitsNeeded;
-    } else if (this.isModified('quantity') || (hasQuantity && !hasUnits)) {
-      this.unitsNeeded = this.quantity;
-    } else if (!hasUnits && !hasQuantity) {
-      this.unitsNeeded = 1;
-      this.quantity = 1;
-    }
-
-    // 1b. Normalize bloodType so legacy scalar values become arrays.
     if (this.bloodType !== undefined && this.bloodType !== null) {
       this.bloodType = normalizeBloodTypeList(this.bloodType);
     }
 
-    // 2. Synchronize locationHospital, hospitalLocation, hospitalLocationGeo
+    // Sync deprecated quantity → unitsNeeded (only when quantity was explicitly set)
+    if (this.isModified('quantity') && !this.isModified('unitsNeeded')) {
+      this.unitsNeeded = this.quantity;
+    } else if (this.unitsNeeded === undefined || this.unitsNeeded === null) {
+      this.unitsNeeded = this.quantity || 1;
+    }
+
+    // Sync deprecated location fields → hospitalLocationGeo
     let lat = null;
     let lng = null;
-
     if (this.locationHospital && Number.isFinite(this.locationHospital.latitude) && Number.isFinite(this.locationHospital.longitude)) {
       lat = this.locationHospital.latitude;
       lng = this.locationHospital.longitude;
@@ -310,111 +289,30 @@ requestSchema.pre('validate', function syncRequestFields() {
       lng = this.hospitalLocationGeo.coordinates[0];
       lat = this.hospitalLocationGeo.coordinates[1];
     }
-
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      this.locationHospital = { latitude: lat, longitude: lng };
-      this.hospitalLocation = { lat, lng };
-      this.hospitalLocationGeo = {
-        type: 'Point',
-        coordinates: [lng, lat],
-      };
+    if (Number.isFinite(lat) && Number.isFinite(lng) && !this.hospitalLocationGeo) {
+      this.hospitalLocationGeo = { type: 'Point', coordinates: [lng, lat] };
     }
   } catch (e) {
     // Ignore and let Mongoose handle validation errors
   }
 });
 
-// Update hooks to sync location and quantity/unitsNeeded updates automatically
+// Sync deprecated fields on update operations for backward compatibility
 function syncRequestUpdate() {
   const update = this.getUpdate();
   if (!update) return;
 
-  // Enforce same $inc operation on both fields
-  if (update.$inc) {
-    if (update.$inc.unitsNeeded !== undefined && update.$inc.quantity === undefined) {
-      update.$inc.quantity = update.$inc.unitsNeeded;
-    } else if (update.$inc.quantity !== undefined && update.$inc.unitsNeeded === undefined) {
-      update.$inc.unitsNeeded = update.$inc.quantity;
-    }
-  }
-
-  // Helper to extract lat/lng from any location update keys
-  const extractLocationUpdate = (obj) => {
-    let lat = null;
-    let lng = null;
-
-    if (obj.locationHospital && Number.isFinite(obj.locationHospital.latitude) && Number.isFinite(obj.locationHospital.longitude)) {
-      lat = obj.locationHospital.latitude;
-      lng = obj.locationHospital.longitude;
-    } else if (obj.hospitalLocation && Number.isFinite(obj.hospitalLocation.lat) && Number.isFinite(obj.hospitalLocation.lng)) {
-      lat = obj.hospitalLocation.lat;
-      lng = obj.hospitalLocation.lng;
-    } else if (obj.hospitalLocationGeo && obj.hospitalLocationGeo.coordinates && Array.isArray(obj.hospitalLocationGeo.coordinates) && obj.hospitalLocationGeo.coordinates.length === 2) {
-      lng = obj.hospitalLocationGeo.coordinates[0];
-      lat = obj.hospitalLocationGeo.coordinates[1];
-    } else {
-      // Check if flattened keys are used
-      if (obj['locationHospital.latitude'] !== undefined || obj['locationHospital.longitude'] !== undefined) {
-        lat = obj['locationHospital.latitude'];
-        lng = obj['locationHospital.longitude'];
-      } else if (obj['hospitalLocation.lat'] !== undefined || obj['hospitalLocation.lng'] !== undefined) {
-        lat = obj['hospitalLocation.lat'];
-        lng = obj['hospitalLocation.lng'];
-      }
-    }
-    return { lat, lng };
-  };
-
-  // Sync locations on direct update keys
-  const directLoc = extractLocationUpdate(update);
-  if (Number.isFinite(directLoc.lat) && Number.isFinite(directLoc.lng)) {
-    update.locationHospital = { latitude: directLoc.lat, longitude: directLoc.lng };
-    update.hospitalLocation = { lat: directLoc.lat, lng: directLoc.lng };
-    update.hospitalLocationGeo = {
-      type: 'Point',
-      coordinates: [directLoc.lng, directLoc.lat],
-    };
-  }
-
-  // Sync locations on $set update keys
-  if (update.$set) {
-    const setLoc = extractLocationUpdate(update.$set);
-    if (Number.isFinite(setLoc.lat) && Number.isFinite(setLoc.lng)) {
-      update.$set.locationHospital = { latitude: setLoc.lat, longitude: setLoc.lng };
-      update.$set.hospitalLocation = { lat: setLoc.lat, lng: setLoc.lng };
-      update.$set.hospitalLocationGeo = {
-        type: 'Point',
-        coordinates: [setLoc.lng, setLoc.lat],
-      };
-    }
-  }
-
-  // Sync quantity and unitsNeeded on direct update keys
-  if (update.unitsNeeded !== undefined || update.quantity !== undefined) {
-    const val = update.unitsNeeded ?? update.quantity;
-    if (val !== undefined) {
-      update.unitsNeeded = val;
-      update.quantity = val;
-    }
-  }
-
+  // Sync bloodType normalization
   if (update.bloodType !== undefined) {
     update.bloodType = normalizeBloodTypeList(update.bloodType);
   }
+  if (update.$set?.bloodType !== undefined) {
+    update.$set.bloodType = normalizeBloodTypeList(update.$set.bloodType);
+  }
 
-  // Sync quantity and unitsNeeded on $set update keys
-  if (update.$set) {
-    if (update.$set.unitsNeeded !== undefined || update.$set.quantity !== undefined) {
-      const val = update.$set.unitsNeeded ?? update.$set.quantity;
-      if (val !== undefined) {
-        update.$set.unitsNeeded = val;
-        update.$set.quantity = val;
-      }
-    }
-
-    if (update.$set.bloodType !== undefined) {
-      update.$set.bloodType = normalizeBloodTypeList(update.$set.bloodType);
-    }
+  // Sync deprecated quantity → unitsNeeded on $inc (e.g. reduce inventory)
+  if (update.$inc?.quantity && !update.$inc?.unitsNeeded) {
+    update.$inc.unitsNeeded = update.$inc.quantity;
   }
 }
 

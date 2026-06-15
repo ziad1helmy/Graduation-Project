@@ -109,7 +109,7 @@ export const validateCreateRequestBody = (body = {}) => {
   const errors = [];
   const validUrgencies = ['low', 'medium', 'high', 'critical'];
 
-  const { type, urgency, requiredBy, date, time, isEmergency, patientType, cause } = body;
+  const { type, urgency, requiredBy, date, time, isEmergency, patientType } = body;
   const bloodTypeInput = body.bloodTypes !== undefined ? body.bloodTypes : body.bloodType;
   const normalizedBloodTypes = normalizeBloodTypeList(bloodTypeInput);
 
@@ -128,10 +128,6 @@ export const validateCreateRequestBody = (body = {}) => {
 
   if (patientType && !PATIENT_TYPE_ENUM.includes(patientType)) {
     errors.push(`patientType must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`);
-  }
-
-  if (cause && !PATIENT_TYPE_ENUM.includes(cause)) {
-    errors.push(`cause must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`);
   }
 
   if (['blood', 'double_red_cells'].includes(type) && normalizedBloodTypes.length === 0) {

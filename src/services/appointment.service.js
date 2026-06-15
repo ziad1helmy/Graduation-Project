@@ -785,6 +785,28 @@ export const cancelAppointment = async (appointmentId, donorId) => {
       reason: 'Donor cancelled appointment',
     });
 
+    const donor = await Donor.findById(donorId).select('fullName phoneNumber bloodType');
+    if (donor && appointment.hospitalId) {
+      const donorName = donor.fullName || 'A donor';
+      Notification.create({
+        userId: appointment.hospitalId,
+        type: 'appointment',
+        title: 'Appointment cancelled by donor',
+        message: `${donorName} cancelled their appointment on ${appointment.appointmentDate.toLocaleDateString()}`,
+        relatedId: appointment._id,
+        relatedType: 'Appointment',
+        data: {
+          appointmentId: appointment._id,
+          donorId,
+          donorName,
+          donorPhone: donor.phoneNumber || null,
+          donorBloodType: donor.bloodType || null,
+          requestId: appointment.requestId,
+          cancelledAt: new Date(),
+        },
+      }).catch((err) => logger.error('Hospital cancellation notification error', { message: err?.message }));
+    }
+
     const updatedAppointment = await Appointment.findById(appointment._id).populate(appointmentPopulateOptions);
     return toAppointmentResponse(updatedAppointment, { isCancelled: true });
   } catch (error) {
