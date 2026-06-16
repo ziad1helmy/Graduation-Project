@@ -9,6 +9,8 @@ const appointmentSchema = new mongoose.Schema(
       required: [true, 'Donor ID is required'],
     },
 
+    // Snapshot of donor info at booking time. donorId is the canonical reference;
+    // id and _id are kept for backward-compat with older Flutter client versions.
     donorDetails: {
       donorId: {
         type: mongoose.Schema.Types.ObjectId,

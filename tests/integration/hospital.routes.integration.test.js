@@ -150,6 +150,38 @@ describe('GET /hospital/find-donors', () => {
     expect(res.body.data.donors[0].distanceKm).toBeLessThan(res.body.data.donors[1].distanceKm);
   });
 
+  it('behaves identically when accessed via the /hospital/nearby-donors alias', async () => {
+    const hospital = await createHospital({
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.05, lng: 31.24 },
+        lastUpdated: new Date(),
+      },
+    });
+    const token = tokenFor(hospital);
+
+    await createDonor({
+      fullName: 'Nearest Donor',
+      bloodType: 'O+',
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.051, lng: 31.241 },
+        lastUpdated: new Date(),
+      },
+    });
+
+    const res = await request(app)
+      .get('/hospital/nearby-donors?bloodType=O+&radiusKm=5')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(res.status).toBe(200);
+    expect(res.body.success).toBe(true);
+    expect(res.body.data.donors).toHaveLength(1);
+    expect(res.body.data.donors[0].fullName).toBe('Nearest Donor');
+  });
+
   it('groups nearby donors by blood type when requested', async () => {
     const hospital = await createHospital();
     const token = tokenFor(hospital);

@@ -118,6 +118,7 @@
     '/hospital/requests/{requestId}/responses': 'Blood Requests & Donations',
     '/hospital/confirm-donation': 'Blood Requests & Donations',
     '/hospital/find-donors': 'Blood Requests & Donations',
+    '/hospital/nearby-donors': 'Blood Requests & Donations',
     '/hospital/donors/{donorId}/appointments': 'Blood Requests & Donations',
     '/hospital/donations': 'Blood Requests & Donations',
     '/donations/complete': 'Blood Requests & Donations',

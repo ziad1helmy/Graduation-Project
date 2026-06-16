@@ -75,9 +75,140 @@ const buildAppointmentDate = ({ appointmentDate, date, time }) => {
     
 const resolveHospitalCoordinates = (hospital) => extractLocation(hospital, 'hospital');
 
-/**
- * Hospital Controller - Handles hospital-specific operations
- */
+const getHospitalDisplayName = (doc) => doc.hospitalName || doc.fullName || doc.name || null;
+
+const buildEmergencyRequestData = (userId, hospital, validation) => ({
+  hospitalId: userId,
+  hospitalContact: hospital.phone,
+  contactNumber: hospital.phone,
+  type: 'blood',
+  urgency: 'critical',
+  requiredBy: new Date(Date.now() + EMERGENCY_REQUEST_REQUIRED_BY_MS),
+  unitsNeeded: validation.unitsNeeded,
+  patientType: validation.patientDetails,
+  isEmergency: true,
+  notes: validation.patientDetails,
+  bloodType: validation.bloodTypes,
+});
+
+const buildNormalRequestData = (userId, hospital, body, validation) => {
+  const {
+    type,
+    bloodType,
+    bloodTypes,
+    urgency,
+    requiredBy,
+    date,
+    time,
+    quantity,
+    unitsNeeded,
+    patientType,
+    contactNumber,
+    isEmergency,
+    notes,
+    patientDetails,
+  } = body;
+
+  const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
+  const normalizedBloodTypes = validation.bloodTypes?.length > 0
+    ? validation.bloodTypes
+    : normalizeBloodTypeList(bloodTypeInput);
+
+  const requiredByDate = buildRequiredByDate({ requiredBy, date, time });
+  const resolvedUnits = Number(unitsNeeded ?? quantity ?? 1);
+  const resolvedUrgency = isEmergency === true ? 'critical' : urgency;
+
+  return {
+    hospitalId: userId,
+    hospitalContact: hospital.phone,
+    contactNumber: contactNumber || hospital.phone,
+    type,
+    urgency: resolvedUrgency,
+    requiredBy: requiredByDate,
+    unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
+    patientType: patientType || null,
+    isEmergency: isEmergency === true || resolvedUrgency === 'critical',
+    notes: notes || patientDetails || '',
+    ...(normalizedBloodTypes.length > 0 ? { bloodType: normalizedBloodTypes } : {}),
+  };
+};
+
+const saveRequestWithOutbook = async (requestData) => {
+  const session = await mongoose.startSession();
+  let savedRequest = null;
+  let outboxEntry = null;
+
+  try {
+    await session.withTransaction(async () => {
+      const docs = await Request.create([requestData], { session });
+      savedRequest = docs[0];
+
+      if (requestData.isEmergency && mongoose.connection && mongoose.connection.readyState === 1) {
+        const outboxDocs = await NotificationOutbox.create([
+          { requestId: savedRequest._id, donorIds: [], status: 'pending' },
+        ]);
+        outboxEntry = outboxDocs[0];
+      }
+    });
+  } catch (error) {
+    if (error.name === 'ValidationError') {
+      throw new HttpError(400, error.message);
+    }
+    throw error;
+  } finally {
+    session.endSession();
+  }
+
+  return { savedRequest, outboxEntry };
+};
+
+const sendEmergencyNotifications = async (savedRequest, outboxEntry) => {
+  try {
+    const compatibleDonors = await matchingService.findCompatibleDonors(savedRequest._id);
+    const donorIds = compatibleDonors.map(({ donor }) => donor._id);
+
+    if (outboxEntry) {
+      try {
+        await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { donorIds, status: 'ready' });
+      } catch (_outbookUpdateErr) {
+        // best-effort outbox update
+      }
+    }
+
+    if (donorIds.length > 0) {
+      try {
+        await notificationService.notifyRequest(donorIds, savedRequest);
+        if (outboxEntry) {
+          await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 1, lastError: null });
+        }
+      } catch (notifyErr) {
+        if (outboxEntry) {
+          await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', attempts: 1, lastError: String(notifyErr?.message || notifyErr) });
+        }
+      }
+    } else if (outboxEntry) {
+      await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 0 });
+    }
+  } catch (err) {
+    try {
+      if (outboxEntry) {
+        await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', lastError: String(err?.message || err) });
+      }
+    } catch (_ignored) {
+      // outbook already failed — nothing more to do
+    }
+  }
+};
+
+const attachLocationToRequestData = (requestData, hospital) => {
+  const lat = hospital?.location?.coordinates?.lat;
+  const lng = hospital?.location?.coordinates?.lng;
+
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    requestData.hospitalLocationGeo = { type: 'Point', coordinates: [lng, lat] };
+  }
+  requestData.hospitalName = getHospitalDisplayName(hospital);
+};
 
 const buildHospitalProfileStats = async (hospitalId) => {
   const hospitalObjectId = new mongoose.Types.ObjectId(hospitalId);
@@ -161,7 +292,6 @@ const toHospitalProfilePayload = (hospitalDoc, stats) => {
   };
 };
 
-// Get hospital profile
 export const getProfile = asyncHandler(async (req, res) => {
   const hospital = await Hospital.findById(req.user.userId).select('-password');
   if (!hospital) {
@@ -183,7 +313,7 @@ export const getProfile = asyncHandler(async (req, res) => {
   const prefs = settings?.notificationPreferences || {};
 
   response.success(res, 200, 'Hospital profile retrieved successfully', {
-    hospitalName: hospital.hospitalName || hospital.fullName || hospital.name,
+    hospitalName: getHospitalDisplayName(hospital),
     department: hospital.department || null,
     phone: hospital.phone || null,
     email: hospital.email,
@@ -235,8 +365,8 @@ export const toHospitalRequestResponse = (requestDoc, metrics = {}) => {
     hospital: hospital
       ? {
           id: hospital._id?.toString?.() || null,
-          name: hospital.hospitalName || hospital.fullName || null,
-          hospitalName: hospital.hospitalName || hospital.fullName || null,
+          name: getHospitalDisplayName(hospital),
+          hospitalName: getHospitalDisplayName(hospital),
         }
       : request.hospitalId
         ? { id: request.hospitalId.toString(), name: request.hospitalName || null, hospitalName: request.hospitalName || null }
@@ -406,7 +536,6 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
   }
 });
 
-// Update hospital profile
 export const updateProfile = asyncHandler(async (req, res) => {
   const { hospitalName, department, phone, email, address } = req.body;
 
@@ -527,7 +656,6 @@ const buildDonationMetricsByRequest = async (requestIds) => {
   return new Map(rows.map((row) => [row._id.toString(), row]));
 };
 
-// Create a donation request
 const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {}) => {
   const validation = emergencyOnly
     ? validateCreateEmergencyRequestBody(req.body)
@@ -540,156 +668,23 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
   if (!hospital) {
     throw new HttpError(404, 'Hospital profile not found');
   }
-
   if (!hospital.phone) {
     throw new HttpError(400, 'Hospital phone number is required before creating a request');
   }
 
-  const locationLatitude = hospital?.location?.coordinates?.lat;
-  const locationLongitude = hospital?.location?.coordinates?.lng;
-
   const requestData = emergencyOnly
-    ? {
-        hospitalId: req.user.userId,
-        hospitalContact: hospital.phone,
-        contactNumber: hospital.phone,
-        type: 'blood',
-        urgency: 'critical',
-        requiredBy: new Date(Date.now() + EMERGENCY_REQUEST_REQUIRED_BY_MS),
-        unitsNeeded: validation.unitsNeeded,
-        patientType: validation.patientDetails,
-        isEmergency: true,
-        notes: validation.patientDetails,
-        bloodType: validation.bloodTypes,
-      }
-    : (() => {
-        const {
-          type,
-          bloodType,
-          bloodTypes,
-          urgency,
-          requiredBy,
-          date,
-          time,
-          quantity,
-          unitsNeeded,
-          patientType,
-          contactNumber,
-          isEmergency,
-          notes,
-          patientDetails,
-        } = req.body;
+    ? buildEmergencyRequestData(req.user.userId, hospital, validation)
+    : buildNormalRequestData(req.user.userId, hospital, req.body, validation);
 
-        const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
-        const normalizedBloodTypes = validation.bloodTypes?.length > 0
-          ? validation.bloodTypes
-          : normalizeBloodTypeList(bloodTypeInput);
+  attachLocationToRequestData(requestData, hospital);
 
-        const requiredByDate = buildRequiredByDate({ requiredBy, date, time });
-        const resolvedUnits = Number(unitsNeeded ?? quantity ?? 1);
-        const resolvedUrgency = isEmergency === true ? 'critical' : urgency;
+  const { savedRequest, outboxEntry } = await saveRequestWithOutbook(requestData);
 
-        return {
-          hospitalId: req.user.userId,
-          hospitalContact: hospital.phone,
-          contactNumber: contactNumber || hospital.phone,
-          type,
-          urgency: resolvedUrgency,
-          requiredBy: requiredByDate,
-          unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
-          patientType: patientType || null,
-          isEmergency: isEmergency === true || resolvedUrgency === 'critical',
-          notes: notes || patientDetails || '',
-          ...(normalizedBloodTypes.length > 0 ? { bloodType: normalizedBloodTypes } : {}),
-        };
-      })();
-
-  // Snapshot hospital location and display name at time of request
-  if (Number.isFinite(locationLatitude) && Number.isFinite(locationLongitude)) {
-    requestData.hospitalLocationGeo = {
-      type: 'Point',
-      coordinates: [locationLongitude, locationLatitude],
-    };
-  }
-  requestData.hospitalName = hospital?.hospitalName || hospital?.fullName;
-
-
-  const session = await mongoose.startSession();
-  let donRequest = null;
-  let outboxEntry = null;
-
-  try {
-    await session.withTransaction(async () => {
-      const docs = await Request.create([requestData], { session });
-      donRequest = docs[0];
-
-      // Create an outbox entry atomically with the request so we never lose intent
-      if (requestData.isEmergency) {
-        // Only create an outbox entry when mongoose is connected. Unit tests
-        // mock many models and do not initialize a DB connection — creating
-        // an outbox against an unconnected mongoose instance can hang tests.
-        if (mongoose.connection && mongoose.connection.readyState === 1) {
-          const outboxDocs = await NotificationOutbox.create([
-            {
-              requestId: donRequest._id,
-              donorIds: [],
-              status: 'pending',
-            },
-          ]);
-          outboxEntry = outboxDocs[0];
-        }
-      }
-    });
-  } catch (error) {
-    if (error.name === 'ValidationError') {
-      throw new HttpError(400, error.message);
-    }
-    throw error;
-  } finally {
-    session.endSession();
-  }
-
-  await donRequest.populate('hospitalId', 'fullName hospitalName address phone');
-
-  response.success(res, 201, 'Donation request created successfully', toHospitalRequestResponse(donRequest));
+  await savedRequest.populate('hospitalId', 'fullName hospitalName address phone');
+  response.success(res, 201, 'Donation request created successfully', toHospitalRequestResponse(savedRequest));
 
   if (requestData.isEmergency) {
-    try {
-      const compatibleDonors = await matchingService.findCompatibleDonors(donRequest._id);
-      const donorIds = compatibleDonors.map(({ donor }) => donor._id);
-
-      // If outbox was created, update it with recipient ids and mark ready
-      if (outboxEntry) {
-        try {
-          await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { donorIds, status: 'ready' });
-        } catch (ignore) {
-          // best-effort
-        }
-      }
-
-      if (donorIds.length > 0) {
-        try {
-          await notificationService.notifyRequest(donorIds, donRequest);
-          if (outboxEntry) {
-            await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 1, lastError: null });
-          }
-        } catch (notifyErr) {
-          if (outboxEntry) {
-            await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', attempts: 1, lastError: String(notifyErr?.message || notifyErr) });
-          }
-        }
-      } else if (outboxEntry) {
-        // No recipients found, mark outbox as sent with zero attempts
-        await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'sent', attempts: 0 });
-      }
-    } catch (err) {
-      // If matching or outbox update fails, log but do not rollback creation
-      try {
-        if (outboxEntry) {
-          await NotificationOutbox.findByIdAndUpdate(outboxEntry._id, { status: 'failed', lastError: String(err?.message || err) });
-        }
-      } catch (ignore) {}
-    }
+    await sendEmergencyNotifications(savedRequest, outboxEntry);
   }
 };
 
@@ -769,7 +764,6 @@ const formatRequestDetailResponse = (request, donations) => {
   };
 };
 
-// Get specific request details
 export const getRequestDetails = asyncHandler(async (req, res) => {
   const { requestId } = req.params;
 
@@ -782,7 +776,6 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Request not found');
   }
 
-  // Verify hospital ownership
   if (request.hospitalId._id.toString() !== req.user.userId.toString()) {
     throw new HttpError(403, 'Unauthorized access to this request');
   }
@@ -894,7 +887,6 @@ export const confirmDonation = asyncHandler(async (req, res) => {
   });
 });
 
-// Update request status and details
 export const updateRequest = asyncHandler(async (req, res) => {
   const { requestId } = req.params;
   const {
@@ -916,12 +908,10 @@ export const updateRequest = asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Request not found');
   }
 
-  // Verify hospital ownership
   if (request.hospitalId.toString() !== req.user.userId.toString()) {
     throw new HttpError(403, 'Unauthorized access to this request');
   }
 
-  // If status is provided, validate it
   if (status !== undefined) {
     if (!['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
       throw new HttpError(400, 'Valid status is required');
@@ -953,7 +943,6 @@ export const updateRequest = asyncHandler(async (req, res) => {
     }
   }
 
-  // If other details are provided to be updated, check terminal state guard first
   const isUpdatingDetails =
     bloodType !== undefined ||
     bloodTypes !== undefined ||
@@ -1051,7 +1040,6 @@ export const updateRequest = asyncHandler(async (req, res) => {
   response.success(res, 200, 'Request updated successfully', responseData);
 });
 
-// Cancel request and all associated pending donations
 export const deleteRequest = asyncHandler(async (req, res) => {
   const { requestId } = req.params;
 
@@ -1060,7 +1048,6 @@ export const deleteRequest = asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Request not found');
   }
 
-  // Verify hospital ownership
   if (request.hospitalId.toString() !== req.user.userId.toString()) {
     throw new HttpError(403, 'Unauthorized access to this request');
   }
@@ -1181,8 +1168,6 @@ export const getDonations = asyncHandler(async (req, res) => {
   });
 });
 
-// Removed: getBloodBankSettings, updateBloodBankSettings, getNotificationPreferences — endpoints deleted
-
 export const updateNotificationPreferences = asyncHandler(async (req, res) => {
   const { pushNotifications, emergencyAlerts, emailNotifications, smsAlerts } = req.body;
 
@@ -1241,10 +1226,6 @@ export const changePassword = asyncHandler(async (req, res) => {
   response.success(res, 200, 'Password updated successfully');
 });
 
-// Removed: `getBloodInventory` handler — hospital inventory access consolidated
-// to the admin summary endpoint. Use `GET /admin/blood-inventory-summary` instead.
-
-// GET /hospital/appointments - upcoming appointments for the hospital
 export const getAppointments = asyncHandler(async (req, res) => {
   const { offset, limit, page } = parsePagination(req.query, 20);
 
@@ -1599,6 +1580,3 @@ export const createHospital = asyncHandler(async (req, res) => {
     throw error;
   }
 });
-
-
-// Removed: getAppointmentSettings, updateAppointmentSettings — endpoints deleted

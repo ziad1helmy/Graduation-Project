@@ -264,36 +264,30 @@ requestSchema.pre('init', function normalizeHydratedRequest(doc) {
 
 // Sync deprecated fields with canonical ones for backward compatibility.
 requestSchema.pre('validate', function syncRequestFields() {
-  try {
-    if (this.bloodType !== undefined && this.bloodType !== null) {
-      this.bloodType = normalizeBloodTypeList(this.bloodType);
-    }
+  if (this.bloodType !== undefined && this.bloodType !== null) {
+    this.bloodType = normalizeBloodTypeList(this.bloodType);
+  }
 
-    // Sync deprecated quantity → unitsNeeded (only when quantity was explicitly set)
-    if (this.isModified('quantity') && !this.isModified('unitsNeeded')) {
-      this.unitsNeeded = this.quantity;
-    } else if (this.unitsNeeded === undefined || this.unitsNeeded === null) {
-      this.unitsNeeded = this.quantity || 1;
-    }
+  if (this.isModified('quantity') && !this.isModified('unitsNeeded')) {
+    this.unitsNeeded = this.quantity;
+  } else if (this.unitsNeeded === undefined || this.unitsNeeded === null) {
+    this.unitsNeeded = this.quantity || 1;
+  }
 
-    // Sync deprecated location fields → hospitalLocationGeo
-    let lat = null;
-    let lng = null;
-    if (this.locationHospital && Number.isFinite(this.locationHospital.latitude) && Number.isFinite(this.locationHospital.longitude)) {
-      lat = this.locationHospital.latitude;
-      lng = this.locationHospital.longitude;
-    } else if (this.hospitalLocation && Number.isFinite(this.hospitalLocation.lat) && Number.isFinite(this.hospitalLocation.lng)) {
-      lat = this.hospitalLocation.lat;
-      lng = this.hospitalLocation.lng;
-    } else if (this.hospitalLocationGeo && this.hospitalLocationGeo.coordinates && Array.isArray(this.hospitalLocationGeo.coordinates) && this.hospitalLocationGeo.coordinates.length === 2) {
-      lng = this.hospitalLocationGeo.coordinates[0];
-      lat = this.hospitalLocationGeo.coordinates[1];
-    }
-    if (Number.isFinite(lat) && Number.isFinite(lng) && !this.hospitalLocationGeo) {
-      this.hospitalLocationGeo = { type: 'Point', coordinates: [lng, lat] };
-    }
-  } catch (e) {
-    // Ignore and let Mongoose handle validation errors
+  let lat = null;
+  let lng = null;
+  if (this.locationHospital && Number.isFinite(this.locationHospital.latitude) && Number.isFinite(this.locationHospital.longitude)) {
+    lat = this.locationHospital.latitude;
+    lng = this.locationHospital.longitude;
+  } else if (this.hospitalLocation && Number.isFinite(this.hospitalLocation.lat) && Number.isFinite(this.hospitalLocation.lng)) {
+    lat = this.hospitalLocation.lat;
+    lng = this.hospitalLocation.lng;
+  } else if (this.hospitalLocationGeo && this.hospitalLocationGeo.coordinates && Array.isArray(this.hospitalLocationGeo.coordinates) && this.hospitalLocationGeo.coordinates.length === 2) {
+    lng = this.hospitalLocationGeo.coordinates[0];
+    lat = this.hospitalLocationGeo.coordinates[1];
+  }
+  if (Number.isFinite(lat) && Number.isFinite(lng) && !this.hospitalLocationGeo) {
+    this.hospitalLocationGeo = { type: 'Point', coordinates: [lng, lat] };
   }
 });
 

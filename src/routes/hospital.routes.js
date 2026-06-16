@@ -20,6 +20,13 @@ router.get(
   hospitalController.findDonors
 );
 
+router.get(
+  '/nearby-donors',
+  authMiddleware,
+  requireRole('hospital', 'admin', 'superadmin'),
+  hospitalController.findDonors
+);
+
 // Apply auth and role middleware to all hospital routes
 router.use(authMiddleware, requireRole('hospital'));
 
@@ -69,9 +76,3 @@ router.delete('/notifications/:id', notificationController.deleteNotificationByI
 router.get('/reports/monthly', hospitalController.getMonthlyReports);
 
 export default router;
-
-// ─── API CONTRACT ────────────────────────────────────────────────────────────
-// Swagger/OpenAPI documentation for this router lives in /openapi.yaml
-// Update openapi.yaml whenever you add, change, or remove an endpoint here.
-// Do NOT add inline @openapi JSDoc to this file.
-// ─────────────────────────────────────────────────────────────────────────────

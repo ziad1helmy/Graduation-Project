@@ -5624,6 +5624,111 @@ paths:
         "404":
           description: Hospital profile not found when hospital coordinate fallback is
             needed
+  /hospital/nearby-donors:
+    get:
+      tags:
+        - Hospital
+      summary: Alias for /hospital/find-donors — find nearby compatible donors
+      description: |-
+        Identical to `GET /hospital/find-donors`. Returns real compatible donors for the Hospital "Find Donors" UI.
+        This path exists as a more descriptive alias preferred by the Flutter client.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: query
+          name: bloodType
+          required: false
+          schema:
+            type: string
+            enum:
+              - A+
+              - A-
+              - B+
+              - B-
+              - AB+
+              - AB-
+              - O+
+              - O-
+          description: Recipient blood type to match against compatible donor blood types
+          example: O+
+        - in: query
+          name: radiusKm
+          required: false
+          schema:
+            type: number
+            default: 5
+            minimum: 0.1
+          description: Search radius in kilometers
+          example: 5
+        - in: query
+          name: lat
+          required: false
+          schema:
+            type: number
+            minimum: -90
+            maximum: 90
+          description: Search latitude. If omitted, hospital users fall back to saved hospital coordinates.
+          example: 30.0444
+        - in: query
+          name: lng
+          required: false
+          schema:
+            type: number
+            minimum: -180
+            maximum: 180
+          description: Search longitude. If omitted, hospital users fall back to saved hospital coordinates.
+          example: 31.2357
+        - in: query
+          name: availability
+          required: false
+          schema:
+            type: boolean
+            default: true
+          description: When true, only currently available donors are returned.
+          example: true
+        - in: query
+          name: page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Page number
+          example: 1
+        - in: query
+          name: limit
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Page size
+          example: 20
+        - in: query
+          name: groupBy
+          required: false
+          schema:
+            type: string
+            enum:
+              - bloodType
+          description: If set to bloodType, returns donors grouped by blood type.
+          example: bloodType
+      responses:
+        "200":
+          description: Nearby donors retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HospitalFindDonorsResponse'
+        "400":
+          description: Invalid query parameters or missing coordinates
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Access denied - role not allowed
+        "404":
+          description: Hospital profile not found
   /hospital/donors/{donorId}/appointments:
     post:
       tags:
