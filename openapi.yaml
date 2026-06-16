@@ -5719,8 +5719,66 @@ paths:
           description: Nearby donors retrieved successfully
           content:
             application/json:
-              schema:
-                $ref: '#/components/schemas/HospitalFindDonorsResponse'
+              examples:
+                flatList:
+                  summary: Flat list of compatible donors sorted by proximity
+                  value:
+                    success: true
+                    message: Nearby donors retrieved successfully
+                    data:
+                      donors:
+                        - id: 69f3df915f42685cbbbcbb18
+                          donorId: 69f3df915f42685cbbbcbb18
+                          name: Sarah J.
+                          fullName: Sarah J.
+                          bloodType: O+
+                          email: sarah.j@example.com
+                          phoneNumber: "01012345678"
+                          distance: 2.30 km
+                          distanceInKm: 2.3
+                          distanceKm: 2.3
+                          distanceMeters: 2300
+                          isOptedIn: true
+                          latitude: 30.0444
+                          longitude: 31.2357
+                          location:
+                            lat: 30.0444
+                            lng: 31.2357
+                        - id: 69f3df915f42685cbbbcbb19
+                          donorId: 69f3df915f42685cbbbcbb19
+                          name: Omar F.
+                          fullName: Omar F.
+                          bloodType: O-
+                          email: omar.f@example.com
+                          phoneNumber: "01098765432"
+                          distance: 4.10 km
+                          distanceInKm: 4.1
+                          distanceKm: 4.1
+                          distanceMeters: 4100
+                          isOptedIn: true
+                          latitude: 30.061
+                          longitude: 31.229
+                          location:
+                            lat: 30.061
+                            lng: 31.229
+                      pagination:
+                        page: 1
+                        limit: 20
+                        total: 2
+                        totalPages: 1
+                groupedList:
+                  summary: Nearby donors grouped by blood type
+                  value:
+                    success: true
+                    message: Nearby donor groups retrieved successfully
+                    data:
+                      groups:
+                        - bloodType: O+
+                          count: 5
+                          nearestDistanceKm: 2.3
+                        - bloodType: A-
+                          count: 2
+                          nearestDistanceKm: 4.5
         "400":
           description: Invalid query parameters or missing coordinates
         "401":
