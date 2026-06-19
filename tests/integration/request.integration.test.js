@@ -485,7 +485,15 @@ describe('Request Details Integration', () => {
     expect(response.body.data.qrExpiresAt).toBeDefined();
 
     // Donor books an appointment — appointment QR should now take precedence
-    const bookDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    const workingDays = [];
+    let currentDay = new Date();
+    while (workingDays.length < 3) {
+      currentDay.setDate(currentDay.getDate() + 1);
+      if (currentDay.getDay() !== 0) {
+        workingDays.push(new Date(currentDay));
+      }
+    }
+    const bookDate = workingDays[0];
     bookDate.setHours(10, 0, 0, 0); // ensure exact hour for capacity checks
     const bookResponse = await request(app)
       .post('/donations/book-appointment')
@@ -512,7 +520,7 @@ describe('Request Details Integration', () => {
     expect(response.body.data.qrToken).toBe(apptQrToken);
 
     // Donor reschedules — a new appointment QR token must be issued
-    const rescheduleDate = new Date(Date.now() + 3 * 24 * 60 * 60 * 1000);
+    const rescheduleDate = workingDays[1];
     rescheduleDate.setHours(11, 0, 0, 0);
     const rescheduleResponse = await request(app)
       .patch(`/donations/book-appointment/${bookResponse.body.data._id}`)
@@ -559,7 +567,15 @@ describe('Request Details Integration', () => {
       .send({});
 
     // Donor books appointment
-    const bookDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    const workingDays = [];
+    let currentDay = new Date();
+    while (workingDays.length < 3) {
+      currentDay.setDate(currentDay.getDate() + 1);
+      if (currentDay.getDay() !== 0) {
+        workingDays.push(new Date(currentDay));
+      }
+    }
+    const bookDate = workingDays[0];
     bookDate.setHours(10, 0, 0, 0);
     const bookResponse = await request(app)
       .post('/donations/book-appointment')

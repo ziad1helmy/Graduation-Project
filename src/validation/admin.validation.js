@@ -76,22 +76,27 @@ export const validateCreateHospitalBody = (body) => {
     errors.push('Valid email is required');
   }
 
-  if (!body.password || body.password.length < 8) {
+  if (body.password !== undefined && (typeof body.password !== 'string' || body.password.length < 8)) {
     errors.push('Password must be at least 8 characters');
   }
 
+  const phone = body.phone || body.adminContactPhone || body.emergencyContactNumber || body.contactNumber;
+  if (!phone || typeof phone !== 'string' || !phone.trim()) {
+    errors.push('phone (or adminContactPhone/emergencyContactNumber) is required');
+  }
+
   const hospitalId = body.hospitalId || body.hospitalCode;
-  if (!hospitalId || typeof hospitalId !== 'string') {
-    errors.push('hospitalId (or hospitalCode) is required');
+  if (hospitalId !== undefined && typeof hospitalId !== 'string') {
+    errors.push('hospitalId (or hospitalCode) must be a string');
   }
 
   const lat = body.lat ?? body.latitude;
   const lng = body.long ?? body.longitude;
-  if (lat === undefined || lat === null || typeof lat !== 'number' || lat < -90 || lat > 90) {
-    errors.push('Valid latitude (or lat) is required (-90 to 90)');
+  if (lat !== undefined && lat !== null && (typeof lat !== 'number' || lat < -90 || lat > 90)) {
+    errors.push('Valid latitude (or lat) must be between -90 and 90');
   }
-  if (lng === undefined || lng === null || typeof lng !== 'number' || lng < -180 || lng > 180) {
-    errors.push('Valid longitude (or long/lng) is required (-180 to 180)');
+  if (lng !== undefined && lng !== null && (typeof lng !== 'number' || lng < -180 || lng > 180)) {
+    errors.push('Valid longitude (or long/lng) must be between -180 and 180');
   }
 
   if (body.type && typeof body.type !== 'string') {
@@ -152,8 +157,9 @@ export const validateCreateHospitalByAdminBody = (body) => {
     errors.push('phone is required');
   }
 
-  if (!body.hospitalId || typeof body.hospitalId !== 'string') {
-    errors.push('hospitalId is required');
+  const hospitalId = body.hospitalId || body.hospitalCode;
+  if (hospitalId !== undefined && typeof hospitalId !== 'string') {
+    errors.push('hospitalId (or hospitalCode) must be a string');
   }
 
   if (body.bloodBanksAvailable !== undefined) {

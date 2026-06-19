@@ -6376,6 +6376,21 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - qrToken
+              properties:
+                qrToken:
+                  type: string
+                  description: The QR token scanned from the donor's device
+                  example: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
+            example:
+              qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
       responses:
         "200":
           description: Example response
@@ -6387,20 +6402,23 @@ paths:
                 data:
                   valid: true
                   requestId: 69fe540565ff7785a031314f
+                  donationId: 69fe540565ff7785a0313150
                   hospitalName: Cairo Care Hospital
-                  bloodType: O-
+                  bloodType:
+                    - O-
+                  bloodTypeLabel: O Negative
                   patientType: general
                   contactNumber: "0223456789"
                   unitsNeeded: 3
                   isEmergency: true
                   createdAt: 2026-05-18T08:20:00.000Z
-                  status: pending
-                  locationHospital:
-                    latitude: 30.0444
-                    longitude: 31.2357
+                  requestStatus: accepted
+                  donationStatus: pending
+                  donorName: Noor El-Din
+                  donorBloodType: O-
                   qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
-                  qrCreatedAt: 2026-05-18T09:45:00.000Z
                   qrExpiresAt: 2026-05-18T11:45:00.000Z
+                  arrivalDeadline: 2026-05-18T14:45:00.000Z
   /requests/{id}/accept:
     post:
       tags:
@@ -7876,7 +7894,6 @@ paths:
               type: object
               required:
                 - email
-                - password
               anyOf:
                 - required:
                     - fullName
@@ -7954,16 +7971,28 @@ paths:
                   type: string
                   description: Admin contact person phone number
             example:
-              fullName: Alexandria Demo Hospital
+              name: Alexandria Demo Hospital
               email: alex.demo@lifelink.demo
               password: HospitalPass@123
-              hospitalId: HOSP-ALEX-001
-              contactNumber: "1066666666"
-              lat: 31.2001
-              long: 29.9187
-              address:
-                city: Alexandria
-                governorate: Alexandria
+              hospitalCode: HOSP-ALEX-001
+              phone: "01066666666"
+              latitude: 31.2001
+              longitude: 29.9187
+              address: "123 Corniche Road"
+              city: Alexandria
+              state: Alexandria
+              zipCode: "21500"
+              type: "General Hospital"
+              licenseNumber: "LIC-ALEX-9988"
+              emergencyContactNumber: "035559876"
+              adminContactName: "Dr. Adel Shahin"
+              adminContactPhone: "01012345678"
+              capacity: 150
+              bloodBanksAvailable:
+                - O+
+                - O-
+                - A+
+                - B+
       responses:
         "201":
           description: Hospital created

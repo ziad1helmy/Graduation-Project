@@ -478,6 +478,34 @@ describe('Admin Routes Integration', () => {
     expect(response.body.data.hospital.hospitalId).toBe('HOSP-FLUTTER-001');
   });
 
+  it('POST /admin/users/hospital without optional fields (password, lat, long, hospitalCode) creates hospital with generated values', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .post('/admin/users/hospital')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Generated Hospital',
+        email: 'generated.hosp@lifelink.test',
+        phone: '+20123456789',
+        type: 'General Hospital',
+        emergencyContactNumber: '+20123456780',
+        adminContactName: 'Dr. Test',
+        adminContactPhone: '+20123456789',
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.hospital.email).toBe('generated.hosp@lifelink.test');
+    expect(response.body.data.hospital.hospitalId).toBeDefined();
+    expect(response.body.data.hospital.hospitalId).toMatch(/^HOSP-[0-9A-F]{8}$/);
+    expect(response.body.data.hospital.lat).toBeNull();
+    expect(response.body.data.hospital.long).toBeNull();
+  });
+
   it('POST /admin/admins with accessLevel "Full Access" (Flutter English) creates superadmin', async () => {
     await clearDatabase();
     const superadmin = await createAdmin({ role: 'superadmin' });
