@@ -764,23 +764,11 @@ export const cancelRequest = asyncHandler(async (req, res) => {
 
 /** POST /admin/requests/:id/broadcast */
 export const broadcastRequest = asyncHandler(async (req, res) => {
-  try {
-    const result = await adminService.broadcastRequest(req.params.id, req.user._id);
-    if (!result) {
-      throw new HttpError(404, 'Request not found');
-    }
-    return response.success(res, 200, 'Broadcast sent', result);
-  } catch (error) {
-    // Fix #7 (MEDIUM): Return 429 with nextAllowedAt when the broadcast
-    // cooldown window has not elapsed since the last broadcast.
-    if (error.code === 'BROADCAST_COOLDOWN_ACTIVE') {
-      throw new HttpError(429, 'Broadcast cooldown active. Try again later.', {
-        code: 'BROADCAST_COOLDOWN_ACTIVE',
-        nextAllowedAt: error.nextAllowedAt,
-      });
-    }
-    throw error;
+  const result = await adminService.broadcastRequest(req.params.id, req.user._id);
+  if (!result) {
+    throw new HttpError(404, 'Request not found');
   }
+  return response.success(res, 200, 'Broadcast sent', result);
 });
 
 // ──────────────────────────────────────────────
