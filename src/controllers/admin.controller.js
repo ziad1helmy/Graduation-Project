@@ -489,6 +489,28 @@ export const getHospitalById = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Hospital details', { user });
 });
 
+/** PUT /admin/users/:id */
+export const updateUser = asyncHandler(async (req, res) => {
+  try {
+    const user = await adminService.updateUser(req.params.id, req.body, req.user._id, req.user.role);
+    if (!user) {
+      throw new HttpError(404, 'User not found');
+    }
+    return response.success(res, 200, 'User updated successfully', { user });
+  } catch (error) {
+    if (error.message === 'Email cannot be changed by admin. Donors must use the self-service profile flow.') {
+      throw new HttpError(400, error.message);
+    }
+    if (error.message === 'Email is already in use by another account') {
+      throw new HttpError(409, error.message);
+    }
+    if (error.message === 'Role changes are not supported via this endpoint') {
+      throw new HttpError(400, error.message);
+    }
+    throw error;
+  }
+});
+
 /** DELETE /admin/users/:id */
 export const deleteUser = asyncHandler(async (req, res) => {
   try {
@@ -515,21 +537,6 @@ export const createHospital = asyncHandler(async (req, res) => {
 
     const hospital = await adminService.createHospital(req.body, req.user._id);
     return response.success(res, 201, 'Hospital created successfully', { hospital });
-  } catch (error) {
-    if (error.message === ERR.ADMIN_EMAIL_EXISTS) {
-      throw new HttpError(409, error.message);
-    }
-    throw error;
-  }
-});
-
-export const updateDonor = asyncHandler(async (req, res) => {
-  try {
-    const donor = await adminService.updateDonor(req.params.id, req.body, req.user._id);
-    if (!donor) {
-      throw new HttpError(404, 'Donor not found');
-    }
-    return response.success(res, 200, 'Donor updated successfully', { donor });
   } catch (error) {
     if (error.message === ERR.ADMIN_EMAIL_EXISTS) {
       throw new HttpError(409, error.message);
@@ -579,20 +586,6 @@ export const unbanUser = asyncHandler(async (req, res) => {
   }
 });
 
-export const updateHospitalStatus = asyncHandler(async (req, res) => {
-  const { action, reason } = req.body;
-  if (!action || !['suspend', 'unsuspend'].includes(action)) {
-    throw new HttpError(400, 'action must be suspend or unsuspend');
-  }
-
-  const hospital = await adminService.updateHospitalStatus(req.params.id, action, reason, req.user._id);
-  if (!hospital) {
-    throw new HttpError(404, 'Hospital not found');
-  }
-
-  return response.success(res, 200, `Hospital ${action}ed successfully`, { hospital });
-});
-
 export const createAdmin = asyncHandler(async (req, res) => {
   try {
     const validation = validateCreateAdminBody(req.body);
@@ -608,24 +601,6 @@ export const createAdmin = asyncHandler(async (req, res) => {
     }
     if (error.message === 'Only superadmin can create admin accounts') {
       throw new HttpError(403, error.message);
-    }
-    throw error;
-  }
-});
-
-export const updateAdmin = asyncHandler(async (req, res) => {
-  try {
-    const admin = await adminService.updateAdmin(req.params.id, req.body, req.user._id);
-    if (!admin) {
-      throw new HttpError(404, 'Admin not found');
-    }
-    return response.success(res, 200, 'Admin updated successfully', { admin });
-  } catch (error) {
-    if (error.message === 'Email changes are not supported via this endpoint. Admins must use the self-service profile flow.') {
-      throw new HttpError(400, error.message);
-    }
-    if (error.message === ERR.ADMIN_EMAIL_EXISTS) {
-      throw new HttpError(409, error.message);
     }
     throw error;
   }

@@ -104,21 +104,15 @@ router.post('/admins/:id/rotate-key', requireRole('superadmin'), adminController
 
 // User management (ban/unban works for donors, hospitals, and admins — superadmin only for admins)
 
-router.put('/donors/:id', adminController.updateDonor);
-
 router.post('/users/:id/ban', adminController.banUser);
 
 router.post('/users/:id/unban', adminController.unbanUser);
 
 // Hospital management
 
-router.put('/hospitals/:id/status', adminController.updateHospitalStatus);
-
 // Admin management (superadmin only)
 
 router.post('/admins', requireRole('superadmin'), adminController.createAdmin);
-
-router.put('/admins/:id', requireRole('superadmin'), adminController.updateAdmin);
 
 router.delete('/admins/:id', requireRole('superadmin'), adminController.deleteAdmin);
 
@@ -142,6 +136,7 @@ router.post('/users/hospital', adminController.createHospital);
 
 router.get('/users/:id', adminController.getUserById);
 
+router.put('/users/:id', adminController.updateUser);
 
 router.delete('/users/:id', adminController.deleteUser);
 

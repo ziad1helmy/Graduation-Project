@@ -8081,6 +8081,142 @@ paths:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible. Non-superadmin
         callers cannot retrieve admin or superadmin accounts."
+    put:
+      summary: Update a user by ID (donor, hospital, or admin)
+      description: |
+        Unified update endpoint for all user roles. Rules per role:
+        - **Donor**: admin/superadmin can update. Email cannot be changed.
+        - **Hospital**: admin/superadmin can update. Email can be changed.
+        - **Admin/Superadmin**: only superadmin can update. Email can be changed. Role cannot be changed.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 69f3df915f42685cbbbcbb18
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                # Common fields (all roles)
+                fullName:
+                  type: string
+                location:
+                  type: object
+                  properties:
+                    city:
+                      type: string
+                    governorate:
+                      type: string
+                    coordinates:
+                      type: object
+                      properties:
+                        lat:
+                          type: number
+                        lng:
+                          type: number
+                # Donor-specific
+                phoneNumber:
+                  type: string
+                bloodType:
+                  type: string
+                gender:
+                  type: string
+                hemoglobinLevel:
+                  type: number
+                travelHistory:
+                  type: string
+                temporaryDeferralUntil:
+                  type: string
+                  format: date
+                lastDeferralReason:
+                  type: string
+                isOptedIn:
+                  type: boolean
+                # Hospital-specific
+                phone:
+                  type: string
+                address:
+                  type: string
+                city:
+                  type: string
+                state:
+                  type: string
+                zipCode:
+                  type: string
+                hospitalName:
+                  type: string
+                hospitalType:
+                  type: string
+                type:
+                  type: string
+                workingHours:
+                  type: string
+                adminContactName:
+                  type: string
+                adminContactPhone:
+                  type: string
+                emergencyContact:
+                  type: string
+                bloodBanksAvailable:
+                  type: array
+                  items:
+                    type: string
+                capacity:
+                  type: number
+                licenseNumber:
+                  type: string
+                slotsPerHour:
+                  type: number
+                workingHoursStart:
+                  type: number
+                workingHoursEnd:
+                  type: number
+                # Admin-specific
+                email:
+                  type: string
+                  description: "Allowed for hospitals and admins. NOT allowed for donors."
+                password:
+                  type: string
+                isSuspended:
+                  type: boolean
+            example:
+              fullName: Aya Hassan
+              phoneNumber: "01011111111"
+              bloodType: O+
+              isOptedIn: true
+      responses:
+        "200":
+          description: User updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: User updated successfully
+                data:
+                  user:
+                    _id: 69f3df915f42685cbbbcbb18
+                    fullName: Aya Hassan
+                    email: aya.hassan@lifelink.demo
+                    role: donor
+                    bloodType: O+
+                    phoneNumber: "01011111111"
+                    isOptedIn: true
+                    updatedAt: 2026-05-18T09:05:00.000Z
+        "400":
+          description: "Validation error — e.g. email change on donor, role change on admin"
+        "404":
+          description: User not found
+        "409":
+          description: Email already in use
     delete:
       summary: Soft-delete a user account
       tags:
@@ -8229,69 +8365,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-    put:
-      tags:
-        - Admin
-      summary: Update a donor
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                fullName:
-                  type: string
-                phoneNumber:
-                  type: string
-                bloodType:
-                  type: string
-                gender:
-                  type: string
-                dateOfBirth:
-                  type: string
-                  format: date
-                isOptedIn:
-                  type: boolean
-            example:
-              fullName: Aya Hassan
-              phoneNumber: "01011111111"
-              bloodType: O+
-              isOptedIn: true
-      responses:
-        "200":
-          description: Donor updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donor updated successfully
-                data:
-                  donor:
-                    _id: 69f3df915f42685cbbbcbb18
-                    fullName: Aya Hassan
-                    email: aya.hassan@lifelink.demo
-                    bloodType: O+
-                    phoneNumber: "01011111111"
-                    gender: female
-                    isOptedIn: true
-                    updatedAt: 2026-05-18T09:05:00.000Z
-        "404":
-          description: Donor not found
-        "400":
-          description: Email cannot be changed by admin — donors use the self-service profile flow
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
   /admin/hospitals/{id}:
     get:
       tags:
@@ -8421,61 +8494,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation works for
         donors, hospitals, and admins (superadmin required for admin accounts)."
-  /admin/hospitals/{id}/status:
-    put:
-      tags:
-        - Admin
-      summary: Update hospital suspension status
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb1b
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - action
-              properties:
-                action:
-                  type: string
-                  enum:
-                    - suspend
-                    - unsuspend
-                reason:
-                  type: string
-            example:
-              action: suspend
-              reason: Compliance audit
-      responses:
-        "200":
-          description: Hospital status updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Hospital suspended successfully
-                data:
-                  hospital:
-                    _id: 69f3df915f42685cbbbcbb1b
-                    hospitalName: Cairo Care Hospital
-                    isSuspended: true
-                    suspendedReason: Compliance audit
-                    suspendedAt: 2026-05-18T09:18:00.000Z
-        "400":
-          description: Invalid action payload
-        "404":
-          description: Hospital not found
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
   /admin/admins:
     get:
       tags:
@@ -8614,71 +8632,6 @@ paths:
                     createdAt: 2026-05-01T10:00:00.000Z
                     adminKey: a1b2c3d4e5f67890123456789abcdef0
       description: "Returns admin details including the decrypted adminKey. Demo seed available via `npm run seed-demo`."
-    put:
-      tags:
-        - Admin
-      summary: Update an admin account
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031314f
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                fullName:
-                  type: string
-                password:
-                  type: string
-                role:
-                  type: string
-                  enum:
-                    - admin
-                    - superadmin
-                isSuspended:
-                  type: boolean
-            example:
-              fullName: Salma Mostafa
-              password: AdminPass@123
-              role: admin
-              isSuspended: true
-      responses:
-        "200":
-          description: Admin updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Admin updated successfully
-                data:
-                  admin:
-                    _id: 66f200000000000000000003
-                    fullName: Salma Mostafa
-                    email: salma.mostafa@lifelink.demo
-                    role: admin
-                    phone: "01022223333"
-                    address:
-                      city: Cairo
-                      governorate: Cairo
-                    updatedAt: 2026-05-18T09:08:00.000Z
-        "404":
-          description: Admin not found
-        "400":
-          description: Email changes are not supported — admins use PATCH /admin/profile for self-service email updates
-        "409":
-          description: Duplicate value for a unique field
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible. Email and role
-        cannot be changed via this endpoint."
     delete:
       tags:
         - Admin
