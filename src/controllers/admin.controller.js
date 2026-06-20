@@ -121,18 +121,13 @@ export const getAlerts = asyncHandler(async (req, res) => {
 
   return response.success(res, 200, 'Alerts retrieved successfully', {
     alerts: {
-      ...dashboard.alerts,
+      criticalAlerts: dashboard.criticalAlerts,
       criticalRequests,
       shortageAlerts,
     },
   });
 });
 
-export const getBloodInventorySummary = asyncHandler(async (req, res) => {
-  const summary = await adminService.getBloodInventorySummary();
-
-  return response.success(res, 200, 'Blood inventory summary', summary);
-});
 
 /** GET /admin/audit-logs */
 export const getAuditLogs = asyncHandler(async (req, res) => {
@@ -148,8 +143,8 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
 
     const actionMappings = {
       'user.create_hospital': 'Hospital Added',
-      'user.ban_donor': 'Donor Banned',
-      'user.unban_donor': 'Donor Unbanned',
+      'user.ban': 'User Banned',
+      'user.unban': 'User Unbanned',
       'user.suspend': 'User Suspended',
       'user.unsuspend': 'User Unsuspended',
       'user.delete': 'User Deleted',
@@ -164,11 +159,11 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
         case 'user.create_hospital':
           details = `Added hospital account`;
           break;
-        case 'user.ban_donor':
-          details = `Banned donor account (ID: ${logObj.targetId})`;
+        case 'user.ban':
+          details = `Banned user account (ID: ${logObj.targetId})`;
           break;
-        case 'user.unban_donor':
-          details = `Unbanned donor account (ID: ${logObj.targetId})`;
+        case 'user.unban':
+          details = `Unbanned user account (ID: ${logObj.targetId})`;
           break;
         case 'user.suspend':
           details = `Suspended user account (ID: ${logObj.targetId})`;
@@ -543,36 +538,42 @@ export const updateDonor = asyncHandler(async (req, res) => {
   }
 });
 
-export const banDonor = asyncHandler(async (req, res) => {
+export const banUser = asyncHandler(async (req, res) => {
   const validation = validateBanDonorBody(req.body);
   if (!validation.valid) {
     throw new HttpError(400, validation.errors.join(', '));
   }
 
   try {
-    const donor = await adminService.banDonor(req.params.id, req.body.reason, req.user._id);
-    if (!donor) {
-      throw new HttpError(404, 'Donor not found');
+    const user = await adminService.banUser(req.params.id, req.body.reason, req.user._id, req.user.role);
+    if (!user) {
+      throw new HttpError(404, 'User not found');
     }
-    return response.success(res, 200, 'Donor banned successfully', { donor });
+    return response.success(res, 200, 'User banned successfully', { user });
   } catch (error) {
-    if (error.message === 'Donor is already banned') {
+    if (error.message === 'User is already banned') {
       throw new HttpError(400, ERR.DONOR_ALREADY_BANNED);
+    }
+    if (error.message === 'Only superadmin can ban admin accounts') {
+      throw new HttpError(403, error.message);
     }
     throw error;
   }
 });
 
-export const unbanDonor = asyncHandler(async (req, res) => {
+export const unbanUser = asyncHandler(async (req, res) => {
   try {
-    const donor = await adminService.unbanDonor(req.params.id, req.user._id);
-    if (!donor) {
-      throw new HttpError(404, 'Donor not found');
+    const user = await adminService.unbanUser(req.params.id, req.user._id, req.user.role);
+    if (!user) {
+      throw new HttpError(404, 'User not found');
     }
-    return response.success(res, 200, 'Donor unbanned successfully', { donor });
+    return response.success(res, 200, 'User unbanned successfully', { user });
   } catch (error) {
-    if (error.message === 'Donor is not banned') {
+    if (error.message === 'User is not banned') {
       throw new HttpError(400, ERR.DONOR_NOT_BANNED);
+    }
+    if (error.message === 'Only superadmin can unban admin accounts') {
+      throw new HttpError(403, error.message);
     }
     throw error;
   }
@@ -651,7 +652,7 @@ export const rotateAdminKey = asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Admin not found');
   }
   return response.success(res, 200, 'Admin key rotated successfully. The new key is shown only once — store it securely.', {
-    admin: result.admin.toObject(),
+    admin: result.admin,
     adminKey: result.plaintextKey,
   });
 });
@@ -811,9 +812,9 @@ export const broadcastRequest = asyncHandler(async (req, res) => {
 //  Phase 4: Analytics
 // ──────────────────────────────────────────────
 
-/** GET /admin/analytics/dashboard */
+/** GET /admin/dashboard */
 export const getDashboard = asyncHandler(async (req, res) => {
-  const summary = await analyticsService.getLegacyDashboardSummary();
+  const summary = await analyticsService.getDashboardSummary();
   return response.success(res, 200, 'Dashboard summary', summary);
 });
 

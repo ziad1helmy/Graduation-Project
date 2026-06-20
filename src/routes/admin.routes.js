@@ -47,8 +47,6 @@ router.get('/analytics/top-donors', analyticsController.getTopDonors);
 
 router.get('/alerts', adminController.getAlerts);
 
-router.get('/blood-inventory-summary', adminController.getBloodInventorySummary);
-
 
 router.get('/rewards/config', adminController.getRewardsConfig);
 
@@ -104,13 +102,13 @@ router.get('/admins/:id', requireRole('superadmin'), adminController.getAdminByI
 
 router.post('/admins/:id/rotate-key', requireRole('superadmin'), adminController.rotateAdminKey);
 
-// Donor management
+// User management (ban/unban works for donors, hospitals, and admins — superadmin only for admins)
 
 router.put('/donors/:id', adminController.updateDonor);
 
-router.post('/donors/:id/ban', adminController.banDonor);
+router.post('/users/:id/ban', adminController.banUser);
 
-router.post('/donors/:id/unban', adminController.unbanDonor);
+router.post('/users/:id/unban', adminController.unbanUser);
 
 // Hospital management
 
@@ -124,17 +122,12 @@ router.put('/admins/:id', requireRole('superadmin'), adminController.updateAdmin
 
 router.delete('/admins/:id', requireRole('superadmin'), adminController.deleteAdmin);
 
-// Role permissions (superadmin for mutations)
-
-router.get('/permissions/roles', adminController.listRolePermissions);
-
-router.get('/permissions/roles/:role', adminController.getRolePermissionDetails);
-
-router.post('/permissions/roles', requireRole('superadmin'), adminController.createRolePermission);
-
-router.put('/permissions/roles/:role', requireRole('superadmin'), adminController.updateRolePermissions);
-
-router.delete('/permissions/roles/:role', requireRole('superadmin'), adminController.deleteRolePermission);
+// Role permissions (superadmin for mutations) — deactivated
+// router.get('/permissions/roles', adminController.listRolePermissions);
+// router.get('/permissions/roles/:role', adminController.getRolePermissionDetails);
+// router.post('/permissions/roles', requireRole('superadmin'), adminController.createRolePermission);
+// router.put('/permissions/roles/:role', requireRole('superadmin'), adminController.updateRolePermissions);
+// router.delete('/permissions/roles/:role', requireRole('superadmin'), adminController.deleteRolePermission);
 
 // ──────────────────────────────────────────────
 //  User Management

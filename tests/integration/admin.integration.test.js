@@ -154,20 +154,11 @@ describe('Admin Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-  });
-
-  it('GET /admin/blood-inventory-summary returns blood inventory data', async () => {
-    await clearDatabase();
-    const admin = await createAdmin();
-
-    const token = signToken({ userId: admin._id.toString(), role: admin.role });
-
-    const response = await request(app)
-      .get('/admin/blood-inventory-summary')
-      .set('Authorization', `Bearer ${token}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
+    expect(response.body.data).toHaveProperty('alerts');
+    expect(response.body.data.alerts).toHaveProperty('criticalAlerts');
+    expect(Array.isArray(response.body.data.alerts.criticalAlerts)).toBe(true);
+    expect(response.body.data.alerts).toHaveProperty('criticalRequests');
+    expect(response.body.data.alerts).toHaveProperty('shortageAlerts');
   });
 
   it('GET /admin/audit-logs returns audit logs', async () => {
@@ -274,6 +265,8 @@ describe('Admin Routes Integration', () => {
     expect(response.body.success).toBe(true);
     expect(response.body.data).toHaveProperty('user');
     expect(response.body.data.user._id.toString()).toBe(donor._id.toString());
+    expect(response.body.data.user).toHaveProperty('bloodType');
+    expect(response.body.data.user.bloodType).toBe(donor.bloodType);
   });
 
   it('GET /admin/hospitals/:id returns hospital details', async () => {
@@ -337,6 +330,20 @@ describe('Admin Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
+    expect(response.body).toHaveProperty('data');
+    expect(response.body.data).toHaveProperty('totalDonors');
+    expect(response.body.data).toHaveProperty('totalDonorsGrowth');
+    expect(response.body.data).toHaveProperty('activeRequests');
+    expect(response.body.data).toHaveProperty('activeRequestsGrowth');
+    expect(response.body.data).toHaveProperty('criticalCases');
+    expect(response.body.data).toHaveProperty('criticalCasesGrowth');
+    expect(response.body.data).toHaveProperty('successfulDonations');
+    expect(response.body.data).toHaveProperty('successfulDonationsGrowth');
+    expect(response.body.data).toHaveProperty('weeklyTrends');
+    expect(response.body.data).toHaveProperty('criticalAlerts');
+    expect(response.body.data).toHaveProperty('bloodTypeDistribution');
+    expect(response.body.data).toHaveProperty('topDonors');
+    expect(response.body.data).toHaveProperty('aiInsights');
   });
 
   it('GET /admin routes require authentication', async () => {
@@ -347,7 +354,7 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(401);
   });
 
-  it('POST /admin/donors/:id/ban bans a donor and blocks login with the reason', async () => {
+  it('POST /admin/users/:id/ban bans a donor and blocks login with the reason', async () => {
     await clearDatabase();
     const admin = await createAdmin();
     const donor = await createDonor({ password: 'DonorPass@123' });
@@ -355,13 +362,13 @@ describe('Admin Routes Integration', () => {
     const adminToken = signToken({ userId: admin._id.toString(), role: admin.role });
 
     const banResponse = await request(app)
-      .post(`/admin/donors/${donor._id}/ban`)
+      .post(`/admin/users/${donor._id}/ban`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ reason: 'Compliance violation' });
 
     expect(banResponse.status).toBe(200);
     expect(banResponse.body.success).toBe(true);
-    expect(banResponse.body.data.donor.isSuspended).toBe(true);
+    expect(banResponse.body.data.user.isSuspended).toBe(true);
 
     const loginResponse = await request(app)
       .post('/auth/login')
@@ -371,6 +378,58 @@ describe('Admin Routes Integration', () => {
     expect(loginResponse.body.success).toBe(false);
     expect(loginResponse.body.message).toContain('Compliance violation');
     expect(loginResponse.body.details?.reason).toBe('Compliance violation');
+  });
+
+  it('POST /admin/users/:id/ban bans a hospital', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const hospital = await createHospital({ password: 'HospitalPass@123' });
+
+    const adminToken = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const banResponse = await request(app)
+      .post(`/admin/users/${hospital._id}/ban`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({ reason: 'Policy violation' });
+
+    expect(banResponse.status).toBe(200);
+    expect(banResponse.body.success).toBe(true);
+    expect(banResponse.body.data.user.isSuspended).toBe(true);
+    expect(banResponse.body.data.user.suspendedReason).toBe('Policy violation');
+  });
+
+  it('POST /admin/users/:id/ban bans an admin when caller is superadmin', async () => {
+    await clearDatabase();
+    const superadmin = await createAdmin({ role: 'superadmin' });
+    const targetAdmin = await createAdmin();
+
+    const token = signToken({ userId: superadmin._id.toString(), role: superadmin.role });
+
+    const banResponse = await request(app)
+      .post(`/admin/users/${targetAdmin._id}/ban`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: 'Abuse of privileges' });
+
+    expect(banResponse.status).toBe(200);
+    expect(banResponse.body.success).toBe(true);
+    expect(banResponse.body.data.user.isSuspended).toBe(true);
+  });
+
+  it('POST /admin/users/:id/ban rejects banning an admin by non-superadmin', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const targetAdmin = await createAdmin();
+
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const banResponse = await request(app)
+      .post(`/admin/users/${targetAdmin._id}/ban`)
+      .set('Authorization', `Bearer ${token}`)
+      .send({ reason: 'Abuse of privileges' });
+
+    expect(banResponse.status).toBe(403);
+    expect(banResponse.body.success).toBe(false);
+    expect(banResponse.body.message).toContain('Only superadmin can ban admin accounts');
   });
 
   it('GET /admin routes require admin role', async () => {
@@ -446,6 +505,8 @@ describe('Admin Routes Integration', () => {
     expect(user).toHaveProperty('isEmailVerified');
     expect(user).toHaveProperty('name');
     expect(user).toHaveProperty('phone');
+    expect(user).toHaveProperty('bloodType');
+    expect(user.bloodType).toBe(donor.bloodType);
     expect(user).toHaveProperty('joinedAt');
   });
 

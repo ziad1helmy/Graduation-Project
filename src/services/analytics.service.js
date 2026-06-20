@@ -9,6 +9,7 @@ import { getCompatibleDonorTypesForRequest } from '../utils/blood-type.js';
 import cache from '../utils/cache.js';
 import { logger } from '../utils/logger.js';
 import { computeGrowth, safeEngine } from '../utils/insight-utils.js';
+import { calculateAge } from '../utils/age.js';
 
 /**
  * Analytics Service - Dashboard metrics, trends, and statistics
@@ -121,17 +122,35 @@ const computeCriticalAlerts = async () => {
   })
     .sort({ urgency: 1, createdAt: -1 })
     .limit(10)
+    .populate('hospitalId', 'fullName location contactNumber')
     .lean();
 
   return requests.map((request) => {
     const bloodTypes = request.bloodType || [];
     const alertType = request.urgency === 'critical' ? 'critical' : 'system';
+    const hospital = request.hospitalId || {};
+    const hospitalLoc = hospital.location || {};
+    const reqLoc = request.hospitalLocationGeo;
+    const lat = reqLoc?.coordinates?.[1] ?? request.locationHospital?.latitude ?? hospitalLoc.coordinates?.lat ?? null;
+    const lng = reqLoc?.coordinates?.[0] ?? request.locationHospital?.longitude ?? hospitalLoc.coordinates?.lng ?? null;
+    const locationStr = request.hospitalName || hospital.fullName || '';
 
     return {
       id: request._id.toString(),
-      message: request.notes || `Critical request for ${bloodTypes.join(', ')} blood type(s).`,
-      severity: alertType,
-      createdAt: request.createdAt?.toISOString(),
+      title: `Critical need for ${bloodTypes.join(', ')}`,
+      type: alertType,
+      description: request.notes || `Critical request for ${bloodTypes.join(', ')} blood type(s).`,
+      unitsNeeded: request.unitsNeeded ?? request.quantity ?? 1,
+      bloodTypesNeeded: bloodTypes,
+      hospitalId: hospital._id?.toString?.() || request.hospitalId?.toString?.() || '',
+      hospitalName: request.hospitalName || hospital.fullName || '',
+      hospitalContact: request.hospitalContact || hospital.contactNumber || '',
+      location: locationStr,
+      latitude: lat !== null ? parseFloat(lat) : null,
+      longitude: lng !== null ? parseFloat(lng) : null,
+      predictMatchPercentage: null,
+      date: request.requiredBy?.toISOString?.() || request.createdAt?.toISOString?.(),
+      createdAt: request.createdAt?.toISOString?.(),
     };
   });
 };
@@ -276,8 +295,7 @@ const generateAIInsights = async () => {
   return insights
     .filter(Boolean)
     .sort((a, b) => b.confidence - a.confidence)
-    .slice(0, 5)
-    .map((i) => `${i.title}: ${i.description}`);
+    .slice(0, 5);
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -360,7 +378,21 @@ export const getTopDonors = async (limit = 10) => {
         let: { donorId: '$_id' },
         pipeline: [
           { $match: { $expr: { $and: [{ $eq: ['$_id', '$$donorId'] }, { $eq: ['$deletedAt', null] }] } } },
-          { $project: { fullName: 1, email: 1, bloodType: 1, location: 1, isSuspended: 1, isEmailVerified: 1 } },
+          { $project: {
+              fullName: 1,
+              email: 1,
+              phoneNumber: 1,
+              bloodType: 1,
+              location: 1,
+              isSuspended: 1,
+              isEmailVerified: 1,
+              dateOfBirth: 1,
+              gender: 1,
+              weight: 1,
+              healthHistory: 1,
+              temporaryDeferralUntil: 1,
+              createdAt: 1,
+            } },
         ],
         as: 'donor',
       },
@@ -383,17 +415,52 @@ export const getTopDonors = async (limit = 10) => {
         lastDonation: 1,
         fullName: '$donor.fullName',
         email: '$donor.email',
+        phoneNumber: '$donor.phoneNumber',
         bloodType: '$donor.bloodType',
         location: '$donor.location',
-        isActive: { $not: '$donor.isSuspended' },
-        isVerified: '$donor.isEmailVerified',
+        isSuspended: '$donor.isSuspended',
+        isEmailVerified: '$donor.isEmailVerified',
+        dateOfBirth: '$donor.dateOfBirth',
+        gender: '$donor.gender',
+        weight: '$donor.weight',
+        healthHistory: '$donor.healthHistory',
+        temporaryDeferralUntil: '$donor.temporaryDeferralUntil',
+        createdAt: '$donor.createdAt',
         points: { $ifNull: ['$points.pointsBalance', 0] },
         tier: { $ifNull: ['$points.tier', 'bronze'] },
       },
     },
   ]);
 
-  return topDonors.map((d, i) => ({ ...d, donorRank: i + 1 }));
+  return topDonors.map((d, i) => {
+    const age = d.dateOfBirth ? calculateAge(d.dateOfBirth) : null;
+    const hasChronic = d.healthHistory?.chronicConditions?.length > 0;
+    const isTempDeferred = d.temporaryDeferralUntil && new Date(d.temporaryDeferralUntil) > new Date();
+    const isEligible = !d.isSuspended && !hasChronic && age !== null && age >= 17 && !isTempDeferred;
+    const loc = d.location;
+    const locationString = loc ? (loc.city && loc.governorate ? `${loc.city}, ${loc.governorate}` : loc.city || loc.governorate || '') : '';
+
+    return {
+      id: d.donorId.toString(),
+      name: d.fullName,
+      email: d.email,
+      phoneNumber: d.phoneNumber,
+      bloodType: d.bloodType,
+      totalDonations: d.completedDonations,
+      points: d.points,
+      isEligibleToDonate: isEligible,
+      isActive: !d.isSuspended,
+      isVerified: d.isEmailVerified,
+      location: locationString,
+      gender: d.gender,
+      age,
+      weight: d.weight,
+      healthStatus: hasChronic ? 'chronic_conditions' : 'healthy',
+      isBanned: d.isSuspended,
+      donorRank: i + 1,
+      createdAt: d.createdAt?.toISOString ? d.createdAt.toISOString() : d.createdAt,
+    };
+  });
 };
 
 /**

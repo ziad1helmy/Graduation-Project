@@ -6992,87 +6992,70 @@ paths:
                 success: true
                 message: Dashboard summary
                 data:
-                  users:
-                    total: 284
-                    donors: 231
-                    hospitals: 41
-                  requests:
-                    active: 19
-                    critical: 4
-                  donations:
-                    pending: 13
-                    completed: 428
-                  alerts:
-                    unverifiedUsers: 7
-                    suspendedUsers: 3
-                    criticalRequests: 4
+                  totalDonors: 284
+                  totalDonorsGrowth: "+12%"
+                  activeRequests: 23
+                  activeRequestsGrowth: "+5%"
+                  criticalCases: 7
+                  criticalCasesGrowth: "-2%"
+                  successfulDonations: 1500
+                  successfulDonationsGrowth: "+8%"
+                  weeklyTrends:
+                    values: [44, 52, 48, 61, 55, 67, 43]
+                    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+                  criticalAlerts:
+                    - id: "alert1"
+                      title: "Critical need for O-"
+                      type: "critical"
+                      description: "Critical request for O- blood type(s)."
+                      unitsNeeded: 5
+                      bloodTypesNeeded: ["O-"]
+                      hospitalId: "60d5ec49f0322c2c20e28f36"
+                      hospitalName: "City Hospital"
+                      hospitalContact: "01234567890"
+                      location: "City Hospital"
+                      latitude: 30.0444
+                      longitude: 31.2357
+                      predictMatchPercentage: null
+                      date: "2026-06-20T00:00:00.000Z"
+                      createdAt: "2026-06-13T03:53:00.000Z"
+                  bloodTypeDistribution:
+                    "O+": 900
+                    "A+": 650
+                    "B+": 400
+                    "O-": 220
+                    "A-": 300
+                    "B-": 240
+                    "AB+": 80
+                    "AB-": 60
+                  topDonors:
+                    - id: "60d5ec49f0322c2c20e28f36"
+                      name: "Ahmed Mohamed"
+                      email: "ahmed@example.com"
+                      phoneNumber: "01234567890"
+                      bloodType: "O+"
+                      totalDonations: 12
+                      points: 2400
+                      isEligibleToDonate: true
+                      isActive: true
+                      isVerified: true
+                      location: "Cairo, Cairo"
+                      gender: "male"
+                      age: 28
+                      weight: 75
+                      healthStatus: "healthy"
+                      isBanned: false
+                      donorRank: 1
+                      createdAt: "2024-01-15T08:30:00.000Z"
+                  aiInsights:
+                    - title: "Predicted High Demand"
+                      description: "A 35% increase in blood requests is predicted next week."
+                      confidence: 85
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/blood-inventory-summary:
-    get:
-      tags:
-        - Admin
-      summary: Get the system blood inventory summary
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Blood inventory summary
-          content:
-            application/json:
-              example:
-                success: true
-                message: Blood inventory summary
-                data:
-                  scope: system
-                  hospitalId: null
-                  bloodTypeTotals:
-                    A+:
-                      bloodType: A+
-                      donatedUnits: 54
-                      requestedUnits: 38
-                      netUnits: 16
-                      shortageUnits: 0
-                      shortage: false
-                      lowStock: false
-                    O-:
-                      bloodType: O-
-                      donatedUnits: 7
-                      requestedUnits: 12
-                      netUnits: -5
-                      shortageUnits: 5
-                      shortage: true
-                      lowStock: true
-                  lowStockAlerts:
-                    - bloodType: O-
-                      message: "Shortage detected for O-: 5 unit(s) needed"
-                      severity: high
-                  shortageAlerts:
-                    - bloodType: O-
-                      activeRequests: 6
-                      availableDonors: 2
-                      ratio: "3.00"
-                      status: shortage
-                  requestStats:
-                    total: 68
-                    byStatus:
-                      pending: 14
-                      in-progress: 5
-                      completed: 41
-                      cancelled: 8
-                    byUrgency:
-                      low: 2
-                      medium: 6
-                      high: 7
-                      critical: 4
-                    byBloodType:
-                      A+: 4
-                      B+: 3
-                      O-: 6
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+  # ── DELETED /admin/blood-inventory-summary ──
+  # Removed per request.
   /admin/alerts:
     get:
       tags:
@@ -7090,8 +7073,22 @@ paths:
                 message: Alerts retrieved successfully
                 data:
                   alerts:
-                    unverifiedUsers: 7
-                    suspendedUsers: 3
+                    criticalAlerts:
+                      - id: "alert1"
+                        title: "Critical need for O-"
+                        type: "critical"
+                        description: "Critical request for O- blood type(s)."
+                        unitsNeeded: 5
+                        bloodTypesNeeded: ["O-"]
+                        hospitalId: "69f3df915f42685cbbbcbb1b"
+                        hospitalName: "Cairo Care Hospital"
+                        hospitalContact: "0223456789"
+                        location: "Cairo Care Hospital"
+                        latitude: 30.0444
+                        longitude: 31.2357
+                        predictMatchPercentage: null
+                        date: "2026-06-20T00:00:00.000Z"
+                        createdAt: "2026-06-13T03:53:00.000Z"
                     criticalRequests:
                       - _id: 69fe540565ff7785a031314f
                         bloodType: O-
@@ -7139,8 +7136,19 @@ paths:
                     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
                   criticalAlerts:
                     - id: "alert1"
-                      message: "Critical blood shortage: O- type at City Hospital"
-                      severity: "critical"
+                      title: "Critical need for O-"
+                      type: "critical"
+                      description: "Critical request for O- blood type(s)."
+                      unitsNeeded: 5
+                      bloodTypesNeeded: ["O-"]
+                      hospitalId: "60d5ec49f0322c2c20e28f36"
+                      hospitalName: "City Hospital"
+                      hospitalContact: "01234567890"
+                      location: "City Hospital"
+                      latitude: 30.0444
+                      longitude: 31.2357
+                      predictMatchPercentage: null
+                      date: "2026-06-20T00:00:00.000Z"
                       createdAt: "2026-06-13T03:53:00.000Z"
                   bloodTypeDistribution:
                     "O+": 900
@@ -7152,17 +7160,28 @@ paths:
                     "AB+": 80
                     "AB-": 60
                   topDonors:
-                    - donorId: "60d5ec49f0322c2c20e28f36"
-                      fullName: "Ahmed Mohamed"
+                    - id: "60d5ec49f0322c2c20e28f36"
+                      name: "Ahmed Mohamed"
+                      email: "ahmed@example.com"
+                      phoneNumber: "01234567890"
                       bloodType: "O+"
-                      completedDonations: 12
+                      totalDonations: 12
                       points: 2400
-                      tier: "gold"
+                      isEligibleToDonate: true
+                      isActive: true
+                      isVerified: true
+                      location: "Cairo, Cairo"
+                      gender: "male"
+                      age: 28
+                      weight: 75
+                      healthStatus: "healthy"
+                      isBanned: false
                       donorRank: 1
+                      createdAt: "2024-01-15T08:30:00.000Z"
                   aiInsights:
-                    - "Blood demand expected to increase 15% next month"
-                    - "O- type critically low — recommend emergency campaign"
-                    - "Donor retention rate improved by 8% this quarter"
+                    - title: "Predicted High Demand"
+                      description: "A 35% increase in blood requests is predicted next week."
+                      confidence: 85
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -7190,23 +7209,24 @@ paths:
                 message: Top donors
                 data:
                   topDonors:
-                    - donorId: 69f3df915f42685cbbbcbb18
-                      completedDonations: 12
-                      totalUnits: 12
-                      lastDonation: 2026-05-10T12:30:00.000Z
-                      fullName: Aya Hassan
-                      email: aya.hassan@lifelink.demo
-                      bloodType: O+
-                      location:
-                        city: Cairo
-                        governorate: Cairo
-                        coordinates:
-                          lat: 30.0444
-                          lng: 31.2357
+                    - id: "69f3df915f42685cbbbcbb18"
+                      name: "Aya Hassan"
+                      email: "aya.hassan@lifelink.demo"
+                      phoneNumber: "01234567890"
+                      bloodType: "O+"
+                      totalDonations: 12
+                      points: 2400
+                      isEligibleToDonate: true
                       isActive: true
                       isVerified: true
-                      points: 2400
-                      tier: gold
+                      location: "Cairo, Cairo"
+                      gender: "female"
+                      age: 28
+                      weight: 65
+                      healthStatus: "healthy"
+                      isBanned: false
+                      donorRank: 1
+                      createdAt: "2024-01-15T08:30:00.000Z"
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -8309,11 +8329,11 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/donors/{id}/ban:
+  /admin/users/{id}/ban:
     post:
       tags:
         - Admin
-      summary: Ban a donor
+      summary: Ban a user (donor, hospital, or admin — superadmin only for admins)
       security:
         - bearerAuth: []
       parameters:
@@ -8339,31 +8359,34 @@ paths:
               reason: Temporary compliance review
       responses:
         "200":
-          description: Donor banned successfully
+          description: User banned successfully
           content:
             application/json:
               example:
                 success: true
-                message: Donor banned successfully
+                message: User banned successfully
                 data:
-                  donor:
+                  user:
                     _id: 69f3df915f42685cbbbcbb18
                     fullName: Aya Hassan
+                    role: donor
                     isSuspended: true
                     suspendedReason: Temporary compliance review
                     suspendedAt: 2026-05-18T09:12:00.000Z
         "400":
-          description: Donor already banned
+          description: User is already banned
+        "403":
+          description: Only superadmin can ban admin accounts
         "404":
-          description: Donor not found
+          description: User not found
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /admin/donors/{id}/unban:
+        https://graduation-project-cy61.onrender.com This operation works for
+        donors, hospitals, and admins (superadmin required for admin accounts)."
+  /admin/users/{id}/unban:
     post:
       tags:
         - Admin
-      summary: Unban a donor
+      summary: Unban a user (donor, hospital, or admin — superadmin only for admins)
       security:
         - bearerAuth: []
       parameters:
@@ -8375,26 +8398,29 @@ paths:
           example: 69f3df915f42685cbbbcbb18
       responses:
         "200":
-          description: Donor unbanned successfully
+          description: User unbanned successfully
           content:
             application/json:
               example:
                 success: true
-                message: Donor unbanned successfully
+                message: User unbanned successfully
                 data:
-                  donor:
+                  user:
                     _id: 69f3df915f42685cbbbcbb18
                     fullName: Aya Hassan
+                    role: donor
                     isSuspended: false
                     suspendedReason: null
                     suspendedAt: null
         "400":
-          description: Donor is not banned
+          description: User is not banned
+        "403":
+          description: Only superadmin can unban admin accounts
         "404":
-          description: Donor not found
+          description: User not found
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+        https://graduation-project-cy61.onrender.com This operation works for
+        donors, hospitals, and admins (superadmin required for admin accounts)."
   /admin/hospitals/{id}/status:
     put:
       tags:
@@ -8715,342 +8741,11 @@ paths:
                   adminKey: 9f3a1b4c5d6e7f8091a2b3c4d5e6f708
         "404":
           description: Admin not found
-  /admin/permissions/roles:
-    get:
-      tags:
-        - Admin
-      summary: List role permissions
-      security:
-        - bearerAuth: []
-      responses:
-        "200":
-          description: Roles retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Roles retrieved successfully
-                data:
-                  roles:
-                    - role: admin
-                      displayName: Administrator
-                      description: Standard administrative access for operations and moderation.
-                      isSystemRole: true
-                      permissions:
-                        donor_management:
-                          view: true
-                          manage: true
-                          ban: true
-                        hospital_management:
-                          view: true
-                          manage: true
-                          suspend: true
-                    - role: custom-ops
-                      displayName: Operations Manager
-                      description: Can review requests and hospital operations.
-                      isSystemRole: false
-                      permissions:
-                        reporting:
-                          view: true
-                          export: false
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    post:
-      tags:
-        - Admin
-      summary: Create a role permission record
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - role
-                - displayName
-              properties:
-                role:
-                  type: string
-                  description: Unique role identifier
-                displayName:
-                  type: string
-                  description: Human-readable role name
-                description:
-                  type: string
-                  description: Role description
-                isSystemRole:
-                  type: boolean
-                  description: Whether this is a system role (cannot be modified)
-                permissions:
-                  type: object
-                  description: Role permissions object
-            example:
-              role: custom-ops
-              displayName: Operations Manager
-              description: Handles hospital reporting and coordination dashboards
-              isSystemRole: false
-      responses:
-        "201":
-          description: Role created successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Role created successfully
-                data:
-                  role:
-                    _id: 66fa00000000000000000001
-                    role: custom-ops
-                    displayName: Operations Manager
-                    description: Can review requests and hospital operations.
-                    isSystemRole: false
-                    permissions:
-                      reporting:
-                        view: true
-                        export: false
-        "400":
-          description: Invalid payload - role and displayName are required
-        "403":
-          description: System roles cannot be created or modified
-        "409":
-          description: Role already exists
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/permissions/roles/{role}:
-    get:
-      tags:
-        - Admin
-      summary: Get a role permission record
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: role
-          required: true
-          schema:
-            type: string
-          example: custom-ops
-      responses:
-        "200":
-          description: Role retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Role retrieved successfully
-                data:
-                  role:
-                    _id: 66fa00000000000000000001
-                    role: custom-ops
-                    displayName: Operations Manager
-                    description: Can review requests and hospital operations.
-                    isSystemRole: false
-                    permissions:
-                      reporting:
-                        view: true
-                        export: false
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    put:
-      tags:
-        - Admin
-      summary: Update role permissions - Only allows updating displayName,
-        description, and permissions
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: role
-          required: true
-          schema:
-            type: string
-          description: Role identifier (cannot be changed)
-          example: custom-ops
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                displayName:
-                  type: string
-                  description: Human-readable role name - CAN BE UPDATED
-                  example: Senior Moderator
-                description:
-                  type: string
-                  description: Role description - CAN BE UPDATED
-                  example: Manages content and escalates issues
-                permissions:
-                  type: object
-                  description: Role permissions object - CAN BE UPDATED
-                  properties:
-                    donor_management:
-                      type: object
-                      properties:
-                        view:
-                          type: boolean
-                        manage:
-                          type: boolean
-                        ban:
-                          type: boolean
-                        suspend:
-                          type: boolean
-                        create:
-                          type: boolean
-                        delete:
-                          type: boolean
-                        export:
-                          type: boolean
-                    hospital_management:
-                      type: object
-                      properties:
-                        view:
-                          type: boolean
-                        manage:
-                          type: boolean
-                        ban:
-                          type: boolean
-                        suspend:
-                          type: boolean
-                        create:
-                          type: boolean
-                        delete:
-                          type: boolean
-                        export:
-                          type: boolean
-                    admin_management:
-                      type: object
-                      properties:
-                        view:
-                          type: boolean
-                        manage:
-                          type: boolean
-                        create:
-                          type: boolean
-                        delete:
-                          type: boolean
-                    system_settings:
-                      type: object
-                      properties:
-                        view:
-                          type: boolean
-                        manage:
-                          type: boolean
-                    audit_logging:
-                      type: object
-                      properties:
-                        view:
-                          type: boolean
-                        export:
-                          type: boolean
-                    reporting:
-                      type: object
-                      properties:
-                        view:
-                          type: boolean
-                        export:
-                          type: boolean
-            example:
-              displayName: Senior Moderator
-              description: Manages content and escalates issues
-              permissions:
-                donor_management:
-                  view: true
-                  manage: true
-                  ban: true
-                  suspend: true
-                  create: true
-                  delete: true
-                  export: true
-                hospital_management:
-                  view: true
-                  manage: true
-                  ban: true
-                  suspend: true
-                  create: true
-                  delete: true
-                  export: true
-                admin_management:
-                  view: true
-                  manage: true
-                  create: true
-                  delete: true
-                system_settings:
-                  view: true
-                  manage: true
-                audit_logging:
-                  view: true
-                  export: true
-                reporting:
-                  view: true
-                  export: true
-      responses:
-        "200":
-          description: Role permissions updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Role permissions updated successfully
-                data:
-                  role:
-                    _id: 66fa00000000000000000001
-                    role: custom-ops
-                    displayName: Operations Manager
-                    description: Updated reporting access for the operations desk.
-                    isSystemRole: false
-                    permissions:
-                      reporting:
-                        view: true
-                        export: true
-        "403":
-          description: System roles (admin, superadmin, donor, hospital) cannot be modified
-        "404":
-          description: Role not found
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    delete:
-      tags:
-        - Admin
-      summary: Delete a role permission record
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: role
-          required: true
-          schema:
-            type: string
-          description: Role identifier to delete
-          example: custom-ops
-      responses:
-        "200":
-          description: Role deleted successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Role deleted successfully
-                data:
-                  role:
-                    _id: 66fa00000000000000000001
-                    role: custom-ops
-                    displayName: Operations Manager
-                    isSystemRole: false
-        "403":
-          description: System roles (admin, superadmin, donor, hospital) cannot be deleted
-        "404":
-          description: Role not found
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+  # ── DEPRECATED /admin/permissions/roles and /admin/permissions/roles/{role} ──
+  # These endpoints are deactivated. The route definitions in admin.routes.js
+  # have been commented out. Re-enable by uncommenting the routes and
+  # removing these placeholder entries.
+  # ─────────────────────────────────────────────────────────────────────────────
   /admin/requests:
     get:
       summary: List all blood requests

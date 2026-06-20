@@ -16,7 +16,6 @@ import Hospital from '../models/Hospital.model.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
-import HospitalSettings from '../models/HospitalSettings.model.js';
 import SupportMessage from '../models/SupportMessage.model.js';
 import RolePermission from '../models/RolePermission.model.js';
 import * as hospitalService from './hospital.service.js';
@@ -366,6 +365,7 @@ export const toAdminUserListItem = (user) => {
     id: String(object._id),
     name: object.fullName ?? null,
     phone: object.phoneNumber ?? null,
+    bloodType: object.bloodType ?? null,
     isActive: !isSuspended,
     isSuspended,
     isVerified,
@@ -416,6 +416,7 @@ export const getUserById = async (id, callerRole = null, expectedRole = null, ca
 
     return {
       ...user.toObject(),
+      bloodType: user.bloodType ?? null,
       completedDonations: donationCount,
       pointsBalance: pointsAccount?.pointsBalance ?? 0,
       lifetimePointsEarned: pointsAccount?.lifetimePointsEarned ?? 0,
@@ -699,32 +700,40 @@ export const updateDonor = async (donorId, data, adminId) => {
   return donor;
 };
 
-export const banDonor = async (donorId, reason, adminId) => {
-  const donor = await Donor.findOne({ _id: donorId, deletedAt: null });
-  if (!donor) return null;
-  if (donor.isSuspended) throw new Error('Donor is already banned');
+export const banUser = async (targetId, reason, adminId, callerRole) => {
+  const user = await User.findOne({ _id: targetId, deletedAt: null });
+  if (!user) return null;
+  if (user.isSuspended) throw new Error('User is already banned');
 
-  donor.isSuspended = true;
-  donor.suspendedAt = new Date();
-  donor.suspendedReason = reason;
-  await donor.save({ validateBeforeSave: false });
+  if ((user.role === 'admin' || user.role === 'superadmin') && callerRole !== 'superadmin') {
+    throw new Error('Only superadmin can ban admin accounts');
+  }
 
-  await logAudit(adminId, 'user.ban_donor', 'User', donorId);
-  return donor;
+  user.isSuspended = true;
+  user.suspendedAt = new Date();
+  user.suspendedReason = reason;
+  await user.save({ validateBeforeSave: false });
+
+  await logAudit(adminId, 'user.ban', 'User', targetId);
+  return user;
 };
 
-export const unbanDonor = async (donorId, adminId) => {
-  const donor = await Donor.findOne({ _id: donorId, deletedAt: null });
-  if (!donor) return null;
-  if (!donor.isSuspended) throw new Error('Donor is not banned');
+export const unbanUser = async (targetId, adminId, callerRole) => {
+  const user = await User.findOne({ _id: targetId, deletedAt: null });
+  if (!user) return null;
+  if (!user.isSuspended) throw new Error('User is not banned');
 
-  donor.isSuspended = false;
-  donor.suspendedAt = null;
-  donor.suspendedReason = null;
-  await donor.save({ validateBeforeSave: false });
+  if ((user.role === 'admin' || user.role === 'superadmin') && callerRole !== 'superadmin') {
+    throw new Error('Only superadmin can unban admin accounts');
+  }
 
-  await logAudit(adminId, 'user.unban_donor', 'User', donorId);
-  return donor;
+  user.isSuspended = false;
+  user.suspendedAt = null;
+  user.suspendedReason = null;
+  await user.save({ validateBeforeSave: false });
+
+  await logAudit(adminId, 'user.unban', 'User', targetId);
+  return user;
 };
 
 export const updateHospitalStatus = async (hospitalId, action, reason, adminId) => {
@@ -1340,103 +1349,7 @@ export const getRequestStats = async (hospitalId = null) => {
   };
 };
 
-const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 
-const buildBloodInventoryMap = () => BLOOD_TYPES.reduce((acc, bloodType) => {
-  acc[bloodType] = {
-    bloodType,
-    donatedUnits: 0,
-    requestedUnits: 0,
-    netUnits: 0,
-    shortageUnits: 0,
-    shortage: false,
-    lowStock: false,
-  };
-  return acc;
-}, {});
-
-const getThresholdForBloodType = (thresholds = {}, bloodType, fallback = 2) => {
-  if (thresholds && typeof thresholds === 'object') {
-    const value = thresholds[bloodType] ?? thresholds.default;
-    if (Number.isFinite(Number(value))) return Number(value);
-  }
-
-  return fallback;
-};
-
-export const getBloodInventorySummary = async (hospitalId = null) => {
-  const [requests, completedDonations, settings, requestStats, shortageAlerts] = await Promise.all([
-    Request.find({
-      type: 'blood',
-      ...(hospitalId ? { hospitalId } : {}),
-      status: { $in: ['pending', 'in-progress'] },
-    }).select('bloodType quantity hospitalId status'),
-    Donation.find({ status: 'completed' })
-      .populate({
-        path: 'requestId',
-        select: 'bloodType type hospitalId',
-      })
-      .select('quantity requestId'),
-    hospitalId ? HospitalSettings.findOne({ hospitalId }) : Promise.resolve(null),
-    getRequestStats(hospitalId),
-    getShortageAlerts(hospitalId),
-  ]);
-
-  const inventory = buildBloodInventoryMap();
-
-  for (const request of requests) {
-    const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
-    if (requestBloodTypes.length === 0) continue;
-    for (const bloodType of requestBloodTypes) {
-      if (!inventory[bloodType]) continue;
-      inventory[bloodType].requestedUnits += Number(request.unitsNeeded || 1);
-    }
-  }
-
-  for (const donation of completedDonations) {
-    const request = donation.requestId;
-    const requestBloodTypes = normalizeBloodTypeList(request?.bloodType);
-    if (!request || request.type !== 'blood' || requestBloodTypes.length === 0) continue;
-    if (hospitalId && request.hospitalId?.toString?.() !== hospitalId.toString()) continue;
-    for (const bloodType of requestBloodTypes) {
-      if (!inventory[bloodType]) continue;
-      inventory[bloodType].donatedUnits += Number(donation.quantity || 1);
-    }
-  }
-
-  for (const bloodType of BLOOD_TYPES) {
-    const entry = inventory[bloodType];
-    entry.netUnits = entry.donatedUnits - entry.requestedUnits;
-    entry.shortageUnits = Math.max(0, entry.requestedUnits - entry.donatedUnits);
-    entry.shortage = entry.shortageUnits > 0;
-
-    const lowThreshold = hospitalId
-      ? getThresholdForBloodType(settings?.bloodBankSettings?.lowThreshold, bloodType, 2)
-      : 2;
-
-    entry.lowStock = entry.netUnits <= lowThreshold;
-  }
-
-  const lowStockAlerts = BLOOD_TYPES
-    .map((bloodType) => inventory[bloodType])
-    .filter((entry) => entry.lowStock || entry.shortage)
-    .map((entry) => ({
-      bloodType: entry.bloodType,
-      message: entry.shortage
-        ? `Shortage detected for ${entry.bloodType}: ${entry.shortageUnits} unit(s) needed`
-        : `${entry.bloodType} stock is low with ${entry.netUnits} net unit(s)`,
-      severity: entry.shortage ? 'high' : 'medium',
-    }));
-
-  return {
-    scope: hospitalId ? 'hospital' : 'system',
-    hospitalId: hospitalId || null,
-    bloodTypeTotals: inventory,
-    lowStockAlerts,
-    shortageAlerts,
-    requestStats,
-  };
-};
 
 /**
  * Get full request details with associated donations.

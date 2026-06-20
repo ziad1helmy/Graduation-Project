@@ -79,8 +79,13 @@ describe('Analytics API Integration', () => {
       if (response.body.data.criticalAlerts.length > 0) {
         const alert = response.body.data.criticalAlerts[0];
         expect(alert).toHaveProperty('id');
-        expect(alert).toHaveProperty('message');
-        expect(alert).toHaveProperty('severity');
+        expect(alert).toHaveProperty('title');
+        expect(alert).toHaveProperty('type');
+        expect(alert).toHaveProperty('description');
+        expect(alert).toHaveProperty('unitsNeeded');
+        expect(alert).toHaveProperty('bloodTypesNeeded');
+        expect(alert).toHaveProperty('hospitalId');
+        expect(alert).toHaveProperty('hospitalName');
         expect(alert).toHaveProperty('createdAt');
       }
       // Blood type distribution
@@ -90,19 +95,22 @@ describe('Analytics API Integration', () => {
       expect(Array.isArray(response.body.data.topDonors)).toBe(true);
       if (response.body.data.topDonors.length > 0) {
         const donor = response.body.data.topDonors[0];
-        expect(donor).toHaveProperty('donorId');
-        expect(donor).toHaveProperty('fullName');
+        expect(donor).toHaveProperty('id');
+        expect(donor).toHaveProperty('name');
+        expect(donor).toHaveProperty('email');
         expect(donor).toHaveProperty('bloodType');
-        expect(donor).toHaveProperty('completedDonations');
+        expect(donor).toHaveProperty('totalDonations');
         expect(donor).toHaveProperty('points');
-        expect(donor).toHaveProperty('tier');
         expect(donor).toHaveProperty('donorRank');
       }
-      // aiInsights as string array
+      // aiInsights as object array
       expect(response.body.data).toHaveProperty('aiInsights');
       expect(Array.isArray(response.body.data.aiInsights)).toBe(true);
       if (response.body.data.aiInsights.length > 0) {
-        expect(typeof response.body.data.aiInsights[0]).toBe('string');
+        expect(typeof response.body.data.aiInsights[0]).toBe('object');
+        expect(response.body.data.aiInsights[0]).toHaveProperty('title');
+        expect(response.body.data.aiInsights[0]).toHaveProperty('description');
+        expect(response.body.data.aiInsights[0]).toHaveProperty('confidence');
       }
     });
 

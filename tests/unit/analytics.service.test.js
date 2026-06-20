@@ -38,23 +38,31 @@ describe('Analytics Service', () => {
     expect(Array.isArray(summary.criticalAlerts)).toBe(true);
     if (summary.criticalAlerts.length > 0) {
       expect(summary.criticalAlerts[0]).toHaveProperty('id');
-      expect(summary.criticalAlerts[0]).toHaveProperty('message');
-      expect(summary.criticalAlerts[0]).toHaveProperty('severity');
+      expect(summary.criticalAlerts[0]).toHaveProperty('title');
+      expect(summary.criticalAlerts[0]).toHaveProperty('type');
+      expect(summary.criticalAlerts[0]).toHaveProperty('description');
+      expect(summary.criticalAlerts[0]).toHaveProperty('unitsNeeded');
+      expect(summary.criticalAlerts[0]).toHaveProperty('bloodTypesNeeded');
+      expect(summary.criticalAlerts[0]).toHaveProperty('hospitalId');
+      expect(summary.criticalAlerts[0]).toHaveProperty('hospitalName');
       expect(summary.criticalAlerts[0]).toHaveProperty('createdAt');
     }
     expect(Array.isArray(summary.topDonors)).toBe(true);
     if (summary.topDonors.length > 0) {
-      expect(summary.topDonors[0]).toHaveProperty('donorId');
-      expect(summary.topDonors[0]).toHaveProperty('fullName');
+      expect(summary.topDonors[0]).toHaveProperty('id');
+      expect(summary.topDonors[0]).toHaveProperty('name');
+      expect(summary.topDonors[0]).toHaveProperty('email');
       expect(summary.topDonors[0]).toHaveProperty('bloodType');
-      expect(summary.topDonors[0]).toHaveProperty('completedDonations');
+      expect(summary.topDonors[0]).toHaveProperty('totalDonations');
       expect(summary.topDonors[0]).toHaveProperty('points');
-      expect(summary.topDonors[0]).toHaveProperty('tier');
       expect(summary.topDonors[0]).toHaveProperty('donorRank');
     }
     expect(Array.isArray(summary.aiInsights)).toBe(true);
     if (summary.aiInsights.length > 0) {
-      expect(typeof summary.aiInsights[0]).toBe('string');
+      expect(typeof summary.aiInsights[0]).toBe('object');
+      expect(summary.aiInsights[0]).toHaveProperty('title');
+      expect(summary.aiInsights[0]).toHaveProperty('description');
+      expect(summary.aiInsights[0]).toHaveProperty('confidence');
     }
   });
 
@@ -90,13 +98,13 @@ describe('Analytics Service', () => {
     expect(Array.isArray(topDonors)).toBe(true);
     expect(topDonors.length).toBeGreaterThan(0);
     // Top donor should have more total donations and include donorRank
-    expect(topDonors[0].completedDonations).toBeGreaterThanOrEqual(topDonors[topDonors.length - 1].completedDonations);
-    expect(topDonors[0]).toHaveProperty('donorId');
-    expect(topDonors[0]).toHaveProperty('fullName');
+    expect(topDonors[0].totalDonations).toBeGreaterThanOrEqual(topDonors[topDonors.length - 1].totalDonations);
+    expect(topDonors[0]).toHaveProperty('id');
+    expect(topDonors[0]).toHaveProperty('name');
+    expect(topDonors[0]).toHaveProperty('email');
     expect(topDonors[0]).toHaveProperty('bloodType');
-    expect(topDonors[0]).toHaveProperty('completedDonations');
+    expect(topDonors[0]).toHaveProperty('totalDonations');
     expect(topDonors[0]).toHaveProperty('points');
-    expect(topDonors[0]).toHaveProperty('tier');
     expect(topDonors[0]).toHaveProperty('donorRank');
     expect(topDonors[0].donorRank).toBe(1);
   });
