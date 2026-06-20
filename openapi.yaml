@@ -7819,7 +7819,7 @@ paths:
           example: 10
       responses:
         "200":
-          description: Users list with pagination, global stats, and AI insights
+          description: Users list with pagination and global stats
           content:
             application/json:
               example:
@@ -7891,14 +7891,7 @@ paths:
                     totalHospitalsGrowth: "+5%"
                     verifiedUsersGrowth: "+8%"
                     suspendedUsersGrowth: "-3%"
-                    aiInsights:
-                      - title: Donor Registrations Rising
-                        description: Donor signups are +12% this week compared to last week. New donors are joining at an accelerating rate.
-                        confidence: 0.85
-                      - title: Verification Gap Detected
-                        description: 20% of users are unverified. Consider sending a reminder email campaign to improve engagement.
-                        confidence: 0.78
-      description: "Returns paginated user list, global stats (unaffected by filters), and AI-generated insights about user patterns. Demo seed available via `npm run seed-demo`."
+      description: "Returns paginated user list and global stats (unaffected by filters). Demo seed available via `npm run seed-demo`."
   /admin/users/hospital:
     post:
       summary: Create a new hospital (admin-created, pre-verified)
@@ -8055,26 +8048,61 @@ paths:
           description: User details
           content:
             application/json:
-              example:
-                success: true
-                message: User details
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb19
-                    fullName: Mina Adel
-                    name: Mina Adel
-                    email: mina.adel@lifelink.demo
-                    phoneNumber: "01022222222"
-                    phone: "01022222222"
-                    role: donor
-                    bloodType: A-
-                    isEmailVerified: true
-                    isVerified: true
-                    isSuspended: false
-                    isActive: true
-                    completedDonations: 3
-                    createdAt: 2026-02-02T11:45:00.000Z
-                    joinedAt: 2026-02-02T11:45:00.000Z
+              examples:
+                donor:
+                  summary: Donor Details
+                  value:
+                    success: true
+                    message: User details
+                    data:
+                      user:
+                        _id: 69f3df915f42685cbbbcbb19
+                        fullName: Mina Adel
+                        name: Mina Adel
+                        email: mina.adel@lifelink.demo
+                        phoneNumber: "01022222222"
+                        phone: "01022222222"
+                        role: donor
+                        bloodType: A-
+                        isEmailVerified: true
+                        isVerified: true
+                        isSuspended: false
+                        isActive: true
+                        completedDonations: 3
+                        totalDonations: 3
+                        createdAt: 2026-02-02T11:45:00.000Z
+                        joinedAt: 2026-02-02T11:45:00.000Z
+                hospital:
+                  summary: Hospital Details
+                  value:
+                    success: true
+                    message: User details
+                    data:
+                      user:
+                        _id: 69f3df915f42685cbbbcbb1b
+                        fullName: Cairo Care Operations
+                        hospitalName: Cairo Care Hospital
+                        email: ops@cairocare.demo
+                        role: hospital
+                        contactNumber: "1044444444"
+                        isEmailVerified: true
+                        isSuspended: false
+                        totalRequests: 24
+                        createdAt: 2026-01-05T07:30:00.000Z
+                admin:
+                  summary: Admin Details
+                  value:
+                    success: true
+                    message: User details
+                    data:
+                      user:
+                        _id: 66f200000000000000000001
+                        fullName: Noura Hassan
+                        email: admin@lifelink.demo
+                        role: admin
+                        isEmailVerified: true
+                        isSuspended: false
+                        createdAt: 2026-01-10T08:00:00.000Z
         "404":
           description: User not found, or target is an admin/superadmin and the caller is not a superadmin
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
@@ -8291,11 +8319,25 @@ paths:
           description: User deleted
           content:
             application/json:
-              example:
-                success: true
-                message: User deleted successfully
+              examples:
+                donor:
+                  summary: Delete a donor user
+                  value:
+                    success: true
+                    message: User deleted successfully
+                hospital:
+                  summary: Delete a hospital user
+                  value:
+                    success: true
+                    message: User deleted successfully
         "403":
           description: Cannot delete admin accounts
+          content:
+            application/json:
+              example:
+                success: false
+                code: FORBIDDEN
+                message: Cannot delete admin accounts
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -8323,6 +8365,7 @@ paths:
                       bloodType: O+
                       isEmailVerified: true
                       isSuspended: false
+                      totalDonations: 8
                     - _id: 69f3df915f42685cbbbcbb19
                       fullName: Mina Adel
                       email: mina.adel@lifelink.demo
@@ -8330,6 +8373,7 @@ paths:
                       bloodType: A-
                       isEmailVerified: true
                       isSuspended: false
+                      totalDonations: 3
                   total: 2
                   page: 1
                   limit: 10
@@ -8491,23 +8535,72 @@ paths:
           description: User banned successfully
           content:
             application/json:
-              example:
-                success: true
-                message: User banned successfully
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb18
-                    fullName: Aya Hassan
-                    role: donor
-                    isSuspended: true
-                    suspendedReason: Temporary compliance review
-                    suspendedAt: 2026-05-18T09:12:00.000Z
+              examples:
+                donor:
+                  summary: Ban a donor user
+                  value:
+                    success: true
+                    message: User banned successfully
+                    data:
+                      user:
+                        _id: 69f3df915f42685cbbbcbb18
+                        fullName: Aya Hassan
+                        role: donor
+                        bloodType: O+
+                        totalDonations: 8
+                        isSuspended: true
+                        suspendedReason: Temporary compliance review
+                        suspendedAt: 2026-05-18T09:12:00.000Z
+                hospital:
+                  summary: Ban a hospital user
+                  value:
+                    success: true
+                    message: User banned successfully
+                    data:
+                      user:
+                        _id: 69f3df915f42685cbbbcbb1b
+                        fullName: Cairo Care Operations
+                        role: hospital
+                        isSuspended: true
+                        suspendedReason: Compliance violation
+                        suspendedAt: 2026-05-18T09:15:00.000Z
+                admin:
+                  summary: Ban an admin user (superadmin only)
+                  value:
+                    success: true
+                    message: User banned successfully
+                    data:
+                      user:
+                        _id: 66f200000000000000000001
+                        fullName: Noura Hassan
+                        role: admin
+                        isSuspended: true
+                        suspendedReason: Policy breach
+                        suspendedAt: 2026-05-18T09:20:00.000Z
         "400":
           description: User is already banned
+          content:
+            application/json:
+              example:
+                success: false
+                code: BAD_REQUEST
+                message: Donor is already banned
         "403":
           description: Only superadmin can ban admin accounts
+          content:
+            application/json:
+              example:
+                success: false
+                code: FORBIDDEN
+                message: Only superadmin can ban admin accounts
         "404":
           description: User not found
+          content:
+            application/json:
+              example:
+                success: false
+                code: NOT_FOUND
+                message: User not found
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation works for
         donors, hospitals, and admins (superadmin required for admin accounts)."
@@ -8530,23 +8623,72 @@ paths:
           description: User unbanned successfully
           content:
             application/json:
-              example:
-                success: true
-                message: User unbanned successfully
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb18
-                    fullName: Aya Hassan
-                    role: donor
-                    isSuspended: false
-                    suspendedReason: null
-                    suspendedAt: null
+              examples:
+                donor:
+                  summary: Unban a donor user
+                  value:
+                    success: true
+                    message: User unbanned successfully
+                    data:
+                      user:
+                        _id: 69f3df915f42685cbbbcbb18
+                        fullName: Aya Hassan
+                        role: donor
+                        bloodType: O+
+                        totalDonations: 8
+                        isSuspended: false
+                        suspendedReason: null
+                        suspendedAt: null
+                hospital:
+                  summary: Unban a hospital user
+                  value:
+                    success: true
+                    message: User unbanned successfully
+                    data:
+                      user:
+                        _id: 69f3df915f42685cbbbcbb1b
+                        fullName: Cairo Care Operations
+                        role: hospital
+                        isSuspended: false
+                        suspendedReason: null
+                        suspendedAt: null
+                admin:
+                  summary: Unban an admin user (superadmin only)
+                  value:
+                    success: true
+                    message: User unbanned successfully
+                    data:
+                      user:
+                        _id: 66f200000000000000000001
+                        fullName: Noura Hassan
+                        role: admin
+                        isSuspended: false
+                        suspendedReason: null
+                        suspendedAt: null
         "400":
           description: User is not banned
+          content:
+            application/json:
+              example:
+                success: false
+                code: BAD_REQUEST
+                message: Donor is not banned
         "403":
           description: Only superadmin can unban admin accounts
+          content:
+            application/json:
+              example:
+                success: false
+                code: FORBIDDEN
+                message: Only superadmin can unban admin accounts
         "404":
           description: User not found
+          content:
+            application/json:
+              example:
+                success: false
+                code: NOT_FOUND
+                message: User not found
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation works for
         donors, hospitals, and admins (superadmin required for admin accounts)."

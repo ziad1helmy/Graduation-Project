@@ -346,10 +346,12 @@ export const listUsers = async (filters = {}, pagination = {}) => {
     computeUserStats(),
   ]);
 
+  const { aiInsights, ...statsWithoutInsights } = stats;
+
   return {
     users: (await enrichDonorUsers(users)).map(toAdminUserListItem),
     pagination: paginationMeta(total, page, limit),
-    stats,
+    stats: statsWithoutInsights,
   };
 };
 
@@ -1515,21 +1517,6 @@ export const broadcastRequest = async (id, adminId) => {
   const request = await Request.findById(id)
     .populate('hospitalId', 'fullName hospitalName location');
   if (!request) return null;
-
-  // Fix #7 (MEDIUM): Prevent duplicate broadcasts within a configurable cooldown window.
-  // Default: 60 minutes. Override via BROADCAST_COOLDOWN_MS env variable.
-  const BROADCAST_COOLDOWN_MS = parseInt(process.env.BROADCAST_COOLDOWN_MS || '', 10) || 60 * 60 * 1000;
-  if (request.lastBroadcastAt) {
-    const elapsed = Date.now() - new Date(request.lastBroadcastAt).getTime();
-    if (elapsed < BROADCAST_COOLDOWN_MS) {
-      const nextAllowedAt = new Date(new Date(request.lastBroadcastAt).getTime() + BROADCAST_COOLDOWN_MS);
-      const err = new Error('BROADCAST_COOLDOWN_ACTIVE');
-      err.code = 'BROADCAST_COOLDOWN_ACTIVE';
-      err.nextAllowedAt = nextAllowedAt;
-      err.statusCode = 429;
-      throw err;
-    }
-  }
 
   // Build donor query: available, verified, not suspended, matching blood type
   const donorQuery = {

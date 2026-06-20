@@ -673,7 +673,7 @@ describe('Admin Routes Integration', () => {
     await clearDatabase();
     const admin = await createAdmin();
     const hospital = await createHospital();
-    
+
     const { default: Request } = await import('../../src/models/Request.model.js');
     await Request.create({
       hospitalId: hospital._id,
