@@ -165,7 +165,6 @@
     '/admin/hospitals/{id}': 'User Management',
     '/admin/donors/{id}/ban': 'User Management',
     '/admin/donors/{id}/unban': 'User Management',
-    '/admin/hospitals/{id}/status': 'User Management',
     '/admin/admins': 'User Management',
     '/admin/admins/{id}': 'User Management',
     '/admin/permissions/roles': 'User Management',

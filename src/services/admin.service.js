@@ -675,29 +675,80 @@ export const createHospital = async (data, adminId) => {
   return result.hospital;
 };
 
-export const updateDonor = async (donorId, data, adminId) => {
-  const donor = await Donor.findOne({ _id: donorId, deletedAt: null });
-  if (!donor) return null;
+export const updateUser = async (id, data, adminId, callerRole) => {
+  const user = await User.findOne({ _id: id, deletedAt: null });
+  if (!user) return null;
 
-  const allowedFields = [
-    'fullName',
-    'phoneNumber',
-    'bloodType',
-    'gender',
-    'location',
-    'hemoglobinLevel',
-    'travelHistory',
-    'temporaryDeferralUntil',
-    'lastDeferralReason',
-    'isOptedIn',
-  ];
-  for (const field of allowedFields) {
-    if (data[field] !== undefined) donor[field] = data[field];
+  // Only superadmin can update admin/superadmin accounts
+  if ((user.role === 'admin' || user.role === 'superadmin') && callerRole !== 'superadmin') {
+    return null;
   }
 
-  await donor.save();
-  await logAudit(adminId, 'user.update_donor', 'User', donorId);
-  return donor;
+  if (user.role === 'donor') {
+    if (data.email !== undefined) {
+      throw new Error('Email cannot be changed by admin. Donors must use the self-service profile flow.');
+    }
+    const allowedFields = [
+      'fullName', 'phoneNumber', 'bloodType', 'gender',
+      'location', 'hemoglobinLevel', 'travelHistory',
+      'temporaryDeferralUntil', 'lastDeferralReason', 'isOptedIn',
+    ];
+    for (const field of allowedFields) {
+      if (data[field] !== undefined) user[field] = data[field];
+    }
+    await user.save();
+    await logAudit(adminId, 'user.update_donor', 'User', id);
+    return user;
+  }
+
+  if (user.role === 'hospital') {
+    if (data.email !== undefined) {
+      const normalizedEmail = String(data.email).trim().toLowerCase();
+      const dup = await User.findOne({ email: normalizedEmail, _id: { $ne: id } });
+      if (dup) throw new Error('Email is already in use by another account');
+      user.email = normalizedEmail;
+    }
+    const allowedFields = [
+      'fullName', 'phone', 'address', 'city', 'state', 'zipCode',
+      'hospitalName', 'hospitalType', 'type', 'workingHours',
+      'adminContactName', 'adminContactPhone', 'emergencyContact',
+      'bloodBanksAvailable', 'capacity', 'licenseNumber',
+      'slotsPerHour', 'workingHoursStart', 'workingHoursEnd',
+      'location',
+    ];
+    for (const field of allowedFields) {
+      if (data[field] !== undefined) user[field] = data[field];
+    }
+    await user.save();
+    await logAudit(adminId, 'user.update_hospital', 'User', id);
+    return user;
+  }
+
+  if (user.role === 'admin' || user.role === 'superadmin') {
+    if (data.email !== undefined) {
+      const normalizedEmail = String(data.email).trim().toLowerCase();
+      const dup = await User.findOne({ email: normalizedEmail, _id: { $ne: id } });
+      if (dup) throw new Error('Email is already in use by another account');
+      user.email = normalizedEmail;
+    }
+    if (data.role !== undefined) {
+      throw new Error('Role changes are not supported via this endpoint');
+    }
+    const allowedFields = ['fullName', 'location', 'isSuspended'];
+    for (const field of allowedFields) {
+      if (data[field] !== undefined) user[field] = data[field];
+    }
+    if (data.password) user.password = data.password;
+    if (data.isSuspended !== undefined && !data.isSuspended) {
+      user.suspendedAt = null;
+      user.suspendedReason = null;
+    }
+    await user.save();
+    await logAudit(adminId, 'user.update_admin', 'User', id);
+    return user;
+  }
+
+  return null;
 };
 
 export const banUser = async (targetId, reason, adminId, callerRole) => {
@@ -734,27 +785,6 @@ export const unbanUser = async (targetId, adminId, callerRole) => {
 
   await logAudit(adminId, 'user.unban', 'User', targetId);
   return user;
-};
-
-export const updateHospitalStatus = async (hospitalId, action, reason, adminId) => {
-  const hospital = await Hospital.findOne({ _id: hospitalId, deletedAt: null });
-  if (!hospital) return null;
-
-  if (action === 'suspend') {
-    hospital.isSuspended = true;
-    hospital.suspendedAt = new Date();
-    hospital.suspendedReason = reason || 'Suspended by admin';
-  } else if (action === 'unsuspend') {
-    hospital.isSuspended = false;
-    hospital.suspendedAt = null;
-    hospital.suspendedReason = null;
-  } else {
-    throw new Error('Invalid hospital status action');
-  }
-
-  await hospital.save({ validateBeforeSave: false });
-  await logAudit(adminId, `user.${action}_hospital`, 'User', hospitalId);
-  return hospital;
 };
 
 export const createAdmin = async (data, adminId) => {
@@ -966,42 +996,6 @@ export const updateAdminProfile = async (adminId, data) => {
   await logAudit(adminId, 'admin.update_profile', 'User', adminId, auditChanges);
 
   return { admin, emailChanged };
-};
-
-export const updateAdmin = async (id, data, adminId) => {
-  const existing = await User.findOne({ _id: id, deletedAt: null });
-  if (!existing) return null;
-  if (!['admin', 'superadmin'].includes(existing.role)) return null;
-
-  if (data.email !== undefined) {
-    throw new Error('Email changes are not supported via this endpoint. Admins must use the self-service profile flow.');
-  }
-
-  if (data.role !== undefined) {
-    throw new Error('Role changes are not supported via this endpoint');
-  }
-
-  const updateData = {};
-  // Role changes and email changes are intentionally not supported through this path.
-  // Admins update their own email via PATCH /admin/profile (self-service re-verification).
-  const allowedFields = ['fullName', 'location', 'isSuspended'];
-  for (const field of allowedFields) {
-    if (data[field] !== undefined) updateData[field] = data[field];
-  }
-
-  if (data.password) updateData.password = data.password;
-  if (data.isSuspended !== undefined && !data.isSuspended) {
-    updateData.suspendedAt = null;
-    updateData.suspendedReason = null;
-  }
-
-  const admin = await User.findById(id);
-  if (!admin) return null;
-  Object.assign(admin, updateData);
-  await admin.save();
-
-  await logAudit(adminId, 'user.update_admin', 'User', id);
-  return admin;
 };
 
 export const deleteAdmin = async (id, adminId) => {
