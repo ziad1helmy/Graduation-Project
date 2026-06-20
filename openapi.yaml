@@ -8188,29 +8188,85 @@ paths:
                   type: string
                 isSuspended:
                   type: boolean
-            example:
-              fullName: Aya Hassan
-              phoneNumber: "01011111111"
-              bloodType: O+
-              isOptedIn: true
+            examples:
+              donor-update:
+                summary: Update a donor (email cannot be changed)
+                value:
+                  fullName: Aya Hassan
+                  phoneNumber: "01011111111"
+                  bloodType: O+
+                  isOptedIn: true
+              hospital-update:
+                summary: Update a hospital (email can be changed)
+                value:
+                  fullName: Cairo Care Hospital
+                  hospitalName: Cairo Care Hospital
+                  email: new-ops@cairocare.demo
+                  phone: "1044444444"
+                  address: 15 Tahrir Street, Downtown
+                  workingHours: 8AM - 8PM
+                  bloodBanksAvailable:
+                    - O+
+                    - O-
+                    - A+
+                    - B+
+                  capacity: 200
+              admin-update:
+                summary: Update an admin (superadmin only, email can be changed)
+                value:
+                  fullName: Salma Mostafa
+                  email: salma.new@lifelink.demo
+                  isSuspended: false
       responses:
         "200":
           description: User updated successfully
           content:
             application/json:
-              example:
-                success: true
-                message: User updated successfully
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb18
-                    fullName: Aya Hassan
-                    email: aya.hassan@lifelink.demo
-                    role: donor
-                    bloodType: O+
-                    phoneNumber: "01011111111"
-                    isOptedIn: true
-                    updatedAt: 2026-05-18T09:05:00.000Z
+              examples:
+                donor-response:
+                  summary: Donor updated
+                  value:
+                    success: true
+                    message: User updated successfully
+                    data:
+                      user:
+                        _id: 69f3df915f42685cbbbcbb18
+                        fullName: Aya Hassan
+                        email: aya.hassan@lifelink.demo
+                        role: donor
+                        bloodType: O+
+                        phoneNumber: "01011111111"
+                        isOptedIn: true
+                        updatedAt: 2026-05-18T09:05:00.000Z
+                hospital-response:
+                  summary: Hospital updated
+                  value:
+                    success: true
+                    message: User updated successfully
+                    data:
+                      user:
+                        _id: 69f3df915f42685cbbbcbb1b
+                        fullName: Cairo Care Hospital
+                        hospitalName: Cairo Care Hospital
+                        email: new-ops@cairocare.demo
+                        role: hospital
+                        phone: "1044444444"
+                        isEmailVerified: true
+                        isSuspended: false
+                        updatedAt: 2026-05-18T09:05:00.000Z
+                admin-response:
+                  summary: Admin updated
+                  value:
+                    success: true
+                    message: User updated successfully
+                    data:
+                      user:
+                        _id: 66f200000000000000000003
+                        fullName: Salma Mostafa
+                        email: salma.new@lifelink.demo
+                        role: admin
+                        isSuspended: false
+                        updatedAt: 2026-05-18T09:08:00.000Z
         "400":
           description: "Validation error — e.g. email change on donor, role change on admin"
         "404":
