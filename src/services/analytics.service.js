@@ -78,7 +78,7 @@ const computeWeeklyTrends = async () => {
   ]);
 
   const dayMap = new Map(results.map((r) => [r._id, r.count]));
-  const values = new Array(7).fill(0.0);
+  const values = new Array(7).fill(0);
 
   for (const [mongoDay, count] of dayMap.entries()) {
     const idx = MONGO_DAY_TO_INDEX[mongoDay];
@@ -215,13 +215,13 @@ const demandForecastEngine = (data) => {
   const growthRate = computeWeekOverWeekGrowth(data.requestsLast7d, data.requestsLast14d);
 
   if (growthRate > 0.30) {
-    return { title: 'Predicted High Demand', description: `A ${Math.round(growthRate * 100)}% increase in blood requests is predicted next week.`, confidence: Math.min(95, 50 + growthRate * 100) };
+    return { title: 'Predicted High Demand', description: `A ${Math.round(growthRate * 100)}% increase in blood requests is predicted next week.`, confidence: Math.round(Math.min(95, 50 + growthRate * 100)) };
   }
   if (growthRate > 0.15) {
-    return { title: 'Rising Demand Trend', description: 'Blood requests are trending upward. Prepare additional resources.', confidence: Math.min(85, 40 + growthRate * 80) };
+    return { title: 'Rising Demand Trend', description: 'Blood requests are trending upward. Prepare additional resources.', confidence: Math.round(Math.min(85, 40 + growthRate * 80)) };
   }
   if (growthRate < -0.20) {
-    return { title: 'Declining Demand', description: 'Blood requests are declining. Review inventory allocation.', confidence: Math.min(80, 40 + Math.abs(growthRate) * 80) };
+    return { title: 'Declining Demand', description: 'Blood requests are declining. Review inventory allocation.', confidence: Math.round(Math.min(80, 40 + Math.abs(growthRate) * 80)) };
   }
   return null;
 };
@@ -232,10 +232,10 @@ const shortageEngine = async (supplyDemand) => {
   const worstEntry = supplyDemand.reduce((worst, entry) => (entry.ratio > worst.ratio ? entry : worst), { ratio: 0, bloodType: null });
 
   if (worstEntry.ratio > 2.0) {
-    return { title: 'Shortage Risk', description: `${worstEntry.bloodType} blood stock is expected to deplete within the next 4 days.`, confidence: Math.min(98, 60 + worstEntry.ratio * 10) };
+    return { title: 'Shortage Risk', description: `${worstEntry.bloodType} blood stock is expected to deplete within the next 4 days.`, confidence: Math.round(Math.min(98, 60 + worstEntry.ratio * 10)) };
   }
   if (worstEntry.ratio > 1.0) {
-    return { title: 'Supply Warning', description: `${worstEntry.bloodType} blood supply is approaching critical levels.`, confidence: Math.min(85, 50 + worstEntry.ratio * 10) };
+    return { title: 'Supply Warning', description: `${worstEntry.bloodType} blood supply is approaching critical levels.`, confidence: Math.round(Math.min(85, 50 + worstEntry.ratio * 10)) };
   }
   return null;
 };
@@ -264,10 +264,10 @@ const retentionEngine = (data) => {
   const retentionRate = prev30d > 0 ? last30d / prev30d : 1;
 
   if (retentionRate < 0.7) {
-    return { title: 'Donor Retention Alert', description: 'Donor return rate has dropped significantly. Consider re-engagement campaigns.', confidence: Math.min(90, 60 + (1 - retentionRate) * 100) };
+    return { title: 'Donor Retention Alert', description: 'Donor return rate has dropped significantly. Consider re-engagement campaigns.', confidence: Math.round(Math.min(90, 60 + (1 - retentionRate) * 100)) };
   }
   if (retentionRate > 1.2) {
-    return { title: 'Donor Growth Positive', description: 'More donors are returning compared to last month. Momentum is strong.', confidence: Math.min(85, 55 + (retentionRate - 1) * 80) };
+    return { title: 'Donor Growth Positive', description: 'More donors are returning compared to last month. Momentum is strong.', confidence: Math.round(Math.min(85, 55 + (retentionRate - 1) * 80)) };
   }
   return null;
 };
@@ -277,7 +277,7 @@ const surgeEngine = (data) => {
   const surgeRatio = expected3Days > 0 ? data.requestsLast3d / expected3Days : 1;
 
   if (surgeRatio > 2.0) {
-    return { title: 'Emergency Demand Spike', description: 'Blood demand has surged unexpectedly in the last 3 days. Emergency response may be needed.', confidence: Math.min(95, 70 + surgeRatio * 8) };
+    return { title: 'Emergency Demand Spike', description: 'Blood demand has surged unexpectedly in the last 3 days. Emergency response may be needed.', confidence: Math.round(Math.min(95, 70 + surgeRatio * 8)) };
   }
   return null;
 };
@@ -446,8 +446,8 @@ export const getTopDonors = async (limit = 10) => {
       email: d.email,
       phoneNumber: d.phoneNumber,
       bloodType: d.bloodType,
-      totalDonations: d.completedDonations,
-      points: d.points,
+      totalDonations: Math.floor(d.completedDonations),
+      points: Math.floor(d.points),
       isEligibleToDonate: isEligible,
       isActive: !d.isSuspended,
       isVerified: d.isEmailVerified,
