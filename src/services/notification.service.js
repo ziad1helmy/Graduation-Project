@@ -107,7 +107,7 @@ export const notifyRequest = async (donorIds, request) => {
     }
 
     const populatedRequest = typeof request?.populate === 'function'
-      ? await request.populate('hospitalId', 'fullName hospitalName address location phone')
+      ? await request.populate('hospitalId', 'fullName hospitalName address location phone contactNumber')
       : request;
 
     const normalizedRequestBloodTypes = normalizeBloodTypeList(populatedRequest?.bloodType);

@@ -6,7 +6,7 @@ import Badge from '../models/Badge.model.js';
 import InboundEmail from '../models/InboundEmail.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as analyticsService from '../services/analytics.service.js';
-import * as rewardsConfigService from '../services/rewardsConfig.service.js';
+import * as rewardService from '../services/reward.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import { parseBooleanQuery } from '../utils/query.js';
 import {
@@ -19,7 +19,7 @@ import {
   validateBanDonorBody,
   validateUpdateAdminProfileBody,
 } from '../validation/admin.validation.js';
-import { validateRewardsConfigBody } from '../validation/reward.validation.js';
+
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 
@@ -498,11 +498,8 @@ export const updateUser = asyncHandler(async (req, res) => {
     }
     return response.success(res, 200, 'User updated successfully', { user });
   } catch (error) {
-    if (error.message === 'Email cannot be changed by admin. Donors must use the self-service profile flow.') {
+    if (error.message === 'Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.') {
       throw new HttpError(400, error.message);
-    }
-    if (error.message === 'Email is already in use by another account') {
-      throw new HttpError(409, error.message);
     }
     if (error.message === 'Role changes are not supported via this endpoint') {
       throw new HttpError(400, error.message);
@@ -810,21 +807,89 @@ export const getShortageAlerts = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Shortage alerts', { alerts });
 });
 
-/** GET /admin/rewards/config */
-export const getRewardsConfig = asyncHandler(async (req, res) => {
-  const data = await rewardsConfigService.getRewardsConfig();
-  return response.success(res, 200, 'Rewards config retrieved successfully', data);
+// ──────────────────────────────────────────────
+//  Rewards Management (Overview, Config, Adjust)
+// ──────────────────────────────────────────────
+
+export const getAdminRewards = asyncHandler(async (req, res) => {
+  const { query, limit, adjustments: adjLimit } = req.query;
+  const topLimit = parseInt(limit) || 5;
+  const adjustmentsLimit = parseInt(adjLimit) || 20;
+
+  const [pointsSummary, tiers, topRedeemed, catalog, adjustments, users] = await Promise.all([
+    rewardService.adminGetPointsSummary(),
+    rewardService.adminGetTierDistribution(),
+    rewardService.adminGetTopRedeemed(topLimit),
+    rewardService.adminGetRewardCatalog(),
+    rewardService.adminGetPointsAdjustments(adjustmentsLimit),
+    query && typeof query === 'string' && query.trim()
+      ? rewardService.adminLookupUser(query.trim())
+      : Promise.resolve([]),
+  ]);
+
+  return response.success(res, 200, 'Rewards data retrieved successfully', {
+    totalPoints: pointsSummary.totalPoints,
+    percentageChange: pointsSummary.percentageChange,
+    tiers,
+    topRedeemed,
+    catalog,
+    adjustments,
+    ...(users.length > 0 ? { users } : {}),
+  });
 });
 
-/** PUT /admin/rewards/config */
-export const updateRewardsConfig = asyncHandler(async (req, res) => {
-  const validation = validateRewardsConfigBody(req.body);
-  if (!validation.valid) {
-    throw new HttpError(400, validation.errors.join(', '));
+export const writeAdminRewards = asyncHandler(async (req, res) => {
+  const { rewardName, category, pointsRequired, status, id, updates, userId, amount, reason } = req.body;
+
+  if (rewardName && category && pointsRequired !== undefined) {
+    const data = await rewardService.adminCreateReward({
+      rewardName,
+      rewardSubtitle: req.body.rewardSubtitle || '',
+      category,
+      pointsRequired,
+      status,
+    });
+    return response.success(res, 201, 'Reward created successfully', data);
   }
 
-  const data = await rewardsConfigService.updateRewardsConfig(req.body, req.user._id);
-  return response.success(res, 200, 'Rewards config updated successfully', data);
+  if (id && status) {
+    if (!['ACTIVE', 'INACTIVE', 'LIMITED'].includes(status)) {
+      throw new HttpError(400, 'Status must be ACTIVE, INACTIVE, or LIMITED');
+    }
+    const data = await rewardService.adminUpdateRewardStatus(id, status, req.user._id);
+    if (!data) throw new HttpError(404, 'Reward not found');
+    return response.success(res, 200, 'Reward status updated successfully', {
+      id: data._id,
+      rewardName: data.name,
+      status: data.status,
+    });
+  }
+
+  if (Array.isArray(updates)) {
+    if (updates.length === 0) {
+      throw new HttpError(400, 'updates array must have at least one entry');
+    }
+    for (const item of updates) {
+      if (!item.id || typeof item.pointsRequired !== 'number') {
+        throw new HttpError(400, 'Each update must have an id and pointsRequired number');
+      }
+    }
+    const result = await rewardService.adminBulkUpdateRewardPoints(updates);
+    return response.success(res, 200, 'Reward points updated successfully', { updated: result });
+  }
+
+  if (userId && amount !== undefined && reason) {
+    if (typeof amount !== 'number' || amount === 0) {
+      throw new HttpError(400, 'amount must be a non-zero number');
+    }
+    const data = await rewardService.adminAdjustPoints(userId, amount, reason, req.user._id);
+    return response.success(res, 200, 'Points adjusted successfully', {
+      userId,
+      newBalance: data.pointsBalance,
+    });
+  }
+
+  throw new HttpError(400, 'Invalid request body — provide rewardName/category/pointsRequired, id/status, updates[], or userId/amount/reason');
 });
 
 // ──────────────────────────────────────────────

@@ -1,4 +1,5 @@
 import mongoose from 'mongoose';
+import User from '../models/User.model.js';
 import DonorPoints from '../models/DonorPoints.model.js';
 import PointsTransaction from '../models/PointsTransaction.model.js';
 import RewardCatalog from '../models/RewardCatalog.model.js';
@@ -822,6 +823,193 @@ export const getLeaderboard = async (limit = 20) => {
     tier: getTierForPoints(account.lifetimePointsEarned, rewardsConfig.tiers),
     lifetimePointsEarned: account.lifetimePointsEarned,
     pointsBalance: account.pointsBalance,
+  }));
+};
+
+// ──────────────────────────────────────────────
+//  Admin reward operations
+// ──────────────────────────────────────────────
+
+export const adminGetPointsSummary = async () => {
+  const now = new Date();
+  const thirtyDaysAgo = new Date(now - 30 * 24 * 60 * 60 * 1000);
+  const sixtyDaysAgo = new Date(now - 60 * 24 * 60 * 60 * 1000);
+
+  const [totalPointsResult, currentMonthPoints, previousMonthPoints] = await Promise.all([
+    DonorPoints.aggregate([
+      { $group: { _id: null, total: { $sum: '$pointsBalance' } } },
+    ]),
+    PointsTransaction.aggregate([
+      { $match: { pointsAmount: { $gt: 0 }, createdAt: { $gte: thirtyDaysAgo } } },
+      { $group: { _id: null, total: { $sum: '$pointsAmount' } } },
+    ]),
+    PointsTransaction.aggregate([
+      { $match: { pointsAmount: { $gt: 0 }, createdAt: { $gte: sixtyDaysAgo, $lt: thirtyDaysAgo } } },
+      { $group: { _id: null, total: { $sum: '$pointsAmount' } } },
+    ]),
+  ]);
+
+  const totalPoints = totalPointsResult[0]?.total || 0;
+  const current = currentMonthPoints[0]?.total || 0;
+  const previous = previousMonthPoints[0]?.total || 0;
+  const percentageChange = previous > 0
+    ? parseFloat(((current - previous) / previous * 100).toFixed(1))
+    : (current > 0 ? 100 : 0);
+
+  return { totalPoints, percentageChange };
+};
+
+export const adminGetTierDistribution = async () => {
+  const tiers = ['bronze', 'silver', 'gold', 'platinum'];
+  const distribution = await DonorPoints.aggregate([
+    { $group: { _id: '$tier', userCount: { $sum: 1 } } },
+  ]);
+
+  const distributionMap = new Map(distribution.map((d) => [d._id, d.userCount]));
+
+  return tiers.map((tierName) => ({
+    tierName,
+    userCount: distributionMap.get(tierName) || 0,
+  }));
+};
+
+export const adminGetTopRedeemed = async (limit = 5) => {
+  const cappedLimit = Math.max(1, Math.min(limit, 50));
+
+  const topRewards = await RewardRedemption.aggregate([
+    { $group: { _id: '$rewardId', pointsRedeemed: { $sum: '$pointsSpent' }, count: { $sum: 1 } } },
+    { $sort: { pointsRedeemed: -1 } },
+    { $limit: cappedLimit },
+    {
+      $lookup: {
+        from: 'rewardcatalogs',
+        localField: '_id',
+        foreignField: '_id',
+        as: 'reward',
+      },
+    },
+    { $unwind: { path: '$reward', preserveNullAndEmptyArrays: true } },
+    {
+      $project: {
+        _id: 0,
+        rewardName: { $ifNull: ['$reward.name', 'Unknown'] },
+        rewardSubtitle: { $ifNull: ['$reward.description', ''] },
+        pointsRedeemed: 1,
+      },
+    },
+  ]);
+
+  return topRewards;
+};
+
+export const adminGetRewardCatalog = async () => {
+  const [rewards, totalCount] = await Promise.all([
+    RewardCatalog.find().sort({ createdAt: -1 }).lean(),
+    RewardCatalog.countDocuments(),
+  ]);
+
+  return {
+    items: rewards.map((r) => ({
+      id: r._id,
+      rewardName: r.name,
+      category: r.category,
+      pointsRequired: r.pointsCost,
+      redeemedCount: r.redemptionCount,
+      status: r.status,
+    })),
+    totalCount,
+  };
+};
+
+export const adminCreateReward = async (rewardFields) => {
+  const reward = await RewardCatalog.create({
+    name: rewardFields.rewardName,
+    description: rewardFields.rewardSubtitle || `${rewardFields.rewardName} reward item`,
+    pointsCost: rewardFields.pointsRequired,
+    category: rewardFields.category,
+    status: rewardFields.status || 'ACTIVE',
+  });
+
+  return {
+    id: reward._id,
+    rewardName: reward.name,
+    category: reward.category,
+    pointsRequired: reward.pointsCost,
+    redeemedCount: reward.redemptionCount,
+    status: reward.status,
+  };
+};
+
+export const adminBulkUpdateRewardPoints = async (updates) => {
+  const results = [];
+  for (const { id, pointsRequired } of updates) {
+    const reward = await RewardCatalog.findByIdAndUpdate(
+      id,
+      { pointsCost: pointsRequired },
+      { returnDocument: 'after', runValidators: true }
+    );
+    if (reward) {
+      results.push({
+        id: reward._id,
+        rewardName: reward.name,
+        pointsRequired: reward.pointsCost,
+      });
+    }
+  }
+  return results;
+};
+
+export const adminLookupUser = async (query) => {
+  const isObjectId = mongoose.Types.ObjectId.isValid(query);
+  const searchFilter = isObjectId
+    ? { _id: query }
+    : { email: query.toLowerCase().trim() };
+
+  const users = await User.find({
+    ...searchFilter,
+    deletedAt: null,
+    role: { $ne: 'admin' },
+  })
+    .select('_id fullName email role')
+    .limit(20)
+    .lean();
+
+  if (users.length === 0) return [];
+
+  const donorIds = users.filter((u) => u.role === 'donor').map((u) => u._id);
+  const pointsMap = donorIds.length > 0
+    ? new Map(
+        (await DonorPoints.find({ donorId: { $in: donorIds } }).lean())
+          .map((p) => [String(p.donorId), p.pointsBalance])
+      )
+    : new Map();
+
+  return users.map((u) => ({
+    id: u._id,
+    name: u.fullName || u.email,
+    email: u.email,
+    role: u.role,
+    currentPoints: u.role === 'donor' ? (pointsMap.get(String(u._id)) || 0) : null,
+  }));
+};
+
+export const adminGetPointsAdjustments = async (limit = 20) => {
+  const cappedLimit = Math.max(1, Math.min(limit, 100));
+
+  const transactions = await PointsTransaction.find({ transactionType: 'ADMIN_ADJUSTMENT' })
+    .sort({ createdAt: -1 })
+    .limit(cappedLimit)
+    .populate('donorId', 'fullName email')
+    .populate('adminId', 'fullName email')
+    .lean();
+
+  return transactions.map((t) => ({
+    userName: t.donorId?.fullName || t.donorId?.email || 'Unknown User',
+    userId: t.donorId?._id || t.donorId,
+    reason: t.description,
+    points: t.pointsAmount,
+    date: t.createdAt,
+    adminName: t.adminId?.fullName || t.adminId?.email || null,
   }));
 };
 

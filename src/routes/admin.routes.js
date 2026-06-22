@@ -48,10 +48,15 @@ router.get('/analytics/top-donors', analyticsController.getTopDonors);
 router.get('/alerts', adminController.getAlerts);
 
 
-router.get('/rewards/config', adminController.getRewardsConfig);
+// ──────────────────────────────────────────────
+//  Rewards Management (Overview, Config, Adjust)
+// ──────────────────────────────────────────────
 
 
-router.put('/rewards/config', adminController.updateRewardsConfig);
+router.get('/rewards', adminController.getAdminRewards);
+
+
+router.post('/rewards', adminController.writeAdminRewards);
 
 // Badges Management
 router.get('/badges', adminController.getBadges);

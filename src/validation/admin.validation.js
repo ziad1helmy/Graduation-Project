@@ -131,6 +131,14 @@ export const validateCreateAdminBody = (body) => {
     errors.push(`role must be one of: ${validRoles.join(', ')}`);
   }
 
+  if (body.phone !== undefined && typeof body.phone !== 'string') {
+    errors.push('phone must be a string');
+  }
+
+  if (body.address !== undefined && typeof body.address !== 'string') {
+    errors.push('address must be a string');
+  }
+
   return { valid: errors.length === 0, errors };
 };
 

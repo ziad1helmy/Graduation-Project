@@ -362,11 +362,15 @@ export const toAdminUserListItem = (user) => {
   const isVerified = Boolean(object.isEmailVerified);
   const joinedAt = object.createdAt || null;
 
+  const isHospital = object.role === 'hospital';
+  const resolvedPhone = isHospital ? null : (object.phoneNumber ?? object.phone ?? null);
+
   return {
     ...object,
     id: String(object._id),
     name: object.fullName ?? null,
-    phone: object.phoneNumber ?? null,
+    phone: resolvedPhone,
+    phoneNumber: resolvedPhone,
     bloodType: object.bloodType ?? null,
     isActive: !isSuspended,
     isSuspended,
@@ -418,6 +422,7 @@ export const getUserById = async (id, callerRole = null, expectedRole = null, ca
 
     return {
       ...user.toObject(),
+      phone: user.phoneNumber ?? null,
       bloodType: user.bloodType ?? null,
       completedDonations: donationCount,
       pointsBalance: pointsAccount?.pointsBalance ?? 0,
@@ -430,7 +435,11 @@ export const getUserById = async (id, callerRole = null, expectedRole = null, ca
   // For hospitals, also get request stats
   if (user.role === 'hospital') {
     const requestCount = await Request.countDocuments({ hospitalId: id });
-    return { ...user.toObject(), totalRequests: requestCount };
+    return {
+      ...user.toObject(),
+      phone: null,
+      totalRequests: requestCount,
+    };
   }
 
   // For admin/superadmin, attach decrypted admin key only if caller is superadmin or the user themselves
@@ -649,12 +658,14 @@ export const softDeleteUser = async (id, adminId) => {
  * Create a new hospital account (admin-created, pre-verified).
  */
 export const createHospital = async (data, adminId) => {
+  const phone = data.phone || data.adminContactPhone || data.emergencyContactNumber || data.contactNumber;
   const result = await hospitalService.createHospitalByAdmin(
     {
       name: data.fullName || data.name || data.hospitalName,
       type: data.type || 'hospital',
       email: data.email,
-      phone: data.phone || data.adminContactPhone || data.emergencyContactNumber,
+      phone,
+      contactNumber: data.contactNumber || phone,
       address: data.address || null,
       city: data.city,
       state: data.state,
@@ -674,7 +685,12 @@ export const createHospital = async (data, adminId) => {
     adminId
   );
 
-  return result.hospital;
+  // Admin responses expose only contactNumber for hospitals; phone is kept for internal compatibility.
+  const hospitalDoc = result.hospital.toObject ? result.hospital.toObject() : result.hospital;
+  return {
+    ...hospitalDoc,
+    phone: null,
+  };
 };
 
 export const updateUser = async (id, data, adminId, callerRole) => {
@@ -705,14 +721,11 @@ export const updateUser = async (id, data, adminId, callerRole) => {
 
   if (user.role === 'hospital') {
     if (data.email !== undefined) {
-      const normalizedEmail = String(data.email).trim().toLowerCase();
-      const dup = await User.findOne({ email: normalizedEmail, _id: { $ne: id } });
-      if (dup) throw new Error('Email is already in use by another account');
-      user.email = normalizedEmail;
+      throw new Error('Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.');
     }
     const allowedFields = [
-      'fullName', 'phone', 'address', 'city', 'state', 'zipCode',
-      'hospitalName', 'hospitalType', 'type', 'workingHours',
+      'fullName', 'address', 'city', 'state', 'zipCode',
+      'hospitalName', 'hospitalType', 'type',
       'adminContactName', 'adminContactPhone', 'emergencyContact',
       'bloodBanksAvailable', 'capacity', 'licenseNumber',
       'slotsPerHour', 'workingHoursStart', 'workingHoursEnd',
@@ -721,6 +734,9 @@ export const updateUser = async (id, data, adminId, callerRole) => {
     for (const field of allowedFields) {
       if (data[field] !== undefined) user[field] = data[field];
     }
+    if (data.phone !== undefined || data.contactNumber !== undefined) {
+      user.contactNumber = data.contactNumber !== undefined ? data.contactNumber : data.phone;
+    }
     await user.save();
     await logAudit(adminId, 'user.update_hospital', 'User', id);
     return user;
@@ -728,10 +744,7 @@ export const updateUser = async (id, data, adminId, callerRole) => {
 
   if (user.role === 'admin' || user.role === 'superadmin') {
     if (data.email !== undefined) {
-      const normalizedEmail = String(data.email).trim().toLowerCase();
-      const dup = await User.findOne({ email: normalizedEmail, _id: { $ne: id } });
-      if (dup) throw new Error('Email is already in use by another account');
-      user.email = normalizedEmail;
+      throw new Error('Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.');
     }
     if (data.role !== undefined) {
       throw new Error('Role changes are not supported via this endpoint');
@@ -821,7 +834,7 @@ export const createAdmin = async (data, adminId) => {
     }
   }
 
-  const plaintextKey = crypto.randomBytes(16).toString('hex');
+  const plaintextKey = 'ADM' + crypto.randomBytes(8).toString('hex');
 
   const admin = await User.create({
     fullName: data.fullName,
@@ -1025,7 +1038,7 @@ export const rotateAdminKey = async (id, adminId) => {
   if (!admin) return null;
   if (!['admin', 'superadmin'].includes(admin.role)) return null;
 
-  const plaintextKey = crypto.randomBytes(16).toString('hex');
+  const plaintextKey = 'ADM' + crypto.randomBytes(8).toString('hex');
 
   admin.adminKey = encryptAdminKey(plaintextKey, id.toString());
   admin.passwordChangedAt = new Date();
@@ -1219,7 +1232,7 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
 
   const [requests, total, stats] = await Promise.all([
     Request.find(query)
-      .populate('hospitalId', 'fullName email hospitalName address phone location')
+      .populate('hospitalId', 'fullName email hospitalName address phone contactNumber location')
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit),
@@ -1228,11 +1241,17 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
   ]);
 
   const requestIds = requests.map((request) => request._id);
-  const [donationCounts, contactedCounts] = await Promise.all([
+  const [donationCounts, confirmedCounts, contactedCounts] = await Promise.all([
     requestIds.length === 0
       ? []
       : Donation.aggregate([
           { $match: { requestId: { $in: requestIds } } },
+          { $group: { _id: '$requestId', count: { $sum: 1 } } },
+        ]),
+    requestIds.length === 0
+      ? []
+      : Donation.aggregate([
+          { $match: { requestId: { $in: requestIds }, status: { $in: ['scheduled', 'completed'] } } },
           { $group: { _id: '$requestId', count: { $sum: 1 } } },
         ]),
     requestIds.length === 0
@@ -1249,12 +1268,14 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
   ]);
 
   const donationCountMap = new Map(donationCounts.map((entry) => [String(entry._id), entry.count]));
+  const confirmedCountMap = new Map(confirmedCounts.map((entry) => [String(entry._id), entry.count]));
   const contactedCountMap = new Map(contactedCounts.map((entry) => [String(entry._id), entry.count]));
 
   return {
     requests: requests.map((request) => {
       const requestObject = request.toObject();
       const donationCount = donationCountMap.get(String(request._id)) || 0;
+      const donorsConfirmed = confirmedCountMap.get(String(request._id)) || 0;
       const donorsContacted = contactedCountMap.get(String(request._id)) || 0;
 
       const listItem = toAdminRequestListItem(requestObject);
@@ -1262,7 +1283,7 @@ export const listAllRequests = async (filters = {}, pagination = {}) => {
         ...listItem,
         ...buildRequestPayload(requestObject, null, { responseCount: donationCount }),
         donationCount,
-        donorsConfirmed: donationCount,
+        donorsConfirmed,
         donorsContacted,
         timeline: buildRequestTimeline(requestObject),
       };
@@ -1290,7 +1311,7 @@ export const toAdminRequestListItem = (request) => {
 
   const hospitalContact = object.hospitalContact
     || object.contactNumber
-    || object.hospitalId?.phone
+    || object.hospitalId?.contactNumber
     || null;
 
   const location = object.hospitalId?.address
@@ -1352,7 +1373,7 @@ export const getRequestStats = async (hospitalId = null) => {
  */
 export const getRequestDetails = async (id) => {
   const request = await Request.findById(id)
-    .populate('hospitalId', 'fullName email hospitalName address phone');
+    .populate('hospitalId', 'fullName email hospitalName address phone contactNumber');
 
   if (!request) return null;
 
@@ -1366,7 +1387,6 @@ export const getRequestDetails = async (id) => {
     request: {
       ...requestObject,
       ...buildRequestPayload(requestObject, null, { responseCount: donations.length, donations }),
-      responseCount: donations.length,
       donationCount: donations.length,
       timeline: buildRequestTimeline(requestObject),
     },
@@ -1672,7 +1692,7 @@ export const getCriticalRequests = async () => {
     urgency: { $in: ['critical', 'high'] },
     status: { $in: ['pending', 'in-progress'] },
   })
-    .populate('hospitalId', 'fullName hospitalName location phone')
+    .populate('hospitalId', 'fullName hospitalName location phone contactNumber')
     .sort({ urgency: 1, createdAt: -1 }); // critical first
 
   return requests;

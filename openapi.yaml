@@ -2814,7 +2814,6 @@ paths:
                       hospital_id: 69f3df915f42685cbbbcbb1b
                       name: Cairo Care Hospital
                       fullName: Cairo Care Operations
-                      phoneNumber: "1044444444"
                       contactNumber: "1044444444"
                       email: ops@cairocare.demo
                       address:
@@ -2970,7 +2969,6 @@ paths:
                     hospital_id: 69f3df915f42685cbbbcbb1b
                     name: Cairo Care Hospital
                     fullName: Cairo Care Operations
-                    phoneNumber: "0223456789"
                     contactNumber: "0223456789"
                     email: ops@cairocare.demo
                     address:
@@ -4427,7 +4425,6 @@ paths:
                   totalCompleted: 6
                   totalCancelled: 2
                   emergencyRequests: 3
-                  totalDonations: 7
                   totalResponses: 7
                   responsesToday: 2
   /hospital/activity:
@@ -4531,7 +4528,7 @@ paths:
                 data:
                   hospitalName: Metro General Hospital
                   department: Emergency Department
-                  phone: "+1 (555) 987-6543"
+                  contactNumber: "+1 (555) 987-6543"
                   email: emergency@metrohealth.com
                   address: 123 Medical Center Dr, City
                   workingHours:
@@ -4572,6 +4569,11 @@ paths:
                   example: Emergency Department
                 phone:
                   type: string
+                  description: Legacy phone field (also updates contactNumber)
+                  example: "+1 (555) 987-6543"
+                contactNumber:
+                  type: string
+                  description: Canonical hospital contact number
                   example: "+1 (555) 987-6543"
                 email:
                   type: string
@@ -4582,7 +4584,7 @@ paths:
             example:
               hospitalName: Metro General Hospital
               department: Emergency Department
-              phone: "+1 (555) 987-6543"
+              contactNumber: "+1 (555) 987-6543"
               email: emergency@metrohealth.com
               address: 123 Medical Center Dr, City
       responses:
@@ -5226,6 +5228,10 @@ paths:
                   timeRemaining: 2d 4h remaining
                   responded: 1
                   confirmed: 0
+                  status: pending
+                  patientType: adult
+                  contactNumber: "+201234567890"
+                  patientDetails: Patient has a rare blood type, needs immediate attention
         "401":
           description: Missing or invalid JWT
         "403":
@@ -7258,222 +7264,247 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
-  /admin/rewards/config:
+  /admin/rewards:
     get:
-      summary: Get the current rewards configuration
+      summary: Get all admin rewards data for the 3 tabs
+      description: |
+        Returns all data needed for the Overview, Configuration, and Adjust Points tabs in a single call.
+        When `?query=` is provided, also returns matching users for the points adjustment search.
+
+        **Overview tab fields:** `totalPoints`, `percentageChange`, `tiers`, `topRedeemed`, `catalog`
+        **Configuration tab fields:** `catalog` (same resource, filtered/edited on frontend)
+        **Adjust Points tab fields:** `adjustments`, `users` (when `?query=` is set)
       tags:
         - Admin
       security:
         - bearerAuth: []
+      parameters:
+        - in: query
+          name: query
+          schema:
+            type: string
+          description: Search users by ID or email for the adjust-points user lookup
+          example: john@example.com
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 5
+          description: Number of top-redeemed rewards to return
+        - in: query
+          name: adjustments
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+          description: Number of recent point adjustments to return
       responses:
         "200":
-          description: Current rewards configuration
+          description: |
+            Successful response. Contains all reward data. The `users` array is only present when `?query=` was provided.
           content:
             application/json:
               example:
                 success: true
-                message: Rewards config retrieved successfully
+                message: Rewards data retrieved successfully
                 data:
-                  points:
-                    bloodDonation: 200
-                    emergencyResponse: 150
-                    profileCompletion: 75
-                    referral: 50
-                    firstDonation: 100
+                  totalPoints: 48200
+                  percentageChange: 12.5
                   tiers:
-                    bronze: 0
-                    silver: 500
-                    gold: 1500
-                    platinum: 3000
-                  tierBonuses:
-                    silver: 50
-                    gold: 100
-                    platinum: 200
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-    put:
-      summary: Update the rewards configuration
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - points
-                - tiers
-                - tierBonuses
-              properties:
-                points:
-                  type: object
-                tiers:
-                  type: object
-                tierBonuses:
-                  type: object
-            example: {}
-      responses:
-        "200":
-          description: Rewards configuration updated
-          content:
-            application/json:
-              example:
-                success: true
-                message: Rewards config updated successfully
-                data:
-                  points:
-                    bloodDonation: 220
-                    emergencyResponse: 180
-                    profileCompletion: 80
-                    referral: 60
-                    firstDonation: 120
-                  tiers:
-                    bronze: 0
-                    silver: 600
-                    gold: 1700
-                    platinum: 3200
-                  tierBonuses:
-                    silver: 60
-                    gold: 120
-                    platinum: 240
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /rewards/admin/users/{userId}/points/adjust:
+                    - tierName: bronze
+                      userCount: 120
+                    - tierName: silver
+                      userCount: 80
+                    - tierName: gold
+                      userCount: 30
+                    - tierName: platinum
+                      userCount: 10
+                  topRedeemed:
+                    - rewardName: Coffee Voucher
+                      rewardSubtitle: Free coffee at partner cafes
+                      pointsRedeemed: 17000
+                    - rewardName: Movie Tickets
+                      rewardSubtitle: 2 movie tickets at major cinemas
+                      pointsRedeemed: 18000
+                  catalog:
+                    items:
+                      - id: 664a123456789abcdef12345
+                        rewardName: Coffee Voucher
+                        category: FOOD
+                        pointsRequired: 500
+                        redeemedCount: 34
+                        status: ACTIVE
+                      - id: 664a123456789abcdef12346
+                        rewardName: Movie Tickets
+                        category: ENTERTAINMENT
+                        pointsRequired: 1000
+                        redeemedCount: 18
+                        status: ACTIVE
+                    totalCount: 6
+                  adjustments:
+                    - userName: John Doe
+                      userId: 69f3df915f42685cbbbcbb18
+                      reason: Community engagement bonus
+                      points: 200
+                      date: "2026-06-20T14:30:00.000Z"
+                      adminName: Admin User
+                    - userName: Jane Smith
+                      userId: 69f3df915f42685cbbbcbb19
+                      reason: Correction for missed donation
+                      points: -100
+                      date: "2026-06-19T10:15:00.000Z"
+                      adminName: Admin User
+                  users:
+                    - id: 69f3df915f42685cbbbcbb18
+                      name: John Doe
+                      email: john@example.com
+                      role: donor
+                      currentPoints: 1250
     post:
-      summary: Manually adjust a donor's points (admin only)
+      summary: All admin rewards write operations
+      description: |
+        Single endpoint for every write operation in the rewards system.
+        The body shape determines which action is performed:
+
+        | Action | Required body fields | Response status |
+        |--------|---------------------|-----------------|
+        | Create reward | `rewardName`, `category`, `pointsRequired` (+ optional `status`) | **201** |
+        | Update reward status | `id`, `status` | **200** |
+        | Bulk update points | `updates` (array of `{id, pointsRequired}`) | **200** |
+        | Adjust user points | `userId`, `amount`, `reason` | **200** |
       tags:
         - Admin
       security:
         - bearerAuth: []
-      parameters:
-        - in: path
-          name: userId
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
       requestBody:
         required: true
         content:
           application/json:
             schema:
               type: object
-              required:
-                - amount
-                - reason
+              description: Body shape determines action — see summary table above
               properties:
-                amount:
-                  type: integer
-                  description: Positive to add, negative to deduct
-                reason:
+                rewardName:
                   type: string
-            example:
-              amount: 100
-              reason: Demo bonus points
-      responses:
-        "200":
-          description: Points adjusted and transaction logged
-          content:
-            application/json:
-              example:
-                success: true
-                message: Points adjusted successfully
-                data:
-                  donorId: 69f3df915f42685cbbbcbb18
-                  pointsBalance: 2440
-                  lifetimePointsEarned: 2940
-                  tier: gold
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /rewards/admin/catalog/{rewardId}/status:
-    patch:
-      summary: Update a reward's status (admin only)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: rewardId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a0313165
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - status
-              properties:
+                  description: Required for create-reward action
+                category:
+                  type: string
+                  description: Required for create-reward action (e.g. FOOD, HEALTH, ENTERTAINMENT, STATUS)
+                pointsRequired:
+                  type: integer
+                  description: Required for create-reward and bulk-update actions
                 status:
                   type: string
-                  enum:
-                    - ACTIVE
-                    - INACTIVE
-                    - LIMITED
-            example:
-              status: ACTIVE
-      responses:
-        "200":
-          description: Reward status updated
-          content:
-            application/json:
-              example:
-                success: true
-                message: Reward status updated
-                data:
-                  _id: 69fe540565ff7785a0313165
-                  name: Coffee Voucher
+                  enum: [ACTIVE, INACTIVE]
+                  description: Used in create-reward (optional, default ACTIVE) and status-update actions
+                id:
+                  type: string
+                  description: Required for status-update action
+                updates:
+                  type: array
+                  description: Required for bulk-update action
+                  items:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                      pointsRequired:
+                        type: integer
+                userId:
+                  type: string
+                  description: Required for adjust-points action
+                amount:
+                  type: integer
+                  description: Required for adjust-points action. Positive = credit, negative = debit
+                reason:
+                  type: string
+                  description: Required for adjust-points action
+            examples:
+              createReward:
+                summary: Create reward
+                description: Used by the Add Reward dialog in both Overview and Configuration tabs
+                value:
+                  rewardName: Coffee Voucher
                   category: FOOD
+                  pointsRequired: 500
                   status: ACTIVE
-                  pointsCost: 500
-                  redemptionCount: 34
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
-  /rewards/admin/analytics:
-    get:
-      summary: Get rewards system analytics (admin only)
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
+              updateStatus:
+                summary: Update reward status
+                description: Used by the status toggle dropdown on each catalog row
+                value:
+                  id: 664a123456789abcdef12345
+                  status: INACTIVE
+              bulkUpdate:
+                summary: Bulk update reward points
+                description: Used when admin hits Save after editing point values in the Configuration tab
+                value:
+                  updates:
+                    - id: 664a123456789abcdef12345
+                      pointsRequired: 600
+                    - id: 664a123456789abcdef12346
+                      pointsRequired: 1100
+              adjustPoints:
+                summary: Adjust user points
+                description: Used by the Manual Points Adjustment card in the Adjust Points tab
+                value:
+                  userId: 69f3df915f42685cbbbcbb18
+                  amount: 200
+                  reason: Community engagement bonus
       responses:
-        "200":
-          description: Top rewards, tier distribution, total points issued
+        "201":
+          description: Reward created successfully
           content:
             application/json:
               example:
                 success: true
-                message: Rewards analytics retrieved
+                message: Reward created successfully
                 data:
-                  topRewards:
-                    - rewardName: Coffee Voucher
-                      count: 34
-                      totalPointsSpent: 17000
-                    - rewardName: Movie Tickets
-                      count: 18
-                      totalPointsSpent: 18000
-                  tierDistribution:
-                    - _id: bronze
-                      count: 96
-                    - _id: silver
-                      count: 74
-                    - _id: gold
-                      count: 28
-                  totalPointsIssued: 148520
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
+                  id: 664a123456789abcdef12347
+                  rewardName: Coffee Voucher
+                  category: FOOD
+                  pointsRequired: 500
+                  redeemedCount: 0
+                  status: ACTIVE
+        "200":
+          description: Successful update or adjustment
+          content:
+            application/json:
+              examples:
+                statusUpdated:
+                  summary: Reward status updated
+                  value:
+                    success: true
+                    message: Reward status updated successfully
+                    data:
+                      id: 664a123456789abcdef12345
+                      rewardName: Coffee Voucher
+                      status: INACTIVE
+                bulkUpdated:
+                  summary: Reward points updated
+                  value:
+                    success: true
+                    message: Reward points updated successfully
+                    data:
+                      updated:
+                        - id: 664a123456789abcdef12345
+                          rewardName: Coffee Voucher
+                          pointsRequired: 600
+                        - id: 664a123456789abcdef12346
+                          rewardName: Movie Tickets
+                          pointsRequired: 1100
+                pointsAdjusted:
+                  summary: Points adjusted
+                  value:
+                    success: true
+                    message: Points adjusted successfully
+                    data:
+                      userId: 69f3df915f42685cbbbcbb18
+                      newBalance: 1450
+        "400":
+          description: Invalid request body. Valid body shapes are documented in the requestBody section above.
   /admin/inbound-emails:
     get:
       summary: List inbound emails
@@ -7862,8 +7893,7 @@ paths:
                       fullName: Cairo Care Operations
                       name: Cairo Care Operations
                       email: ops@cairocare.demo
-                      phoneNumber: "0223456789"
-                      phone: "0223456789"
+                      contactNumber: "0223456789"
                       role: hospital
                       isActive: true
                       isEmailVerified: true
@@ -8022,7 +8052,7 @@ paths:
                     email: alex.demo@lifelink.demo
                     role: hospital
                     hospitalId: HOSP-ALEX-001
-                    contactNumber: "1066666666"
+                    contactNumber: "01066666666"
                     isEmailVerified: true
         "400":
           description: Invalid or missing coordinates
@@ -8114,8 +8144,8 @@ paths:
       description: |
         Unified update endpoint for all user roles. Rules per role:
         - **Donor**: admin/superadmin can update. Email cannot be changed.
-        - **Hospital**: admin/superadmin can update. Email can be changed.
-        - **Admin/Superadmin**: only superadmin can update. Email can be changed. Role cannot be changed.
+        - **Hospital**: admin/superadmin can update. Email cannot be changed.
+        - **Admin/Superadmin**: only superadmin can update. Email cannot be changed. Role cannot be changed.
       tags:
         - Admin
       security:
@@ -8186,8 +8216,6 @@ paths:
                   type: string
                 type:
                   type: string
-                workingHours:
-                  type: string
                 adminContactName:
                   type: string
                 adminContactPhone:
@@ -8209,9 +8237,6 @@ paths:
                 workingHoursEnd:
                   type: number
                 # Admin-specific
-                email:
-                  type: string
-                  description: "Allowed for hospitals and admins. NOT allowed for donors."
                 password:
                   type: string
                 isSuspended:
@@ -8225,14 +8250,12 @@ paths:
                   bloodType: O+
                   isOptedIn: true
               hospital-update:
-                summary: Update a hospital (email can be changed)
+                summary: Update a hospital (email cannot be changed)
                 value:
                   fullName: Cairo Care Hospital
                   hospitalName: Cairo Care Hospital
-                  email: new-ops@cairocare.demo
                   phone: "1044444444"
                   address: 15 Tahrir Street, Downtown
-                  workingHours: 8AM - 8PM
                   bloodBanksAvailable:
                     - O+
                     - O-
@@ -8240,10 +8263,9 @@ paths:
                     - B+
                   capacity: 200
               admin-update:
-                summary: Update an admin (superadmin only, email can be changed)
+                summary: Update an admin (superadmin only, email cannot be changed)
                 value:
                   fullName: Salma Mostafa
-                  email: salma.new@lifelink.demo
                   isSuspended: false
       responses:
         "200":
@@ -8276,7 +8298,7 @@ paths:
                         _id: 69f3df915f42685cbbbcbb1b
                         fullName: Cairo Care Hospital
                         hospitalName: Cairo Care Hospital
-                        email: new-ops@cairocare.demo
+                        email: ops@cairocare.demo
                         role: hospital
                         phone: "1044444444"
                         isEmailVerified: true
@@ -8291,16 +8313,14 @@ paths:
                       user:
                         _id: 66f200000000000000000003
                         fullName: Salma Mostafa
-                        email: salma.new@lifelink.demo
+                        email: salma.mostafa@lifelink.demo
                         role: admin
                         isSuspended: false
                         updatedAt: 2026-05-18T09:08:00.000Z
         "400":
-          description: "Validation error — e.g. email change on donor, role change on admin"
+          description: "Validation error — e.g. email change attempt, role change on admin"
         "404":
           description: User not found
-        "409":
-          description: Email already in use
     delete:
       summary: Soft-delete a user account
       tags:
@@ -8772,6 +8792,7 @@ paths:
               email: salma.mostafa@lifelink.demo
               password: AdminPass@123
               role: admin
+              phone: "+201234567890"
       responses:
         "201":
           description: Admin created successfully
@@ -8787,7 +8808,8 @@ paths:
                     email: salma.mostafa@lifelink.demo
                     role: admin
                     isEmailVerified: true
-                    adminKey: a1b2c3d4e5f67890123456789abcdef0
+                    phone: "+201234567890"
+                    adminKey: ADMa1b2c3d4e5f67890
         "400":
           description: Invalid payload
         "403":
@@ -8828,7 +8850,7 @@ paths:
                     phone: "01022223333"
                     isEmailVerified: true
                     createdAt: 2026-05-01T10:00:00.000Z
-                    adminKey: a1b2c3d4e5f67890123456789abcdef0
+                    adminKey: ADMa1b2c3d4e5f67890
       description: "Returns admin details including the decrypted adminKey. Demo seed available via `npm run seed-demo`."
     delete:
       tags:

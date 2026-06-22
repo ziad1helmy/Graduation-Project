@@ -106,7 +106,7 @@ const buildHospitalDetails = (source) => {
     hospitalName,
     fullName: source.fullName ?? null,
     address: source.address ?? null,
-    contactNumber: source.phone ?? null,
+    contactNumber: source.contactNumber ?? source.phone ?? null,
     location: source.location ?? null,
   };
 };
@@ -120,7 +120,7 @@ const buildDonorHospitalReference = (source) => {
     hospitalName: source.hospitalName || source.name || source.fullName || null,
     address: source.address || null,
     location: source.location || null,
-    contactNumber: source.phone || null,
+    contactNumber: source.contactNumber || source.phone || null,
   };
 };
 

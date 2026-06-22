@@ -79,8 +79,8 @@ const getHospitalDisplayName = (doc) => doc.hospitalName || doc.fullName || doc.
 
 const buildEmergencyRequestData = (userId, hospital, validation) => ({
   hospitalId: userId,
-  hospitalContact: hospital.phone,
-  contactNumber: hospital.phone,
+  hospitalContact: hospital.contactNumber || hospital.phone,
+  contactNumber: hospital.contactNumber || hospital.phone,
   type: 'blood',
   urgency: 'critical',
   requiredBy: new Date(Date.now() + EMERGENCY_REQUEST_REQUIRED_BY_MS),
@@ -120,8 +120,8 @@ const buildNormalRequestData = (userId, hospital, body, validation) => {
 
   return {
     hospitalId: userId,
-    hospitalContact: hospital.phone,
-    contactNumber: contactNumber || hospital.phone,
+    hospitalContact: hospital.contactNumber || hospital.phone,
+    contactNumber: contactNumber || hospital.contactNumber || hospital.phone,
     type,
     urgency: resolvedUrgency,
     requiredBy: requiredByDate,
@@ -252,7 +252,6 @@ const buildHospitalProfileStats = async (hospitalId) => {
     cancelledRequests,
     expiredRequests,
     totalDonors,
-    totalDonations: completedDonations,
     completedDonations,
   };
 };
@@ -286,7 +285,6 @@ const toHospitalProfilePayload = (hospitalDoc, stats) => {
       cancelledRequests: 0,
       expiredRequests: 0,
       totalDonors: 0,
-      totalDonations: 0,
       completedDonations: 0,
     },
   };
@@ -315,7 +313,7 @@ export const getProfile = asyncHandler(async (req, res) => {
   response.success(res, 200, 'Hospital profile retrieved successfully', {
     hospitalName: getHospitalDisplayName(hospital),
     department: hospital.department || null,
-    phone: hospital.phone || null,
+    contactNumber: hospital.contactNumber || hospital.phone || null,
     email: hospital.email,
     address: typeof hospital.address === 'string' ? hospital.address : hospital.address ? JSON.stringify(hospital.address) : null,
     workingHours: {
@@ -537,7 +535,7 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
 });
 
 export const updateProfile = asyncHandler(async (req, res) => {
-  const { hospitalName, department, phone, email, address } = req.body;
+  const { hospitalName, department, phone, contactNumber, email, address } = req.body;
 
   const hospital = await Hospital.findById(req.user.userId);
   if (!hospital) {
@@ -550,8 +548,12 @@ export const updateProfile = asyncHandler(async (req, res) => {
     hospital.name = hospitalName;
   }
   if (department !== undefined) hospital.department = department;
+  if (contactNumber !== undefined) {
+    hospital.contactNumber = contactNumber;
+  }
   if (phone !== undefined) {
     hospital.phone = phone;
+    hospital.contactNumber = contactNumber !== undefined ? contactNumber : phone;
   }
   if (email !== undefined) hospital.email = email;
   if (address !== undefined) hospital.address = address;
@@ -664,12 +666,12 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
     throw new HttpError(400, validation.errors[0]);
   }
 
-  const hospital = await Hospital.findById(req.user.userId).select('phone location fullName hospitalName');
+  const hospital = await Hospital.findById(req.user.userId).select('phone contactNumber location fullName hospitalName');
   if (!hospital) {
     throw new HttpError(404, 'Hospital profile not found');
   }
-  if (!hospital.phone) {
-    throw new HttpError(400, 'Hospital phone number is required before creating a request');
+  if (!hospital.phone && !hospital.contactNumber) {
+    throw new HttpError(400, 'Hospital contact number is required before creating a request');
   }
 
   const requestData = emergencyOnly
@@ -680,7 +682,7 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
 
   const { savedRequest, outboxEntry } = await saveRequestWithOutbook(requestData);
 
-  await savedRequest.populate('hospitalId', 'fullName hospitalName address phone');
+  await savedRequest.populate('hospitalId', 'fullName hospitalName address phone contactNumber');
   response.success(res, 201, 'Donation request created successfully', toHospitalRequestResponse(savedRequest));
 
   if (requestData.isEmergency) {
@@ -761,6 +763,10 @@ const formatRequestDetailResponse = (request, donations) => {
     timeRemaining,
     responded,
     confirmed,
+    status: request.status,
+    patientType: request.patientType,
+    contactNumber: request.contactNumber || null,
+    patientDetails: request.notes || null,
   };
 };
 
@@ -1282,7 +1288,7 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
   endDate.setMonth(endDate.getMonth() + 1);
   const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
 
-  const [requests, donationsAgg] = await Promise.all([
+  const [requests, donationsAgg, activeRequestCount, completedCount, cancelledCount] = await Promise.all([
     Request.find({
       hospitalId: hospitalObjectId,
       createdAt: { $gte: startDate, $lt: endDate },
@@ -1290,14 +1296,26 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
     Donation.aggregate([
       { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
       { $unwind: '$request' },
-      { $match: { 'request.hospitalId': hospitalObjectId, 'request.createdAt': { $gte: startDate, $lt: endDate } } },
+      { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: startDate, $lt: endDate } } },
     ]),
+    Request.countDocuments({
+      hospitalId: hospitalObjectId,
+      status: { $in: ['pending', 'in-progress'] },
+    }),
+    Request.countDocuments({
+      hospitalId: hospitalObjectId,
+      completedAt: { $gte: startDate, $lt: endDate },
+    }),
+    Request.countDocuments({
+      hospitalId: hospitalObjectId,
+      cancelledAt: { $gte: startDate, $lt: endDate },
+    }),
   ]);
 
   const totalRequests = requests.length;
-  const activeRequests = requests.filter((r) => ['pending', 'in-progress'].includes(r.status)).length;
-  const totalCompleted = requests.filter((r) => r.status === 'completed').length;
-  const totalCancelled = requests.filter((r) => r.status === 'cancelled').length;
+  const activeRequests = activeRequestCount;
+  const totalCompleted = completedCount;
+  const totalCancelled = cancelledCount;
   const emergencyRequests = requests.filter((r) => r.urgency === 'critical' || r.urgency === 'high').length;
   const totalResponses = donationsAgg.length;
 
@@ -1322,7 +1340,6 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
     totalCompleted,
     totalCancelled,
     emergencyRequests,
-    totalDonations: totalResponses,
     totalResponses,
     responsesToday,
   });

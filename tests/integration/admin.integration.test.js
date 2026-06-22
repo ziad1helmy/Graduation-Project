@@ -4,7 +4,7 @@ import app from '../../src/app.js';
 import { setupTestDB, clearDatabase } from '../helpers/db.js';
 import { createAdmin, createDonor, createHospital } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
-import { getRewardsConfig } from '../../src/services/rewardsConfig.service.js';
+import RewardCatalog from '../../src/models/RewardCatalog.model.js';
 
 setupTestDB();
 
@@ -87,59 +87,134 @@ describe('Admin Routes Integration', () => {
     expect(response.body.data).toHaveProperty('enabled');
   });
 
-  it('GET /admin/rewards/config returns the current rewards config', async () => {
+  it('GET /admin/rewards returns all rewards data (overview, catalog, adjustments)', async () => {
     await clearDatabase();
     const admin = await createAdmin();
-
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
+    // Seed a reward so catalog has data
+    await RewardCatalog.create({ name: 'Test Reward', description: 'Test', pointsCost: 100, category: 'FOOD', status: 'ACTIVE' });
+
     const response = await request(app)
-      .get('/admin/rewards/config')
+      .get('/admin/rewards')
       .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('points');
-    expect(response.body.data.points).toHaveProperty('bloodDonation');
+    expect(response.body.data).toHaveProperty('totalPoints');
+    expect(response.body.data).toHaveProperty('percentageChange');
+    expect(typeof response.body.data.totalPoints).toBe('number');
+    expect(typeof response.body.data.percentageChange).toBe('number');
+    expect(Array.isArray(response.body.data.tiers)).toBe(true);
+    expect(response.body.data.tiers).toHaveLength(4);
+    expect(response.body.data.tiers[0]).toHaveProperty('tierName');
+    expect(response.body.data.tiers[0]).toHaveProperty('userCount');
+    expect(response.body.data).toHaveProperty('topRedeemed');
+    expect(Array.isArray(response.body.data.topRedeemed)).toBe(true);
+    expect(response.body.data.catalog).toHaveProperty('items');
+    expect(response.body.data.catalog).toHaveProperty('totalCount');
+    expect(response.body.data.catalog.items[0].rewardName).toBe('Test Reward');
+    expect(Array.isArray(response.body.data.adjustments)).toBe(true);
   });
 
-  it('PUT /admin/rewards/config updates the rewards config', async () => {
+  it('GET /admin/rewards?query= finds users for points dropdown', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const donor = await createDonor({ email: 'testlookup@example.com' });
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .get('/admin/rewards?query=testlookup@example.com')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(Array.isArray(response.body.data.users)).toBe(true);
+    expect(response.body.data.users.length).toBeGreaterThanOrEqual(1);
+    expect(response.body.data.users[0].email).toBe('testlookup@example.com');
+  });
+
+  it('POST /admin/rewards creates a new reward', async () => {
     await clearDatabase();
     const admin = await createAdmin();
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
-    const nextConfig = {
-      points: {
-        bloodDonation: 250,
-        emergencyResponse: 120,
-        profileCompletion: 60,
-        referral: 175,
-        firstDonation: 150,
-      },
-      tiers: {
-        bronze: 0,
-        silver: 1000,
-        gold: 2500,
-        platinum: 5000,
-      },
-      tierBonuses: {
-        silver: 75,
-        gold: 175,
-        platinum: 550,
-      },
-    };
-
-    const updateResponse = await request(app)
-      .put('/admin/rewards/config')
+    const response = await request(app)
+      .post('/admin/rewards')
       .set('Authorization', `Bearer ${token}`)
-      .send(nextConfig);
+      .send({ rewardName: 'New Reward', category: 'FOOD', pointsRequired: 500, status: 'ACTIVE' });
 
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.success).toBe(true);
-    expect(updateResponse.body.data.points.bloodDonation).toBe(250);
+    expect(response.status).toBe(201);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.rewardName).toBe('New Reward');
+    expect(response.body.data.pointsRequired).toBe(500);
+  });
 
-    const persisted = await getRewardsConfig();
-    expect(persisted.points.bloodDonation).toBe(250);
+  it('POST /admin/rewards updates reward status via { id, status }', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+    const reward = await RewardCatalog.create({ name: 'Test', description: 'Test', pointsCost: 100, category: 'FOOD', status: 'ACTIVE' });
+
+    const response = await request(app)
+      .post('/admin/rewards')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ id: reward._id.toString(), status: 'INACTIVE' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.status).toBe('INACTIVE');
+  });
+
+  it('POST /admin/rewards adjusts points via { userId, amount, reason }', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const donor = await createDonor();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .post('/admin/rewards')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ userId: donor._id.toString(), amount: 100, reason: 'Test adjustment' });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.newBalance).toBe(100);
+  });
+
+  it('POST /admin/rewards bulk updates reward points via { updates: [...] }', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+    const r1 = await RewardCatalog.create({ name: 'R1', description: 'D1', pointsCost: 100, category: 'FOOD', status: 'ACTIVE' });
+    const r2 = await RewardCatalog.create({ name: 'R2', description: 'D2', pointsCost: 200, category: 'HEALTH', status: 'ACTIVE' });
+
+    const response = await request(app)
+      .post('/admin/rewards')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        updates: [
+          { id: r1._id.toString(), pointsRequired: 150 },
+          { id: r2._id.toString(), pointsRequired: 250 },
+        ],
+      });
+
+    expect(response.status).toBe(200);
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.updated).toHaveLength(2);
+  });
+
+  it('POST /admin/rewards with invalid body returns 400', async () => {
+    await clearDatabase();
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .post('/admin/rewards')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+
+    expect(response.status).toBe(400);
   });
 
   it('GET /admin/alerts returns alerts summary', async () => {
@@ -267,6 +342,10 @@ describe('Admin Routes Integration', () => {
     expect(response.body.data.user._id.toString()).toBe(donor._id.toString());
     expect(response.body.data.user).toHaveProperty('bloodType');
     expect(response.body.data.user.bloodType).toBe(donor.bloodType);
+    expect(response.body.data.user).toHaveProperty('phone');
+    expect(response.body.data.user.phone).toBe(donor.phoneNumber);
+    expect(response.body.data.user).toHaveProperty('phoneNumber');
+    expect(response.body.data.user.phoneNumber).toBe(donor.phoneNumber);
   });
 
   it('GET /admin/hospitals/:id returns hospital details', async () => {
@@ -284,6 +363,8 @@ describe('Admin Routes Integration', () => {
     expect(response.body.success).toBe(true);
     expect(response.body.data).toHaveProperty('user');
     expect(response.body.data.user._id.toString()).toBe(hospital._id.toString());
+    expect(response.body.data.user.contactNumber).toBe(hospital.contactNumber);
+    expect(response.body.data.user.phone).toBeNull();
   });
 
   it('GET /admin/admins/:id returns admin details with adminKey', async () => {
@@ -474,8 +555,6 @@ describe('Admin Routes Integration', () => {
     expect(response.body.data.stats).toHaveProperty('unverifiedUsers');
     expect(response.body.data.stats).toHaveProperty('suspendedUsers');
     expect(response.body.data.stats).toHaveProperty('totalUsersGrowth');
-    expect(response.body.data.stats).toHaveProperty('aiInsights');
-    expect(Array.isArray(response.body.data.stats.aiInsights)).toBe(true);
   });
 
   it('GET /admin/users includes id alias and donor enrichment fields', async () => {
@@ -508,6 +587,27 @@ describe('Admin Routes Integration', () => {
     expect(user).toHaveProperty('bloodType');
     expect(user.bloodType).toBe(donor.bloodType);
     expect(user).toHaveProperty('joinedAt');
+  });
+
+  it('GET /admin/users returns phone for admins and contactNumber for hospitals', async () => {
+    await clearDatabase();
+    const admin = await createAdmin({ phone: '01000000000' });
+    const hospital = await createHospital({ contactNumber: '01011111111' });
+
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .get('/admin/users')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    const adminUser = response.body.data.users.find((u) => u.role === 'admin');
+    const hospitalUser = response.body.data.users.find((u) => u.role === 'hospital');
+    expect(adminUser).toBeDefined();
+    expect(adminUser.phone).toBe('01000000000');
+    expect(hospitalUser).toBeDefined();
+    expect(hospitalUser.contactNumber).toBe('01011111111');
+    expect(hospitalUser.phone).toBeNull();
   });
 
   it('POST /admin/users/hospital with Flutter field names creates hospital', async () => {
@@ -567,28 +667,39 @@ describe('Admin Routes Integration', () => {
     expect(response.body.data.hospital.long).toBeNull();
   });
 
-  it('POST /admin/admins with accessLevel "Full Access" (Flutter English) creates superadmin', async () => {
+  it.each([
+    { field: 'contactNumber', value: '+20123456789', code: 'HOSP-LEGACY-001', name: 'Legacy Contact Hospital', email: 'legacy.contact@lifelink.test' },
+    { field: 'phone', value: '+20123456788', code: 'HOSP-PHONE-001', name: 'Phone Hospital', email: 'phone.hosp@lifelink.test' },
+  ])('POST /admin/users/hospital with $field maps to contactNumber only', async ({ field, value, code, name, email }) => {
     await clearDatabase();
-    const superadmin = await createAdmin({ role: 'superadmin' });
+    const admin = await createAdmin();
 
-    const token = signToken({ userId: superadmin._id.toString(), role: superadmin.role });
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
     const response = await request(app)
-      .post('/admin/admins')
+      .post('/admin/users/hospital')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        fullName: 'Full Access Admin',
-        email: 'full.access@lifelink.test',
-        password: 'AdminPass@123',
-        accessLevel: 'Full Access',
+        name,
+        email,
+        password: 'TestPass@123',
+        [field]: value,
+        hospitalCode: code,
+        type: 'General Hospital',
       });
 
     expect(response.status).toBe(201);
-    expect(response.body.data.admin.role).toBe('superadmin');
-    expect(response.body.data.admin).toHaveProperty('adminKey');
+    expect(response.body.success).toBe(true);
+    expect(response.body.data.hospital.contactNumber).toBe(value);
+    expect(response.body.data.hospital.phone).toBeNull();
   });
 
-  it('POST /admin/admins with accessLevel "fullAccess" (camelCase) creates superadmin', async () => {
+  it.each([
+    { accessLevel: 'Full Access', expectedRole: 'superadmin', description: 'Flutter English' },
+    { accessLevel: 'fullAccess', expectedRole: 'superadmin', description: 'camelCase' },
+    { accessLevel: 'Limited Access', expectedRole: 'admin', description: 'English label' },
+    { accessLevel: 'View Only', expectedRole: 'admin', description: 'falls back to admin' },
+  ])('POST /admin/admins with accessLevel "$accessLevel" ($description) creates $expectedRole', async ({ accessLevel, expectedRole }) => {
     await clearDatabase();
     const superadmin = await createAdmin({ role: 'superadmin' });
 
@@ -598,54 +709,17 @@ describe('Admin Routes Integration', () => {
       .post('/admin/admins')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        fullName: 'CamelCase Admin',
-        email: 'camel.case@lifelink.test',
+        fullName: `${accessLevel} Admin`,
+        email: `${accessLevel.toLowerCase().replace(/\s+/g, '.')}@lifelink.test`,
         password: 'AdminPass@123',
-        accessLevel: 'fullAccess',
+        accessLevel,
       });
 
     expect(response.status).toBe(201);
-    expect(response.body.data.admin.role).toBe('superadmin');
-  });
-
-  it('POST /admin/admins with accessLevel "Limited Access" creates admin', async () => {
-    await clearDatabase();
-    const superadmin = await createAdmin({ role: 'superadmin' });
-
-    const token = signToken({ userId: superadmin._id.toString(), role: superadmin.role });
-
-    const response = await request(app)
-      .post('/admin/admins')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        fullName: 'Limited Access Admin',
-        email: 'limited.access@lifelink.test',
-        password: 'AdminPass@123',
-        accessLevel: 'Limited Access',
-      });
-
-    expect(response.status).toBe(201);
-    expect(response.body.data.admin.role).toBe('admin');
-  });
-
-  it('POST /admin/admins with accessLevel "View Only" creates admin (no view-only role exists)', async () => {
-    await clearDatabase();
-    const superadmin = await createAdmin({ role: 'superadmin' });
-
-    const token = signToken({ userId: superadmin._id.toString(), role: superadmin.role });
-
-    const response = await request(app)
-      .post('/admin/admins')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        fullName: 'View Only Admin',
-        email: 'view.only@lifelink.test',
-        password: 'AdminPass@123',
-        accessLevel: 'View Only',
-      });
-
-    expect(response.status).toBe(201);
-    expect(response.body.data.admin.role).toBe('admin');
+    expect(response.body.data.admin.role).toBe(expectedRole);
+    if (expectedRole === 'superadmin') {
+      expect(response.body.data.admin).toHaveProperty('adminKey');
+    }
   });
 
   it('POST /admin/admins without accessLevel uses role field (backward compat)', async () => {
@@ -667,6 +741,68 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(201);
     expect(response.body.data.admin.role).toBe('admin');
     expect(response.body.data.admin).toHaveProperty('adminKey');
+  });
+
+  it('POST /admin/admins with phone creates admin and stores phone', async () => {
+    await clearDatabase();
+    const superadmin = await createAdmin({ role: 'superadmin' });
+
+    const token = signToken({ userId: superadmin._id.toString(), role: superadmin.role });
+
+    const response = await request(app)
+      .post('/admin/admins')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fullName: 'Phone Test Admin',
+        email: 'phone.test@lifelink.test',
+        password: 'AdminPass@123',
+        phone: '+201234567890',
+        address: '123 Test St',
+      });
+
+    expect(response.status).toBe(201);
+    expect(response.body.data.admin.phone).toBe('+201234567890');
+    expect(response.body.data.admin.address).toBe('123 Test St');
+  });
+
+  it('POST /admin/admins with invalid phone type returns 400', async () => {
+    await clearDatabase();
+    const superadmin = await createAdmin({ role: 'superadmin' });
+
+    const token = signToken({ userId: superadmin._id.toString(), role: superadmin.role });
+
+    const response = await request(app)
+      .post('/admin/admins')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fullName: 'Invalid Phone Admin',
+        email: 'invalid.phone@lifelink.test',
+        password: 'AdminPass@123',
+        phone: 12345,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+  });
+
+  it('POST /admin/admins with invalid address type returns 400', async () => {
+    await clearDatabase();
+    const superadmin = await createAdmin({ role: 'superadmin' });
+
+    const token = signToken({ userId: superadmin._id.toString(), role: superadmin.role });
+
+    const response = await request(app)
+      .post('/admin/admins')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        fullName: 'Invalid Address Admin',
+        email: 'invalid.address@lifelink.test',
+        password: 'AdminPass@123',
+        address: 12345,
+      });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
   });
 
   it('GET /admin/requests returns requests list with combined stats and mapped fields', async () => {

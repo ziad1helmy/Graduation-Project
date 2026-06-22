@@ -49,6 +49,7 @@ export const createHospitalByAdmin = async (data, adminId) => {
   }
 
   const generatedPassword = data.password ? String(data.password) : generateTemporaryPassword();
+  const phone = String(data.phone).trim();
   const hospital = await Hospital.create({
     fullName: String(data.name).trim(),
     hospitalName: String(data.name).trim(),
@@ -58,7 +59,8 @@ export const createHospitalByAdmin = async (data, adminId) => {
     role: 'hospital',
     isEmailVerified: true,
     emailVerifiedAt: new Date(),
-    phone: String(data.phone).trim(),
+    phone,
+    contactNumber: data.contactNumber ? String(data.contactNumber).trim() : phone,
     address: data.address ?? null,
     city: data.city ? String(data.city).trim() : null,
     state: data.state ? String(data.state).trim() : null,

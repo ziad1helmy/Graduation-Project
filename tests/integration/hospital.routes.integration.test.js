@@ -26,6 +26,7 @@ import Notification from '../../src/models/Notification.model.js';
 import Request from '../../src/models/Request.model.js';
 import Donation from '../../src/models/Donation.model.js';
 import Appointment from '../../src/models/Appointment.model.js';
+import Hospital from '../../src/models/Hospital.model.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helper: mint a valid access token for a hospital user
@@ -87,6 +88,8 @@ describe('GET /hospital/profile', () => {
     // Email must be present; password must never be exposed
     expect(res.body.data.email).toBe(hospital.email);
     expect(res.body.data.password).toBeUndefined();
+    expect(res.body.data.contactNumber).toBe(hospital.contactNumber);
+    expect(res.body.data).not.toHaveProperty('phone');
   });
 });
 
@@ -489,30 +492,54 @@ describe('PUT /hospital/profile', () => {
       .send({ fullName: 'Hacker' });
     expect(res.status).toBe(401);
   });
+
+  it('updates contactNumber via profile update', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    const res = await request(app)
+      .put('/hospital/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ contactNumber: '01033334444' });
+
+    expect(res.status).toBe(200);
+
+    const updated = await Hospital.findById(hospital._id);
+    expect(updated.contactNumber).toBe('01033334444');
+  });
+
+  it('updating phone also syncs contactNumber', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    const res = await request(app)
+      .put('/hospital/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ phone: '01044445555' });
+
+    expect(res.status).toBe(200);
+
+    const updated = await Hospital.findById(hospital._id);
+    expect(updated.phone).toBe('01044445555');
+    expect(updated.contactNumber).toBe('01044445555');
+  });
 });
 
 describe('PUT /hospital/profile/location', () => {
-  it('updates hospital address fields used by the change location dialog', async () => {
+  it('updates hospital location coordinates', async () => {
     const hospital = await createHospital();
 
     const res = await request(app)
       .put('/hospital/profile/location')
       .set('Authorization', `Bearer ${tokenFor(hospital)}`)
       .send({
-        address: '12 Nile Street',
-        city: 'Giza',
-        governorate: 'Giza',
-        postalCode: '12611',
+        lat: 30.0444,
+        lng: 31.2357,
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.data.address).toMatchObject({
-      street: '12 Nile Street',
-      city: 'Giza',
-      governorate: 'Giza',
-      postalCode: '12611',
-    });
-    expect(res.body.data.location).toMatchObject({ city: 'Giza', governorate: 'Giza' });
+    expect(res.body.success).toBe(true);
+    expect(res.body.message).toBe('Hospital location updated successfully');
   });
 });
 
@@ -810,7 +837,10 @@ describe('PUT /hospital/requests/:requestId', () => {
     expect(res.body.data.confirmed).toBe(0);
     expect(res.body.data.requiredBy).toBeTruthy();
     expect(res.body.data.request).toBeUndefined();
-    expect(res.body.data.status).toBeUndefined();
+    expect(res.body.data.status).toBe('in-progress');
+    expect(res.body.data).toHaveProperty('patientType');
+    expect(res.body.data).toHaveProperty('contactNumber');
+    expect(res.body.data).toHaveProperty('patientDetails');
   });
 
   it('rejects an invalid status value', async () => {
@@ -1109,6 +1139,11 @@ describe('Hospital Dashboard & Reports', () => {
     expect(res.body.success).toBe(true);
     expect(res.body.data.totalRequests).toBe(2);
     expect(res.body.data.totalResponses).toBe(2);
+    expect(res.body.data.activeRequests).toBe(2);
+    expect(res.body.data.totalCompleted).toBe(0);
+    expect(res.body.data.totalCancelled).toBe(0);
+    expect(res.body.data.emergencyRequests).toBe(2);
+    expect(res.body.data.month).toBe('2026-06');
     expect(res.body.data.uniqueDonorsResponded).toBeUndefined();
   });
 });

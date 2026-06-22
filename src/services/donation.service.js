@@ -430,8 +430,6 @@ export const getDonorStats = async (donorId) => {
 
   return {
     totalResponses,
-    responseCount: totalResponses,
-    totalDonations: completedDonations,
     completedDonations,
     pendingDonations: result?.pending?.[0]?.n ?? 0,
     scheduledDonations: result?.scheduled?.[0]?.n ?? 0,

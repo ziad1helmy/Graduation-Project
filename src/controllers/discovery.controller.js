@@ -12,8 +12,7 @@ const mapHospital = (h, extras = {}) => ({
   hospital_id: h._id,
   name: h.hospitalName || h.fullName,
   fullName: h.fullName,
-  phoneNumber: h.phone || null,
-  contactNumber: h.phone || null,
+  contactNumber: h.contactNumber || h.phone || null,
   email: h.email,
   address: h.address || null,
   location: Number.isFinite(h.lat) && Number.isFinite(h.long)

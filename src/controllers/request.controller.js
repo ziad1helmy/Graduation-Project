@@ -82,6 +82,7 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
     || null;
   const contactNumber = request.contactNumber
     || request.hospitalContact
+    || request.hospitalId?.contactNumber
     || request.hospitalId?.phone
     || null;
 
@@ -136,6 +137,7 @@ export const buildDonorRequestSummary = (request, viewerLocation = null) => {
   const requestLocation = getRequestCoordinates(request);
   const contactNumber = request.contactNumber
     || request.hospitalContact
+    || request.hospitalId?.contactNumber
     || request.hospitalId?.phone
     || null;
 
@@ -176,7 +178,7 @@ const filterNearbyRequests = (requests, viewerLocation, radiusKm = null) => {
 };
 
 const populateRequest = (query) => {
-  return query.populate('hospitalId', 'fullName hospitalName address phone location');
+  return query.populate('hospitalId', 'fullName hospitalName address phone contactNumber location');
 };
 
 const normalizeRequestIfExpired = async (request) => {
@@ -419,7 +421,7 @@ export const verifyQr = asyncHandler(async (req, res) => {
     bloodType: normalizeBloodTypeList(request.bloodType),
     bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
     patientType: request.patientType || null,
-    contactNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.phone || null,
+    contactNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.contactNumber || request.hospitalId?.phone || null,
     unitsNeeded: request.unitsNeeded ?? 1,
     isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
     createdAt: request.createdAt,
@@ -1018,7 +1020,7 @@ export const getAcceptedRequests = asyncHandler(async (req, res) => {
 
   const requestIds = donations.map((d) => d.requestId).filter(Boolean);
   const requests = await Request.find({ _id: { $in: requestIds } })
-    .populate('hospitalId', 'fullName hospitalName address phone location');
+    .populate('hospitalId', 'fullName hospitalName address phone contactNumber location');
 
   const requestMap = new Map(requests.map((r) => [r._id.toString(), r]));
   const donationMap = new Map(donations.map((d) => [d.requestId?.toString(), d]));
@@ -1048,7 +1050,7 @@ const items = requests
         patientType: r.patientType || null,
         isEmergency: Boolean(r.isEmergency || r.urgency === 'critical'),
         hospitalName: r.hospitalName || r.hospitalId?.hospitalName || r.hospitalId?.fullName || null,
-        contactNumber: r.contactNumber || r.hospitalContact || r.hospitalId?.phone || null,
+        contactNumber: r.contactNumber || r.hospitalContact || r.hospitalId?.contactNumber || r.hospitalId?.phone || null,
         hospitalId: r.hospitalId?._id?.toString?.() || r.hospitalId?.toString?.() || null,
         hospitalAddress: r.hospitalId?.address || null,
       };
@@ -1148,7 +1150,7 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
     hospital: {
       id: request.hospitalId?._id?.toString?.() || request.hospitalId?.toString?.() || null,
       hospitalName: request.hospitalName || request.hospitalId?.hospitalName || request.hospitalId?.fullName || null,
-      phoneNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.phone || null,
+      phoneNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.contactNumber || request.hospitalId?.phone || null,
       address: request.hospitalId?.address || null,
       location: request.hospitalLocationGeo || null,
     },

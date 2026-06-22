@@ -40,7 +40,7 @@ const isChecklistComplete = (checklist = {}) => {
 const populateAppointmentForVerification = (query) => {
   return query
     .populate('donorId', 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason')
-    .populate('hospitalId', 'fullName hospitalName phone location')
+    .populate('hospitalId', 'fullName hospitalName phone contactNumber location')
     .populate('requestId', 'type bloodType urgency quantity unitsNeeded isEmergency hospitalContact hospitalName contactNumber requiredBy status');
 };
 
@@ -66,7 +66,7 @@ const buildVerificationPayload = (appointment, eligibility, sessionId = null, tr
             id: hospital._id,
             fullName: hospital.fullName || null,
             hospitalName: hospital.hospitalName || null,
-            contactNumber: hospital.phone || null,
+            contactNumber: hospital.contactNumber || hospital.phone || null,
             location: hospital.location || null,
           }
         : null,
@@ -120,7 +120,7 @@ const buildDonationVerificationPayload = (donation, eligibility, sessionId = nul
             id: hospital._id,
             fullName: hospital.fullName || null,
             hospitalName: hospital.hospitalName || null,
-            contactNumber: hospital.phone || null,
+            contactNumber: hospital.contactNumber || hospital.phone || null,
             location: hospital.location || null,
           }
         : null,
@@ -138,7 +138,7 @@ const buildDonationVerificationPayload = (donation, eligibility, sessionId = nul
             id: hospital._id,
             fullName: hospital.fullName || null,
             hospitalName: hospital.hospitalName || null,
-            contactNumber: hospital.phone || null,
+            contactNumber: hospital.contactNumber || hospital.phone || null,
             location: hospital.location || null,
           }
         : null,

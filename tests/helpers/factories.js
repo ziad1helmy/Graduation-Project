@@ -67,6 +67,7 @@ export async function createHospital(overrides = {}) {
     role: 'hospital',
     type: 'hospital',
     phone,
+    contactNumber: phone,
     hospitalId: `HOSP-TEST-${n}`,
     address: { city: 'Cairo', governorate: 'Cairo' },
     city: 'Cairo',

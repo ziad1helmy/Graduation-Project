@@ -20,14 +20,14 @@ const DASHBOARD_CACHE_TTL = 60;
 const DAYS_MS = 24 * 60 * 60 * 1000;
 
 
-const buildGrowthAggregation = (matchFilter, thirtyDaysAgo, sixtyDaysAgo) => [
+const buildGrowthAggregation = (matchFilter, thirtyDaysAgo, sixtyDaysAgo, dateField = '$createdAt') => [
   { $match: matchFilter },
   {
     $group: {
       _id: null,
       count: { $sum: 1 },
-      current: { $sum: { $cond: [{ $gte: ['$createdAt', thirtyDaysAgo] }, 1, 0] } },
-      prev: { $sum: { $cond: [{ $and: [{ $gte: ['$createdAt', sixtyDaysAgo] }, { $lt: ['$createdAt', thirtyDaysAgo] }] }, 1, 0] } },
+      current: { $sum: { $cond: [{ $gte: [dateField, thirtyDaysAgo] }, 1, 0] } },
+      prev: { $sum: { $cond: [{ $and: [{ $gte: [dateField, sixtyDaysAgo] }, { $lt: [dateField, thirtyDaysAgo] }] }, 1, 0] } },
     },
   },
 ];
@@ -43,7 +43,7 @@ const computeSummaryStats = async () => {
     User.aggregate(buildGrowthAggregation({ role: 'donor', deletedAt: null }, thirtyDaysAgo, sixtyDaysAgo)),
     Request.aggregate(buildGrowthAggregation({ status: { $in: ['pending', 'in-progress'] } }, thirtyDaysAgo, sixtyDaysAgo)),
     Request.aggregate(buildGrowthAggregation({ urgency: 'critical', status: { $in: ['pending', 'in-progress'] } }, thirtyDaysAgo, sixtyDaysAgo)),
-    Donation.aggregate(buildGrowthAggregation({ status: 'completed' }, thirtyDaysAgo, sixtyDaysAgo)),
+    Donation.aggregate(buildGrowthAggregation({ status: 'completed' }, thirtyDaysAgo, sixtyDaysAgo, '$completedDate')),
   ]);
 
   const donorStats = donorData[0] || emptyResult;
@@ -189,8 +189,8 @@ const precomputeTrendData = async () => {
       { $group: { _id: { $dayOfWeek: '$createdAt' }, count: { $sum: 1 } } },
     ]),
     Donation.aggregate([
-      { $match: { status: 'completed', createdAt: { $gte: sixtyDaysAgo } } },
-      { $group: { _id: '$donorId', lastDonation: { $max: '$createdAt' } } },
+      { $match: { status: 'completed', completedDate: { $gte: sixtyDaysAgo } } },
+      { $group: { _id: '$donorId', lastDonation: { $max: '$completedDate' } } },
       { $group: {
         _id: null,
         last30d: { $sum: { $cond: [{ $gte: ['$lastDonation', thirtyDaysAgo] }, 1, 0] } },
@@ -747,43 +747,6 @@ const generateAIPredictions = async () => {
   if (weekend) predictions.push(weekend);
 
   return predictions.slice(0, 5);
-};
-
-/**
- * Legacy dashboard summary returning the old nested format for /admin/dashboard.
- * Shape: { users: { total, donors, hospitals }, requests: { active, critical },
- *          donations: { pending, completed }, alerts: {} }
- */
-const LEGACY_DASHBOARD_CACHE_KEY = 'analytics:dashboard:legacy';
-const LEGACY_DASHBOARD_CACHE_TTL = 60;
-
-export const getLegacyDashboardSummary = async () => {
-  const cached = await cache.get(LEGACY_DASHBOARD_CACHE_KEY);
-  if (cached) return cached;
-
-  const [
-    totalUsers, donorCount, hospitalCount,
-    activeRequests, criticalRequests,
-    completedDonations, pendingDonations,
-  ] = await Promise.all([
-    User.countDocuments({ deletedAt: null }),
-    User.countDocuments({ role: 'donor', deletedAt: null }),
-    User.countDocuments({ role: 'hospital', deletedAt: null }),
-    Request.countDocuments({ status: { $in: ['pending', 'in-progress'] } }),
-    Request.countDocuments({ urgency: 'critical', status: { $in: ['pending', 'in-progress'] } }),
-    Donation.countDocuments({ status: 'completed' }),
-    Donation.countDocuments({ status: 'pending' }),
-  ]);
-
-  const result = {
-    users: { total: totalUsers, donors: donorCount, hospitals: hospitalCount },
-    requests: { active: activeRequests, critical: criticalRequests },
-    donations: { pending: pendingDonations, completed: completedDonations },
-    alerts: {},
-  };
-
-  await cache.set(LEGACY_DASHBOARD_CACHE_KEY, result, LEGACY_DASHBOARD_CACHE_TTL);
-  return result;
 };
 
 export const getAnalyticsOverview = async () => {

@@ -74,9 +74,9 @@ export const getProfile = asyncHandler(async (req, res) => {
     : 100;
 
   const stats = {
-    totalDonations: donationStats?.totalDonations || 0,
+    totalDonations: donationStats?.completedDonations || 0,
     points: pointsSummary?.pointsBalance || 0,
-    livesSaved: (donationStats?.totalDonations || 0) * 3,
+    livesSaved: (donationStats?.completedDonations || 0) * 3,
   };
 
   const badgeProgress = { currentBadge, nextBadge, progressPercentage };
@@ -493,9 +493,9 @@ export const getDashboard = asyncHandler(async (req, res) => {
       donationStatus,
     },
     stats: {
-      totalDonations: donationStats?.totalDonations || 0,
+      totalDonations: donationStats?.completedDonations || 0,
       points: pointsSummary?.pointsBalance ?? 0,
-      livesSaved: (donationStats?.totalDonations || 0) * 3,
+      livesSaved: (donationStats?.completedDonations || 0) * 3,
     },
     recentActivity: (latestActivity || []).map((activity) => formatActivityForTimeline(activity)),
     badges: badges || [],
@@ -590,7 +590,7 @@ export const getUrgentRequests = async (req, res, next) => {
         distance,
         isEmergency: r.urgency === 'critical',
         patientType: r.type || 'blood',
-        contactNumber: hospital?.phone || null,
+        contactNumber: hospital?.contactNumber || hospital?.phone || null,
         createdAt: r.createdAt,
         location: (hLat && hLng) ? { lat: hLat, lng: hLng } : null,
       };
@@ -609,7 +609,7 @@ export const getUrgentRequestDetails = async (req, res, next) => {
       _id: req.params.requestId,
       urgency: { $in: ['high', 'critical'] },
       status: { $in: ['pending', 'in-progress'] },
-    }).populate('hospitalId', 'fullName hospitalName address phone lat long');
+    }).populate('hospitalId', 'fullName hospitalName address phone contactNumber lat long');
 
     if (!request) {
       return response.error(res, 404, 'Urgent request not found');
@@ -625,7 +625,7 @@ export const getUrgentRequestDetails = async (req, res, next) => {
         bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
         unitsNeeded: request.unitsNeeded || 1,
         hospitalName: hospital?.hospitalName || hospital?.fullName || null,
-        contactNumber: hospital?.phone || null,
+        contactNumber: hospital?.contactNumber || hospital?.phone || null,
         isEmergency: request.urgency === 'critical',
         patientType: request.type || 'blood',
         createdAt: request.createdAt,
@@ -805,9 +805,9 @@ export const getDonorStats = asyncHandler(async (req, res) => {
     rewardService.getPointsSummary(donorId),
   ]);
   response.success(res, 200, 'Donor stats retrieved', {
-    totalDonations: donationStats?.totalDonations || 0,
+    totalDonations: donationStats?.completedDonations || 0,
     points: pointsSummary?.pointsBalance || 0,
-    livesSaved: (donationStats?.totalDonations || 0) * 3,
+    livesSaved: (donationStats?.completedDonations || 0) * 3,
   });
 });
 

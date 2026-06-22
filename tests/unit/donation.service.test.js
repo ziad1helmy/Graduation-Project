@@ -102,8 +102,6 @@ describe('Donation Service', () => {
 
     const stats = await donationService.getDonorStats(donor._id);
     expect(stats.totalResponses).toBeGreaterThanOrEqual(3);
-    expect(stats.responseCount).toBeGreaterThanOrEqual(3);
-    expect(stats.totalDonations).toBe(1);
     expect(stats.completedDonations).toBe(1);
     expect(stats.totalUnitsDonated).toBeGreaterThanOrEqual(2);
   });
