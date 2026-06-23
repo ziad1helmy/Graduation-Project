@@ -21,8 +21,6 @@ router.post('/verify-qr', authMiddleware, requireRole('hospital', 'admin', 'supe
 router.get('/:appointmentId', authMiddleware, requireRole('donor'), apptCtrl.getAppointmentById);
 router.patch('/:appointmentId', authMiddleware, requireRole('donor'), apptCtrl.rescheduleAppointment);
 
-router.post('/:appointmentId/arrival', authMiddleware, requireRole('hospital', 'admin', 'superadmin'), donationController.confirmArrival);
-
 router.post('/:appointmentId/reject', authMiddleware, requireRole('hospital', 'admin', 'superadmin'), donationController.rejectVerification);
 
 router.post('/:appointmentId/rescan', authMiddleware, requireRole('hospital', 'admin', 'superadmin'), donationController.resetVerification);

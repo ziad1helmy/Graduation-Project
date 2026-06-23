@@ -6152,14 +6152,16 @@ paths:
     post:
       tags:
         - Hospital
-      summary: Verify donor QR code at hospital check-in
+      summary: Verify donor QR code and confirm arrival at hospital check-in
       description: |-
         Hospital staff scans the donor's QR code to start the hospital verification flow.
         - Validates the QR token, checks expiry and one-time usage
         - Confirms donor eligibility and appointment activity
         - Returns the donor profile and appointment details for the verification screen
 
-        Subsequent steps use the checklist, reject, and rescan endpoints before the final donation confirmation.
+        Optionally accepts a `checklist` to confirm arrival in a single step.
+        If the checklist is provided and complete, the appointment is marked as `verified` immediately,
+        skipping the intermediate `pending` state. Use reject and rescan for error recovery.
 
         **Role required:** hospital | admin | superadmin
 
@@ -6180,19 +6182,43 @@ paths:
                   type: string
                   description: The secure QR token scanned from the donor's device
                   example: a3f9c1e82b4d...
-            example:
-              qrToken: demo-qr-noor-verify
+                checklist:
+                  type: object
+                  description: Optional. Completing the checklist confirms arrival in one step
+                  properties:
+                    idVerified:
+                      type: boolean
+                    questionnaireCompleted:
+                      type: boolean
+                    consentSigned:
+                      type: boolean
+            examples:
+              scanOnly:
+                summary: Scan QR only (arrival separate)
+                value:
+                  qrToken: demo-qr-noor-verify
+              scanAndArrival:
+                summary: Scan QR and confirm arrival in one step
+                value:
+                  qrToken: demo-qr-noor-verify
+                  checklist:
+                    idVerified: true
+                    questionnaireCompleted: true
+                    consentSigned: true
       responses:
         "200":
-          description: Donation verification started successfully
+          description: Verification started or arrival confirmed
           content:
             application/json:
-              example:
-                success: true
-                message: Donation verification started successfully
-                data:
-                  verificationStatus: pending
-                  verificationSessionId: 2a9d4f6f5f4e4f2e8e2f5a2d1e0c9b8a
+              examples:
+                pending:
+                  summary: QR scanned, awaiting checklist
+                  value:
+                    success: true
+                    message: Donation verification started successfully
+                    data:
+                      verificationStatus: pending
+                      verificationSessionId: 2a9d4f6f5f4e4f2e8e2f5a2d1e0c9b8a
                   appointment:
                     id: 69fe540565ff7785a031315c
                     appointmentDate: 2026-05-07T12:00:00.000Z
@@ -6231,67 +6257,7 @@ paths:
           description: Invalid QR code (token not found)
         "409":
           description: QR code already used
-  /appointments/{appointmentId}/arrival:
-    post:
-      tags:
-        - Hospital
-      summary: Confirm donor arrival after checklist completion
-      description: |-
-        Requires a verified QR scan and all checklist items to be completed before the hospital can continue to donation details.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: appointmentId
-          required: true
-          schema:
-            type: string
-          example: 69fe540565ff7785a031315c
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - checklist
-              properties:
-                checklist:
-                  type: object
-                  required:
-                    - idVerified
-                    - questionnaireCompleted
-                    - consentSigned
-                  properties:
-                    idVerified:
-                      type: boolean
-                    questionnaireCompleted:
-                      type: boolean
-                    consentSigned:
-                      type: boolean
-            example:
-              checklist:
-                idVerified: true
-                questionnaireCompleted: true
-                consentSigned: true
-      responses:
-        "200":
-          description: Arrival confirmed successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Arrival confirmed successfully
-                data:
-                  readyForDonation: true
-        "400":
-          description: Checklist incomplete or appointment not verified
-        "401":
-          description: Missing or invalid JWT token
-        "403":
-          description: Role not allowed
-        "404":
-          description: Appointment not found
+
   /appointments/{appointmentId}/reject:
     post:
       tags:

@@ -123,12 +123,12 @@
     '/hospital/donations': 'Blood Requests & Donations',
     '/donations/complete': 'Blood Requests & Donations',
 
-    '/appointments/verify-qr': 'QR Code & Arrival Verification',
-    '/appointments/{appointmentId}/arrival': 'QR Code & Arrival Verification',
-    '/appointments/{appointmentId}/reject': 'QR Code & Arrival Verification',
-    '/appointments/{appointmentId}/rescan': 'QR Code & Arrival Verification',
-    '/requests/{id}/generate-qr': 'QR Code & Arrival Verification',
-    '/requests/verify-qr': 'QR Code & Arrival Verification',
+    '/appointments/verify-qr': 'QR Code & Checklist Verification',
+
+    '/appointments/{appointmentId}/reject': 'QR Code & Checklist Verification',
+    '/appointments/{appointmentId}/rescan': 'QR Code & Checklist Verification',
+    '/requests/{id}/generate-qr': 'QR Code & Checklist Verification',
+    '/requests/verify-qr': 'QR Code & Checklist Verification',
 
     // Admin
     '/admin/system/health': 'System & Health',

@@ -94,29 +94,17 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
     expect(appointmentId).toBeDefined();
     expect(qrToken).toBeDefined();
 
-    // 3. Hospital scans the donor QR and starts verification
+    // 3. Hospital scans QR and confirms arrival with checklist in one step
     res = await request(app)
       .post('/appointments/verify-qr')
       .set('Authorization', `Bearer ${hospitalToken}`)
-      .send({ qrToken });
-      
-    expect(res.status).toBe(200);
-    expect(res.body.data.verificationStatus).toBe('pending');
-
-    // 4. Hospital completes the checklist and continues to donation details
-    res = await request(app)
-      .post(`/appointments/${appointmentId}/arrival`)
-      .set('Authorization', `Bearer ${hospitalToken}`)
       .send({
-        checklist: {
-          idVerified: true,
-          questionnaireCompleted: true,
-          consentSigned: true,
-        },
+        qrToken,
+        checklist: { idVerified: true, questionnaireCompleted: true, consentSigned: true },
       });
 
     expect(res.status).toBe(200);
-    expect(res.body.data.readyForDonation).toBe(true);
+    expect(res.body.data.verificationStatus).toBe('verified');
 
     // 4.5. Hospital updates request status to in-progress
     res = await request(app)
