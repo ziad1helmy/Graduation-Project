@@ -247,11 +247,79 @@ describe('Request Details Integration', () => {
       .send({});
 
     expect(cancelResponse.status).toBe(200);
-    expect(cancelResponse.body.data.status).toBe('cancelled');
+    expect(cancelResponse.body.data.status).toBe('pending');
     expect(cancelResponse.body.data.requestId).toBe(urgentRequest._id.toString());
 
     const stored = await Request.findById(urgentRequest._id);
-    expect(stored.status).toBe('cancelled');
+    expect(stored.status).toBe('pending');
+    expect(stored.acceptedBy).toBeNull();
+    expect(stored.acceptedDonationId).toBeNull();
+  });
+
+  it('POST /requests/:id/cancel blocks donor when request is in-progress', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const requestDoc = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      contactNumber: hospital.phone,
+      isEmergency: true,
+      urgency: 'critical',
+      unitsNeeded: 1,
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const acceptRes = await request(app)
+      .post(`/requests/${requestDoc._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+    expect(acceptRes.status).toBe(200);
+
+    await Request.findByIdAndUpdate(requestDoc._id, { status: 'in-progress' });
+
+    const cancelRes = await request(app)
+      .post(`/requests/${requestDoc._id}/cancel`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    expect(cancelRes.status).toBe(400);
+    expect(cancelRes.body.message).toMatch(/cannot be cancelled/i);
+  });
+
+  it('POST /requests/:id/cancel blocks donor when QR was already scanned', async () => {
+    await clearDatabase();
+    const donor = await createDonor();
+    const hospital = await createHospital();
+    const requestDoc = await createRequest(hospital._id, {
+      bloodType: donor.bloodType,
+      contactNumber: hospital.phone,
+      isEmergency: true,
+      urgency: 'critical',
+      unitsNeeded: 1,
+    });
+
+    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
+
+    const acceptRes = await request(app)
+      .post(`/requests/${requestDoc._id}/accept`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+    expect(acceptRes.status).toBe(200);
+    expect(acceptRes.body.data.status).toBe('accepted');
+    const donationId = acceptRes.body.data.donationId;
+    expect(donationId).toBeDefined();
+
+    // Mark the donation's QR as used (simulating hospital scan)
+    await Donation.findByIdAndUpdate(donationId, { qrUsed: true, qrUsedAt: new Date() });
+
+    const cancelRes = await request(app)
+      .post(`/requests/${requestDoc._id}/cancel`)
+      .set('Authorization', `Bearer ${donorToken}`)
+      .send({});
+
+    expect(cancelRes.status).toBe(400);
+    expect(cancelRes.body.message).toMatch(/cannot cancel.*QR/i);
   });
 
   it('POST /requests/:id/accept rolls back when orphan validation fails', async () => {

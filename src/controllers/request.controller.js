@@ -88,6 +88,7 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
     || null;
 
   const payload = {
+    _id: request._id.toString(),
     id: request._id.toString(),
     requestId: request._id.toString(),
     bloodType: normalizeBloodTypeList(request.bloodType),
@@ -97,6 +98,7 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
     patientDetails: request.patientDetails || null,
     contactNumber,
     unitsNeeded: request.unitsNeeded ?? 1,
+    quantity: request.unitsNeeded ?? 1,
     isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
     createdAt: request.createdAt,
     status: request.status,
@@ -105,6 +107,11 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
     type: request.type,
     requiredBy: request.requiredBy,
     location: toLocation(requestLocation),
+    locationHospital: requestLocation ? {
+      latitude: requestLocation.latitude,
+      longitude: requestLocation.longitude,
+    } : null,
+    hospitalContact: request.hospitalContact || contactNumber || null,
     qrToken: donorActiveQr ? donorActiveQr.qrToken : (request.qrToken || null),
     qrCreatedAt: donorActiveQr ? donorActiveQr.qrCreatedAt : (request.qrCreatedAt || null),
     qrExpiresAt: donorActiveQr ? donorActiveQr.qrExpiresAt : (request.qrExpiresAt || null),
@@ -147,18 +154,33 @@ export const buildDonorRequestSummary = (request, viewerLocation = null) => {
     _id: request._id.toString(),
     id: request._id.toString(),
     requestId: request._id.toString(),
-    posted: request.createdAt || null,
-    patientType: request.patientType || null,
-    patientDetails: request.patientDetails || null,
-    contactNumber,
-    unitsNeeded: request.unitsNeeded ?? 1,
-    hospitalName,
-    hospitalLatitude: requestLocation?.latitude ?? null,
-    hospitalLongitude: requestLocation?.longitude ?? null,
     type: request.type,
     bloodType: normalizeBloodTypeList(request.bloodType),
     urgency: request.urgency,
-    estimatedTime: distance.estimatedTime,
+    status: request.status,
+    isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
+    quantity: request.unitsNeeded ?? 1,
+    unitsNeeded: request.unitsNeeded ?? 1,
+    requiredBy: request.requiredBy,
+    hospitalName,
+    hospitalContact: request.hospitalContact || contactNumber || null,
+    contactNumber,
+    createdAt: request.createdAt,
+    patientType: request.patientType || null,
+    patientDetails: request.patientDetails || null,
+    locationHospital: requestLocation ? {
+      latitude: requestLocation.latitude,
+      longitude: requestLocation.longitude,
+    } : null,
+    hospital: {
+      id: request.hospitalId?._id?.toString?.() || request.hospitalId?.toString?.() || null,
+      name: hospitalName,
+      contactNumber,
+      address: request.hospitalId?.address || null,
+      latitude: requestLocation?.latitude ?? null,
+      longitude: requestLocation?.longitude ?? null,
+    },
+    ...distance,
   };
 };
 
@@ -776,17 +798,12 @@ export const cancelRequest = asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Request not found');
   }
 
-  await normalizeRequestIfExpired(request);
-
-  // Guard: terminal requests cannot be cancelled in normal user-facing flows.
-  try {
-    validateTransition('request', request.status, 'cancelled');
-  } catch (err) {
-    throw new HttpError(400, err.message);
-  }
-
   if (req.user.role === 'donor') {
-    if (request.acceptedBy?.toString?.() !== req.user.userId) {
+    if (request.status !== 'expired' && request.status !== 'pending' && request.status !== 'accepted') {
+      throw new HttpError(400, 'Request cannot be cancelled at this stage');
+    }
+
+    if (request.status === 'accepted' && request.acceptedBy?.toString?.() !== req.user.userId) {
       throw new HttpError(403, 'You can only cancel your own accepted request');
     }
 
@@ -796,26 +813,60 @@ export const cancelRequest = asyncHandler(async (req, res) => {
       status: { $nin: ['cancelled', 'rejected', 'expired', 'abandoned', 'completed'] },
     });
 
-    // Invalidate QR on the donation (if found)
-    if (donation) {
-      await Donation.findByIdAndUpdate(donation._id, {
-        $set: { qrUsed: true, qrUsedAt: new Date() },
+    if (!donation) {
+      throw new HttpError(404, 'No active donation found for this request');
+    }
+
+    if (donation.qrUsed) {
+      throw new HttpError(400, 'Cannot cancel after the hospital has scanned your QR code');
+    }
+
+    // Invalidate QR on the donation
+    await Donation.findByIdAndUpdate(donation._id, {
+      $set: { qrUsed: true, qrUsedAt: new Date() },
+    });
+
+    // If request is expired, cancel the donation only — don't try to reopen the request
+    if (request.status === 'expired') {
+      donation.status = 'cancelled';
+      await donation.save();
+      return response.success(res, 200, 'Donation cancelled', {
+        donationId: donation._id.toString(),
+        status: 'cancelled',
       });
     }
 
     // Use donation id if found, otherwise fall back to the request's linked donation
     const cancellation = await rejectDonationLifecycle({
-      donationId: donation?._id || request.acceptedDonationId || null,
+      donationId: donation._id,
       requestId: request._id,
       donorId: req.user.userId,
       donationStatus: 'cancelled',
-      requestStatus: 'cancelled',
+      requestStatus: 'pending',
       reason: 'Donation cancelled by donor',
     });
 
-    return response.success(res, 200, 'Request cancelled successfully', {
+    // Re-broadcast to compatible donors now that the request is reopened
+    matchingService.findCompatibleDonors(request._id).then((compatibleDonors) => {
+      if (compatibleDonors.length > 0) {
+        const donorIds = compatibleDonors.map((d) => d.donor._id);
+        Notification.create(
+          donorIds.map((userId) => ({
+            userId,
+            type: request.isEmergency || request.urgency === 'critical' ? 'emergency' : 'request',
+            title: 'Request reopened',
+            message: `A donation slot has opened up for ${request.patientType || 'a patient'} at ${request.hospitalName || 'the hospital'}.`,
+            relatedId: request._id,
+            relatedType: 'Request',
+            data: { requestId: request._id },
+          })),
+        ).catch(() => {});
+      }
+    }).catch(() => {});
+
+    return response.success(res, 200, 'Donation cancelled — request reopened for other donors', {
       requestId: cancellation.request._id.toString(),
-      status: 'cancelled',
+      status: cancellation.request.status,
     });
   }
 
@@ -825,6 +876,11 @@ export const cancelRequest = asyncHandler(async (req, res) => {
 
   if (req.user.role === 'hospital' && request.hospitalId?._id?.toString?.() !== req.user.userId) {
     throw new HttpError(403, 'Unauthorized access to this request');
+  }
+
+  // Guard: terminal requests cannot be cancelled by hospital/admin
+  if (request.status === 'completed' || request.status === 'cancelled' || request.status === 'expired') {
+    throw new HttpError(400, 'Cannot cancel a request that is already completed, cancelled, or expired');
   }
 
   const cancelledAt = new Date();

@@ -189,7 +189,7 @@ export const getRequests = asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Donor not found');
   }
   if (guard.kind === 'opted-out') {
-    return optedOutResponse(res, 'requests', page, limit, 'Requests retrieved successfully');
+    return optedOutResponse(res, 'matches', page, limit, 'Matching requests retrieved successfully');
   }
   if (guard.kind === 'no-location') {
     throw new HttpError(422, 'Please set your location to see blood requests.', { code: 'LOCATION_REQUIRED' });
@@ -202,54 +202,14 @@ export const getRequests = asyncHandler(async (req, res) => {
     }),
     getActiveAppointmentNotice(donor._id),
   ]);
-  const paginatedRequests = matchedRequests.slice(offset, offset + limit).map(({ request, score, locationScore, compatibility }) => ({
-    ...buildDonorRequestSummary(request),
-    score,
-    locationScore,
-    compatibility,
-  }));
-
-  response.success(res, 200, 'Requests retrieved successfully', {
-    requests: paginatedRequests,
-    pagination: paginationMeta(matchedRequests.length, page, limit),
-    ...activeAppointmentNotice,
-  });
-});
-
-// Get matching requests for this donor — supports ?page=1&limit=10
-// NOTE: This endpoint duplicates functionality with GET /donor/requests
-// Kept for backward compatibility - consider using /requests instead
-// TODO: Consolidate these two endpoints in future refactor
-export const getMatches = asyncHandler(async (req, res) => {
-  const { offset, limit, page } = parsePagination(req.query);
-  const donor = await Donor.findById(req.user.userId);
-  const guard = await checkDonorMatchGuard(donor);
-
-  if (guard.kind === 'not-found') {
-    throw new HttpError(404, 'Donor not found');
-  }
-  if (guard.kind === 'opted-out') {
-    return optedOutResponse(res, 'matches', page, limit, 'Matching requests retrieved successfully');
-  }
-  if (guard.kind === 'no-location') {
-    throw new HttpError(422, 'Please set your location to see blood requests.', { code: 'LOCATION_REQUIRED' });
-  }
-
-  const [matches, activeAppointmentNotice] = await Promise.all([
-    matchingService.findCompatibleRequests(donor._id, {
-      excludeActiveDonationInProgress: false,
-      excludeActiveAppointments: false,
-    }),
-    getActiveAppointmentNotice(donor._id),
-  ]);
-  const paginatedMatches = matches.slice(offset, offset + limit).map((match) => ({
+  const paginatedMatches = matchedRequests.slice(offset, offset + limit).map((match) => ({
     ...match,
     request: buildDonorRequestSummary(match.request),
   }));
 
   response.success(res, 200, 'Matching requests retrieved successfully', {
     matches: paginatedMatches,
-    pagination: paginationMeta(matches.length, page, limit),
+    pagination: paginationMeta(matchedRequests.length, page, limit),
     ...activeAppointmentNotice,
   });
 });

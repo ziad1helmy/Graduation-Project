@@ -1,4 +1,4 @@
-﻿openapi: 3.0.0
+openapi: 3.0.0
 info:
   title: LifeLink API
   version: 1.0.0
@@ -1338,7 +1338,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ActivitiesResponse"
+                type: object
               example:
                 success: true
                 message: Activity timeline retrieved successfully
@@ -1717,8 +1717,7 @@ paths:
       summary: Check donor eligibility for a specific request
       security:
         - bearerAuth: []
-      parameters:
-        description: This endpoint returns the donor's current eligibility based on their profile. It does not accept query parameters.
+      parameters: []
       responses:
         "200":
           description: Eligibility check completed
@@ -2483,7 +2482,7 @@ paths:
         Returns real request records from the backend request store, enriched by `src/controllers/request.controller.js` with distance, hospital contact data, and map coordinates.
         This endpoint is available to `donor`, `hospital`, `admin`, and `superadmin` roles. It is request-centric, not donor-centric: it returns nearby requests/hospitals, not matched donor cards.
         Current controller behavior filters requests by active status (`pending` and `in-progress`) and optionally by `bloodType`, `type`, `urgency`, and `isEmergency`.
-        When called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.
+        When called by a donor, the same centralized matching rules used by `/donor/requests` are applied first, so donors with active donations receive an empty list.
 
         **Migration Note**: This endpoint replaces the deprecated endpoints:
         - `GET /donor/urgent-requests` → Use `GET /requests/nearby?urgency=critical`

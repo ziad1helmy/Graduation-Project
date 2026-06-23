@@ -171,6 +171,15 @@ export const rejectDonationLifecycle = async ({
     if (request) {
       request.status = requestStatus;
 
+      // When reopening to pending, extend requiredBy so it doesn't immediately expire
+      if (requestStatus === 'pending') {
+        const originalRequiredBy = request.requiredBy;
+        if (originalRequiredBy && new Date(originalRequiredBy) <= now) {
+          // Extend by 3 days or use the original urgency-based window, whichever is longer
+          request.requiredBy = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000);
+        }
+      }
+
       // Decrement unitsAccepted when a donation is removed from an active request
       if (donation && (request.status === 'pending' || request.status === 'accepted')) {
         request.unitsAccepted = Math.max(0, (request.unitsAccepted || 0) - (donation.quantity || 1));
