@@ -93,6 +93,7 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
     bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
     hospitalName,
     patientType: request.patientType || null,
+    patientDetails: request.patientDetails || null,
     contactNumber,
     unitsNeeded: request.unitsNeeded ?? 1,
     isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
@@ -147,6 +148,7 @@ export const buildDonorRequestSummary = (request, viewerLocation = null) => {
     requestId: request._id.toString(),
     posted: request.createdAt || null,
     patientType: request.patientType || null,
+    patientDetails: request.patientDetails || null,
     contactNumber,
     unitsNeeded: request.unitsNeeded ?? 1,
     hospitalName,
@@ -421,6 +423,7 @@ export const verifyQr = asyncHandler(async (req, res) => {
     bloodType: normalizeBloodTypeList(request.bloodType),
     bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
     patientType: request.patientType || null,
+    patientDetails: request.patientDetails || null,
     contactNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.contactNumber || request.hospitalId?.phone || null,
     unitsNeeded: request.unitsNeeded ?? 1,
     isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
@@ -1048,6 +1051,7 @@ const items = requests
         urgency: r.urgency,
         unitsNeeded: r.unitsNeeded ?? 1,
         patientType: r.patientType || null,
+        patientDetails: r.patientDetails || null,
         isEmergency: Boolean(r.isEmergency || r.urgency === 'critical'),
         hospitalName: r.hospitalName || r.hospitalId?.hospitalName || r.hospitalId?.fullName || null,
         contactNumber: r.contactNumber || r.hospitalContact || r.hospitalId?.contactNumber || r.hospitalId?.phone || null,
@@ -1142,6 +1146,7 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
       unitsNeeded: request.unitsNeeded ?? 1,
       urgency: request.urgency,
       patientType: request.patientType || null,
+      patientDetails: request.patientDetails || null,
       notes: request.notes || null,
       isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
       requiredBy: request.requiredBy,
@@ -1154,72 +1159,6 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
       address: request.hospitalId?.address || null,
       location: request.hospitalLocationGeo || null,
     },
-  });
-});
-
-export const expireArrival = asyncHandler(async (req, res) => {
-  const { id } = req.params;
-  if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
-  }
-
-  const request = await Request.findById(id);
-  if (!request) {
-    throw new HttpError(404, 'Request not found');
-  }
-
-  if (!['admin', 'superadmin'].includes(req.user.role)) {
-    throw new HttpError(403, 'Unauthorized - admin access required');
-  }
-
-  if (request.status !== 'accepted') {
-    throw new HttpError(400, 'Request is not in accepted status');
-  }
-
-  const donation = await Donation.findOne({
-    requestId: request._id,
-    _id: request.acceptedDonationId,
-    status: 'pending',
-  });
-
-  if (!donation) {
-    throw new HttpError(400, 'No active pending donation found for this request');
-  }
-
-  const now = new Date();
-  const arrivalDeadline = donation.arrivalDeadline;
-
-  if (!arrivalDeadline || now <= new Date(arrivalDeadline)) {
-    throw new HttpError(400, 'Arrival deadline has not passed yet');
-  }
-
-  // Expire the donation, invalidate QR, reopen the request
-  // rejectDonationLifecycle handles: donation status, qrUsed, qrUsedAt, request status, arrivalDeadline=null
-  const result = await rejectDonationLifecycle({
-    donationId: donation._id,
-    requestId: request._id,
-    donorId: request.acceptedBy,
-    donationStatus: 'expired',
-    requestStatus: 'pending',
-    reason: 'Donor did not arrive before the arrival deadline',
-  });
-
-  // Re-broadcast to compatible donors
-  try {
-    const matchingSvc = await import('../services/matching.service.js');
-    const notificationSvc = await import('../services/notification.service.js');
-    const compatibleDonors = await matchingSvc.findCompatibleDonors(request._id);
-    if (compatibleDonors.length > 0) {
-      const donorIds = compatibleDonors.map((d) => d.donor._id);
-      await notificationSvc.notifyRequest(donorIds, request);
-    }
-  } catch (broadcastErr) {
-    // Non-critical — don't fail the expiry
-  }
-
-  return response.success(res, 200, 'Donation expired and request reopened for other donors', {
-    requestId: result.request._id.toString(),
-    status: result.request.status,
   });
 });
 

@@ -1,4 +1,10 @@
 export const PATIENT_TYPE_ENUM = [
+  'adult',
+  'child',
+  'infant',
+];
+
+export const PATIENT_DETAILS_ENUM = [
   'surgery',
   'cardiac_surgery',
   'accident',

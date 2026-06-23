@@ -12,7 +12,7 @@
  *  - Settings: GET/PUT /hospital/blood-bank-settings
  *  - Blood inventory: GET /hospital/blood-inventory
  *  - Notification prefs: GET/PUT /hospital/notification-preferences
- *  - Reports: GET /hospital/reports/monthly
+ *  - Dashboard: GET /hospital/dashboard
  */
 
 import { describe, it, expect, vi } from 'vitest';
@@ -627,12 +627,14 @@ describe('POST /hospital/requests/create-emergency', () => {
         isEmergency: true,
       });
 
+
+
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
     expect(res.body.data.isEmergency).toBe(true);
     expect(res.body.data.urgency).toBe('critical');
     expect(res.body.data.unitsNeeded).toBe(2);
-    expect(res.body.data.patientType).toBe('emergency');
+    expect(res.body.data.patientType).toBe('adult');
     expect(String(res.body.data.hospitalId._id || res.body.data.hospitalId)).toBe(hospital._id.toString());
 
     const stored = await Request.findById(res.body.data._id).populate('hospitalId', 'hospitalName phone');
@@ -887,7 +889,7 @@ describe('PUT /hospital/requests/:requestId', () => {
         unitsNeeded: 3,
         urgency: 'high',
         requiredBy: newRequiredBy,
-        patientType: 'general',
+        patientType: 'adult',
         contactNumber: '01011112222',
         notes: 'Updated patient notes',
       });
@@ -903,7 +905,7 @@ describe('PUT /hospital/requests/:requestId', () => {
     expect(updatedDoc.bloodType).toEqual(['A-', 'O-']);
     expect(updatedDoc.unitsNeeded).toBe(3);
     expect(updatedDoc.urgency).toBe('high');
-    expect(updatedDoc.patientType).toBe('general');
+    expect(updatedDoc.patientType).toBe('adult');
     expect(updatedDoc.contactNumber).toBe('01011112222');
     expect(updatedDoc.notes).toBe('Updated patient notes');
   });
@@ -1082,32 +1084,7 @@ describe('GET /hospital/donations', () => {
 // REPORTS & DASHBOARD
 // ═════════════════════════════════════════════════════════════════════════════
 describe('Hospital Dashboard & Reports', () => {
-  it('GET /hospital/reports/monthly returns correct data and totalResponses instead of uniqueDonorsResponded', async () => {
-    const hospital = await createHospital();
-    const donor = await createDonor();
-    
-    // Create request and donation in the target month (June 2026)
-    const req = await createRequest(hospital._id, {
-      createdAt: new Date('2026-06-05T10:00:00.000Z'),
-      urgency: 'high',
-      status: 'pending',
-    });
-    await createDonation(donor._id, req._id, {
-      createdAt: new Date('2026-06-05T12:00:00.000Z'),
-    });
-
-    const res = await request(app)
-      .get('/hospital/reports/monthly?month=2026-06')
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`);
-
-    expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.data.totalRequests).toBe(1);
-    expect(res.body.data.totalResponses).toBe(1);
-    expect(res.body.data.uniqueDonorsResponded).toBeUndefined();
-  });
-
-  it('GET /hospital/dashboard returns correct data and totalResponses instead of uniqueDonorsResponded', async () => {
+  it('GET /hospital/dashboard returns all dashboard fields with correct values', async () => {
     const hospital = await createHospital();
     const donor1 = await createDonor();
     const donor2 = await createDonor();
@@ -1137,13 +1114,24 @@ describe('Hospital Dashboard & Reports', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.success).toBe(true);
+    expect(res.body.data.month).toBe('2026-06');
     expect(res.body.data.totalRequests).toBe(2);
-    expect(res.body.data.totalResponses).toBe(2);
+    expect(res.body.data.openRequests).toBe(2);
     expect(res.body.data.activeRequests).toBe(2);
     expect(res.body.data.totalCompleted).toBe(0);
     expect(res.body.data.totalCancelled).toBe(0);
     expect(res.body.data.emergencyRequests).toBe(2);
-    expect(res.body.data.month).toBe('2026-06');
+    expect(res.body.data.responseCount).toBe(2);
+    expect(res.body.data.totalResponses).toBe(2);
+    expect(res.body.data.totalDonations).toBe(2);
+    expect(res.body.data.completedDonations).toBe(0);
+    expect(res.body.data.confirmedDonorCount).toBe(0);
+    expect(res.body.data.recentActivityCount).toBe(2);
+    expect(res.body.data.recentCompletedDonationCount).toBe(0);
+    expect(res.body.data.overdueCount).toBe(0);
+    expect(res.body.data.dueSoonCount).toBe(0);
+    expect(res.body.data.avgDaysToRequiredBy).toBeGreaterThan(0);
+    expect(res.body.data.responsesToday).toBeGreaterThanOrEqual(0);
     expect(res.body.data.uniqueDonorsResponded).toBeUndefined();
   });
 });

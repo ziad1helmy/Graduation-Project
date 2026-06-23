@@ -100,7 +100,7 @@
 
     // Hospital
     '/hospital/dashboard': 'Dashboard & Analytics',
-    '/hospital/reports/monthly': 'Dashboard & Analytics',
+    
     '/hospital/activity': 'Dashboard & Analytics',
 
     '/hospital/profile': 'Profile & Configuration',
@@ -155,7 +155,9 @@
     '/admin/profile': 'User Management',
     '/admin/users': 'User Management',
     '/admin/users/hospital': 'User Management',
-    '/admin/users/{id}': 'User Management',
+    '/admin/users/donor/{id}': 'User Management',
+    '/admin/users/hospital/{id}': 'User Management',
+    '/admin/users/admin/{id}': 'User Management',
     '/admin/donors': 'User Management',
     '/admin/hospitals': 'User Management',
     '/admin/donors/{id}': 'User Management',
@@ -173,7 +175,6 @@
     '/admin/requests/{id}/fulfill': 'Requests & Moderation',
     '/admin/requests/{id}/cancel': 'Requests & Moderation',
     '/admin/requests/{id}/broadcast': 'Requests & Moderation',
-    '/admin/emergency/broadcast': 'Requests & Moderation',
     '/admin/emergency/critical': 'Requests & Moderation',
     '/admin/emergency/shortage-alerts': 'Requests & Moderation',
   };

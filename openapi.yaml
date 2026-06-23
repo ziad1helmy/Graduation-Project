@@ -1,4 +1,4 @@
-openapi: 3.0.0
+﻿openapi: 3.0.0
 info:
   title: LifeLink API
   version: 1.0.0
@@ -18,13 +18,13 @@ info:
     - **Hospital Request flow**: donor accepts -> QR generated on Donation -> hospital verifies QR -> hospital confirms -> donation/request completed atomically. If donor doesn't arrive before arrival deadline, the escalation worker expires the donation and re-opens the request for re-broadcast.
     - **Arrival deadlines and re-broadcast** are urgency-based: critical (1hr/15min), emergency (2hr/30min), high (4hr/1hr), medium (8hr/4hr), low (24hr/12hr).
 
-    **âš ï¸  Migration Notice (Effective June 1, 2026)**
+    **Migration Notice (Effective June 1, 2026)**
 
     The following endpoints have been removed and consolidated into `/donor/requests`:
-    - `GET /donor/urgent-requests` â†’ Use `GET /donor/requests?urgency=critical`
-    - `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`
-    - `POST /donor/urgent-requests/{requestId}/accept` â†’ Use `POST /requests/{requestId}/accept`
-    - `POST /donor/urgent-requests/{requestId}/decline` â†’ No longer supported (non-response indicates non-interest)
+    - `GET /donor/urgent-requests` → Use `GET /donor/requests?urgency=critical`
+    - `GET /donor/urgent-requests/{requestId}` → Use `GET /requests/{requestId}`
+    - `POST /donor/urgent-requests/{requestId}/accept` → Use `POST /requests/{requestId}/accept`
+    - `POST /donor/urgent-requests/{requestId}/decline` → No longer supported (non-response indicates non-interest)
 
     See the `urgency` parameter in `/donor/requests` for filtering by urgency level. For detailed migration instructions, see [MIGRATION_GUIDE.md](./MIGRATION_GUIDE.md).
 servers:
@@ -1384,7 +1384,7 @@ paths:
                         hospitalId: 69f3df915f42685cbbbcbb1b
                       createdAt: 2026-05-11T09:00:00.000Z
                     - id: 69fe540565ff7785a0313157
-                      title: 200 Points Earned â€” Blood Donation
+                      title: 200 Points Earned — Blood Donation
                       description: Points awarded for completed blood donation.
                       type: reward
                       action: earned_points
@@ -1656,7 +1656,7 @@ paths:
       summary: Update donor participation preference
       description: |
         Allows a donor to opt in or out of donor matching.
-        This updates **participation preference only** â€” it does NOT affect
+        This updates **participation preference only** — it does NOT affect
         medical eligibility, which is computed dynamically from donation history,
         deferral state, and health fields.
 
@@ -2359,7 +2359,8 @@ paths:
                     - id: 69fe540565ff7785a031314f
                       requestId: 69fe540565ff7785a031314f
                       posted: 2026-05-07T09:00:00.000Z
-                      patientType: surgery
+                      patientType: adult
+                      patientDetails: surgery
                       contactNumber: "1044444444"
                       unitsNeeded: 3
                       hospitalLatitude: 30.0511
@@ -2464,7 +2465,8 @@ paths:
                   requestId: 69fe540565ff7785a031314f
                   bloodType: O-
                   hospitalName: Cairo Care Hospital
-                  patientType: general
+                  patientType: adult
+                  patientDetails: general
                   contactNumber: "0223456789"
                   unitsNeeded: 3
                   isEmergency: true
@@ -2484,8 +2486,8 @@ paths:
         When called by a donor, the same centralized matching rules used by `/donor/matches` are applied first, so donors with active donations receive an empty list.
 
         **Migration Note**: This endpoint replaces the deprecated endpoints:
-        - `GET /donor/urgent-requests` â†’ Use `GET /requests/nearby?urgency=critical`
-        - `GET /donor/urgent-requests/{requestId}` â†’ Use `GET /requests/{requestId}`
+        - `GET /donor/urgent-requests` → Use `GET /requests/nearby?urgency=critical`
+        - `GET /donor/urgent-requests/{requestId}` → Use `GET /requests/{requestId}`
 
         Note: donor callers receive a reduced request payload with distance fields omitted. Hospital/admin viewers continue to receive `distanceKm`, `distanceMeters`, `viewerLocation`, and `radiusKm` when a location is provided.
 
@@ -2580,7 +2582,8 @@ paths:
                       bloodType:
                         - O+
                       hospitalName: Cairo Care Hospital
-                      patientType: surgery
+                      patientType: adult
+                      patientDetails: surgery
                       contactNumber: "1044444444"
                       unitsNeeded: 3
                       isEmergency: true
@@ -4400,7 +4403,7 @@ paths:
       tags:
         - Hospital
       summary: Get hospital dashboard summary
-      description: Same controller behavior as `/hospital/reports/monthly`.
+      description: Hospital dashboard summary with monthly metrics.
       security:
         - bearerAuth: []
       parameters:
@@ -4421,11 +4424,21 @@ paths:
                 data:
                   month: 2026-05
                   totalRequests: 9
-                  activeRequests: 3
+                  openRequests: 3
+                  activeRequests: 4
                   totalCompleted: 6
                   totalCancelled: 2
                   emergencyRequests: 3
+                  responseCount: 7
                   totalResponses: 7
+                  totalDonations: 7
+                  completedDonations: 5
+                  confirmedDonorCount: 4
+                  overdueCount: 1
+                  dueSoonCount: 2
+                  avgDaysToRequiredBy: 3.5
+                  recentActivityCount: 7
+                  recentCompletedDonationCount: 5
                   responsesToday: 2
   /hospital/activity:
     get:
@@ -4474,41 +4487,6 @@ paths:
           description: Missing or invalid JWT
         "403":
           description: Access denied - role not allowed
-  /hospital/reports/monthly:
-    get:
-      tags:
-        - Hospital
-      summary: Get monthly hospital report
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: query
-          name: month
-          schema:
-            type: string
-            example: 2026-05
-          example: 2026-05
-      responses:
-        "200":
-          description: Monthly report retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Monthly report retrieved successfully
-                data:
-                  month: 2026-05
-                  totalRequests: 11
-                  activeRequests: 4
-                  totalCompleted: 7
-                  totalCancelled: 1
-                  emergencyRequests: 4
-                  totalDonations: 9
-                  totalResponses: 9
-                  responsesToday: 3
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
   /hospital/profile:
     get:
       tags:
@@ -4854,6 +4832,14 @@ paths:
                 patientType:
                   type: string
                   enum:
+                    - adult
+                    - child
+                    - infant
+                  description: Age category of the patient
+                  example: adult
+                patientDetails:
+                  type: string
+                  enum:
                     - surgery
                     - cardiac_surgery
                     - accident
@@ -4870,7 +4856,8 @@ paths:
                     - pediatric
                     - emergency
                     - general
-                  example: adult
+                  description: Medical condition of the patient
+                  example: surgery
                 contactNumber:
                   type: string
                   example: "01099998888"
@@ -4880,9 +4867,6 @@ paths:
                 notes:
                   type: string
                   example: Need compatible donors urgently
-                patientDetails:
-                  type: string
-                  example: Need compatible donors urgently
             example:
               type: blood
               bloodType: O+
@@ -4890,10 +4874,11 @@ paths:
               requiredBy: 2026-05-12T10:00:00.000Z
               quantity: 3
               unitsNeeded: 3
-              patientType: general
+              patientType: adult
+              patientDetails: surgery
               contactNumber: "01099998888"
               isEmergency: true
-              patientDetails: Emergency surgery support
+              notes: Emergency surgery support
       responses:
         "201":
           description: Donation request created successfully
@@ -4924,7 +4909,8 @@ paths:
                   unitsNeeded: 3
                   unitsRequested: 3
                   isFulfilled: false
-                  patientType: general
+                  patientType: adult
+                  patientDetails: surgery
                   isEmergency: true
                   notes: Emergency surgery support
         "400":
@@ -5013,7 +4999,8 @@ paths:
                   unitsNeeded: 2
                   unitsRequested: 2
                   isFulfilled: false
-                  patientType: emergency
+                  patientType: adult
+                  patientDetails: surgery
                   isEmergency: true
                   notes: Patient requires urgent blood transfusion
         "400":
@@ -5318,15 +5305,33 @@ paths:
                     - infant
                     - child
                   example: adult
+                patientDetails:
+                  type: string
+                  enum:
+                    - surgery
+                    - cardiac_surgery
+                    - accident
+                    - burns
+                    - cancer
+                    - leukemia
+                    - maternity
+                    - chronic_illness
+                    - hemophilia
+                    - thalassemia
+                    - dialysis
+                    - gastrointestinal_bleeding
+                    - organ_transplant
+                    - pediatric
+                    - emergency
+                    - general
+                  description: Medical condition of the patient
+                  example: surgery
                 contactNumber:
                   type: string
                   example: "01099998888"
                 notes:
                   type: string
                   example: Requires compatible donors urgently
-                patientDetails:
-                  type: string
-                  example: Patient needs whole blood transfusion
             example:
               status: in-progress
               bloodTypes:
@@ -5334,9 +5339,10 @@ paths:
               urgency: high
               unitsNeeded: 3
               requiredBy: "2026-06-20T14:30:00.000Z"
-              patientType: general
+              patientType: adult
+              patientDetails: surgery
               contactNumber: "01099998888"
-              patientDetails: Patient needs whole blood transfusion
+              notes: Requires compatible donors urgently
       responses:
         "200":
           description: Request status updated successfully
@@ -6413,7 +6419,8 @@ paths:
                   bloodType:
                     - O-
                   bloodTypeLabel: O Negative
-                  patientType: general
+                  patientType: adult
+                  patientDetails: general
                   contactNumber: "0223456789"
                   unitsNeeded: 3
                   isEmergency: true
@@ -6576,7 +6583,8 @@ paths:
                       bloodTypeLabel: O Positive
                       urgency: critical
                       unitsNeeded: 3
-                      patientType: surgery
+                      patientType: adult
+                      patientDetails: surgery
                       isEmergency: true
                       hospitalName: Cairo Care Hospital
                       contactNumber: "1044444444"
@@ -6640,7 +6648,8 @@ paths:
                     type: blood
                     unitsNeeded: 3
                     urgency: critical
-                    patientType: surgery
+                    patientType: adult
+                    patientDetails: surgery
                     notes: null
                     isEmergency: true
                     requiredBy: 2026-05-20T00:00:00.000Z
@@ -6659,46 +6668,6 @@ paths:
           description: Donor did not accept this request
         "404":
           description: Request not found or no active donation
-  /requests/{id}/expire-arrival:
-    post:
-      tags:
-        - Admin
-      summary: Expire a donor's arrival deadline (admin manual override)
-      security:
-        - bearerAuth: []
-      description: |-
-        Admin endpoint to manually expire a donor's arrival deadline. Marks the donation
-        as `expired`, reverts the request to `pending`, invalidates the QR token, and
-        re-broadcasts to compatible donors. This is also processed automatically by the
-        request escalation worker when an arrival deadline passes.
-
-        Only admin and superadmin roles can invoke this endpoint. The request must be in
-        `accepted` status and the arrival deadline must have already passed.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          description: Request identifier
-          example: 69fe540565ff7785a031314f
-      responses:
-        "200":
-          description: Donation expired and request reopened for other donors
-          content:
-            application/json:
-              example:
-                success: true
-                message: Donation expired and request reopened for other donors
-                data:
-                  requestId: 69fe540565ff7785a031314f
-                  status: pending
-        "400":
-          description: Request not in accepted status or arrival deadline not yet passed
-        "403":
-          description: Non-admin role attempted to expire
-        "404":
-          description: Request not found
   /admin/system-settings:
     get:
       summary: Retrieve system settings & admin profile details
@@ -6785,16 +6754,13 @@ paths:
                 message: System health
                 data:
                   status: healthy
-                  uptime: 99.9%
-                  lastChecked: 2026-06-12T10:00:00.000Z
+                  uptime: 12d 3h 45m
+                  lastChecked: 2026-06-23T10:00:00.000Z
                   services:
                     database: online
-                    notificationService: warning
-                    qrScanner: online
-                    authService: online
-                    chatbot: online
-                  memoryUsage: 45%
-                  cpuUsage: 12%
+                  memory: 45MB / 128MB
+                  nodeVersion: v20.12.0
+                  platform: win32
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
@@ -7699,13 +7665,6 @@ paths:
                     email: admin@lifelink.demo
                     role: admin
                     phone: "01122223333"
-                    address: 15 Al Tahrir Street, Cairo
-                    location:
-                      city: Cairo
-                      governorate: Cairo
-                      coordinates:
-                        lat: 30.0444
-                        lng: 31.2357
                     isVerified: true
                     isSuspended: false
                     createdAt: 2026-01-10T08:30:00.000Z
@@ -7720,7 +7679,7 @@ paths:
         - bearerAuth: []
       description: |-
         Allows an admin or superadmin to update their own profile. Updatable fields:
-        `fullName`, `email`, `phone`, `address`, `location`.
+        `fullName`, `email`, `phone`.
 
         Changing email will reset `isEmailVerified` to false. The `role`, `isSuspended`,
         `isEmailVerified` fields cannot be changed through this endpoint (use
@@ -7742,27 +7701,6 @@ paths:
                 phone:
                   type: string
                   example: "01122223333"
-                address:
-                  type: string
-                  example: 15 Al Tahrir Street, Cairo
-                location:
-                  type: object
-                  properties:
-                    city:
-                      type: string
-                      example: Cairo
-                    governorate:
-                      type: string
-                      example: Cairo
-                    coordinates:
-                      type: object
-                      properties:
-                        lat:
-                          type: number
-                          example: 30.0444
-                        lng:
-                          type: number
-                          example: 31.2357
       responses:
         "200":
           description: Admin profile updated successfully
@@ -7778,13 +7716,6 @@ paths:
                     email: noura.new@lifelink.demo
                     role: admin
                     phone: "01122223333"
-                    address: 15 Al Tahrir Street, Cairo
-                    location:
-                      city: Cairo
-                      governorate: Cairo
-                      coordinates:
-                        lat: 30.0444
-                        lng: 31.2357
                     isEmailVerified: false
                     isSuspended: false
                     createdAt: 2026-01-10T08:30:00.000Z
@@ -8139,188 +8070,6 @@ paths:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible. Non-superadmin
         callers cannot retrieve admin or superadmin accounts."
-    put:
-      summary: Update a user by ID (donor, hospital, or admin)
-      description: |
-        Unified update endpoint for all user roles. Rules per role:
-        - **Donor**: admin/superadmin can update. Email cannot be changed.
-        - **Hospital**: admin/superadmin can update. Email cannot be changed.
-        - **Admin/Superadmin**: only superadmin can update. Email cannot be changed. Role cannot be changed.
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                # Common fields (all roles)
-                fullName:
-                  type: string
-                location:
-                  type: object
-                  properties:
-                    city:
-                      type: string
-                    governorate:
-                      type: string
-                    coordinates:
-                      type: object
-                      properties:
-                        lat:
-                          type: number
-                        lng:
-                          type: number
-                # Donor-specific
-                phoneNumber:
-                  type: string
-                bloodType:
-                  type: string
-                gender:
-                  type: string
-                hemoglobinLevel:
-                  type: number
-                travelHistory:
-                  type: string
-                temporaryDeferralUntil:
-                  type: string
-                  format: date
-                lastDeferralReason:
-                  type: string
-                isOptedIn:
-                  type: boolean
-                # Hospital-specific
-                phone:
-                  type: string
-                address:
-                  type: string
-                city:
-                  type: string
-                state:
-                  type: string
-                zipCode:
-                  type: string
-                hospitalName:
-                  type: string
-                hospitalType:
-                  type: string
-                type:
-                  type: string
-                adminContactName:
-                  type: string
-                adminContactPhone:
-                  type: string
-                emergencyContact:
-                  type: string
-                bloodBanksAvailable:
-                  type: array
-                  items:
-                    type: string
-                capacity:
-                  type: number
-                licenseNumber:
-                  type: string
-                slotsPerHour:
-                  type: number
-                workingHoursStart:
-                  type: number
-                workingHoursEnd:
-                  type: number
-                # Admin-specific
-                password:
-                  type: string
-                isSuspended:
-                  type: boolean
-            examples:
-              donor-update:
-                summary: Update a donor (email cannot be changed)
-                value:
-                  fullName: Aya Hassan
-                  phoneNumber: "01011111111"
-                  bloodType: O+
-                  isOptedIn: true
-              hospital-update:
-                summary: Update a hospital (email cannot be changed)
-                value:
-                  fullName: Cairo Care Hospital
-                  hospitalName: Cairo Care Hospital
-                  phone: "1044444444"
-                  address: 15 Tahrir Street, Downtown
-                  bloodBanksAvailable:
-                    - O+
-                    - O-
-                    - A+
-                    - B+
-                  capacity: 200
-              admin-update:
-                summary: Update an admin (superadmin only, email cannot be changed)
-                value:
-                  fullName: Salma Mostafa
-                  isSuspended: false
-      responses:
-        "200":
-          description: User updated successfully
-          content:
-            application/json:
-              examples:
-                donor-response:
-                  summary: Donor updated
-                  value:
-                    success: true
-                    message: User updated successfully
-                    data:
-                      user:
-                        _id: 69f3df915f42685cbbbcbb18
-                        fullName: Aya Hassan
-                        email: aya.hassan@lifelink.demo
-                        role: donor
-                        bloodType: O+
-                        phoneNumber: "01011111111"
-                        isOptedIn: true
-                        updatedAt: 2026-05-18T09:05:00.000Z
-                hospital-response:
-                  summary: Hospital updated
-                  value:
-                    success: true
-                    message: User updated successfully
-                    data:
-                      user:
-                        _id: 69f3df915f42685cbbbcbb1b
-                        fullName: Cairo Care Hospital
-                        hospitalName: Cairo Care Hospital
-                        email: ops@cairocare.demo
-                        role: hospital
-                        phone: "1044444444"
-                        isEmailVerified: true
-                        isSuspended: false
-                        updatedAt: 2026-05-18T09:05:00.000Z
-                admin-response:
-                  summary: Admin updated
-                  value:
-                    success: true
-                    message: User updated successfully
-                    data:
-                      user:
-                        _id: 66f200000000000000000003
-                        fullName: Salma Mostafa
-                        email: salma.mostafa@lifelink.demo
-                        role: admin
-                        isSuspended: false
-                        updatedAt: 2026-05-18T09:08:00.000Z
-        "400":
-          description: "Validation error — e.g. email change attempt, role change on admin"
-        "404":
-          description: User not found
     delete:
       summary: Soft-delete a user account
       tags:
@@ -8522,6 +8271,181 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."
+  /admin/users/donor/{id}:
+    put:
+      summary: Update a donor by ID
+      description: |
+        Admin or superadmin can update donor fields.
+        Email cannot be changed — donors must use the self-service profile flow.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 69f3df915f42685cbbbcbb18
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                phoneNumber:
+                  type: string
+                bloodType:
+                  type: string
+            example:
+              fullName: Aya Hassan
+              phoneNumber: "01011111111"
+              bloodType: O+
+      responses:
+        "200":
+          description: Donor updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Donor updated successfully
+                data:
+                  user:
+                    _id: 69f3df915f42685cbbbcbb18
+                    fullName: Aya Hassan
+                    email: aya.hassan@lifelink.demo
+                    role: donor
+                    bloodType: O+
+                    phoneNumber: "01011111111"
+                    updatedAt: 2026-05-18T09:05:00.000Z
+        "400":
+          description: Validation error — e.g. email change attempt
+        "404":
+          description: Donor not found
+  /admin/users/hospital/{id}:
+    put:
+      summary: Update a hospital by ID
+      description: |
+        Admin or superadmin can update hospital fields.
+        Email cannot be changed — hospitals must use the self-service profile flow.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 69f3df915f42685cbbbcbb1b
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                hospitalName:
+                  type: string
+                phone:
+                  type: string
+                bloodBanksAvailable:
+                  type: array
+                  items:
+                    type: string
+                capacity:
+                  type: number
+            example:
+              fullName: Cairo Care Hospital
+              hospitalName: Cairo Care Hospital
+              phone: "1044444444"
+              bloodBanksAvailable:
+                - O+
+                - O-
+                - A+
+                - B+
+              capacity: 200
+      responses:
+        "200":
+          description: Hospital updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Hospital updated successfully
+                data:
+                  user:
+                    _id: 69f3df915f42685cbbbcbb1b
+                    fullName: Cairo Care Hospital
+                    hospitalName: Cairo Care Hospital
+                    email: ops@cairocare.demo
+                    role: hospital
+                    phone: "1044444444"
+                    updatedAt: 2026-05-18T09:05:00.000Z
+        "400":
+          description: Validation error — e.g. email change attempt
+        "404":
+          description: Hospital not found
+  /admin/users/admin/{id}:
+    put:
+      summary: Update an admin by ID (superadmin only)
+      description: |
+        Only superadmin can update admin or superadmin accounts.
+        Email cannot be changed. Role cannot be changed.
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 66f200000000000000000003
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                isSuspended:
+                  type: boolean
+                password:
+                  type: string
+            example:
+              fullName: Salma Mostafa
+              isSuspended: false
+      responses:
+        "200":
+          description: Admin updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Admin updated successfully
+                data:
+                  user:
+                    _id: 66f200000000000000000003
+                    fullName: Salma Mostafa
+                    email: salma.mostafa@lifelink.demo
+                    role: admin
+                    isSuspended: false
+                    updatedAt: 2026-05-18T09:08:00.000Z
+        "400":
+          description: Validation error — e.g. email or role change attempt
+        "404":
+          description: Admin not found
   /admin/users/{id}/ban:
     post:
       tags:
@@ -8783,10 +8707,6 @@ paths:
                   description: Not used — backend always auto-generates adminKey
                 phone:
                   type: string
-                address:
-                  type: string
-                location:
-                  type: object
             example:
               fullName: Salma Mostafa
               email: salma.mostafa@lifelink.demo
@@ -9202,7 +9122,7 @@ paths:
           example: 69fe540565ff7785a031314f
       responses:
         "200":
-          description: Broadcast sent
+          description: Broadcast sent successfully
           content:
             application/json:
               example:
@@ -9212,71 +9132,26 @@ paths:
                   donorsNotified: 14
                   pushTokenCount: 11
                   governorate: Cairo
-                  bloodType: O-
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-  /admin/emergency/broadcast:
-    post:
-      summary: Send emergency broadcast to donors
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - title
-                - message
-              properties:
-                title:
-                  type: string
-                message:
-                  type: string
-                governorate:
-                  type: string
-                city:
-                  type: string
-                bloodTypes:
-                  type: array
-                  items:
-                    type: string
-                    enum:
-                      - A+
-                      - A-
-                      - B+
-                      - B-
-                      - AB+
-                      - AB-
-                      - O+
-                      - O-
-            example:
-              title: Emergency O+ Need
-              message: Critical O+ blood request in Cairo.
-              governorate: Cairo
-              city: Cairo
-              bloodTypes:
-                - O+
-      responses:
-        "200":
-          description: Emergency broadcast sent
+                  bloodType:
+                    - O-
+                  radiusKm: 30
+        "401":
+          description: Unauthorized — missing, invalid, or expired token
           content:
             application/json:
               example:
-                success: true
-                message: Emergency broadcast sent
-                data:
-                  donorsNotified: 22
-                  pushTokenCount: 19
-                  governorate: Cairo
-                  city: Cairo
+                success: false
+                message: Invalid token
+        "404":
+          description: Request not found
+          content:
+            application/json:
+              example:
+                success: false
+                message: Request not found
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
+        https://graduation-project-cy61.onrender.com Parameter examples are
+        aligned with the seeded demo dataset where possible."
   /admin/emergency/critical:
     get:
       summary: List critical and high urgency active requests

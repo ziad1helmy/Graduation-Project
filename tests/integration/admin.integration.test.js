@@ -5,6 +5,8 @@ import { setupTestDB, clearDatabase } from '../helpers/db.js';
 import { createAdmin, createDonor, createHospital } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
 import RewardCatalog from '../../src/models/RewardCatalog.model.js';
+import DonorPoints from '../../src/models/DonorPoints.model.js';
+import PointsTransaction from '../../src/models/PointsTransaction.model.js';
 
 setupTestDB();
 
@@ -148,6 +150,12 @@ describe('Admin Routes Integration', () => {
     expect(response.body.success).toBe(true);
     expect(response.body.data.rewardName).toBe('New Reward');
     expect(response.body.data.pointsRequired).toBe(500);
+
+    const persisted = await RewardCatalog.findById(response.body.data.id).lean();
+    expect(persisted).not.toBeNull();
+    expect(persisted.name).toBe('New Reward');
+    expect(persisted.pointsCost).toBe(500);
+    expect(persisted.status).toBe('ACTIVE');
   });
 
   it('POST /admin/rewards updates reward status via { id, status }', async () => {
@@ -164,6 +172,9 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data.status).toBe('INACTIVE');
+
+    const persisted = await RewardCatalog.findById(reward._id).lean();
+    expect(persisted.status).toBe('INACTIVE');
   });
 
   it('POST /admin/rewards adjusts points via { userId, amount, reason }', async () => {
@@ -180,6 +191,15 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data.newBalance).toBe(100);
+
+    const pointsAcct = await DonorPoints.findOne({ donorId: donor._id }).lean();
+    expect(pointsAcct).not.toBeNull();
+    expect(pointsAcct.pointsBalance).toBe(100);
+
+    const tx = await PointsTransaction.findOne({ donorId: donor._id, transactionType: 'ADMIN_ADJUSTMENT' }).lean();
+    expect(tx).not.toBeNull();
+    expect(tx.pointsAmount).toBe(100);
+    expect(tx.description).toBe('Test adjustment');
   });
 
   it('POST /admin/rewards bulk updates reward points via { updates: [...] }', async () => {
@@ -202,6 +222,11 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data.updated).toHaveLength(2);
+
+    const updatedR1 = await RewardCatalog.findById(r1._id).lean();
+    expect(updatedR1.pointsCost).toBe(150);
+    const updatedR2 = await RewardCatalog.findById(r2._id).lean();
+    expect(updatedR2.pointsCost).toBe(250);
   });
 
   it('POST /admin/rewards with invalid body returns 400', async () => {
@@ -757,12 +782,10 @@ describe('Admin Routes Integration', () => {
         email: 'phone.test@lifelink.test',
         password: 'AdminPass@123',
         phone: '+201234567890',
-        address: '123 Test St',
       });
 
     expect(response.status).toBe(201);
     expect(response.body.data.admin.phone).toBe('+201234567890');
-    expect(response.body.data.admin.address).toBe('123 Test St');
   });
 
   it('POST /admin/admins with invalid phone type returns 400', async () => {
@@ -779,26 +802,6 @@ describe('Admin Routes Integration', () => {
         email: 'invalid.phone@lifelink.test',
         password: 'AdminPass@123',
         phone: 12345,
-      });
-
-    expect(response.status).toBe(400);
-    expect(response.body.success).toBe(false);
-  });
-
-  it('POST /admin/admins with invalid address type returns 400', async () => {
-    await clearDatabase();
-    const superadmin = await createAdmin({ role: 'superadmin' });
-
-    const token = signToken({ userId: superadmin._id.toString(), role: superadmin.role });
-
-    const response = await request(app)
-      .post('/admin/admins')
-      .set('Authorization', `Bearer ${token}`)
-      .send({
-        fullName: 'Invalid Address Admin',
-        email: 'invalid.address@lifelink.test',
-        password: 'AdminPass@123',
-        address: 12345,
       });
 
     expect(response.status).toBe(400);

@@ -28,7 +28,7 @@ describe('request validation', () => {
     const result = validateCreateEmergencyRequestBody({
       bloodType: 'A+',
       unitsNeeded: 2,
-      patientDetails: 'Patient details',
+      patientDetails: 'emergency',
       isEmergency: true,
     });
 
@@ -42,11 +42,23 @@ describe('request validation', () => {
     const result = validateCreateEmergencyRequestBody({
       bloodType: 'A+',
       unitsNeeded: 2,
-      patientDetails: 'Patient details',
+      patientDetails: 'emergency',
       hospitalId: 'bad-id',
     });
 
     expect(result.valid).toBe(false);
     expect(result.errors.join(' ')).toMatch(/Unexpected field/i);
+  });
+
+  it('rejects invalid patientDetails in emergency request', () => {
+    const result = validateCreateEmergencyRequestBody({
+      bloodType: 'A+',
+      unitsNeeded: 2,
+      patientDetails: 'Not a valid condition',
+      isEmergency: true,
+    });
+
+    expect(result.valid).toBe(false);
+    expect(result.errors.join(' ')).toMatch(/patientDetails must be one of/i);
   });
 });

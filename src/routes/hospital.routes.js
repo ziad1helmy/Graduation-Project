@@ -73,6 +73,4 @@ router.get('/notifications/:id', notificationController.getNotificationById);
 router.delete('/notifications/:id', notificationController.deleteNotificationById);
 
 
-router.get('/reports/monthly', hospitalController.getMonthlyReports);
-
 export default router;

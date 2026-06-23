@@ -61,14 +61,10 @@ describe('Admin System Settings & Health Integration', () => {
     const healthData = response.body.data.systemHealth;
     expect(healthData).toBeDefined();
     expect(healthData.status).toBe('healthy');
-    expect(healthData.uptime).toBe('99.9%');
+    expect(healthData.uptime).toMatch(/^\d+d \d+h \d+m$/);
     expect(healthData.services).toHaveProperty('database', 'online');
-    expect(healthData.services).toHaveProperty('notificationService', 'online');
-    expect(healthData.services).toHaveProperty('qrScanner', 'online');
-    expect(healthData.services).toHaveProperty('authService', 'online');
-    expect(healthData.services).toHaveProperty('chatbot', 'online');
-    expect(healthData.memoryUsage).toMatch(/^\d+%/);
-    expect(healthData.cpuUsage).toBe('12%');
+    expect(healthData.memory).toMatch(/^\d+MB \/ \d+MB$/);
+    expect(healthData.nodeVersion).toMatch(/^v\d+\.\d+\.\d+$/);
   });
 
   it('PUT /admin/system-settings updates system settings', async () => {
@@ -126,12 +122,11 @@ describe('Admin System Settings & Health Integration', () => {
 
     const health = response.body.data;
     expect(health.status).toBe('healthy');
-    expect(health.uptime).toBe('99.9%');
+    expect(health.uptime).toMatch(/^\d+d \d+h \d+m$/);
     expect(health.services).toBeDefined();
     expect(health.services.database).toBe('online');
-    expect(health.services.notificationService).toBe('online');
-    expect(health.memoryUsage).toMatch(/^\d+%/);
-    expect(health.cpuUsage).toBe('12%');
+    expect(health.memory).toMatch(/^\d+MB \/ \d+MB$/);
+    expect(health.nodeVersion).toMatch(/^v\d+\.\d+\.\d+$/);
   });
 
   it('GET /admin/audit-logs returns flat adminName, mapped action, dynamically computed details, and nested pagination', async () => {
@@ -159,7 +154,7 @@ describe('Admin System Settings & Health Integration', () => {
     const targetUserId2 = new mongoose.Types.ObjectId();
     await AuditLog.create({
       adminId: admin._id,
-      action: 'user.ban_donor',
+      action: 'user.ban',
       targetType: 'User',
       targetId: targetUserId2,
     });
@@ -188,11 +183,11 @@ describe('Admin System Settings & Health Integration', () => {
     expect(log1.details).toBe('Added hospital account');
     expect(log1.targetType).toBe('user');
 
-    // Log 2: user.ban_donor
-    const log2 = logs.find(l => l.action === 'Donor Banned');
+    // Log 2: user.ban
+    const log2 = logs.find(l => l.action === 'User Banned');
     expect(log2).toBeDefined();
     expect(log2.adminName).toBe('john.doe@test.com');
-    expect(log2.details).toBe(`Banned donor account (ID: ${targetUserId2})`);
+    expect(log2.details).toBe(`Banned user account (ID: ${targetUserId2})`);
     expect(log2.targetType).toBe('user');
   });
 });

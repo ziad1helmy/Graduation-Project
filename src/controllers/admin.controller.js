@@ -15,7 +15,6 @@ import {
   validateCreateHospitalBody,
   validateCreateAdminBody,
   validateListRequestsQuery,
-  validateEmergencyBroadcastBody,
   validateBanDonorBody,
   validateUpdateAdminProfileBody,
 } from '../validation/admin.validation.js';
@@ -489,14 +488,46 @@ export const getHospitalById = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Hospital details', { user });
 });
 
-/** PUT /admin/users/:id */
-export const updateUser = asyncHandler(async (req, res) => {
+/** PUT /admin/users/donor/:id */
+export const updateDonor = asyncHandler(async (req, res) => {
   try {
-    const user = await adminService.updateUser(req.params.id, req.body, req.user._id, req.user.role);
+    const user = await adminService.updateDonor(req.params.id, req.body, req.user._id);
     if (!user) {
-      throw new HttpError(404, 'User not found');
+      throw new HttpError(404, 'Donor not found');
     }
-    return response.success(res, 200, 'User updated successfully', { user });
+    return response.success(res, 200, 'Donor updated successfully', { user });
+  } catch (error) {
+    if (error.message === 'Email cannot be changed by admin. Donors must use the self-service profile flow.') {
+      throw new HttpError(400, error.message);
+    }
+    throw error;
+  }
+});
+
+/** PUT /admin/users/hospital/:id */
+export const updateHospital = asyncHandler(async (req, res) => {
+  try {
+    const user = await adminService.updateHospital(req.params.id, req.body, req.user._id);
+    if (!user) {
+      throw new HttpError(404, 'Hospital not found');
+    }
+    return response.success(res, 200, 'Hospital updated successfully', { user });
+  } catch (error) {
+    if (error.message === 'Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.') {
+      throw new HttpError(400, error.message);
+    }
+    throw error;
+  }
+});
+
+/** PUT /admin/users/admin/:id */
+export const updateAdmin = asyncHandler(async (req, res) => {
+  try {
+    const user = await adminService.updateAdmin(req.params.id, req.body, req.user._id, req.user.role);
+    if (!user) {
+      throw new HttpError(404, 'Admin not found');
+    }
+    return response.success(res, 200, 'Admin updated successfully', { user });
   } catch (error) {
     if (error.message === 'Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.') {
       throw new HttpError(400, error.message);
@@ -598,6 +629,9 @@ export const createAdmin = asyncHandler(async (req, res) => {
     }
     if (error.message === 'Only superadmin can create admin accounts') {
       throw new HttpError(403, error.message);
+    }
+    if (error.message.startsWith('Superadmin limit reached')) {
+      throw new HttpError(400, error.message);
     }
     throw error;
   }
@@ -783,17 +817,6 @@ export const getDashboard = asyncHandler(async (req, res) => {
 // ──────────────────────────────────────────────
 //  Phase 5: Emergency
 // ──────────────────────────────────────────────
-
-/** POST /admin/emergency/broadcast */
-export const sendEmergencyBroadcast = asyncHandler(async (req, res) => {
-  const validation = validateEmergencyBroadcastBody(req.body);
-  if (!validation.valid) {
-    throw new HttpError(400, validation.errors.join(', '));
-  }
-
-  const result = await adminService.sendEmergencyBroadcast(req.body, req.user._id);
-  return response.success(res, 200, 'Emergency broadcast sent', result);
-});
 
 /** GET /admin/emergency/critical */
 export const getCriticalRequests = asyncHandler(async (req, res) => {

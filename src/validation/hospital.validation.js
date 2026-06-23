@@ -9,7 +9,7 @@ import {
   BLOOD_TYPE_VALUES,
   normalizeBloodTypeList,
 } from '../utils/blood-type.js';
-import { PATIENT_TYPE_ENUM } from '../constants/request.constants.js';
+import { PATIENT_TYPE_ENUM, PATIENT_DETAILS_ENUM } from '../constants/request.constants.js';
 
 const isValidNumber = (value) => Number.isFinite(Number(value));
 
@@ -109,7 +109,7 @@ export const validateCreateRequestBody = (body = {}) => {
   const errors = [];
   const validUrgencies = ['low', 'medium', 'high', 'critical'];
 
-  const { type, urgency, requiredBy, date, time, isEmergency, patientType } = body;
+  const { type, urgency, requiredBy, date, time, isEmergency, patientType, patientDetails } = body;
   const bloodTypeInput = body.bloodTypes !== undefined ? body.bloodTypes : body.bloodType;
   const normalizedBloodTypes = normalizeBloodTypeList(bloodTypeInput);
 
@@ -128,6 +128,10 @@ export const validateCreateRequestBody = (body = {}) => {
 
   if (patientType && !PATIENT_TYPE_ENUM.includes(patientType)) {
     errors.push(`patientType must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`);
+  }
+
+  if (patientDetails && !PATIENT_DETAILS_ENUM.includes(patientDetails)) {
+    errors.push(`patientDetails must be one of: ${PATIENT_DETAILS_ENUM.join(', ')}`);
   }
 
   if (['blood', 'double_red_cells'].includes(type) && normalizedBloodTypes.length === 0) {
@@ -182,8 +186,8 @@ export const validateCreateEmergencyRequestBody = (body = {}) => {
     errors.push('unitsNeeded is required and must be a positive integer');
   }
 
-  if (typeof body.patientDetails !== 'string' || !body.patientDetails.trim()) {
-    errors.push('patientDetails is required');
+  if (!body.patientDetails || !PATIENT_DETAILS_ENUM.includes(body.patientDetails)) {
+    errors.push(`patientDetails must be one of: ${PATIENT_DETAILS_ENUM.join(', ')}`);
   }
 
   if (body.isEmergency !== undefined && body.isEmergency !== true) {
@@ -200,6 +204,6 @@ export const validateCreateEmergencyRequestBody = (body = {}) => {
     errors,
     bloodTypes,
     unitsNeeded: Number.isInteger(unitsNeeded) && unitsNeeded > 0 ? unitsNeeded : null,
-    patientDetails: typeof body.patientDetails === 'string' ? body.patientDetails.trim() : '',
+    patientDetails: body.patientDetails || null,
   };
 };

@@ -20,13 +20,18 @@ import SupportMessage from '../models/SupportMessage.model.js';
 import RolePermission from '../models/RolePermission.model.js';
 import * as hospitalService from './hospital.service.js';
 import * as appointmentService from './appointment.service.js';
+import * as matchingService from './matching.service.js';
 import { sendToMultiple } from '../utils/fcm.js';
 import { ERR } from '../utils/errorCodes.js';
 import { env } from '../config/env.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 import { buildRequestPayload } from '../controllers/request.controller.js';
 import { validateTransition } from '../utils/state-machine.js';
-import { extractFirstBloodType } from '../utils/blood-type.js';
+import {
+  extractFirstBloodType,
+  normalizeBloodTypeList,
+  getCompatibleDonorTypesForRequest,
+} from '../utils/blood-type.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import { encryptAdminKey, decryptAdminKey, isEncryptedKey } from '../utils/admin-key-crypto.js';
 import { computeGrowth, safeEngine } from '../utils/insight-utils.js';
@@ -182,19 +187,24 @@ const buildRequestTimeline = (request) => {
  */
 export const getSystemHealth = async () => {
   const dbState = mongoose.connection.readyState;
+  const memUsage = process.memoryUsage();
+  const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+  const heapTotalMB = Math.round(memUsage.heapTotal / 1024 / 1024);
+  const uptimeSeconds = Math.floor(process.uptime());
+  const days = Math.floor(uptimeSeconds / 86400);
+  const hours = Math.floor((uptimeSeconds % 86400) / 3600);
+  const minutes = Math.floor((uptimeSeconds % 3600) / 60);
+
   return {
     status: dbState === 1 ? 'healthy' : 'degraded',
-    uptime: '99.9%',
+    uptime: `${days}d ${hours}h ${minutes}m`,
     lastChecked: new Date().toISOString(),
     services: {
       database: dbState === 1 ? 'online' : 'offline',
-      notificationService: 'online',
-      qrScanner: 'online',
-      authService: 'online',
-      chatbot: 'online',
     },
-    memoryUsage: Math.round((process.memoryUsage().heapUsed / process.memoryUsage().heapTotal) * 100) + '%',
-    cpuUsage: '12%',
+    memory: `${heapUsedMB}MB / ${heapTotalMB}MB`,
+    nodeVersion: process.version,
+    platform: process.platform,
   };
 };
 
@@ -693,77 +703,67 @@ export const createHospital = async (data, adminId) => {
   };
 };
 
-export const updateUser = async (id, data, adminId, callerRole) => {
-  const user = await User.findOne({ _id: id, deletedAt: null });
+export const updateDonor = async (id, data, adminId) => {
+  const user = await User.findOne({ _id: id, deletedAt: null, role: 'donor' });
   if (!user) return null;
 
-  // Only superadmin can update admin/superadmin accounts
-  if ((user.role === 'admin' || user.role === 'superadmin') && callerRole !== 'superadmin') {
+  if (data.email !== undefined) {
+    throw new Error('Email cannot be changed by admin. Donors must use the self-service profile flow.');
+  }
+  const allowedFields = ['fullName', 'phoneNumber', 'bloodType'];
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) user[field] = data[field];
+  }
+  await user.save();
+  await logAudit(adminId, 'user.update_donor', 'User', id);
+  return user;
+};
+
+export const updateHospital = async (id, data, adminId) => {
+  const user = await User.findOne({ _id: id, deletedAt: null, role: 'hospital' });
+  if (!user) return null;
+
+  if (data.email !== undefined) {
+    throw new Error('Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.');
+  }
+  const allowedFields = ['fullName', 'hospitalName', 'bloodBanksAvailable', 'capacity'];
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) user[field] = data[field];
+  }
+  if (data.phone !== undefined || data.contactNumber !== undefined) {
+    user.contactNumber = data.contactNumber !== undefined ? data.contactNumber : data.phone;
+  }
+  await user.save();
+  await logAudit(adminId, 'user.update_hospital', 'User', id);
+  return user;
+};
+
+export const updateAdmin = async (id, data, adminId, callerRole) => {
+  if (callerRole !== 'superadmin') {
     return null;
   }
 
-  if (user.role === 'donor') {
-    if (data.email !== undefined) {
-      throw new Error('Email cannot be changed by admin. Donors must use the self-service profile flow.');
-    }
-    const allowedFields = [
-      'fullName', 'phoneNumber', 'bloodType', 'gender',
-      'location', 'hemoglobinLevel', 'travelHistory',
-      'temporaryDeferralUntil', 'lastDeferralReason', 'isOptedIn',
-    ];
-    for (const field of allowedFields) {
-      if (data[field] !== undefined) user[field] = data[field];
-    }
-    await user.save();
-    await logAudit(adminId, 'user.update_donor', 'User', id);
-    return user;
-  }
+  const user = await User.findOne({ _id: id, deletedAt: null, role: { $in: ['admin', 'superadmin'] } });
+  if (!user) return null;
 
-  if (user.role === 'hospital') {
-    if (data.email !== undefined) {
-      throw new Error('Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.');
-    }
-    const allowedFields = [
-      'fullName', 'address', 'city', 'state', 'zipCode',
-      'hospitalName', 'hospitalType', 'type',
-      'adminContactName', 'adminContactPhone', 'emergencyContact',
-      'bloodBanksAvailable', 'capacity', 'licenseNumber',
-      'slotsPerHour', 'workingHoursStart', 'workingHoursEnd',
-      'location',
-    ];
-    for (const field of allowedFields) {
-      if (data[field] !== undefined) user[field] = data[field];
-    }
-    if (data.phone !== undefined || data.contactNumber !== undefined) {
-      user.contactNumber = data.contactNumber !== undefined ? data.contactNumber : data.phone;
-    }
-    await user.save();
-    await logAudit(adminId, 'user.update_hospital', 'User', id);
-    return user;
+  if (data.email !== undefined) {
+    throw new Error('Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.');
   }
-
-  if (user.role === 'admin' || user.role === 'superadmin') {
-    if (data.email !== undefined) {
-      throw new Error('Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.');
-    }
-    if (data.role !== undefined) {
-      throw new Error('Role changes are not supported via this endpoint');
-    }
-    const allowedFields = ['fullName', 'location', 'isSuspended'];
-    for (const field of allowedFields) {
-      if (data[field] !== undefined) user[field] = data[field];
-    }
-    if (data.password) user.password = data.password;
-    if (data.isSuspended !== undefined && !data.isSuspended) {
-      user.suspendedAt = null;
-      user.suspendedReason = null;
-    }
-    await user.save();
-    await logAudit(adminId, 'user.update_admin', 'User', id);
-    return user;
+  if (data.role !== undefined) {
+    throw new Error('Role changes are not supported via this endpoint');
   }
-
-  return null;
+  const allowedFields = ['fullName', 'isSuspended'];
+  for (const field of allowedFields) {
+    if (data[field] !== undefined) user[field] = data[field];
+  }
+  if (data.password) user.password = data.password;
+  if (data.isSuspended !== undefined && !data.isSuspended) {
+    user.suspendedAt = null;
+    user.suspendedReason = null;
+  }
+  await user.save();
+  await logAudit(adminId, 'user.update_admin', 'User', id);
+  return user;
 };
 
 export const banUser = async (targetId, reason, adminId, callerRole) => {
@@ -844,9 +844,7 @@ export const createAdmin = async (data, adminId) => {
     isEmailVerified: true,
     emailVerifiedAt: new Date(),
     phone: data.phone || null,
-    address: data.address || null,
     adminKey: 'pending',
-    location: data.location || {},
   });
 
   admin.adminKey = encryptAdminKey(plaintextKey, admin._id.toString());
@@ -863,7 +861,7 @@ export const loginAdmin = async (email, password, adminKey) => {
 
   const normalizedEmail = String(email).trim().toLowerCase();
   const user = await User.findOne({ email: normalizedEmail, role: { $in: ['admin', 'superadmin'] } })
-    .select('+password +adminKey +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +phone +address')
+    .select('+password +adminKey +passwordChangedAt +deletedAt +isSuspended +isEmailVerified +phone')
     .lean();
 
   if (!user) throw new Error('Invalid credentials');
@@ -895,7 +893,6 @@ export const loginAdmin = async (email, password, adminKey) => {
     email: user.email,
     role: user.role,
     phone: user.phone || null,
-    address: user.address || null,
   };
 
   const tokens = {
@@ -926,7 +923,7 @@ export const getAllAdmins = async (pagination = {}, callerRole = null) => {
 
   const [admins, total] = await Promise.all([
     User.find(query)
-      .select('+adminKey fullName email role phone address isEmailVerified isSuspended createdAt updatedAt')
+      .select('+adminKey fullName email role phone isEmailVerified isSuspended createdAt updatedAt')
       .sort({ createdAt: -1 })
       .skip(offset)
       .limit(limit),
@@ -943,7 +940,7 @@ export const getAllAdmins = async (pagination = {}, callerRole = null) => {
 
 export const getAdminProfile = async (adminId) => {
   const admin = await User.findOne({ _id: adminId, deletedAt: null, role: { $in: ['admin', 'superadmin'] } })
-    .select('+adminKey fullName email role phone address isEmailVerified isSuspended createdAt updatedAt');
+    .select('+adminKey fullName email role phone isEmailVerified isSuspended createdAt updatedAt');
 
   if (!admin) {
     return null;
@@ -979,20 +976,9 @@ export const updateAdminProfile = async (adminId, data) => {
     verificationOtp = admin.createEmailVerificationOtp();
   }
 
-  const changedFields = buildFieldDiff(admin, data, ['fullName', 'email', 'phone', 'address']);
+  const changedFields = buildFieldDiff(admin, data, ['fullName', 'email', 'phone']);
   for (const field of Object.keys(changedFields)) {
     admin[field] = data[field];
-  }
-
-  if (data.location) {
-    changedFields.location = { from: admin.location, to: data.location };
-    admin.location = {
-      ...admin.location,
-      ...data.location,
-      coordinates: data.location.coordinates
-        ? { ...admin.location?.coordinates, ...data.location.coordinates }
-        : admin.location?.coordinates,
-    };
   }
 
   await admin.save();
@@ -1538,65 +1524,49 @@ export const broadcastRequest = async (id, adminId) => {
     .populate('hospitalId', 'fullName hospitalName location');
   if (!request) return null;
 
-  // Build donor query: available, verified, not suspended, matching blood type
-  const donorQuery = {
-    role: 'donor',
-    isOptedIn: true,
-    isEmailVerified: true,
-    isSuspended: false,
-    deletedAt: null,
-  };
-
-  // Match blood type for blood requests
-  const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
-  if (request.type === 'blood' && requestBloodTypes.length > 0) {
-    donorQuery.bloodType = { $in: getCompatibleDonorTypesForRequest(requestBloodTypes) };
-  }
-
-  // Match governorate if hospital has location
+  const bloodTypes = request.bloodType ?? request._doc?.bloodType ?? [];
+  const requestBloodTypes = normalizeBloodTypeList(bloodTypes);
+  const bloodTypeLabel = requestBloodTypes.length > 0 ? requestBloodTypes.join(', ') : '';
   const hospitalLocation = request.hospitalId?.location;
-  if (hospitalLocation?.governorate) {
-    donorQuery['location.governorate'] = hospitalLocation.governorate;
-  }
 
-  const donors = await Donor.find(donorQuery).select('_id fullName fcmTokens');
+  const compatibleDonors = await matchingService.findCompatibleDonors(id);
 
-  // Create in-app notifications for all matched donors
-  if (donors.length > 0) {
-    const notifications = donors.map((donor) => ({
+  if (compatibleDonors.length > 0) {
+    const notifications = compatibleDonors.map(({ donor }) => ({
       userId: donor._id,
       type: 'request',
       title: 'Urgent Blood Request',
-      message: `${request.hospitalId?.hospitalName || 'A hospital'} needs ${formatBloodTypeLabel(request.bloodType) || request.organType} donors urgently. ${request.urgency} priority.`,
+      message: `${request.hospitalId?.hospitalName || 'A hospital'} needs ${bloodTypeLabel || request.organType} donors urgently. ${request.urgency} priority.`,
       relatedId: request._id,
       relatedType: 'Request',
       data: {
         requestId: request._id,
         requestType: request.type,
         urgency: request.urgency,
-        bloodType: normalizeBloodTypeList(request.bloodType),
-        bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
+        bloodType: requestBloodTypes,
+        bloodTypeLabel,
       },
     }));
 
     await Notification.insertMany(notifications);
   }
 
-  // Collect FCM tokens and send push notifications
-  const fcmTokens = donors.flatMap((d) => d.fcmTokens || []).filter(Boolean);
+  const fcmTokens = compatibleDonors
+    .flatMap(({ donor }) => donor.fcmTokens || [])
+    .filter(Boolean);
 
   if (fcmTokens.length > 0) {
     sendToMultiple(
       fcmTokens,
       'Urgent Blood Request',
-      `${request.hospitalId?.hospitalName || 'A hospital'} needs ${formatBloodTypeLabel(request.bloodType) || request.organType} donors urgently. ${request.urgency} priority.`,
+      `${request.hospitalId?.hospitalName || 'A hospital'} needs ${bloodTypeLabel || request.organType} donors urgently. ${request.urgency} priority.`,
       {
         type: 'request_broadcast',
         requestId: String(request._id),
         requestType: request.type || 'blood',
         urgency: request.urgency || 'normal',
-        bloodType: normalizeBloodTypeList(request.bloodType),
-        bloodTypeLabel: formatBloodTypeLabel(request.bloodType) || '',
+        bloodType: requestBloodTypes,
+        bloodTypeLabel: bloodTypeLabel || '',
         governorate: hospitalLocation?.governorate || 'all',
         click_action: 'FLUTTER_NOTIFICATION_CLICK',
       },
@@ -1604,85 +1574,21 @@ export const broadcastRequest = async (id, adminId) => {
     ).catch((err) => logger.error('FCM broadcast push failed', { message: err.message }));
   }
 
-  // Stamp lastBroadcastAt to enforce cooldown on next call
-  await Request.updateOne({ _id: request._id }, { $set: { lastBroadcastAt: new Date() } });
-
   await logAudit(adminId, 'request.broadcast', 'Request', id);
 
+  const radiusKm = ['high', 'critical'].includes(request.urgency) ? 60 : 30;
+
   return {
-    donorsNotified: donors.length,
+    donorsNotified: compatibleDonors.length,
     pushTokenCount: fcmTokens.length,
     governorate: hospitalLocation?.governorate || 'all',
-    bloodType: normalizeBloodTypeList(request.bloodType),
-    bloodTypeLabel: formatBloodTypeLabel(request.bloodType) || 'all',
+    bloodType: requestBloodTypes,
+    bloodTypeLabel: bloodTypeLabel || 'all',
+    radiusKm,
   };
 };
 
-// ──────────────────────────────────────────────
-//  Emergency Management (Phase 5)
-// ──────────────────────────────────────────────
 
-/**
- * Send emergency broadcast to donors by governorate and blood type.
- */
-export const sendEmergencyBroadcast = async (data, adminId) => {
-  const { governorate, city, bloodTypes, title, message } = data;
-
-  const donorQuery = {
-    role: 'donor',
-    isOptedIn: true,
-    isEmailVerified: true,
-    isSuspended: false,
-    deletedAt: null,
-  };
-
-  if (governorate) donorQuery['location.governorate'] = governorate;
-  if (city) donorQuery['location.city'] = city;
-  if (bloodTypes && bloodTypes.length > 0) donorQuery.bloodType = { $in: bloodTypes };
-
-  const donors = await Donor.find(donorQuery).select('_id fullName fcmTokens');
-
-  // Create in-app notifications
-  if (donors.length > 0) {
-    const notifications = donors.map((donor) => ({
-      userId: donor._id,
-      type: 'emergency',
-      title: title || 'Emergency Blood Request',
-      message: message || 'An emergency blood request has been issued in your area.',
-      data: { governorate, city, bloodTypes },
-    }));
-
-    await Notification.insertMany(notifications);
-  }
-
-  await logAudit(adminId, 'emergency.broadcast', 'System', null);
-
-  // Collect FCM tokens and send push notifications
-  const fcmTokens = donors.flatMap((d) => d.fcmTokens || []).filter(Boolean);
-
-  if (fcmTokens.length > 0) {
-    sendToMultiple(
-      fcmTokens,
-      title || 'Emergency Blood Request',
-      message || 'An emergency blood request has been issued in your area.',
-      {
-        type: 'emergency_broadcast',
-        governorate: governorate || 'all',
-        city: city || 'all',
-        bloodTypes: bloodTypes ? bloodTypes.join(',') : 'all',
-        click_action: 'FLUTTER_NOTIFICATION_CLICK',
-      },
-      { channelId: 'emergency_requests', priority: 'high', sound: 'default' }
-    ).catch((err) => logger.error('FCM emergency broadcast failed', { message: err.message }));
-  }
-
-  return {
-    donorsNotified: donors.length,
-    pushTokenCount: fcmTokens.length,
-    governorate: governorate || 'all',
-    city: city || 'all',
-  };
-};
 
 /**
  * Get all critical/high urgency active requests.

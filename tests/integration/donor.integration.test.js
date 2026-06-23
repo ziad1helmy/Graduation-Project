@@ -198,7 +198,6 @@ describe('Donor Routes Integration', () => {
       requestId: req._id,
       quantity: 1,
       status: 'completed',
-      donationDate: new Date(),
     });
 
     const token = signToken({ userId: donor._id.toString(), role: donor.role });
@@ -397,14 +396,12 @@ describe('Donor Routes Integration', () => {
       requestId: firstRequest._id,
       quantity: 1,
       status: 'completed',
-      donationDate: new Date(),
     });
     await Donation.create({
       donorId: donor._id,
       requestId: secondRequest._id,
       quantity: 1,
       status: 'completed',
-      donationDate: new Date(),
     });
 
     const token = signToken({ userId: donor._id.toString(), role: donor.role });

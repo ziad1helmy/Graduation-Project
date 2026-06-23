@@ -135,10 +135,6 @@ export const validateCreateAdminBody = (body) => {
     errors.push('phone must be a string');
   }
 
-  if (body.address !== undefined && typeof body.address !== 'string') {
-    errors.push('address must be a string');
-  }
-
   return { valid: errors.length === 0, errors };
 };
 
@@ -219,62 +215,6 @@ export const validateListRequestsQuery = (query) => {
 export const validateCancelRequestBody = () => ({ valid: true, errors: [] });
 
 /**
- * Validate emergency broadcast body.
- */
-export const validateEmergencyBroadcastBody = (body) => {
-  const errors = [];
-  const validBloodTypes = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
-
-  if (!body.title || typeof body.title !== 'string') {
-    errors.push('title is required');
-  }
-
-  if (!body.message || typeof body.message !== 'string') {
-    errors.push('message is required');
-  }
-
-  if (body.bloodTypes && Array.isArray(body.bloodTypes)) {
-    for (const bt of body.bloodTypes) {
-      if (!validBloodTypes.includes(bt)) {
-        errors.push(`Invalid blood type: ${bt}`);
-      }
-    }
-  }
-
-  return { valid: errors.length === 0, errors };
-};
-
-const validateLocationField = (location, errors) => {
-  if (typeof location !== 'object' || location === null) {
-    errors.push('location must be an object');
-    return;
-  }
-  
-  if (location.city !== undefined && typeof location.city !== 'string') {
-    errors.push('location.city must be a string');
-  }
-  
-  if (location.governorate !== undefined && typeof location.governorate !== 'string') {
-    errors.push('location.governorate must be a string');
-  }
-  
-  if (location.coordinates !== undefined) {
-    if (typeof location.coordinates !== 'object' || location.coordinates === null) {
-      errors.push('location.coordinates must be an object');
-      return;
-    }
-    
-    const { lat, lng } = location.coordinates;
-    if (lat !== undefined && (typeof lat !== 'number' || lat < -90 || lat > 90)) {
-      errors.push('Valid latitude (lat) is required (-90 to 90)');
-    }
-    if (lng !== undefined && (typeof lng !== 'number' || lng < -180 || lng > 180)) {
-      errors.push('Valid longitude (lng) is required (-180 to 180)');
-    }
-  }
-};
-
-/**
  * Validate admin profile update body.
  */
 export const validateUpdateAdminProfileBody = (body) => {
@@ -290,14 +230,6 @@ export const validateUpdateAdminProfileBody = (body) => {
 
   if (body.phone !== undefined && typeof body.phone !== 'string') {
     errors.push('phone must be a string');
-  }
-
-  if (body.address !== undefined && typeof body.address !== 'string') {
-    errors.push('address must be a string');
-  }
-
-  if (body.location !== undefined) {
-    validateLocationField(body.location, errors);
   }
 
   return { valid: errors.length === 0, errors };

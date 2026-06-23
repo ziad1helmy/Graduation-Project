@@ -5,6 +5,7 @@ import {
 } from '../utils/blood-type.js';
 import {
   PATIENT_TYPE_ENUM,
+  PATIENT_DETAILS_ENUM,
   REQUEST_URGENCY_ENUM,
   REQUEST_TYPE_ENUM,
   REQUEST_STATUS_ENUM,
@@ -40,7 +41,16 @@ const requestSchema = new mongoose.Schema(
         values: PATIENT_TYPE_ENUM,
         message: `Patient type must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`,
       },
-      default: 'general',
+      default: 'adult',
+    },
+
+    patientDetails: {
+      type: String,
+      enum: {
+        values: PATIENT_DETAILS_ENUM,
+        message: `Patient details must be one of: ${PATIENT_DETAILS_ENUM.join(', ')}`,
+      },
+      default: null,
     },
 
     unitsNeeded: {
@@ -81,7 +91,6 @@ const requestSchema = new mongoose.Schema(
     bloodType: {
       type: [String],
       set: normalizeBloodTypeList,
-      get: normalizeBloodTypeList,
       validate: {
         validator: function(v) {
           if (!['blood', 'plasma', 'platelets', 'double_red_cells'].includes(this.type)) {

@@ -1,4 +1,5 @@
 import response from '../utils/response.js';
+import { PATIENT_TYPE_ENUM, PATIENT_DETAILS_ENUM } from '../constants/request.constants.js';
 import mongoose from 'mongoose';
 import Hospital from '../models/Hospital.model.js';
 import Donor from '../models/Donor.model.js';
@@ -85,9 +86,10 @@ const buildEmergencyRequestData = (userId, hospital, validation) => ({
   urgency: 'critical',
   requiredBy: new Date(Date.now() + EMERGENCY_REQUEST_REQUIRED_BY_MS),
   unitsNeeded: validation.unitsNeeded,
-  patientType: validation.patientDetails,
+  patientType: 'adult',
   isEmergency: true,
-  notes: validation.patientDetails,
+  patientDetails: validation.patientDetails,
+  notes: '',
   bloodType: validation.bloodTypes,
 });
 
@@ -103,10 +105,10 @@ const buildNormalRequestData = (userId, hospital, body, validation) => {
     quantity,
     unitsNeeded,
     patientType,
+    patientDetails,
     contactNumber,
     isEmergency,
     notes,
-    patientDetails,
   } = body;
 
   const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
@@ -127,8 +129,9 @@ const buildNormalRequestData = (userId, hospital, body, validation) => {
     requiredBy: requiredByDate,
     unitsNeeded: Number.isFinite(resolvedUnits) && resolvedUnits > 0 ? resolvedUnits : 1,
     patientType: patientType || null,
+    patientDetails: patientDetails || null,
     isEmergency: isEmergency === true || resolvedUrgency === 'critical',
-    notes: notes || patientDetails || '',
+    notes: notes || '',
     ...(normalizedBloodTypes.length > 0 ? { bloodType: normalizedBloodTypes } : {}),
   };
 };
@@ -765,8 +768,8 @@ const formatRequestDetailResponse = (request, donations) => {
     confirmed,
     status: request.status,
     patientType: request.patientType,
+    patientDetails: request.patientDetails || null,
     contactNumber: request.contactNumber || null,
-    patientDetails: request.notes || null,
   };
 };
 
@@ -957,9 +960,9 @@ export const updateRequest = asyncHandler(async (req, res) => {
     quantity !== undefined ||
     unitsNeeded !== undefined ||
     patientType !== undefined ||
+    patientDetails !== undefined ||
     contactNumber !== undefined ||
-    notes !== undefined ||
-    patientDetails !== undefined;
+    notes !== undefined;
 
   if (isUpdatingDetails) {
     if (['completed', 'cancelled', 'expired'].includes(request.status)) {
@@ -1002,7 +1005,17 @@ export const updateRequest = asyncHandler(async (req, res) => {
     }
 
     if (patientType !== undefined) {
+      if (!PATIENT_TYPE_ENUM.includes(patientType)) {
+        throw new HttpError(400, `patientType must be one of: ${PATIENT_TYPE_ENUM.join(', ')}`);
+      }
       request.patientType = patientType;
+    }
+
+    if (patientDetails !== undefined) {
+      if (!PATIENT_DETAILS_ENUM.includes(patientDetails)) {
+        throw new HttpError(400, `patientDetails must be one of: ${PATIENT_DETAILS_ENUM.join(', ')}`);
+      }
+      request.patientDetails = patientDetails;
     }
 
     if (contactNumber !== undefined) {
@@ -1012,8 +1025,8 @@ export const updateRequest = asyncHandler(async (req, res) => {
       request.contactNumber = contactNumber;
     }
 
-    if (notes !== undefined || patientDetails !== undefined) {
-      request.notes = notes ?? patientDetails;
+    if (notes !== undefined) {
+      request.notes = notes;
     }
   }
 
@@ -1281,26 +1294,40 @@ export const getAppointmentDetails = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Appointment retrieved successfully', appointmentResponse);
 });
 
+const donationLookupStages = (hospitalObjectId, startDate, endDate, extraMatch = {}) => [
+  { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
+  { $unwind: '$request' },
+  { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: startDate, $lt: endDate }, ...extraMatch } },
+];
+
 export const getMonthlyReports = asyncHandler(async (req, res) => {
   const month = req.query.month || new Date().toISOString().slice(0, 7);
   const startDate = new Date(`${month}-01T00:00:00.000Z`);
   const endDate = new Date(startDate);
   endDate.setMonth(endDate.getMonth() + 1);
   const hospitalObjectId = new mongoose.Types.ObjectId(req.user.userId);
+  const now = new Date();
+  const startOfToday = new Date(now);
+  startOfToday.setHours(0, 0, 0, 0);
+  const endOfToday = new Date(startOfToday);
+  endOfToday.setDate(endOfToday.getDate() + 1);
+  const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000);
 
-  const [requests, donationsAgg, activeRequestCount, completedCount, cancelledCount] = await Promise.all([
+  const [requests, donationsAgg, openCount, activeCount, completedCount, cancelledCount, overdueCount, dueSoonCount, avgDaysResult, completedDonationsAgg, confirmedDonorsAgg, responsesTodayAgg] = await Promise.all([
     Request.find({
       hospitalId: hospitalObjectId,
       createdAt: { $gte: startDate, $lt: endDate },
-    }).select('status urgency'),
-    Donation.aggregate([
-      { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-      { $unwind: '$request' },
-      { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: startDate, $lt: endDate } } },
-    ]),
+    }).select('status urgency requiredBy'),
+    Donation.aggregate(donationLookupStages(hospitalObjectId, startDate, endDate)),
+    Request.countDocuments({
+      hospitalId: hospitalObjectId,
+      status: 'pending',
+      createdAt: { $gte: startDate, $lt: endDate },
+    }),
     Request.countDocuments({
       hospitalId: hospitalObjectId,
       status: { $in: ['pending', 'in-progress'] },
+      createdAt: { $gte: startDate, $lt: endDate },
     }),
     Request.countDocuments({
       hospitalId: hospitalObjectId,
@@ -1310,37 +1337,62 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
       hospitalId: hospitalObjectId,
       cancelledAt: { $gte: startDate, $lt: endDate },
     }),
+    Request.countDocuments({
+      hospitalId: hospitalObjectId,
+      status: { $nin: ['completed', 'cancelled'] },
+      requiredBy: { $lt: now },
+    }),
+    Request.countDocuments({
+      hospitalId: hospitalObjectId,
+      status: { $nin: ['completed', 'cancelled'] },
+      requiredBy: { $gte: now, $lte: in24h },
+    }),
+    Request.aggregate([
+      { $match: { hospitalId: hospitalObjectId, status: { $nin: ['completed', 'cancelled'] }, requiredBy: { $ne: null } } },
+      { $project: { daysRemaining: { $divide: [{ $subtract: ['$requiredBy', now] }, 1000 * 60 * 60 * 24] } } },
+      { $group: { _id: null, avgDays: { $avg: '$daysRemaining' } } },
+    ]),
+    Donation.aggregate([
+      ...donationLookupStages(hospitalObjectId, startDate, endDate, { status: 'completed' }),
+      { $count: 'count' },
+    ]),
+    Donation.aggregate([
+      ...donationLookupStages(hospitalObjectId, startDate, endDate, { status: { $in: ['confirmed', 'completed'] } }),
+      { $group: { _id: '$donorId' } },
+      { $count: 'count' },
+    ]),
+    Donation.aggregate([
+      ...donationLookupStages(hospitalObjectId, startOfToday, endOfToday),
+      { $count: 'count' },
+    ]),
   ]);
 
   const totalRequests = requests.length;
-  const activeRequests = activeRequestCount;
-  const totalCompleted = completedCount;
-  const totalCancelled = cancelledCount;
-  const emergencyRequests = requests.filter((r) => r.urgency === 'critical' || r.urgency === 'high').length;
   const totalResponses = donationsAgg.length;
-
-  // Donations created today for this hospital
-  const now = new Date();
-  const startOfToday = new Date(now);
-  startOfToday.setHours(0, 0, 0, 0);
-  const endOfToday = new Date(startOfToday);
-  endOfToday.setDate(endOfToday.getDate() + 1);
-  const responsesTodayAgg = await Donation.aggregate([
-    { $lookup: { from: 'requests', localField: 'requestId', foreignField: '_id', as: 'request' } },
-    { $unwind: '$request' },
-    { $match: { 'request.hospitalId': hospitalObjectId, createdAt: { $gte: startOfToday, $lt: endOfToday } } },
-    { $count: 'count' },
-  ]);
+  const emergencyRequests = requests.filter((r) => r.urgency === 'critical' || r.urgency === 'high').length;
+  const completedDonations = completedDonationsAgg[0]?.count || 0;
+  const confirmedDonorCount = confirmedDonorsAgg[0]?.count || 0;
+  const avgDaysToRequiredBy = avgDaysResult[0]?.avgDays ? Math.round(avgDaysResult[0].avgDays * 10) / 10 : 0;
   const responsesToday = responsesTodayAgg[0]?.count || 0;
 
   return response.success(res, 200, 'Monthly report retrieved successfully', {
     month,
     totalRequests,
-    activeRequests,
-    totalCompleted,
-    totalCancelled,
+    openRequests: openCount,
+    activeRequests: activeCount,
+    totalCompleted: completedCount,
+    totalCancelled: cancelledCount,
     emergencyRequests,
+    responseCount: totalResponses,
     totalResponses,
+    totalDonations: totalResponses,
+    completedDonations,
+    confirmedDonorCount,
+    overdueCount,
+    dueSoonCount,
+    avgDaysToRequiredBy,
+    recentActivityCount: totalResponses,
+    recentCompletedDonationCount: completedDonations,
     responsesToday,
   });
 });

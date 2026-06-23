@@ -141,7 +141,9 @@ router.post('/users/hospital', adminController.createHospital);
 
 router.get('/users/:id', adminController.getUserById);
 
-router.put('/users/:id', adminController.updateUser);
+router.put('/users/donor/:id', adminController.updateDonor);
+router.put('/users/hospital/:id', adminController.updateHospital);
+router.put('/users/admin/:id', requireRole('superadmin'), adminController.updateAdmin);
 
 router.delete('/users/:id', adminController.deleteUser);
 
@@ -170,9 +172,6 @@ router.patch('/requests/:id/broadcast', adminController.broadcastRequest);
 // ──────────────────────────────────────────────
 //  Emergency
 // ──────────────────────────────────────────────
-
-
-router.post('/emergency/broadcast', adminController.sendEmergencyBroadcast);
 
 
 router.get('/emergency/critical', adminController.getCriticalRequests);

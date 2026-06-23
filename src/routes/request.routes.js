@@ -51,8 +51,6 @@ router.post('/:id/reject', requireRole('hospital', 'admin', 'superadmin'), reque
 router.post('/:id/cancel', requestController.cancelRequest);
 
 
-router.post('/:id/expire-arrival', requireRole('admin', 'superadmin'), requestController.expireArrival);
-
 export default router;
 
 // ─── API CONTRACT ────────────────────────────────────────────────────────────
