@@ -6,13 +6,15 @@ on:
   pull_request:
     branches: ["main"]
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+env:
+  JWT_SECRET: ci_secret
+  JWT_EXPIRES_IN: 7d
+  REDIS_URL: ""
+  NODE_ENV: test
 
-    env:
-      JWT_SECRET: ci_secret
-      MONGO_URI: mongodb://localhost:27017/test
+jobs:
+  test:
+    runs-on: ubuntu-latest
 
     strategy:
       matrix:
@@ -30,8 +32,9 @@ jobs:
       - name: Install dependencies
         run: npm install
 
-      - name: Build
-        run: npm run build --if-present
+      - name: Run tests
+        run: npm test
+        timeout-minutes: 15
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
 
-      - name: Basic check
-        run: node -e "console.log('CI passed')"

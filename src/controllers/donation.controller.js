@@ -425,10 +425,59 @@ export const validateDonationEligibility = asyncHandler(async (req, res) => {
   });
 });
 
+const parseChecklist = (body) => {
+  const checklist = body.checklist || {};
+  return {
+    idVerified: Boolean(checklist.idVerified),
+    questionnaireCompleted: Boolean(checklist.questionnaireCompleted),
+    consentSigned: Boolean(checklist.consentSigned),
+  };
+};
+
+const buildChecklistUpdate = (checklistPayload, now, isVerified) => {
+  if (!isVerified) {
+    return {
+      idVerified: false,
+      questionnaireCompleted: false,
+      consentSigned: false,
+      completedAt: null,
+    };
+  }
+  return {
+    ...checklistPayload,
+    completedAt: now,
+  };
+};
+
+const validateDonationStatus = (donation) => {
+  if (donation.status === 'cancelled') throw new HttpError(400, 'Donation request is cancelled');
+  if (donation.status === 'completed') throw new HttpError(409, 'Donation has already been completed');
+  if (donation.status === 'expired') throw new HttpError(400, 'Donation request has expired');
+  if (donation.status === 'abandoned') throw new HttpError(400, 'Donation request was abandoned');
+  if (!['pending', 'scheduled'].includes(donation.status)) throw new HttpError(400, 'Donation is not active');
+  if (donation.verificationStatus === 'rejected') throw new HttpError(409, 'Donation verification was rejected');
+  if (donation.qrExpiresAt && new Date() > new Date(donation.qrExpiresAt)) throw new HttpError(400, 'QR code expired');
+  if (donation.qrScannedAt) throw new HttpError(409, 'QR code already used');
+};
+
+const validateAppointmentStatus = (appointment) => {
+  const activeError = ensureAppointmentIsActive(appointment);
+  if (activeError) throw new HttpError(activeError.status, activeError.message);
+  if (appointment.qrScannedAt) throw new HttpError(409, 'QR code already used');
+};
+
 export const verifyQr = asyncHandler(async (req, res) => {
   const body = req.body || {};
   const qrToken = String(body.qrToken || body.qrCode || '').trim();
   if (!qrToken) throw new HttpError(400, 'qrToken is required');
+
+  const checklistPayload = parseChecklist(body);
+  const hasChecklist = body.checklist != null;
+  const isVerified = hasChecklist && isChecklistComplete(checklistPayload);
+
+  if (hasChecklist && !isVerified) {
+    throw new HttpError(400, 'All checklist items must be completed');
+  }
 
   let appointment = await populateAppointmentForVerification(
     Appointment.findOne({ qrToken })
@@ -438,7 +487,6 @@ export const verifyQr = asyncHandler(async (req, res) => {
   let isRequestDonation = false;
 
   if (!appointment) {
-    // Look up donation directly
     donation = await Donation.findOne({ qrToken }).populate([
       { path: 'donorId', select: 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason' },
       { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName phone location' } },
@@ -452,39 +500,9 @@ export const verifyQr = asyncHandler(async (req, res) => {
   }
 
   if (isRequestDonation) {
-    if (donation.status === 'cancelled') {
-      throw new HttpError(400, 'Donation request is cancelled');
-    }
-    if (donation.status === 'completed') {
-      throw new HttpError(409, 'Donation has already been completed');
-    }
-    if (donation.status === 'expired') {
-      throw new HttpError(400, 'Donation request has expired');
-    }
-    if (donation.status === 'abandoned') {
-      throw new HttpError(400, 'Donation request was abandoned');
-    }
-    if (!['pending', 'scheduled'].includes(donation.status)) {
-      throw new HttpError(400, 'Donation is not active');
-    }
-    if (donation.verificationStatus === 'rejected') {
-      throw new HttpError(409, 'Donation verification was rejected');
-    }
-    if (donation.qrExpiresAt && new Date() > new Date(donation.qrExpiresAt)) {
-      throw new HttpError(400, 'QR code expired');
-    }
-    if (donation.qrScannedAt) {
-      throw new HttpError(409, 'QR code already used');
-    }
+    validateDonationStatus(donation);
   } else {
-    const activeError = ensureAppointmentIsActive(appointment);
-    if (activeError) {
-      throw new HttpError(activeError.status, activeError.message);
-    }
-
-    if (appointment.qrScannedAt) {
-      throw new HttpError(409, 'QR code already used');
-    }
+    validateAppointmentStatus(appointment);
   }
 
   const donor = isRequestDonation ? donation.donorId : appointment.donorId;
@@ -510,29 +528,25 @@ export const verifyQr = asyncHandler(async (req, res) => {
   const sessionId = crypto.randomBytes(16).toString('hex');
 
   if (isRequestDonation) {
+    const finalStatus = isVerified ? 'verified' : 'pending';
+    const updateFields = {
+      qrScannedAt: now,
+      verificationStatus: finalStatus,
+      verificationSessionId: sessionId,
+      verificationStartedAt: now,
+      verificationVerifiedAt: isVerified ? now : null,
+      verificationRejectedAt: null,
+      verificationRejectedReason: null,
+      verificationChecklist: buildChecklistUpdate(checklistPayload, now, isVerified),
+    };
+
     const updatedDonation = await Donation.findOneAndUpdate(
       {
         _id: donation._id,
         qrScannedAt: null,
         status: { $in: ['pending', 'scheduled'] },
       },
-      {
-        $set: {
-          qrScannedAt: now,
-          verificationStatus: 'pending',
-          verificationSessionId: sessionId,
-          verificationStartedAt: now,
-          verificationVerifiedAt: null,
-          verificationRejectedAt: null,
-          verificationRejectedReason: null,
-          verificationChecklist: {
-            idVerified: false,
-            questionnaireCompleted: false,
-            consentSigned: false,
-            completedAt: null,
-          },
-        },
-      },
+      { $set: updateFields },
       { returnDocument: 'after' }
     ).populate([
       { path: 'donorId', select: 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason' },
@@ -540,6 +554,14 @@ export const verifyQr = asyncHandler(async (req, res) => {
     ]);
 
     if (!updatedDonation) throw new HttpError(409, 'QR code already used');
+
+    if (isVerified) {
+      try {
+        validateOrphanState('donation', updatedDonation);
+      } catch (err) {
+        throw new HttpError(400, err.message);
+      }
+    }
 
     activityService.logActivity(donor._id, {
       type: 'donation',
@@ -555,8 +577,23 @@ export const verifyQr = asyncHandler(async (req, res) => {
       },
     }).catch(() => {});
 
-    return response.success(res, 200, 'Donation verification started successfully', buildDonationVerificationPayload(updatedDonation, eligibility, sessionId, req.t));
+    const message = isVerified ? 'Arrival confirmed successfully' : 'Donation verification started successfully';
+    const eligibilityPayload = isVerified ? { eligible: true, reason: 'Checklist completed' } : eligibility;
+    return response.success(res, 200, message, buildDonationVerificationPayload(updatedDonation, eligibilityPayload, sessionId, req.t));
   } else {
+    const finalStatus = isVerified ? 'verified' : 'pending';
+    const updateFields = {
+      qrScannedAt: now,
+      status: isVerified ? 'confirmed' : appointment.status,
+      verificationStatus: finalStatus,
+      verificationSessionId: sessionId,
+      verificationStartedAt: now,
+      verificationVerifiedAt: isVerified ? now : null,
+      verificationRejectedAt: null,
+      verificationRejectedReason: null,
+      verificationChecklist: buildChecklistUpdate(checklistPayload, now, isVerified),
+    };
+
     const updatedAppointment = await populateAppointmentForVerification(
       Appointment.findOneAndUpdate(
         {
@@ -564,28 +601,21 @@ export const verifyQr = asyncHandler(async (req, res) => {
           qrScannedAt: null,
           status: { $in: ['pending', 'confirmed'] },
         },
-        {
-          $set: {
-            qrScannedAt: now,
-            verificationStatus: 'pending',
-            verificationSessionId: sessionId,
-            verificationStartedAt: now,
-            verificationVerifiedAt: null,
-            verificationRejectedAt: null,
-            verificationRejectedReason: null,
-            verificationChecklist: {
-              idVerified: false,
-              questionnaireCompleted: false,
-              consentSigned: false,
-              completedAt: null,
-            },
-          },
-        },
+        { $set: updateFields },
         { returnDocument: 'after' }
       )
     );
 
     if (!updatedAppointment) throw new HttpError(409, 'QR code already used');
+
+    if (isVerified) {
+      const linkedDonation = await Donation.findOne({ appointmentId: updatedAppointment._id });
+      try {
+        validateOrphanState('appointment', updatedAppointment, { donation: linkedDonation });
+      } catch (err) {
+        throw new HttpError(400, err.message);
+      }
+    }
 
     activityService.logActivity(donor._id, {
       type: 'donation',
@@ -601,209 +631,12 @@ export const verifyQr = asyncHandler(async (req, res) => {
       },
     }).catch(() => {});
 
-    return response.success(res, 200, 'Donation verification started successfully', buildVerificationPayload(updatedAppointment, eligibility, sessionId, req.t));
+    const message = isVerified ? 'Arrival confirmed successfully' : 'Donation verification started successfully';
+    const eligibilityPayload = isVerified ? { eligible: true, reason: 'Checklist completed' } : eligibility;
+    return response.success(res, 200, message, buildVerificationPayload(updatedAppointment, eligibilityPayload, sessionId, req.t));
   }
 });
 
-export const confirmArrival = asyncHandler(async (req, res) => {
-  const body = req.body || {};
-  const params = req.params || {};
-  const appointmentId = body.appointmentId || params.appointmentId;
-  if (!appointmentId) {
-    throw new HttpError(400, 'appointmentId or donationId is required');
-  }
-
-  if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
-    throw new HttpError(400, 'Invalid id');
-  }
-
-  let appointment = await populateAppointmentForVerification(
-    Appointment.findById(appointmentId)
-  );
-
-  let donation = null;
-  let isRequestDonation = false;
-
-  if (!appointment) {
-    donation = await Donation.findById(appointmentId).populate([
-      { path: 'donorId', select: 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason' },
-      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName phone location' } },
-    ]);
-
-    if (!donation || !donation.requestId) {
-      throw new HttpError(404, 'Appointment or Donation not found');
-    }
-
-    isRequestDonation = true;
-  }
-
-  if (isRequestDonation) {
-    if (donation.status === 'cancelled') {
-      throw new HttpError(400, 'Donation request is cancelled');
-    }
-    if (donation.status === 'completed') {
-      throw new HttpError(409, 'Donation has already been completed');
-    }
-    if (donation.status === 'expired') {
-      throw new HttpError(400, 'Donation request has expired');
-    }
-    if (donation.status === 'abandoned') {
-      throw new HttpError(400, 'Donation request was abandoned');
-    }
-    if (!['pending', 'scheduled'].includes(donation.status)) {
-      throw new HttpError(400, 'Donation is not active');
-    }
-    if (donation.verificationStatus === 'rejected') {
-      throw new HttpError(409, 'Rejected donations cannot continue');
-    }
-  } else {
-    const activeError = ensureAppointmentIsActive(appointment);
-    if (activeError) {
-      throw new HttpError(activeError.status, activeError.message);
-    }
-
-    if (appointment.verificationStatus === 'rejected') {
-      throw new HttpError(409, 'Rejected appointments cannot continue');
-    }
-  }
-
-  const donor = isRequestDonation ? donation.donorId : appointment.donorId;
-  const donationType = isRequestDonation ? (donation.requestId?.type || 'blood') : appointment.donationType;
-  if (!donor) {
-    throw new HttpError(404, 'Donor not found');
-  }
-
-  const donationTypeKey = normalizeDonationTypeRequestKey(donationType) || 'blood';
-  const eligibility = await eligibilityService.canDonate(donor, {
-    persistTravelDeferral: false,
-    donationType: donationTypeKey,
-    excludeDonationId: isRequestDonation ? donation._id : (await Donation.findOne({ appointmentId: appointment._id }))?._id,
-  });
-
-  if (!eligibility.eligible) {
-    throw new HttpError(403, eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
-  }
-
-  const checklist = body.checklist || {};
-  const checklistPayload = {
-    idVerified: Boolean(checklist.idVerified),
-    questionnaireCompleted: Boolean(checklist.questionnaireCompleted),
-    consentSigned: Boolean(checklist.consentSigned),
-  };
-
-  if (!isChecklistComplete(checklistPayload)) {
-    throw new HttpError(400, 'All checklist items must be completed');
-  }
-
-  const now = new Date();
-
-  if (isRequestDonation) {
-    const updatedDonation = await Donation.findOneAndUpdate(
-      {
-        _id: donation._id,
-        verificationStatus: 'pending',
-        qrScannedAt: { $ne: null },
-      },
-      {
-        $set: {
-          verificationStatus: 'verified',
-          verificationVerifiedAt: now,
-          verificationChecklist: {
-            ...checklistPayload,
-            completedAt: now,
-          },
-        },
-      },
-      { returnDocument: 'after' }
-    ).populate([
-      { path: 'donorId', select: 'fullName phoneNumber email bloodType location lastDonationDate hemoglobinLevel weight isOptedIn isSuspended gender dateOfBirth temporaryDeferralUntil lastDeferralReason' },
-      { path: 'requestId', populate: { path: 'hospitalId', select: 'fullName hospitalName phone location' } },
-    ]);
-
-    if (!updatedDonation) {
-      throw new HttpError(409, 'Verification has already been updated');
-    }
-
-    try {
-      validateOrphanState('donation', updatedDonation);
-    } catch (err) {
-      throw new HttpError(400, err.message);
-    }
-
-    return response.success(res, 200, 'Arrival confirmed successfully', {
-      readyForDonation: true,
-      appointment: buildDonationVerificationPayload(updatedDonation, {
-        eligible: true,
-        reason: 'Checklist completed',
-      }),
-      checklist: {
-        ...checklistPayload,
-        completedAt: now,
-      },
-      donationDetails: {
-        donationId: updatedDonation._id,
-        requestId: updatedDonation.requestId?._id || null,
-        donationType: updatedDonation.requestId?.type || 'blood',
-        scheduledDate: updatedDonation.createdAt,
-        lastDonationDate: updatedDonation.donorId?.lastDonationDate || null,
-        bloodType: updatedDonation.donorId?.bloodType || null,
-      },
-    });
-  } else {
-    const updatedAppointment = await populateAppointmentForVerification(
-      Appointment.findOneAndUpdate(
-        {
-          _id: appointment._id,
-          verificationStatus: 'pending',
-          qrScannedAt: { $ne: null },
-        },
-        {
-          $set: {
-            status: 'confirmed',
-            verificationStatus: 'verified',
-            verificationVerifiedAt: now,
-            verificationChecklist: {
-              ...checklistPayload,
-              completedAt: now,
-            },
-          },
-        },
-        { returnDocument: 'after' }
-      )
-    );
-
-    if (!updatedAppointment) {
-      throw new HttpError(409, 'Verification has already been updated');
-    }
-
-    // Call orphan validation to assert cross-entity constraints
-    const linkedDonation = await Donation.findOne({ appointmentId: updatedAppointment._id });
-    try {
-      validateOrphanState('appointment', updatedAppointment, { donation: linkedDonation });
-    } catch (err) {
-      throw new HttpError(400, err.message);
-    }
-
-    return response.success(res, 200, 'Arrival confirmed successfully', {
-      readyForDonation: true,
-      appointment: buildVerificationPayload(updatedAppointment, {
-        eligible: true,
-        reason: 'Checklist completed',
-      }),
-      checklist: {
-        ...checklistPayload,
-        completedAt: now,
-      },
-      donationDetails: {
-        appointmentId: updatedAppointment._id,
-        donationType: updatedAppointment.donationType || DONATION_TYPE_LABELS.WHOLE_BLOOD,
-        scheduledDate: updatedAppointment.appointmentDate,
-        lastDonationDate: updatedAppointment.donorId?.lastDonationDate || null,
-        bloodType: updatedAppointment.donorId?.bloodType || null,
-      },
-    });
-  }
-});
 
 export const rejectVerification = asyncHandler(async (req, res) => {
   const body = req.body || {};
