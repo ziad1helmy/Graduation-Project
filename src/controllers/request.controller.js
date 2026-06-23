@@ -432,9 +432,9 @@ export const verifyQr = asyncHandler(async (req, res) => {
     donationStatus: donation.status,
     donorName: donorDoc?.fullName || null,
     donorBloodType: donorDoc?.bloodType || null,
-    qrToken: donation.qrToken,
-    qrExpiresAt: donation.qrExpiresAt,
-    arrivalDeadline: donation.arrivalDeadline,
+    qrToken: donation.qrToken || null,
+    qrExpiresAt: donation.qrExpiresAt || null,
+    arrivalDeadline: donation.arrivalDeadline || null,
   });
 });
 
@@ -696,10 +696,10 @@ export const acceptRequest = asyncHandler(async (req, res) => {
     requestId: acceptedRequest._id.toString(),
     donationId: donation._id.toString(),
     status: acceptedRequest.status,
-    qrToken: donation.qrToken,
-    qrExpiresAt: donation.qrExpiresAt,
+    qrToken: donation.qrToken || null,
+    qrExpiresAt: donation.qrExpiresAt || null,
     acceptedAt: acceptedRequest.acceptedAt,
-    arrivalDeadline: acceptedRequest.arrivalDeadline,
+    arrivalDeadline: acceptedRequest.arrivalDeadline || donation.arrivalDeadline || null,
   });
 });
 
@@ -1042,8 +1042,9 @@ const items = requests
         status: r.status,
         donationStatus: donation?.status || null,
         acceptedAt: r.acceptedAt,
-        arrivalDeadline: donation?.arrivalDeadline || null,
-        qrExpiresAt: donation?.qrExpiresAt || null,
+        qrToken: donation?.qrToken || null,
+        arrivalDeadline: donation?.arrivalDeadline || r.arrivalDeadline || null,
+        qrExpiresAt: donation?.qrExpiresAt || r.qrExpiresAt || null,
         qrExpired,
         arrivalDeadlinePassed,
         bloodType: normalizeBloodTypeList(r.bloodType),
@@ -1108,7 +1109,7 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
     qrToken: donation.qrToken,
     qrExpiresAt: donation.qrExpiresAt,
     qrCreatedAt: donation.createdAt,
-    arrivalDeadline: donation.arrivalDeadline,
+    arrivalDeadline: donation.arrivalDeadline ?? request.arrivalDeadline,
   };
 
   const resolvedQr = await resolveActiveDonorQr(req.user.userId, request._id);
@@ -1117,7 +1118,7 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
       qrToken: resolvedQr.qrToken ?? donation.qrToken,
       qrExpiresAt: resolvedQr.qrExpiresAt ?? donation.qrExpiresAt,
       qrCreatedAt: resolvedQr.qrCreatedAt ?? donation.createdAt,
-      arrivalDeadline: resolvedQr.arrivalDeadline ?? donation.arrivalDeadline,
+      arrivalDeadline: resolvedQr.arrivalDeadline ?? donation.arrivalDeadline ?? request.arrivalDeadline,
     };
   }
 

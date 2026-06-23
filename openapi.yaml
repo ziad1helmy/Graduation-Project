@@ -6574,6 +6574,7 @@ paths:
                       status: accepted
                       donationStatus: pending
                       acceptedAt: 2026-05-18T09:45:00.000Z
+                      qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
                       arrivalDeadline: 2026-05-18T10:45:00.000Z
                       qrExpiresAt: 2026-05-18T10:45:00.000Z
                       qrExpired: false

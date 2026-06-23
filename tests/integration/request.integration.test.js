@@ -365,7 +365,7 @@ describe('Request Details Integration', () => {
     expect(found).toBeDefined();
     expect(found.status).toBe('accepted');
     expect(found.donationId).toBeDefined();
-    expect(found.qrToken).toBeUndefined(); // Not returned in list view
+    expect(found.qrToken).toBeDefined();
     expect(found.hospitalName).toContain('Test Hospital');
   });
 
