@@ -190,17 +190,6 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
       expect(response.body.data).to.have.property('pagination');
     });
 
-    it('should return 200 for GET /donor/matches', async function() {
-      const response = await request(app)
-        .get('/donor/matches')
-        .query({ page: 1, limit: 20 })
-        .set('Authorization', `Bearer ${accessToken}`);
-
-      expect(response.status).to.equal(200);
-      expect(response.body.data).to.have.property('matches');
-      expect(response.body.data).to.have.property('pagination');
-    });
-
     it('should return 200 for POST /requests/:id/accept', async function() {
       const response = await request(app)
         .post(`/requests/${requestId}/accept`)

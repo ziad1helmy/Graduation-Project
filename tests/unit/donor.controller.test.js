@@ -144,9 +144,9 @@ describe('getDashboard', () => {
 });
 
 // =============================================================================
-//  getRequests / getMatches
+//  getRequests
 // =============================================================================
-describe('getRequests / getMatches', () => {
+describe('getRequests', () => {
   it('getRequests returns only matched requests via matching service', async () => {
     // Must set location so the donor passes the Fix #5 location guard
     const donor = await createDonor({
@@ -173,8 +173,8 @@ describe('getRequests / getMatches', () => {
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const data = res.json.mock.calls[0][0].data;
-    expect(data.requests).toHaveLength(1);
-    expect(data.requests[0].requestId).toBe(request._id.toString());
+    expect(data.matches).toHaveLength(1);
+    expect(data.matches[0].request._id).toBe(request._id.toString());
   });
 
   it('getRequests keeps matched requests visible when donor has an active appointment', async () => {
@@ -209,7 +209,7 @@ describe('getRequests / getMatches', () => {
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(200);
     const data = res.json.mock.calls[0][0].data;
-    expect(data.requests).toHaveLength(1);
+    expect(data.matches).toHaveLength(1);
     expect(data.reason).toBe('ACTIVE_APPOINTMENT_EXISTS');
     expect(data.message).toBe('You have an active appointment. Complete or cancel it to see new requests.');
   });
@@ -226,16 +226,6 @@ describe('getRequests / getMatches', () => {
     expectHttpError(next, 422, /location/);
   });
 
-  it('getMatches hides results for opted-out donors', async () => {
-    const donor = await createDonor({ isOptedIn: false });
-    const res = makeRes();
-    const next = vi.fn();
-    await donorController.getMatches({ user: { userId: donor._id }, query: {} }, res, next);
-
-    expect(next).not.toHaveBeenCalled();
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json.mock.calls[0][0].data.matches).toHaveLength(0);
-  });
 });
 
 // =============================================================================

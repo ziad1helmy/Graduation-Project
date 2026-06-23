@@ -74,8 +74,8 @@ describe('Donor Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('requests');
-    expect(Array.isArray(response.body.data.requests)).toBe(true);
+    expect(response.body.data).toHaveProperty('matches');
+    expect(Array.isArray(response.body.data.matches)).toBe(true);
   });
 
   it('GET /donor/requests filters by urgency', async () => {
@@ -91,7 +91,7 @@ describe('Donor Routes Integration', () => {
       .set('Authorization', `Bearer ${token}`);
 
     expect(response.status).toBe(200);
-    expect(response.body.data.requests.every((r) => r.urgency === 'high')).toBe(true);
+    expect(response.body.data.matches.every((m) => m.request.urgency === 'high')).toBe(true);
   });
 
   it('GET /donor/requests keeps compatible requests visible when donor has an active appointment', async () => {
@@ -116,7 +116,7 @@ describe('Donor Routes Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    expect(response.body.data.requests).toHaveLength(1);
+    expect(response.body.data.matches).toHaveLength(1);
     expect(response.body.data.reason).toBe('ACTIVE_APPOINTMENT_EXISTS');
     expect(response.body.data.message).toBe('You have an active appointment. Complete or cancel it to see new requests.');
   });
@@ -148,43 +148,12 @@ describe('Donor Routes Integration', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('requests');
-      expect(Array.isArray(response.body.data.requests)).toBe(true);
+      expect(response.body.data).toHaveProperty('matches');
+      expect(Array.isArray(response.body.data.matches)).toBe(true);
     } finally {
       // Restore the index so later tests are not affected.
       await requestCollection.createIndex({ hospitalLocationGeo: '2dsphere' });
     }
-  });
-
-  it('GET /donor/matches returns compatible donors for requests', async () => {
-    await clearDatabase();
-    const donor = await createDonor();
-    const hospital = await createHospital();
-    await createRequest(hospital._id, { bloodType: donor.bloodType, status: 'pending' });
-
-    const token = signToken({ userId: donor._id.toString(), role: donor.role });
-
-    const response = await request(app)
-      .get('/donor/matches')
-      .set('Authorization', `Bearer ${token}`);
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data).toHaveProperty('matches');
-    expect(Array.isArray(response.body.data.matches)).toBe(true);
-    expect(response.body.data.matches.length).toBeGreaterThan(0);
-
-    const match = response.body.data.matches[0];
-    expect(match).toHaveProperty('request');
-    expect(match).toHaveProperty('score');
-    expect(match).toHaveProperty('locationScore');
-    expect(match).toHaveProperty('compatibility');
-    expect(match.compatibility).toHaveProperty('bloodTypeMatch');
-    expect(match.compatibility).toHaveProperty('eligible');
-    expect(match.compatibility).toHaveProperty('distanceKm');
-    expect(match.request).toHaveProperty('_id');
-    expect(match.request).toHaveProperty('bloodType');
-    expect(match.request).toHaveProperty('unitsNeeded');
   });
 
   it('GET /donor/donations returns donation history', async () => {

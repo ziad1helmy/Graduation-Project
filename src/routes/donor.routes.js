@@ -29,10 +29,7 @@ router.get('/settings', donorController.getSettings);
 router.put('/settings', donorController.updateSettings);
 
 // Request and matching routes
-// NOTE: Both /requests and /matches return compatible requests for donor
-// TODO: Consolidate into single endpoint in future refactor
 router.get('/requests', donorController.getRequests);
-router.get('/matches', donorController.getMatches);
 
 // Donation response route
 router.post('/respond/:requestId', donorController.respondToRequest);
