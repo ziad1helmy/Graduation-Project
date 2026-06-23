@@ -2624,6 +2624,77 @@ paths:
         "403":
           description: Role not allowed
 
+  /requests/{id}/accept:
+    post:
+      tags:
+        - Donor
+      summary: Donor accepts a hospital request (Hospital Request flow)
+      security:
+        - bearerAuth: []
+      description: |-
+        A donor accepts a pending hospital request. Creates a Donation record with a QR token.
+        Supports multi-donor acceptance: the request stays `pending` until enough donors
+        have pledged to meet `unitsNeeded`, then transitions to `accepted`.
+
+        When `unitsAccepted >= unitsNeeded`, `fullyAccepted` is `true` and the request
+        status changes to `accepted`. Otherwise the request remains `pending` and more
+        donors can respond.
+
+        The arrival deadline and QR expiration are determined by the request's urgency level:
+        - critical: 3 hours arrival, 15 minute re-broadcast interval
+        - emergency: 6 hours arrival, 30 minute re-broadcast interval
+        - high: 12 hours arrival, 1 hour re-broadcast interval
+        - medium: 24 hours (1 day) arrival, 4 hour re-broadcast interval
+        - low: 48 hours (2 days) arrival, 12 hour re-broadcast interval
+
+        Eligibility is enforced: blood compatibility, cooldown, opted-in, not suspended/deferred,
+        email verified, no active donation, no prior response to this request.
+
+        On each donation acceptance:
+        - The hospital receives an in-app Notification + FCM push with donor details
+        - The donor receives an in-app Notification + FCM push with hospital name, arrival deadline, and QR
+        - The response includes the donor's `missedDonationCount` and
+          `missedDonationRemaining` (remaining strikes before auto-suspension at 3).
+        - No-show tracking: if a donor fails to arrive before the deadline, their
+          `missedDonationCount` increments. After 3 missed donations, their account is
+          auto-suspended.
+
+        Only donors can accept requests.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Request identifier
+          example: 69fe540565ff7785a031314f
+      responses:
+        "200":
+          description: Request accepted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Response submitted
+                data:
+                  requestId: 69fe540565ff7785a031314f
+                  donationId: 69fe540565ff7785a031314a
+                  status: accepted
+                  qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
+                  qrExpiresAt: 2026-05-18T11:45:00.000Z
+                  acceptedAt: 2026-05-18T09:45:00.000Z
+                  arrivalDeadline: 2026-05-18T11:45:00.000Z
+                  unitsAccepted: 3
+                  unitsNeeded: 3
+                  fullyAccepted: true
+                  missedDonationCount: 0
+                  missedDonationRemaining: 3
+        "400":
+          description: Invalid request id, request not pending, donor not eligible, or units exceed remaining needed
+        "403":
+          description: Non-donor role attempted to accept
+        "404":
+          description: Request not found
   /requests/{id}/cancel:
     post:
       tags:
@@ -2633,9 +2704,6 @@ paths:
         - bearerAuth: []
       description: |-
         Cancels a request. Donors can cancel only their own accepted request; hospitals can cancel their own request; admins can cancel any request.
-
-
-        Demo seed available via `npm run seed-demo`. Base URL example: https://graduation-project-cy61.onrender.com Parameter examples are aligned with the seeded demo dataset where possible.
       parameters:
         - in: path
           name: id
@@ -2653,26 +2721,15 @@ paths:
                 success: true
                 message: Request cancelled successfully
                 data:
-                  request:
-                    id: 69fe540565ff7785a031314f
-                    requestId: 69fe540565ff7785a031314f
-                    bloodType: O+
-                    hospitalName: Cairo Care Hospital
-                    contactNumber: "1044444444"
-                    unitsNeeded: 3
-                    isEmergency: true
-                    createdAt: 2026-05-16T08:15:00.000Z
-                    status: cancelled
-                    requestStatus: cancelled
-                    urgency: critical
-                    type: blood
-                    requiredBy: 2026-05-20T00:00:00.000Z
+                  requestId: 69fe540565ff7785a031314f
+                  status: cancelled
         "400":
           description: Invalid request id or request cannot be cancelled
         "403":
           description: Request does not belong to caller or donor is not the accepter
         "404":
           description: Request not found
+
   /hospitals:
     get:
       summary: List hospitals for discovery
@@ -6398,63 +6455,6 @@ paths:
                   qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
                   qrExpiresAt: 2026-05-18T11:45:00.000Z
                   arrivalDeadline: 2026-05-18T14:45:00.000Z
-  /requests/{id}/accept:
-    post:
-      tags:
-        - Donor
-      summary: Donor accepts a hospital request (Hospital Request flow)
-      security:
-        - bearerAuth: []
-      description: |-
-        A donor accepts a pending hospital request. Creates a Donation record with a QR token
-        and sets the request status to `accepted`. The QR token is used by the hospital to
-        verify the donor's arrival on-site.
-
-        The arrival deadline and QR expiration are determined by the request's urgency level:
-        - critical: 3 hours arrival, 15 minute re-broadcast interval
-        - emergency: 6 hours arrival, 30 minute re-broadcast interval
-        - high: 12 hours arrival, 1 hour re-broadcast interval
-        - medium: 24 hours (1 day) arrival, 4 hour re-broadcast interval
-        - low: 48 hours (2 days) arrival, 12 hour re-broadcast interval
-
-        Eligibility is enforced: blood compatibility, cooldown, opted-in, not suspended/deferred,
-        email verified, no active donation, no prior response to this request.
-
-        On success, the donor receives:
-        - An in-app Notification with hospital name, blood type, arrival deadline, and QR token
-        - An FCM push notification (title: "Proceed to Hospital", body with hospital name and deadline)
-
-        Only donors can accept requests.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          description: Request identifier
-          example: 69fe540565ff7785a031314f
-      responses:
-        "200":
-          description: Request accepted successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Request accepted successfully
-                data:
-                  requestId: 69fe540565ff7785a031314f
-                  donationId: 69fe540565ff7785a031314a
-                  status: accepted
-                  qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
-                  qrExpiresAt: 2026-05-18T11:45:00.000Z
-                  acceptedAt: 2026-05-18T09:45:00.000Z
-                  arrivalDeadline: 2026-05-18T11:45:00.000Z
-        "400":
-          description: Invalid request id, request not pending, or donor not eligible
-        "403":
-          description: Non-donor role attempted to accept
-        "404":
-          description: Request not found
   /requests/{id}/confirm:
     post:
       tags:
@@ -6505,9 +6505,10 @@ paths:
       security:
         - bearerAuth: []
       description: |-
-        Returns a paginated list of requests the authenticated donor has accepted
-        (status `accepted` or `in-progress`). Includes arrival deadline status,
-        QR expiry status, hospital information, and urgency.
+        Returns a paginated list of requests the authenticated donor has an active
+        donation for (status `pending`, `accepted`, or `in-progress`). Includes
+        arrival deadline status, QR expiry status, hospital information, urgency,
+        and acceptance progress (`unitsAccepted`, `fullyAccepted`).
 
         Only donors can access this endpoint.
       parameters:
@@ -6550,6 +6551,8 @@ paths:
                       bloodTypeLabel: O Positive
                       urgency: critical
                       unitsNeeded: 3
+                      unitsAccepted: 3
+                      fullyAccepted: true
                       patientType: adult
                       patientDetails: surgery
                       isEmergency: true
@@ -6574,10 +6577,11 @@ paths:
       security:
         - bearerAuth: []
       description: |-
-        Returns full details of a specific request the donor has accepted, including the
-        QR token, arrival deadline, eligibility status, and hospital contact information.
+        Returns full details of a specific request the donor has an active donation for,
+        including the QR token, arrival deadline, eligibility status, acceptance progress
+        (`unitsAccepted`, `fullyAccepted`), and hospital contact information.
 
-        Only the donor who accepted the request can view these details.
+        Only donors with an active donation for this request can view these details.
       parameters:
         - in: path
           name: id
@@ -6608,6 +6612,9 @@ paths:
                   qrExpired: false
                   arrivalDeadlinePassed: false
                   isEligible: true
+                  unitsAccepted: 3
+                  unitsNeeded: 3
+                  fullyAccepted: true
                   request:
                     bloodType:
                       - O+

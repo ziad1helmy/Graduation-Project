@@ -170,14 +170,46 @@ export const rejectDonationLifecycle = async ({
 
     if (request) {
       request.status = requestStatus;
-      request.acceptedBy = null;
-      request.acceptedByName = null;
-      request.acceptedByPhoneNumber = null;
-      request.acceptedByBloodType = null;
-      request.acceptedAt = null;
-      request.acceptedDonationId = null;
-      request.arrivalDeadline = null;
+
+      // Decrement unitsAccepted when a donation is removed from an active request
+      if (donation && (request.status === 'pending' || request.status === 'accepted')) {
+        request.unitsAccepted = Math.max(0, (request.unitsAccepted || 0) - (donation.quantity || 1));
+      }
+
+      // Only clear first-acceptor fields if no other active donations remain
+      if (requestStatus === 'pending' || requestStatus === 'cancelled') {
+        const otherActive = await (requestId
+          ? Donation.countDocuments({
+              requestId: request._id,
+              _id: { $ne: donation?._id },
+              status: { $in: ['pending', 'scheduled'] },
+            }).session(activeSession)
+          : Promise.resolve(0));
+
+        if (otherActive === 0) {
+          request.acceptedBy = null;
+          request.acceptedByName = null;
+          request.acceptedByPhoneNumber = null;
+          request.acceptedByBloodType = null;
+          request.acceptedAt = null;
+          request.acceptedDonationId = null;
+          request.arrivalDeadline = null;
+        }
+      }
       await request.save({ session: activeSession });
+    }
+
+    // Track missed donation for abandoned status (fire-and-forget)
+    if (donation && donationStatus === 'abandoned') {
+      try {
+        const { trackMissedDonation } = await import('../utils/missed-donation.js');
+        await trackMissedDonation({
+          donorId: donorObjectId || donation.donorId,
+          donationId: donation._id,
+          requestId: request?._id,
+          reason: reason || 'Donation marked as abandoned',
+        });
+      } catch (_noop) { /* non-critical */ }
     }
 
     // Perform cross-entity orphan checking for request, donation and appointment

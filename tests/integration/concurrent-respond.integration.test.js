@@ -37,22 +37,20 @@ describe('Concurrent donor respond', () => {
     const results = await Promise.all([p1, p2]);
 
     const statusCodes = results.map((r) => r.status).sort();
-    // Expect one 201 and one 409 (or 400 in some configs) — allow either 201/409 or 201/400
-    expect(statusCodes.includes(201)).toBe(true);
-    expect(statusCodes.filter((s) => s !== 201).length).toBe(1);
+    // With unitsNeeded=2 (factory default) and 2 donors pledging 1 each, both succeed
+    expect(statusCodes).toEqual([201, 201]);
 
-    // Verify request is accepted and linked to one donation
+    // Verify request is accepted with both donations
     const updatedReq = await RequestModel.findById(reqDoc._id);
     expect(updatedReq.status).toBe('accepted');
-    expect(updatedReq.acceptedDonationId).toBeTruthy();
+    expect(updatedReq.unitsAccepted).toBe(2);
 
     const activeDonations = await Donation.find({ requestId: reqDoc._id, status: { $nin: ['cancelled', 'rejected'] } });
-    expect(activeDonations.length).toBe(1);
+    expect(activeDonations.length).toBe(2);
 
-    // Verify NotificationOutbox entry exists for match and no immediate Notification created
-    const outbox = await NotificationOutbox.findOne({ requestId: reqDoc._id });
-    expect(outbox).toBeTruthy();
-    expect(outbox.type).toBe('match');
+    // Verify NotificationOutbox entries for both donors
+    const outboxEntries = await NotificationOutbox.find({ requestId: reqDoc._id });
+    expect(outboxEntries.length).toBe(2);
 
     const notifications = await Notification.find({ relatedId: reqDoc._id });
     expect(notifications.length).toBe(0);

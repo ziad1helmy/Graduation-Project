@@ -708,7 +708,7 @@ export const updateDonor = async (id, data, adminId) => {
   if (!user) return null;
 
   if (data.email !== undefined) {
-    throw new Error('Email cannot be changed by admin. Donors must use the self-service profile flow.');
+    throw new Error('Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.');
   }
   const allowedFields = ['fullName', 'phoneNumber', 'bloodType'];
   for (const field of allowedFields) {
@@ -750,7 +750,7 @@ export const updateAdmin = async (id, data, adminId, callerRole) => {
     throw new Error('Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.');
   }
   if (data.role !== undefined) {
-    throw new Error('Role changes are not supported via this endpoint');
+    throw new Error('Role changes are not supported. The role field cannot be updated.');
   }
   const allowedFields = ['fullName', 'isSuspended'];
   for (const field of allowedFields) {

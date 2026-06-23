@@ -371,7 +371,8 @@ describe('respondToRequest — accept', () => {
     const { default: Request } = await import('../../src/models/Request.model.js');
     const updated = await Request.findById(request._id);
     expect(updated.unitsNeeded).toBe(3);
-    expect(updated.status).toBe('accepted');
+    expect(updated.status).toBe('pending');
+    expect(updated.unitsAccepted).toBe(1);
   });
 
   it('does not auto-close request when accepted quantity equals requested unitsNeeded', async () => {

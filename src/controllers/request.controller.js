@@ -31,6 +31,7 @@ import {
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { validateOrphanState, validateTransition } from '../utils/state-machine.js';
 import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
+import { MISSED_DONATION_THRESHOLD } from '../constants/donation.constants.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 
@@ -296,7 +297,7 @@ export const generateQr = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
+    throw new HttpError(400, 'Invalid request ID format');
   }
 
   const request = await populateRequest(Request.findById(id));
@@ -446,7 +447,7 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
+    throw new HttpError(400, 'Invalid request ID format');
   }
 
   const viewerLocation = parseLatLng(req.query);
@@ -566,7 +567,7 @@ export const getRequestGoogleMaps = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
+    throw new HttpError(400, 'Invalid request ID format');
   }
 
   const request = await populateRequest(Request.findById(id));
@@ -588,6 +589,109 @@ export const getRequestGoogleMaps = asyncHandler(async (req, res) => {
   });
 });
 
+const sendAcceptNotifications = async ({
+  acceptedRequest, donation, donor, isFullyAccepted, unitsAccepted, unitsNeeded,
+}) => {
+  const hospitalName = acceptedRequest.hospitalId?.hospitalName || acceptedRequest.hospitalName || 'the hospital';
+  const bloodTypeLabel = formatBloodTypeLabel(acceptedRequest.bloodType) || acceptedRequest.patientType || 'blood';
+  const unitsRemaining = Math.max(0, unitsNeeded - unitsAccepted);
+  const donorArrivalDeadline = donation.arrivalDeadline || acceptedRequest.arrivalDeadline;
+  const arrivalDeadlineISO = donorArrivalDeadline ? donorArrivalDeadline.toISOString() : null;
+  const deadlineDisplay = donorArrivalDeadline ? new Date(donorArrivalDeadline).toLocaleString() : 'see details';
+
+  const hospitalMessage = isFullyAccepted
+    ? `${donor?.fullName || 'A donor'} accepted the final unit for ${bloodTypeLabel}. Request fully fulfilled.`
+    : `${donor?.fullName || 'A donor'} pledged ${donation.quantity || 1} unit(s) for ${bloodTypeLabel}. ${unitsRemaining} more needed.`;
+
+  await Notification.create({
+    userId: acceptedRequest.hospitalId?._id || acceptedRequest.hospitalId,
+    type: acceptedRequest.isEmergency || acceptedRequest.urgency === 'critical' ? 'emergency' : 'request',
+    title: isFullyAccepted ? 'Request fully accepted' : 'New donor response',
+    message: hospitalMessage,
+    relatedId: acceptedRequest._id,
+    relatedType: 'Request',
+    data: {
+      requestId: acceptedRequest._id,
+      donorId: donor?._id,
+      donorName: donor?.fullName || null,
+      donorBloodType: donor?.bloodType || null,
+      status: acceptedRequest.status,
+      unitsAccepted,
+      unitsNeeded,
+      fullyAccepted: isFullyAccepted,
+    },
+  }).catch(() => {});
+
+  await Notification.create({
+    userId: donor?._id,
+    type: 'request',
+    title: 'Donation Confirmed',
+    message: `You've been assigned to ${hospitalName} for ${bloodTypeLabel}. Arrive by ${deadlineDisplay}. Open the request to view your QR code.`,
+    relatedId: acceptedRequest._id,
+    relatedType: 'Request',
+    data: {
+      requestId: acceptedRequest._id,
+      donationId: donation._id.toString(),
+      hospitalId: acceptedRequest.hospitalId?._id?.toString?.() || (typeof acceptedRequest.hospitalId === 'string' ? acceptedRequest.hospitalId : null),
+      hospitalName,
+      status: acceptedRequest.status,
+      arrivalDeadline: arrivalDeadlineISO,
+      qrToken: donation.qrToken,
+    },
+  }).catch(() => {});
+
+  const [donorUser, hospitalUser] = await Promise.all([
+    User.findById(donor?._id).select('fcmTokens'),
+    User.findById(acceptedRequest.hospitalId?._id || acceptedRequest.hospitalId).select('fcmTokens'),
+  ]);
+
+  if (donorUser?.fcmTokens?.length) {
+    sendToMultipleWithRetry(
+      donorUser.fcmTokens,
+      'Proceed to Hospital',
+      `${hospitalName} — arrive by ${deadlineDisplay}. Show your QR code on arrival.`,
+      {
+        type: 'request_accepted',
+        requestId: acceptedRequest._id.toString(),
+        donationId: donation._id.toString(),
+        hospitalId: acceptedRequest.hospitalId?._id?.toString?.() || (typeof acceptedRequest.hospitalId === 'string' ? acceptedRequest.hospitalId : null),
+        arrivalDeadline: arrivalDeadlineISO,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      { channelId: 'request_updates' },
+      { attempts: 3, baseDelayMs: 200 },
+    ).catch(() => {});
+  }
+
+  if (hospitalUser?.fcmTokens?.length) {
+    const pushTitle = isFullyAccepted ? 'Request Fully Accepted' : 'New Donor Pledged';
+    const pushBody = isFullyAccepted
+      ? `${donor?.fullName || 'A donor'} accepted the final unit for ${bloodTypeLabel}. All donors — scan their QR codes on arrival.`
+      : `${donor?.fullName || 'A donor'} pledged ${donation.quantity || 1} unit(s) for ${bloodTypeLabel}. ${unitsRemaining} more needed.`;
+    sendToMultipleWithRetry(
+      hospitalUser.fcmTokens,
+      pushTitle,
+      pushBody,
+      {
+        type: 'donor_accepted',
+        requestId: acceptedRequest._id.toString(),
+        donationId: donation._id.toString(),
+        donorId: donor?._id?.toString(),
+        donorName: donor?.fullName || null,
+        donorBloodType: donor?.bloodType || null,
+        status: acceptedRequest.status,
+        unitsAccepted,
+        unitsNeeded,
+        fullyAccepted: isFullyAccepted,
+        arrivalDeadline: arrivalDeadlineISO,
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      },
+      { channelId: 'request_updates' },
+      { attempts: 3, baseDelayMs: 200 },
+    ).catch(() => {});
+  }
+};
+
 export const acceptRequest = asyncHandler(async (req, res) => {
   const validation = validateRequestIdParam(req.params);
   if (!validation.valid) {
@@ -600,7 +704,7 @@ export const acceptRequest = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
+    throw new HttpError(400, 'Invalid request ID format');
   }
 
   const request = await populateRequest(Request.findById(id));
@@ -626,80 +730,33 @@ export const acceptRequest = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  const { donation } = result;
+  const { donation, fullyAccepted } = result;
   const acceptedRequest = await populateRequest(Request.findById(result.request._id));
   const donor = await Donor.findById(req.user.userId);
 
-  await Notification.create({
-    userId: acceptedRequest.hospitalId?._id || acceptedRequest.hospitalId,
-    type: acceptedRequest.isEmergency || acceptedRequest.urgency === 'critical' ? 'emergency' : 'request',
-    title: 'Request accepted',
-    message: `${donor?.fullName || 'A donor'} accepted the request for ${formatBloodTypeLabel(acceptedRequest.bloodType) || acceptedRequest.patientType || 'needed supplies'}.`,
-    relatedId: acceptedRequest._id,
-    relatedType: 'Request',
-    data: {
-      requestId: acceptedRequest._id,
-      donorId: donor?._id,
-      donorName: donor?.fullName || null,
-      donorBloodType: donor?.bloodType || null,
-      status: acceptedRequest.status,
-    },
-  }).catch(() => {});
+  const unitsAccepted = acceptedRequest.unitsAccepted || 0;
+  const unitsNeeded = acceptedRequest.unitsNeeded || 1;
+  const missedDonationCount = donor?.missedDonationCount || 0;
+  const missedDonationRemaining = Math.max(0, MISSED_DONATION_THRESHOLD - missedDonationCount);
 
-  const donorArrivalDeadline = acceptedRequest.arrivalDeadline;
-  const hospitalName = acceptedRequest.hospitalId?.hospitalName || acceptedRequest.hospitalName || 'the hospital';
-  const arrivalDeadlineISO = donorArrivalDeadline ? donorArrivalDeadline.toISOString() : null;
-  const deadlineDisplay = donorArrivalDeadline ? new Date(donorArrivalDeadline).toLocaleString() : 'see details';
-  const bloodTypeLabel = formatBloodTypeLabel(acceptedRequest.bloodType) || acceptedRequest.patientType || 'blood';
+  sendAcceptNotifications({
+    acceptedRequest, donation, donor, isFullyAccepted: fullyAccepted,
+    unitsAccepted, unitsNeeded,
+  });
 
-  await Notification.create({
-    userId: donor?._id,
-    type: 'request',
-    title: 'Donation Confirmed',
-    message: `You've been assigned to ${hospitalName} for ${bloodTypeLabel}. Arrive by ${deadlineDisplay}. Open the request to view your QR code.`,
-    relatedId: acceptedRequest._id,
-    relatedType: 'Request',
-    data: {
-      requestId: acceptedRequest._id,
-      donationId: donation._id.toString(),
-      hospitalId: acceptedRequest.hospitalId?._id?.toString?.() || (typeof acceptedRequest.hospitalId === 'string' ? acceptedRequest.hospitalId : null),
-      hospitalName,
-      status: acceptedRequest.status,
-      arrivalDeadline: arrivalDeadlineISO,
-      qrToken: donation.qrToken,
-    },
-  }).catch(() => {});
-
-  const donorUser = await User.findById(donor?._id).select('fcmTokens');
-  if (donorUser?.fcmTokens?.length) {
-    const pushTitle = 'Proceed to Hospital';
-    const pushBody = `${hospitalName} — arrive by ${deadlineDisplay}. Show your QR code on arrival.`;
-    sendToMultipleWithRetry(
-      donorUser.fcmTokens,
-      pushTitle,
-      pushBody,
-      {
-        type: 'request_accepted',
-        requestId: acceptedRequest._id.toString(),
-        donationId: donation._id.toString(),
-        hospitalId: acceptedRequest.hospitalId?._id?.toString?.() || (typeof acceptedRequest.hospitalId === 'string' ? acceptedRequest.hospitalId : null),
-        arrivalDeadline: arrivalDeadlineISO,
-        click_action: 'FLUTTER_NOTIFICATION_CLICK',
-      },
-      { channelId: 'request_updates' },
-      { attempts: 3, baseDelayMs: 200 },
-    ).catch(() => {});
-  }
-
-  // Return minimal payload for Hospital Request flow
-  return response.success(res, 200, 'Request accepted successfully', {
+  return response.success(res, 200, fullyAccepted ? 'Request fully accepted' : 'Response submitted', {
     requestId: acceptedRequest._id.toString(),
     donationId: donation._id.toString(),
     status: acceptedRequest.status,
     qrToken: donation.qrToken || null,
     qrExpiresAt: donation.qrExpiresAt || null,
-    acceptedAt: acceptedRequest.acceptedAt,
-    arrivalDeadline: acceptedRequest.arrivalDeadline || donation.arrivalDeadline || null,
+    acceptedAt: donation.createdAt,
+    arrivalDeadline: donation.arrivalDeadline || null,
+    unitsAccepted,
+    unitsNeeded,
+    fullyAccepted,
+    missedDonationCount,
+    missedDonationRemaining,
   });
 });
 
@@ -711,7 +768,7 @@ export const cancelRequest = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
+    throw new HttpError(400, 'Invalid request ID format');
   }
 
   const request = await populateRequest(Request.findById(id));
@@ -820,7 +877,7 @@ export const confirmRequest = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
+    throw new HttpError(400, 'Invalid request ID format');
   }
 
   const request = await populateRequest(Request.findById(id));
@@ -1029,7 +1086,7 @@ export const getAcceptedRequests = asyncHandler(async (req, res) => {
   const donationMap = new Map(donations.map((d) => [d.requestId?.toString(), d]));
 
 const items = requests
-    .filter((r) => ['accepted', 'in-progress'].includes(r.status))
+    .filter((r) => ['pending', 'accepted', 'in-progress'].includes(r.status))
     .map((r) => {
       const donation = donationMap.get(r._id.toString());
       const now = new Date();
@@ -1051,6 +1108,8 @@ const items = requests
         bloodTypeLabel: formatBloodTypeLabel(r.bloodType),
         urgency: r.urgency,
         unitsNeeded: r.unitsNeeded ?? 1,
+        unitsAccepted: r.unitsAccepted ?? 0,
+        fullyAccepted: (r.unitsAccepted ?? 0) >= (r.unitsNeeded ?? 1),
         patientType: r.patientType || null,
         patientDetails: r.patientDetails || null,
         isEmergency: Boolean(r.isEmergency || r.urgency === 'critical'),
@@ -1080,7 +1139,7 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
+    throw new HttpError(400, 'Invalid request ID format');
   }
 
   const request = await populateRequest(Request.findById(id));
@@ -1088,11 +1147,7 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
     throw new HttpError(404, 'Request not found');
   }
 
-  // Only the donor who accepted this request can view it
-  if (request.acceptedBy?.toString?.() !== req.user.userId) {
-    throw new HttpError(403, 'You can only view requests you have accepted');
-  }
-
+  // Only donors with an active donation for this request can view it
   const donation = await Donation.findOne({
     donorId: req.user.userId,
     requestId: request._id,
@@ -1140,6 +1195,9 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
     qrExpired,
     arrivalDeadlinePassed,
     isEligible,
+    unitsAccepted: request.unitsAccepted ?? 0,
+    unitsNeeded: request.unitsNeeded ?? 1,
+    fullyAccepted: (request.unitsAccepted ?? 0) >= (request.unitsNeeded ?? 1),
     request: {
       bloodType: normalizeBloodTypeList(request.bloodType),
       bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
@@ -1175,7 +1233,7 @@ export const rejectRequest = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request id');
+    throw new HttpError(400, 'Invalid request ID format');
   }
 
   const request = await populateRequest(Request.findById(id));

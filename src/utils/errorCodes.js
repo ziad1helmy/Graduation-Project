@@ -65,8 +65,8 @@ export const ERR = Object.freeze({
   ADMIN_ROLE_NOT_FOUND:            'Role not found',
   ADMIN_ROLE_IS_SYSTEM:            'Cannot modify a system role',
   ADMIN_ROLE_ALREADY_EXISTS:       'Role already exists',
-  DONOR_ALREADY_BANNED:            'Donor is already banned',
-  DONOR_NOT_BANNED:                'Donor is not banned',
+  DONOR_ALREADY_BANNED:            'User is already banned',
+  DONOR_NOT_BANNED:                'User is not banned',
 
   // ── Requests ────────────────────────────────
   REQUEST_ALREADY_FULFILLED:       'Request is already fulfilled',

@@ -121,6 +121,7 @@ describe('Request rejection lifecycle', () => {
       contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });

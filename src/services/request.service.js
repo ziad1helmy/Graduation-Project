@@ -61,7 +61,21 @@ const markRequestAsAccepted = (request, donor, donation, arrivalDeadline) => {
 };
 
 /**
+ * Count total accepted units for a request from non-terminal donations.
+ */
+const countAcceptedUnits = async (requestId, session) => {
+  const donations = await Donation.find({
+    requestId,
+    status: { $nin: ['cancelled', 'rejected', 'expired', 'abandoned', 'completed'] },
+  }).session(session);
+  return donations.reduce((sum, d) => sum + (d.quantity || 1), 0);
+};
+
+/**
  * Shared implementation of "donor accepts request + create Donation QR".
+ *
+ * Supports multi-donor acceptance: the request stays `pending` until
+ * `unitsAccepted >= unitsNeeded`, then transitions to `accepted`.
  *
  * Both `POST /requests/:id/accept` and `POST /donor/respond/:requestId` delegate
  * here so the urgency/TTL rules, QR field names, eligibility guards, and
@@ -71,11 +85,11 @@ const markRequestAsAccepted = (request, donor, donation, arrivalDeadline) => {
  *   - Authorization (must already be a donor)
  *   - Building the response payload in the shape their route contract requires
  *
- * @returns {Promise<{ donation: Object, request: Object, qrToken: string, qrExpiresAt: Date }>}
+ * @returns {Promise<{ donation: Object, request: Object, qrToken: string, qrExpiresAt: Date, fullyAccepted: boolean }>}
  */
 export const acceptRequest = async ({ donorId, requestId, quantity = 1 } = {}) => {
-  if (!donorId) throw throwWithStatus(400, 'donorId is required');
-  if (!requestId) throw throwWithStatus(400, 'requestId is required');
+  if (!donorId) throw throwWithStatus(400, 'Donor ID is required');
+  if (!requestId) throw throwWithStatus(400, 'Request ID is required');
 
   const donor = await Donor.findById(donorId);
   if (!donor) throw throwWithStatus(404, 'Donor not found');
@@ -83,6 +97,7 @@ export const acceptRequest = async ({ donorId, requestId, quantity = 1 } = {}) =
   const session = await mongoose.startSession();
   let donation;
   let acceptedRequest;
+  let fullyAccepted = false;
 
   try {
     await session.withTransaction(async () => {
@@ -97,16 +112,12 @@ export const acceptRequest = async ({ donorId, requestId, quantity = 1 } = {}) =
         throw throwWithStatus(400, 'Request has expired — the deadline has passed');
       }
 
-      try {
-        validateTransition('request', request.status, 'accepted');
-      } catch (transitionErr) {
-        throw throwWithStatus(400, transitionErr.message);
+      // Only pending requests accept new donor responses.
+      if (!['pending'].includes(request.status)) {
+        throw throwWithStatus(400, 'Request is no longer accepting responses');
       }
 
-      if (request.acceptedBy) {
-        throw throwWithStatus(409, 'Request has already been accepted');
-      }
-
+      // Each donor can only respond once.
       const existingDonation = await Donation.findOne({
         donorId: donor._id,
         requestId: request._id,
@@ -122,12 +133,40 @@ export const acceptRequest = async ({ donorId, requestId, quantity = 1 } = {}) =
         throw throwWithStatus(400, eligibility.reason || ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE);
       }
 
+      const donationQuantity = quantity || 1;
+
+      // Atomically claim units — this is the concurrency guard.
+      // $inc is atomic within the transaction; write conflicts on the same
+      // document cause a retry, which re-reads the post-commit state.
+      const claimed = await Request.findOneAndUpdate(
+        { _id: request._id, status: 'pending' },
+        { $inc: { unitsAccepted: donationQuantity } },
+        { new: true, session },
+      );
+
+      if (!claimed) {
+        throw throwWithStatus(400, 'Request is no longer accepting responses');
+      }
+
+      if (claimed.unitsAccepted > claimed.unitsNeeded) {
+        // Over-accepted — rollback the increment and reject.
+        await Request.findOneAndUpdate(
+          { _id: request._id },
+          { $inc: { unitsAccepted: -donationQuantity } },
+          { session },
+        );
+        throw throwWithStatus(
+          400,
+          `Request only needs ${claimed.unitsNeeded} units — cannot accept ${donationQuantity} more`,
+        );
+      }
+
       const { qrToken, qrExpiresAt } = createDonationQrPayload(request);
 
       const [created] = await Donation.create([{
         donorId: donor._id,
         requestId: request._id,
-        quantity: quantity || request.unitsNeeded || 1,
+        quantity: donationQuantity,
         status: 'pending',
         qrToken,
         qrExpiresAt,
@@ -136,11 +175,33 @@ export const acceptRequest = async ({ donorId, requestId, quantity = 1 } = {}) =
       }], { session });
       donation = created;
 
-      markRequestAsAccepted(request, donor, donation, qrExpiresAt);
-      await request.save({ session });
+      // Use the claimed document for status tracking.
+      const isFullyFulfilled = claimed.unitsAccepted >= claimed.unitsNeeded;
 
-      validateOrphanState('request', request, { donation });
-      acceptedRequest = request;
+      if (isFullyFulfilled) {
+        validateTransition('request', claimed.status, 'accepted');
+        claimed.status = 'accepted';
+        claimed.arrivalDeadline = qrExpiresAt;
+        fullyAccepted = true;
+      }
+
+      // Set first-acceptor backward-compat fields if this is the first donor.
+      if (!claimed.acceptedBy) {
+        claimed.acceptedBy = donor._id;
+        claimed.acceptedByName = donor.fullName || null;
+        claimed.acceptedByPhoneNumber = donor.phoneNumber || null;
+        claimed.acceptedByBloodType = donor.bloodType || null;
+        claimed.acceptedDonationId = donation._id;
+        claimed.acceptedAt = new Date();
+      }
+
+      await claimed.save({ session });
+
+      // Orphan check — only for accepted status since it asserts acceptedDonationId.
+      if (claimed.status === 'accepted') {
+        validateOrphanState('request', claimed, { donation });
+      }
+      acceptedRequest = claimed;
     });
   } catch (error) {
     if (error?.code === 11000 || (typeof error?.message === 'string' && error.message.includes('E11000'))) {
@@ -156,5 +217,6 @@ export const acceptRequest = async ({ donorId, requestId, quantity = 1 } = {}) =
     request: acceptedRequest,
     qrToken: donation.qrToken,
     qrExpiresAt: donation.qrExpiresAt,
+    fullyAccepted,
   };
 };

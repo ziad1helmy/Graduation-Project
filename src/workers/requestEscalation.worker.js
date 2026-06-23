@@ -33,26 +33,45 @@ export const processArrivalExpirations = async () => {
         }
 
         const sessionRequest = await Request.findById(sessionDonation.requestId).session(session);
-        if (!sessionRequest || sessionRequest.status !== 'accepted') {
+        if (!sessionRequest) {
+          return;
+        }
+
+        // Only process if request is pending or accepted (stale donations on cancelled requests are ignored)
+        if (sessionRequest.status !== 'pending' && sessionRequest.status !== 'accepted') {
           return;
         }
 
         validateTransition('donation', sessionDonation.status, 'expired');
-        validateTransition('request', sessionRequest.status, 'pending');
-
         sessionDonation.status = 'expired';
         sessionDonation.qrUsed = true;
         sessionDonation.qrUsedAt = now;
         await sessionDonation.save({ session });
 
-        sessionRequest.status = 'pending';
-        sessionRequest.acceptedBy = null;
-        sessionRequest.acceptedByName = null;
-        sessionRequest.acceptedByPhoneNumber = null;
-        sessionRequest.acceptedByBloodType = null;
-        sessionRequest.acceptedAt = null;
-        sessionRequest.acceptedDonationId = null;
-        sessionRequest.arrivalDeadline = null;
+        // Decrement unitsAccepted on the request for multi-donor support
+        sessionRequest.unitsAccepted = Math.max(0, (sessionRequest.unitsAccepted || 0) - (sessionDonation.quantity || 1));
+
+        // If request was fully accepted and this was the last active donation, revert to pending
+        if (sessionRequest.status === 'accepted') {
+          const otherActiveDonations = await Donation.countDocuments({
+            requestId: sessionRequest._id,
+            _id: { $ne: sessionDonation._id },
+            status: { $in: ['pending', 'scheduled'] },
+          }).session(session);
+
+          if (otherActiveDonations === 0) {
+            validateTransition('request', sessionRequest.status, 'pending');
+            sessionRequest.status = 'pending';
+            sessionRequest.acceptedBy = null;
+            sessionRequest.acceptedByName = null;
+            sessionRequest.acceptedByPhoneNumber = null;
+            sessionRequest.acceptedByBloodType = null;
+            sessionRequest.acceptedAt = null;
+            sessionRequest.acceptedDonationId = null;
+            sessionRequest.arrivalDeadline = null;
+          }
+        }
+
         await sessionRequest.save({ session });
 
         processed = true;
@@ -60,6 +79,22 @@ export const processArrivalExpirations = async () => {
 
       if (processed) {
         expired += 1;
+
+        // Track missed donation (fire-and-forget outside transaction)
+        try {
+          const { trackMissedDonation } = await import('../utils/missed-donation.js');
+          await trackMissedDonation({
+            donorId: donation.donorId,
+            donationId: donation._id,
+            requestId: donation.requestId,
+            reason: 'Arrival deadline passed without confirmation',
+          });
+        } catch (trackErr) {
+          logger.error('Failed to track missed donation', {
+            donationId: String(donation._id),
+            error: trackErr.message,
+          });
+        }
 
         try {
           const [matchingSvc, notificationSvc] = await Promise.all([

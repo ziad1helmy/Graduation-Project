@@ -214,7 +214,7 @@ export const loginUser = asyncHandler(async (req, res) => {
   }
 
   if (!payload.email) {
-    throw new HttpError(400, 'email is required');
+    throw new HttpError(400, 'Email is required');
   }
 
   try {
@@ -247,13 +247,13 @@ export const loginAdmin = asyncHandler(async (req, res) => {
   const payload = normalizeLoginPayload(req.body);
   payload.role = 'admin';
   if (!payload.email) {
-    throw new HttpError(400, 'email is required');
+    throw new HttpError(400, 'Email is required');
   }
   if (!payload.password) {
-    throw new HttpError(400, 'password is required');
+    throw new HttpError(400, 'Password is required');
   }
   if (!payload.adminKey) {
-    throw new HttpError(400, 'adminKey is required');
+    throw new HttpError(400, 'Admin key is required');
   }
 
   try {
@@ -284,10 +284,10 @@ export const loginHospital = asyncHandler(async (req, res) => {
   }
 
   if (!payload.email) {
-    throw new HttpError(400, 'email is required');
+    throw new HttpError(400, 'Email is required');
   }
   if (!payload.password) {
-    throw new HttpError(400, 'password is required');
+    throw new HttpError(400, 'Password is required');
   }
 
   // Validate payload with role-specific rules (ensures hospitalId presence/format)
