@@ -246,6 +246,11 @@ const requestSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    unitsAccepted: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     manualInterventionFlag: {
       type: Boolean,
       default: false,

@@ -484,7 +484,7 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
   const { appointmentDate, date, time, notes, donationType, requestId } = req.body;
 
   if (!donorId) {
-    throw new HttpError(400, 'donorId is required');
+    throw new HttpError(400, 'Donor ID is required');
   }
 
   const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
@@ -517,9 +517,9 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
       throw new HttpError(404, error.message);
     }
     if (
-      error.message === 'Invalid donor or hospital id' ||
-      error.message === 'Invalid appointment id' ||
-      error.message === 'Invalid request id' ||
+      error.message === 'Invalid donor or hospital ID' ||
+      error.message === 'Invalid appointment ID' ||
+      error.message === 'Invalid request ID' ||
       error.message === 'Appointment date must be in the future' ||
       error.message === 'Request does not belong to this hospital' ||
       error.message === ELIGIBILITY_KEYS.DONOR_CURRENTLY_UNAVAILABLE ||
@@ -923,7 +923,7 @@ export const updateRequest = asyncHandler(async (req, res) => {
 
   if (status !== undefined) {
     if (!['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
-      throw new HttpError(400, 'Valid status is required');
+      throw new HttpError(400, 'Valid status is required. Allowed values: pending, accepted, in-progress, completed, cancelled, expired');
     }
 
     if (request.status !== status) {
@@ -1214,7 +1214,7 @@ export const updateNotificationPreferences = asyncHandler(async (req, res) => {
     { upsert: true, returnDocument: 'after' }
   );
 
-  return response.success(res, 200, 'Preferences saved');
+  return response.success(res, 200, 'Notification preferences saved successfully');
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
@@ -1234,8 +1234,9 @@ export const changePassword = asyncHandler(async (req, res) => {
       throw new HttpError(400, error.message);
     }
     if (
-      error.message.includes('required') ||
-      error.message.includes('must be different')
+      error.message === 'Current password is required' ||
+      error.message === 'New password is required' ||
+      error.message === 'New password must be different from current password'
     ) {
       throw new HttpError(400, error.message);
     }
@@ -1281,8 +1282,8 @@ export const getAppointments = asyncHandler(async (req, res) => {
 export const getAppointmentDetails = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params;
 
-  if (!appointmentId) throw new HttpError(400, 'appointmentId is required');
-  if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new HttpError(400, 'Invalid appointment id');
+  if (!appointmentId) throw new HttpError(400, 'Appointment ID is required');
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new HttpError(400, 'Invalid appointment ID');
 
   const appointment = await Appointment.findOne({ _id: appointmentId, hospitalId: req.user.userId });
   if (!appointment) throw new HttpError(404, 'Appointment not found');

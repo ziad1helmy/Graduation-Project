@@ -188,7 +188,7 @@ const ensureAppointmentIsActive = (appointment) => {
   }
 
   if (appointment.status === 'cancelled') {
-    return { status: 400, message: 'Appointment is cancelled' };
+    return { status: 400, message: 'Appointment has been cancelled' };
   }
 
   if (appointment.status === 'completed') {
@@ -196,7 +196,7 @@ const ensureAppointmentIsActive = (appointment) => {
   }
 
   if (!['pending', 'confirmed'].includes(appointment.status)) {
-    return { status: 400, message: 'Appointment is not active' };
+    return { status: 400, message: `Appointment status "${appointment.status}" is not active. Only pending or confirmed appointments can proceed` };
   }
 
   if (appointment.verificationStatus === 'rejected') {
@@ -219,7 +219,7 @@ export const completeDonation = asyncHandler(async (req, res) => {
 
   if (appointmentId) {
     if (!mongoose.Types.ObjectId.isValid(appointmentId)) {
-      throw new HttpError(400, 'Invalid appointmentId');
+      throw new HttpError(400, 'Invalid appointment ID');
     }
 
     const appointment = await populateAppointmentForVerification(
@@ -305,11 +305,11 @@ export const completeDonation = asyncHandler(async (req, res) => {
   }
 
   if (!donationId) {
-    throw new HttpError(400, 'appointmentId or donationId is required');
+    throw new HttpError(400, 'Appointment ID or donation ID is required');
   }
 
   if (!mongoose.Types.ObjectId.isValid(donationId)) {
-    throw new HttpError(400, 'Invalid donationId');
+    throw new HttpError(400, 'Invalid donation ID');
   }
 
   const donation = await Donation.findById(donationId).populate([
@@ -454,7 +454,7 @@ const validateDonationStatus = (donation) => {
   if (donation.status === 'completed') throw new HttpError(409, 'Donation has already been completed');
   if (donation.status === 'expired') throw new HttpError(400, 'Donation request has expired');
   if (donation.status === 'abandoned') throw new HttpError(400, 'Donation request was abandoned');
-  if (!['pending', 'scheduled'].includes(donation.status)) throw new HttpError(400, 'Donation is not active');
+  if (!['pending', 'scheduled'].includes(donation.status)) throw new HttpError(400, `Donation status "${donation.status}" is not active. Only pending or scheduled donations can proceed`);
   if (donation.verificationStatus === 'rejected') throw new HttpError(409, 'Donation verification was rejected');
   if (donation.qrExpiresAt && new Date() > new Date(donation.qrExpiresAt)) throw new HttpError(400, 'QR code expired');
   if (donation.qrScannedAt) throw new HttpError(409, 'QR code already used');
@@ -469,7 +469,7 @@ const validateAppointmentStatus = (appointment) => {
 export const verifyQr = asyncHandler(async (req, res) => {
   const body = req.body || {};
   const qrToken = String(body.qrToken || body.qrCode || '').trim();
-  if (!qrToken) throw new HttpError(400, 'qrToken is required');
+  if (!qrToken) throw new HttpError(400, 'QR token is required');
 
   const checklistPayload = parseChecklist(body);
   const hasChecklist = body.checklist != null;
@@ -493,7 +493,7 @@ export const verifyQr = asyncHandler(async (req, res) => {
     ]);
 
     if (!donation || !donation.requestId) {
-      throw new HttpError(404, 'Invalid QR code');
+      throw new HttpError(404, 'No appointment or donation found with the provided QR code');
     }
 
     isRequestDonation = true;
@@ -645,11 +645,11 @@ export const rejectVerification = asyncHandler(async (req, res) => {
   const reason = typeof body.reason === 'string' ? body.reason.trim() : '';
 
   if (!targetId) {
-    throw new HttpError(400, 'appointmentId or donationId is required');
+    throw new HttpError(400, 'Appointment ID or donation ID is required');
   }
 
   if (!mongoose.Types.ObjectId.isValid(targetId)) {
-    throw new HttpError(400, 'Invalid id');
+    throw new HttpError(400, 'Invalid ID');
   }
 
   const appointment = await Appointment.findById(targetId);
@@ -776,11 +776,11 @@ export const resetVerification = asyncHandler(async (req, res) => {
   const params = req.params || {};
   const targetId = body.appointmentId || body.donationId || params.appointmentId;
   if (!targetId) {
-    throw new HttpError(400, 'appointmentId or donationId is required');
+    throw new HttpError(400, 'Appointment ID or donation ID is required');
   }
 
   if (!mongoose.Types.ObjectId.isValid(targetId)) {
-    throw new HttpError(400, 'Invalid id');
+    throw new HttpError(400, 'Invalid ID');
   }
 
   const appointment = await Appointment.findById(targetId);

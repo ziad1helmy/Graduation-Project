@@ -85,9 +85,9 @@ const BOOKING_ERROR_400_MESSAGES = [
   'Selected day is not available for appointments',
   'Hospital appointment scheduling is currently disabled',
   'Hospital does not support this donation type',
-  'Invalid donor or hospital id',
-  'Invalid appointment id',
-  'Invalid request id',
+  'Invalid donor or hospital ID',
+  'Invalid appointment ID',
+  'Invalid request ID',
   'Request does not belong to this hospital',
   'The linked request is no longer active',
   ELIGIBILITY_KEYS.DONOR_CURRENTLY_UNAVAILABLE,
@@ -182,7 +182,7 @@ export const cancelAppointment = asyncHandler(async (req, res) => {
   const donorId = getDonorId(req);
   const appointmentId = req.params.appointmentId;
 
-  if (!appointmentId) throw new HttpError(400, 'appointmentId is required');
+  if (!appointmentId) throw new HttpError(400, 'Appointment ID is required');
 
   try {
     const appointment = await appointmentService.cancelAppointment(appointmentId, donorId);
@@ -199,7 +199,7 @@ export const getAppointmentById = asyncHandler(async (req, res) => {
   const donorId = getDonorId(req);
   const appointmentId = req.params.appointmentId;
 
-  if (!appointmentId) throw new HttpError(400, 'appointmentId is required');
+  if (!appointmentId) throw new HttpError(400, 'Appointment ID is required');
 
   try {
     const appointment = await appointmentService.getAppointmentById(appointmentId, donorId);
@@ -209,7 +209,7 @@ export const getAppointmentById = asyncHandler(async (req, res) => {
     return response.success(res, 200, 'Appointment retrieved', toAppointmentResponse(appointment, { role: req.user?.role }));
   } catch (error) {
     if (error.message === 'Appointment not found') throw new HttpError(404, 'Appointment not found');
-    if (error.message === 'Invalid appointment id') throw new HttpError(400, 'Invalid appointment id');
+    if (error.message === 'Invalid appointment ID') throw new HttpError(400, 'Invalid appointment ID');
     throw error;
   }
 });
@@ -225,8 +225,8 @@ export const rescheduleAppointment = asyncHandler(async (req, res) => {
   // Support both 'notes' (preferred) and 'reason' (legacy) fields
   const rescheduleReason = notes || reason;
 
-  if (!appointmentId) throw new HttpError(400, 'appointmentId is required');
-  if (!newDate) throw new HttpError(400, 'date is required');
+  if (!appointmentId) throw new HttpError(400, 'Appointment ID is required');
+  if (!newDate) throw new HttpError(400, 'New date is required');
 
   try {
     const appointment = await appointmentService.rescheduleAppointment(appointmentId, donorId, {
@@ -238,7 +238,7 @@ export const rescheduleAppointment = asyncHandler(async (req, res) => {
     return response.success(res, 200, 'Appointment rescheduled', toAppointmentResponse(appointment, { role: req.user?.role, isReschedule: true }));
   } catch (error) {
     if (error.message === 'Appointment not found') throw new HttpError(404, 'Appointment not found');
-    if (error.message === 'Invalid appointment id') throw new HttpError(400, 'Invalid appointment id');
+    if (error.message === 'Invalid appointment ID') throw new HttpError(400, 'Invalid appointment ID');
     if (error.message.includes('rescheduled')) throw new HttpError(400, error.message);
     if (error.message.includes('future')) throw new HttpError(400, error.message);
     if (RESCHEDULE_ERROR_PATTERNS.some((p) => error.message.includes(p))) {

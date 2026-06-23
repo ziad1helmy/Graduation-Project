@@ -470,7 +470,7 @@ const logAppointmentRescheduleActivity = async ({ appointment, previousAppointme
 
 export const cancelActiveAppointmentsForRequest = async (requestId, options = {}) => {
   if (!mongoose.Types.ObjectId.isValid(requestId)) {
-    throw new Error('Invalid request id');
+    throw new Error('Invalid request ID');
   }
 
   const { session = null } = options;
@@ -586,11 +586,11 @@ const assertRescheduleAvailability = async ({ appointment, appointmentDate, dona
 export const bookAppointment = async (donorId, hospitalId, requestId = null, appointmentDate, notes = '', donationType = DONATION_TYPE_LABELS.WHOLE_BLOOD) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(donorId) || !mongoose.Types.ObjectId.isValid(hospitalId)) {
-      throw new Error('Invalid donor or hospital id');
+      throw new Error('Invalid donor or hospital ID');
     }
 
     if (requestId && !mongoose.Types.ObjectId.isValid(requestId)) {
-      throw new Error('Invalid request id');
+      throw new Error('Invalid request ID');
     }
 
     const donor = await Donor.findById(donorId);
@@ -756,7 +756,7 @@ export const getMyAppointments = async (donorId, filters = {}, projection = null
 
 export const cancelAppointment = async (appointmentId, donorId) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment ID');
 
     const appointment = await Appointment.findOne({ _id: appointmentId, donorId });
     if (!appointment) throw new Error('Appointment not found');
@@ -816,7 +816,7 @@ export const cancelAppointment = async (appointmentId, donorId) => {
 
 export const getAppointmentById = async (appointmentId, donorId) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment ID');
 
     const appointment = await Appointment.findOne({ _id: appointmentId, donorId });
 
@@ -831,7 +831,7 @@ export const getAppointmentById = async (appointmentId, donorId) => {
 
 export const rescheduleAppointment = async (appointmentId, donorId, updateInput, donationTypeInput = null) => {
   try {
-    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment id');
+    if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new Error('Invalid appointment ID');
 
     const updatePayload = updateInput && typeof updateInput === 'object' && !(updateInput instanceof Date)
       ? updateInput
@@ -994,7 +994,7 @@ const formatHourLabel = (hour) => {
 export const getAvailableSlots = async (hospitalId, date, options = {}) => {
   try {
     if (!mongoose.Types.ObjectId.isValid(hospitalId)) {
-      throw new Error('Invalid hospital id');
+      throw new Error('Invalid hospital ID');
     }
 
     const targetDate = new Date(date);

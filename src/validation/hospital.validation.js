@@ -61,7 +61,7 @@ export const validateFindDonorsQuery = (query = {}, lat, lng, radiusKm, particip
     : null;
 
   if (bloodType && !validBloodTypes.includes(bloodType)) {
-    errors.push('Invalid bloodType');
+    errors.push('Invalid blood type. Must be one of: A+, A-, B+, B-, AB+, AB-, O+, O-');
   }
 
   if (radiusKm !== null && (!isValidNumber(radiusKm) || radiusKm <= 0)) {
@@ -81,7 +81,7 @@ export const validateFindDonorsQuery = (query = {}, lat, lng, radiusKm, particip
   }
 
   if (participation === null) {
-    errors.push('participation must be a boolean value');
+    errors.push('participation filter must be a boolean value (true or false)');
   }
 
   return { valid: errors.length === 0, errors };

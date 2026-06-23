@@ -94,7 +94,7 @@ describe('Request Flow — /requests/verify-qr edge cases', () => {
     const reqRecord = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
       urgency: 'critical',
-      unitsNeeded: 2,
+      unitsNeeded: 1,
     });
 
     const donorToken = tokenFor(donor);
@@ -129,6 +129,7 @@ describe('Request Flow — /requests/verify-qr edge cases', () => {
     const reqRecord = await createRequest(hospital._id, {
       bloodType: donor.bloodType,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const donorToken = tokenFor(donor);

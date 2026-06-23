@@ -1,3 +1,4 @@
+import mongoose from 'mongoose';
 import response from '../utils/response.js';
 import Hospital from '../models/Hospital.model.js';
 import HospitalSettings from '../models/HospitalSettings.model.js';
@@ -5,7 +6,9 @@ import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import Request from '../models/Request.model.js';
 import { calculateDistance, parseLatLng } from '../utils/geo.js';
 import { formatDistance } from '../utils/format.js';
+import { isValidObjectId } from '../utils/query.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
+import { HttpError } from '../utils/HttpError.js';
 
 const mapHospital = (h, extras = {}) => ({
   hospitalId: h._id,
@@ -73,6 +76,10 @@ export const listHospitals = asyncHandler(async (req, res) => {
 });
 
 export const getHospitalById = asyncHandler(async (req, res) => {
+  if (!isValidObjectId(req.params.id)) {
+    throw new HttpError(400, 'Invalid hospital ID');
+  }
+
   const hospital = await Hospital.findOne({
     _id: req.params.id,
     role: 'hospital',
@@ -82,7 +89,7 @@ export const getHospitalById = asyncHandler(async (req, res) => {
   });
 
   if (!hospital) {
-    return response.error(res, 404, 'Hospital not found');
+    throw new HttpError(404, 'Hospital not found');
   }
 
   // Fetch HospitalSettings for this hospital
@@ -111,9 +118,16 @@ export const getHospitalById = asyncHandler(async (req, res) => {
 
 export const getNearbyHospitals = asyncHandler(async (req, res) => {
   const { search, bloodType } = req.query;
-  // Accept lat/lng, lat/long, or latitude/longitude for backwards compatibility
   const { lat, lng, hasCoordinates } = parseLatLng(req.query);
   const radiusKm = req.query.radius_km ? Number(req.query.radius_km) : null;
+
+  if (radiusKm !== null && (!Number.isFinite(radiusKm) || radiusKm <= 0)) {
+    throw new HttpError(400, 'radius_km must be a positive number');
+  }
+
+  if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
+    throw new HttpError(400, 'Invalid blood type. Must be one of: A+, A-, B+, B-, AB+, AB-, O+, O-');
+  }
 
   const query = { role: 'hospital', deletedAt: null, isSuspended: false, isEmailVerified: true };
   if (search) {
@@ -185,6 +199,10 @@ export const getNearbyHospitals = asyncHandler(async (req, res) => {
 export const searchHospitals = asyncHandler(async (req, res) => {
   const { lat, lng, hasCoordinates } = parseLatLng(req.query);
   const { q = '', bloodType, availableOnly } = req.query;
+
+  if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
+    throw new HttpError(400, 'Invalid blood type. Must be one of: A+, A-, B+, B-, AB+, AB-, O+, O-');
+  }
 
   const query = { role: 'hospital', deletedAt: null, isSuspended: false, isEmailVerified: true };
   if (q) {

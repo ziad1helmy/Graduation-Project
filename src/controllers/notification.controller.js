@@ -32,7 +32,7 @@ export const getNotifications = asyncHandler(async (req, res) => {
 
 export const markNotificationRead = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
-    return response.error(res, 400, 'Invalid notification id');
+    return response.error(res, 400, 'Invalid notification ID');
   }
 
   const notification = await notificationService.markAsReadForUser(req.user.userId, req.params.id);
@@ -55,7 +55,7 @@ export const deleteAllNotifications = asyncHandler(async (req, res) => {
 
 export const deleteNotificationById = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
-    return response.error(res, 400, 'Invalid notification id');
+    return response.error(res, 400, 'Invalid notification ID');
   }
 
   const notification = await notificationService.deleteNotificationForUser(req.user.userId, req.params.id);
@@ -68,7 +68,7 @@ export const deleteNotificationById = asyncHandler(async (req, res) => {
 
 export const getNotificationById = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
-    return response.error(res, 400, 'Invalid notification id');
+    return response.error(res, 400, 'Invalid notification ID');
   }
 
   const notification = await notificationService.getNotificationForUser(req.user.userId, req.params.id);

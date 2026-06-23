@@ -214,7 +214,7 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
 export const getSystemSettings = asyncHandler(async (req, res) => {
   const user = await adminService.getUserById(req.user._id, req.user.role, null, req.user._id.toString());
   if (!user) {
-    throw new HttpError(404, 'Admin profile not found');
+    throw new HttpError(404, 'Admin user not found');
   }
 
   const userObj = user.toObject ? user.toObject() : user;
@@ -328,7 +328,7 @@ export const listInboundEmails = asyncHandler(async (req, res) => {
 /** GET /admin/inbound-emails/:id */
 export const getInboundEmailById = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid inbound email id');
+    throw new HttpError(400, 'Invalid inbound email ID');
   }
 
   const inboundEmail = await InboundEmail.findById(req.params.id).lean();
@@ -344,7 +344,7 @@ export const getInboundEmailById = asyncHandler(async (req, res) => {
 /** PATCH /admin/inbound-emails/:id/read */
 export const markInboundEmailRead = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid inbound email id');
+    throw new HttpError(400, 'Invalid inbound email ID');
   }
 
   const inboundEmail = await InboundEmail.findByIdAndUpdate(
@@ -370,7 +370,7 @@ export const markInboundEmailRead = asyncHandler(async (req, res) => {
 /** PATCH /admin/inbound-emails/:id/archive */
 export const archiveInboundEmail = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid inbound email id');
+    throw new HttpError(400, 'Invalid inbound email ID');
   }
 
   const inboundEmail = await InboundEmail.findByIdAndUpdate(
@@ -396,7 +396,7 @@ export const archiveInboundEmail = asyncHandler(async (req, res) => {
 /** DELETE /admin/inbound-emails/:id */
 export const deleteInboundEmail = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid inbound email id');
+    throw new HttpError(400, 'Invalid inbound email ID');
   }
 
   const inboundEmail = await InboundEmail.findByIdAndDelete(req.params.id).lean();
@@ -497,7 +497,7 @@ export const updateDonor = asyncHandler(async (req, res) => {
     }
     return response.success(res, 200, 'Donor updated successfully', { user });
   } catch (error) {
-    if (error.message === 'Email cannot be changed by admin. Donors must use the self-service profile flow.') {
+    if (error.message === 'Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.') {
       throw new HttpError(400, error.message);
     }
     throw error;
@@ -532,7 +532,7 @@ export const updateAdmin = asyncHandler(async (req, res) => {
     if (error.message === 'Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.') {
       throw new HttpError(400, error.message);
     }
-    if (error.message === 'Role changes are not supported via this endpoint') {
+    if (error.message === 'Role changes are not supported. The role field cannot be updated.') {
       throw new HttpError(400, error.message);
     }
     throw error;

@@ -99,6 +99,7 @@ describe('Request Details Integration', () => {
       contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const hospitalToken = signToken({ userId: hospital._id.toString(), role: hospital.role });
@@ -211,6 +212,7 @@ describe('Request Details Integration', () => {
       contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
@@ -261,6 +263,7 @@ describe('Request Details Integration', () => {
       contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
@@ -299,6 +302,7 @@ describe('Request Details Integration', () => {
       contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
@@ -337,6 +341,7 @@ describe('Request Details Integration', () => {
       contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
@@ -378,6 +383,7 @@ describe('Request Details Integration', () => {
       contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
@@ -420,6 +426,7 @@ describe('Request Details Integration', () => {
       contactNumber: hospital.phone,
       isEmergency: true,
       urgency: 'critical',
+      unitsNeeded: 1,
     });
 
     const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
@@ -430,13 +437,13 @@ describe('Request Details Integration', () => {
       .set('Authorization', `Bearer ${donorToken}`)
       .send({});
 
-    // Other donor tries to access
+    // Other donor tries to access — has no active donation, gets 404
     const otherToken = signToken({ userId: otherDonor._id.toString(), role: otherDonor.role });
     const detailsResponse = await request(app)
       .get(`/requests/accepted/${urgentRequest._id}`)
       .set('Authorization', `Bearer ${otherToken}`);
 
-    expect(detailsResponse.status).toBe(403);
+    expect(detailsResponse.status).toBe(404);
   });
 
   it('GET /requests/:id returns donor-level QR code dynamically on accept/book/reschedule', async () => {

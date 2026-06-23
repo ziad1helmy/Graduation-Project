@@ -125,6 +125,17 @@ const donorSchema = new mongoose.Schema({
         default: true,
     },
 
+    // Tracks missed donations (no-show) for auto-suspension after 3 strikes.
+    missedDonationCount: {
+        type: Number,
+        default: 0,
+        min: 0,
+    },
+    missedDonationDates: {
+        type: [Date],
+        default: [],
+    },
+
     settings: {
         pushNotifications: {
             type: Boolean,

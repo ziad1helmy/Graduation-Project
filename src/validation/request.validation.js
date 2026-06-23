@@ -49,7 +49,7 @@ export const validateNearbyRequestsQuery = (query = {}) => {
 export const validateRequestIdParam = (params = {}) => {
   const errors = [];
   if (!params.id) {
-    errors.push('id is required');
+    errors.push('Request ID is required');
   }
   return { valid: errors.length === 0, errors };
 };

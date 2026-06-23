@@ -405,12 +405,12 @@ export const updateParticipation = asyncHandler(async (req, res) => {
 export const getDonationEligibility = asyncHandler(async (req, res) => {
   // Reject any attempt to specify another donor's id
   if (req.params?.donorId || req.query?.donorId || req.body?.donorId) {
-    throw new HttpError(400, 'Specifying donorId is not allowed');
+    throw new HttpError(400, 'You cannot specify another donor\'s ID — only your authenticated ID is used');
   }
 
   // Determine authenticated donor id (support either field used by JWT middleware)
   const donorId = req.user?.userId ?? req.user?.id ?? req.user?._id;
-  if (!donorId) throw new HttpError(500, 'Authenticated donor id not found');
+  if (!donorId) throw new HttpError(500, 'Authenticated donor ID not found in authentication token');
 
   // Load donor profile (readonly)
   const donor = await Donor.findById(donorId).select('isOptedIn lastDonationDate bloodType gender hemoglobinLevel temporaryDeferralUntil travelHistory dateOfBirth');
@@ -418,7 +418,7 @@ export const getDonationEligibility = asyncHandler(async (req, res) => {
 
   // Do not accept request-specific parameters for this informational endpoint
   if (req.query?.requestId || req.query?.donationType) {
-    throw new HttpError(400, 'requestId and donationType are not accepted on this endpoint');
+    throw new HttpError(400, 'requestId and donationType parameters are not accepted on this endpoint');
   }
 
   // Build a generic eligibility request using donor's default context (Health Profile uses current donor info)

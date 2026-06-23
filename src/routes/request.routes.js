@@ -42,13 +42,13 @@ router.post('/verify-qr', requireRole('hospital', 'admin', 'superadmin'), reques
 router.post('/:id/accept', requireRole('donor'), requestController.acceptRequest);
 
 
+router.post('/:id/cancel', requestController.cancelRequest);
+
+
 router.post('/:id/confirm', requireRole('hospital', 'admin', 'superadmin'), requestController.confirmRequest);
 
 
 router.post('/:id/reject', requireRole('hospital', 'admin', 'superadmin'), requestController.rejectRequest);
-
-
-router.post('/:id/cancel', requestController.cancelRequest);
 
 
 export default router;
