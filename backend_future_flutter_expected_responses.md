@@ -2128,26 +2128,6 @@ These structures are derived strictly from the backend controllers, services, da
 ---
 
 ### Endpoint
-`POST /requests/:id/generate-qr`
-
-#### Current Backend Runtime Response
-```json
-{
-  "success": true,
-  "message": "QR token generated successfully",
-  "data": {
-    "qrToken": "qr_token_string",
-    "qrImage": "data:image/png;base64,iVBORw0KGgo...",
-    "qrCreatedAt": "2026-06-07T00:56:18.000Z",
-    "qrExpiresAt": "2026-06-08T00:56:18.000Z",
-    "requestId": "60d5ec49f0322c2c20e28f60"
-  }
-}
-```
-
----
-
-### Endpoint
 `POST /requests/verify-qr`
 
 #### Current Backend Runtime Response

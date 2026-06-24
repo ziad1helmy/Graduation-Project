@@ -48,47 +48,6 @@ describe('Request Details Integration', () => {
     expect(typeof response.body.data.distanceKm).toBe('number');
   });
 
-  it('POST /requests/:id/generate-qr stores a secure token and image', async () => {
-    await clearDatabase();
-    const hospital = await createHospital();
-    const donor = await createDonor();
-    const urgentRequest = await createRequest(hospital._id, {
-      bloodType: donor.bloodType,
-      patientType: 'infant',
-      contactNumber: hospital.phone,
-      isEmergency: true,
-      urgency: 'critical',
-    });
-
-    const token = signToken({ userId: hospital._id.toString(), role: hospital.role });
-
-    const response = await request(app)
-      .post(`/requests/${urgentRequest._id}/generate-qr`)
-      .set('Authorization', `Bearer ${token}`)
-      .send({});
-
-    expect(response.status).toBe(200);
-    expect(response.body.success).toBe(true);
-    expect(response.body.data.qrToken).toBeDefined();
-    expect(response.body.data.qrImage).toMatch(/^data:image\/png;base64,/);
-    expect(response.body.data.qrExpiresAt).toBeDefined();
-
-    // A donor who has NOT accepted sees null — the hospital request-level QR is not their token
-    const donorDetailResponse = await request(app)
-      .get(`/requests/${urgentRequest._id}`)
-      .set('Authorization', `Bearer ${signToken({ userId: donor._id.toString(), role: donor.role })}`);
-
-    expect(donorDetailResponse.status).toBe(200);
-    expect(donorDetailResponse.body.data.qrToken).toBeNull();
-
-    // The hospital viewer still sees the request-level QR it generated
-    const hospitalDetailResponse = await request(app)
-      .get(`/requests/${urgentRequest._id}`)
-      .set('Authorization', `Bearer ${token}`);
-
-    expect(hospitalDetailResponse.status).toBe(200);
-    expect(hospitalDetailResponse.body.data.qrToken).toBe(response.body.data.qrToken);
-  });
 
   it('POST /requests/verify-qr validates a donation QR token after donor accepts', async () => {
     await clearDatabase();

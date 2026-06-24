@@ -259,40 +259,6 @@ const buildHospitalProfileStats = async (hospitalId) => {
   };
 };
 
-const toHospitalProfilePayload = (hospitalDoc, stats) => {
-  const hospital = hospitalDoc?.toObject ? hospitalDoc.toObject() : { ...hospitalDoc };
-  delete hospital.password;
-
-  const lat = Number(hospital.lat ?? hospital.location?.coordinates?.lat);
-  const lng = Number(hospital.long ?? hospital.location?.coordinates?.lng);
-  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
-
-  const city = hospital.city || hospital.address?.city || hospital.location?.city || null;
-  const governorate = hospital.state || hospital.address?.governorate || hospital.location?.governorate || null;
-
-  const location = {
-    ...(city ? { city } : {}),
-    ...(governorate ? { governorate } : {}),
-    ...(hasCoords
-      ? { coordinates: { lat, lng } }
-      : {}),
-  };
-
-  return {
-    ...hospital,
-    location,
-    stats: stats || {
-      totalRequests: 0,
-      pendingRequests: 0,
-      completedRequests: 0,
-      cancelledRequests: 0,
-      expiredRequests: 0,
-      totalDonors: 0,
-      completedDonations: 0,
-    },
-  };
-};
-
 export const getProfile = asyncHandler(async (req, res) => {
   const hospital = await Hospital.findById(req.user.userId).select('-password');
   if (!hospital) {
@@ -313,12 +279,17 @@ export const getProfile = asyncHandler(async (req, res) => {
 
   const prefs = settings?.notificationPreferences || {};
 
+  const lat = Number(hospital.lat ?? hospital.location?.coordinates?.lat);
+  const lng = Number(hospital.long ?? hospital.location?.coordinates?.lng);
+  const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
+
   response.success(res, 200, 'Hospital profile retrieved successfully', {
     hospitalName: getHospitalDisplayName(hospital),
     department: hospital.department || null,
     contactNumber: hospital.contactNumber || hospital.phone || null,
     email: hospital.email,
     address: typeof hospital.address === 'string' ? hospital.address : hospital.address ? JSON.stringify(hospital.address) : null,
+    location: hasCoords ? { lat, lng } : null,
     workingHours: {
       openingHour: hospital.workingHoursStart ?? 9,
       closingHour: hospital.workingHoursEnd ?? 17,
@@ -537,13 +508,8 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
   }
 });
 
-export const updateProfile = asyncHandler(async (req, res) => {
-  const { hospitalName, department, phone, contactNumber, email, address } = req.body;
-
-  const hospital = await Hospital.findById(req.user.userId);
-  if (!hospital) {
-    throw new HttpError(404, 'Hospital profile not found');
-  }
+const applyBasicProfileFields = (hospital, body) => {
+  const { hospitalName, department, phone, contactNumber, email, address } = body;
 
   if (hospitalName !== undefined) {
     hospital.hospitalName = hospitalName;
@@ -551,15 +517,85 @@ export const updateProfile = asyncHandler(async (req, res) => {
     hospital.name = hospitalName;
   }
   if (department !== undefined) hospital.department = department;
-  if (contactNumber !== undefined) {
-    hospital.contactNumber = contactNumber;
-  }
+  if (contactNumber !== undefined) hospital.contactNumber = contactNumber;
   if (phone !== undefined) {
     hospital.phone = phone;
     hospital.contactNumber = contactNumber !== undefined ? contactNumber : phone;
   }
   if (email !== undefined) hospital.email = email;
   if (address !== undefined) hospital.address = address;
+};
+
+const applyLocationFields = (hospital, lat, lng) => {
+  if (lat === undefined && lng === undefined) return;
+
+  const parsedLat = lat !== undefined ? Number(lat) : Number(hospital.lat ?? hospital.location?.coordinates?.lat);
+  const parsedLng = lng !== undefined ? Number(lng) : Number(hospital.long ?? hospital.location?.coordinates?.lng);
+
+  if (lat !== undefined && (!Number.isFinite(parsedLat) || parsedLat < -90 || parsedLat > 90)) {
+    throw new HttpError(400, 'lat must be a valid number between -90 and 90');
+  }
+  if (lng !== undefined && (!Number.isFinite(parsedLng) || parsedLng < -180 || parsedLng > 180)) {
+    throw new HttpError(400, 'lng must be a valid number between -180 and 180');
+  }
+
+  hospital.lat = parsedLat;
+  hospital.long = parsedLng;
+  hospital.location = {
+    ...(hospital.location?.toObject ? hospital.location.toObject() : hospital.location || {}),
+    coordinates: { lat: parsedLat, lng: parsedLng },
+    lastUpdated: new Date(),
+  };
+};
+
+const applyWorkingHoursFields = (hospital, workingHoursStart, workingHoursEnd, slotsPerHour) => {
+  if (workingHoursStart !== undefined) {
+    if (!Number.isInteger(workingHoursStart) || workingHoursStart < 0 || workingHoursStart > 23) {
+      throw new HttpError(400, 'workingHoursStart must be an integer between 0 and 23');
+    }
+    hospital.workingHoursStart = workingHoursStart;
+  }
+  if (workingHoursEnd !== undefined) {
+    if (!Number.isInteger(workingHoursEnd) || workingHoursEnd < 0 || workingHoursEnd > 23) {
+      throw new HttpError(400, 'workingHoursEnd must be an integer between 0 and 23');
+    }
+    hospital.workingHoursEnd = workingHoursEnd;
+  }
+  if (slotsPerHour !== undefined) {
+    if (!Number.isInteger(slotsPerHour) || slotsPerHour < 1) {
+      throw new HttpError(400, 'slotsPerHour must be a positive integer');
+    }
+    hospital.slotsPerHour = slotsPerHour;
+  }
+};
+
+const applyNotificationFields = async (userId, pushNotifications, emergencyAlerts, emailNotifications, smsAlerts) => {
+  if (pushNotifications === undefined && emergencyAlerts === undefined && emailNotifications === undefined && smsAlerts === undefined) return;
+
+  const updateFields = {};
+  if (pushNotifications !== undefined) updateFields['notificationPreferences.pushNotifications'] = Boolean(pushNotifications);
+  if (emergencyAlerts !== undefined) updateFields['notificationPreferences.emergencyAlerts'] = Boolean(emergencyAlerts);
+  if (emailNotifications !== undefined) updateFields['notificationPreferences.emailNotifications'] = Boolean(emailNotifications);
+  if (smsAlerts !== undefined) updateFields['notificationPreferences.smsAlerts'] = Boolean(smsAlerts);
+
+  await HospitalSettings.findOneAndUpdate(
+    { hospitalId: userId },
+    { $set: updateFields, $setOnInsert: { hospitalId: userId } },
+    { upsert: true, returnDocument: 'after' }
+  );
+};
+
+export const updateProfile = asyncHandler(async (req, res) => {
+  const { lat, lng, workingHoursStart, workingHoursEnd, slotsPerHour, pushNotifications, emergencyAlerts, emailNotifications, smsAlerts } = req.body;
+
+  const hospital = await Hospital.findById(req.user.userId);
+  if (!hospital) {
+    throw new HttpError(404, 'Hospital profile not found');
+  }
+
+  applyBasicProfileFields(hospital, req.body);
+  applyLocationFields(hospital, lat, lng);
+  applyWorkingHoursFields(hospital, workingHoursStart, workingHoursEnd, slotsPerHour);
 
   try {
     await hospital.save();
@@ -570,75 +606,12 @@ export const updateProfile = asyncHandler(async (req, res) => {
     throw error;
   }
 
+  await applyNotificationFields(req.user.userId, pushNotifications, emergencyAlerts, emailNotifications, smsAlerts);
+
   response.success(res, 200, 'Profile updated successfully');
 });
 
-export const updateWorkingHours = asyncHandler(async (req, res) => {
-  const { openingHour, closingHour, slotsPerHour } = req.body;
 
-  const hospital = await Hospital.findById(req.user.userId);
-  if (!hospital) {
-    throw new HttpError(404, 'Hospital profile not found');
-  }
-
-  if (openingHour !== undefined) {
-    if (!Number.isInteger(openingHour) || openingHour < 0 || openingHour > 23) {
-      throw new HttpError(400, 'openingHour must be an integer between 0 and 23');
-    }
-    hospital.workingHoursStart = openingHour;
-  }
-  if (closingHour !== undefined) {
-    if (!Number.isInteger(closingHour) || closingHour < 0 || closingHour > 23) {
-      throw new HttpError(400, 'closingHour must be an integer between 0 and 23');
-    }
-    hospital.workingHoursEnd = closingHour;
-  }
-  if (slotsPerHour !== undefined) {
-    if (!Number.isInteger(slotsPerHour) || slotsPerHour < 1) {
-      throw new HttpError(400, 'slotsPerHour must be a positive integer');
-    }
-    hospital.slotsPerHour = slotsPerHour;
-  }
-
-  await hospital.save();
-
-  response.success(res, 200, 'Working hours updated successfully');
-});
-
-export const updateProfileLocation = asyncHandler(async (req, res) => {
-  const { lat, lng } = req.body;
-
-  if (lat === undefined || lng === undefined) {
-    throw new HttpError(400, 'lat and lng are required');
-  }
-
-  const parsedLat = Number(lat);
-  const parsedLng = Number(lng);
-
-  if (!Number.isFinite(parsedLat) || parsedLat < -90 || parsedLat > 90) {
-    throw new HttpError(400, 'lat must be a valid number between -90 and 90');
-  }
-  if (!Number.isFinite(parsedLng) || parsedLng < -180 || parsedLng > 180) {
-    throw new HttpError(400, 'lng must be a valid number between -180 and 180');
-  }
-
-  const hospital = await Hospital.findById(req.user.userId);
-  if (!hospital) {
-    throw new HttpError(404, 'Hospital profile not found');
-  }
-
-  hospital.lat = parsedLat;
-  hospital.long = parsedLng;
-  hospital.location = {
-    ...(hospital.location?.toObject ? hospital.location.toObject() : hospital.location || {}),
-    coordinates: { lat: parsedLat, lng: parsedLng },
-    lastUpdated: new Date(),
-  };
-
-  await hospital.save();
-
-  response.success(res, 200, 'Hospital location updated successfully');
-});
 
 const buildDonationMetricsByRequest = async (requestIds) => {
   if (requestIds.length === 0) return new Map();
@@ -1185,36 +1158,6 @@ export const getDonations = asyncHandler(async (req, res) => {
     donations: populatedDonations,
     pagination: paginationMeta(total, page, limit),
   });
-});
-
-export const updateNotificationPreferences = asyncHandler(async (req, res) => {
-  const { pushNotifications, emergencyAlerts, emailNotifications, smsAlerts } = req.body;
-
-  const updateFields = {};
-
-  if (pushNotifications !== undefined) {
-    updateFields['notificationPreferences.pushNotifications'] = Boolean(pushNotifications);
-  }
-
-  if (emergencyAlerts !== undefined) {
-    updateFields['notificationPreferences.emergencyAlerts'] = Boolean(emergencyAlerts);
-  }
-
-  if (emailNotifications !== undefined) {
-    updateFields['notificationPreferences.emailNotifications'] = Boolean(emailNotifications);
-  }
-
-  if (smsAlerts !== undefined) {
-    updateFields['notificationPreferences.smsAlerts'] = Boolean(smsAlerts);
-  }
-
-  await HospitalSettings.findOneAndUpdate(
-    { hospitalId: req.user.userId },
-    { $set: updateFields, $setOnInsert: { hospitalId: req.user.userId } },
-    { upsert: true, returnDocument: 'after' }
-  );
-
-  return response.success(res, 200, 'Notification preferences saved successfully');
 });
 
 export const changePassword = asyncHandler(async (req, res) => {

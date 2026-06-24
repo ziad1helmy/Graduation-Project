@@ -104,10 +104,7 @@
     '/hospital/activity': 'Dashboard & Analytics',
 
     '/hospital/profile': 'Profile & Configuration',
-    '/hospital/profile/working-hours': 'Profile & Configuration',
-    '/hospital/profile/notifications': 'Profile & Configuration',
     '/hospital/profile/password': 'Profile & Configuration',
-    '/hospital/profile/location': 'Profile & Configuration',
 
     // '/hospital/blood-inventory': 'Inventory Management', // removed — endpoint deleted
 
@@ -125,9 +122,9 @@
 
     '/appointments/verify-qr': 'QR Code & Checklist Verification',
 
+    '/appointments/{appointmentId}/verify': 'QR Code & Checklist Verification',
     '/appointments/{appointmentId}/reject': 'QR Code & Checklist Verification',
     '/appointments/{appointmentId}/rescan': 'QR Code & Checklist Verification',
-    '/requests/{id}/generate-qr': 'QR Code & Checklist Verification',
     '/requests/verify-qr': 'QR Code & Checklist Verification',
 
     // Admin

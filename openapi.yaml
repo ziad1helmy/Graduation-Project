@@ -3213,11 +3213,17 @@ paths:
                 success: true
                 message: Donation history retrieved successfully
                 data:
-                  donations: []
+                  donations:
+                    - _id: 664a0f1a2b3c4d5e6f7a8b9c
+                      status: completed
+                      quantity: 1
+                      pointsEarned: 100
+                      hospitalName: City General Hospital
+                      createdAt: 2026-05-01T10:00:00Z
                   pagination:
                     page: 1
                     limit: 10
-                    total: 0
+                    total: 1
         "401":
           description: Missing or invalid JWT
         "403":
@@ -3276,6 +3282,7 @@ paths:
                       status: completed
                       quantity: 1
                       pointsEarned: 100
+                      hospitalName: City General Hospital
                       createdAt: 2026-05-01T10:00:00Z
                   pagination:
                     total: 1
@@ -4574,6 +4581,9 @@ paths:
                     emergencyAlerts: true
                     emailNotifications: true
                     smsAlerts: true
+                  location:
+                    lat: 30.0444
+                    lng: 31.2357
                   statistics:
                     totalRequests: 47
                     fulfilled: 42
@@ -4585,7 +4595,7 @@ paths:
       tags:
         - Hospital
       summary: Update the authenticated hospital profile
-      description: Updates the hospital's basic profile details.
+      description: Updates the hospital's basic profile details, location coordinates, working hours, and notification preferences.
       security:
         - bearerAuth: []
       requestBody:
@@ -4615,12 +4625,53 @@ paths:
                 address:
                   type: string
                   example: 123 Medical Center Dr, City
+                lat:
+                  type: number
+                  description: Latitude coordinate (-90 to 90)
+                  example: 30.0444
+                lng:
+                  type: number
+                  description: Longitude coordinate (-180 to 180)
+                  example: 31.2357
+                workingHoursStart:
+                  type: integer
+                  description: Opening hour (0-23)
+                  example: 8
+                workingHoursEnd:
+                  type: integer
+                  description: Closing hour (0-23)
+                  example: 19
+                slotsPerHour:
+                  type: integer
+                  description: Appointment slots per hour
+                  example: 8
+                pushNotifications:
+                  type: boolean
+                  example: true
+                emergencyAlerts:
+                  type: boolean
+                  example: true
+                emailNotifications:
+                  type: boolean
+                  example: true
+                smsAlerts:
+                  type: boolean
+                  example: false
             example:
               hospitalName: Metro General Hospital
               department: Emergency Department
               contactNumber: "+1 (555) 987-6543"
               email: emergency@metrohealth.com
               address: 123 Medical Center Dr, City
+              lat: 30.0444
+              lng: 31.2357
+              workingHoursStart: 8
+              workingHoursEnd: 19
+              slotsPerHour: 8
+              pushNotifications: true
+              emergencyAlerts: true
+              emailNotifications: true
+              smsAlerts: false
       responses:
         "200":
           description: Profile updated successfully
@@ -4635,94 +4686,6 @@ paths:
           description: Missing or invalid JWT token
         "403":
           description: Access denied - hospital role required
-        "404":
-          description: Hospital profile not found
-  /hospital/profile/working-hours:
-    put:
-      tags:
-        - Hospital
-      summary: Update working hours
-      description: Persists opening hours, closing hours, and slot limits.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                openingHour:
-                  type: integer
-                  example: 8
-                closingHour:
-                  type: integer
-                  example: 19
-                slotsPerHour:
-                  type: integer
-                  example: 8
-            example:
-              openingHour: 8
-              closingHour: 19
-              slotsPerHour: 8
-      responses:
-        "200":
-          description: Working hours updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Working hours updated successfully
-        "400":
-          description: Validation error
-        "401":
-          description: Missing or invalid JWT token
-        "404":
-          description: Hospital profile not found
-  /hospital/profile/notifications:
-    put:
-      tags:
-        - Hospital
-      summary: Update notification preferences
-      description: Saves the hospital's custom communication channel toggle settings.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                pushNotifications:
-                  type: boolean
-                  example: false
-                emergencyAlerts:
-                  type: boolean
-                  example: true
-                emailNotifications:
-                  type: boolean
-                  example: true
-                smsAlerts:
-                  type: boolean
-                  example: false
-            example:
-              pushNotifications: false
-              emergencyAlerts: true
-              emailNotifications: true
-              smsAlerts: false
-      responses:
-        "200":
-          description: Preferences saved
-          content:
-            application/json:
-              example:
-                success: true
-                message: Preferences saved
-        "400":
-          description: Validation error
-        "401":
-          description: Missing or invalid JWT token
         "404":
           description: Hospital profile not found
   /hospital/profile/password:
@@ -4768,47 +4731,6 @@ paths:
           description: Validation error
         "401":
           description: Missing or invalid JWT token
-        "404":
-          description: Hospital profile not found
-  /hospital/profile/location:
-    put:
-      tags:
-        - Hospital
-      summary: Update hospital location coordinates
-      description: Updates the hospital's geographic coordinates.
-      security:
-        - bearerAuth: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                lat:
-                  type: number
-                  example: 30.0444
-                lng:
-                  type: number
-                  example: 31.2357
-              required:
-                - lat
-                - lng
-            example:
-              lat: 30.0444
-              lng: 31.2357
-      responses:
-        "200":
-          description: Hospital location updated successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Hospital location updated successfully
-        "401":
-          description: Missing or invalid JWT token
-        "403":
-          description: Access denied - role not allowed
         "404":
           description: Hospital profile not found
   # Removed /hospital/appointment-settings, /hospital/blood-bank-settings, /hospital/notification-preferences — endpoints deleted
@@ -6208,16 +6130,15 @@ paths:
     post:
       tags:
         - Hospital
-      summary: Verify donor QR code and confirm arrival at hospital check-in
+      summary: Scan donor QR code at hospital check-in
       description: |-
-        Hospital staff scans the donor's QR code to start the hospital verification flow.
+        Hospital staff scans the donor's QR code to start the verification flow.
         - Validates the QR token, checks expiry and one-time usage
         - Confirms donor eligibility and appointment activity
-        - Returns the donor profile and appointment details for the verification screen
+        - Returns the donor profile, appointment details, and a `verificationSessionId`
+        - Sets verification to `pending` — use `POST /appointments/:id/verify` to confirm
 
-        Optionally accepts a `checklist` to confirm arrival in a single step.
-        If the checklist is provided and complete, the appointment is marked as `verified` immediately,
-        skipping the intermediate `pending` state. Use reject and rescan for error recovery.
+        **Scan-only.** Checklist and disease screening are submitted via the confirm endpoint.
 
         **Role required:** hospital | admin | superadmin
 
@@ -6238,66 +6159,110 @@ paths:
                   type: string
                   description: The secure QR token scanned from the donor's device
                   example: a3f9c1e82b4d...
-                checklist:
-                  type: object
-                  description: Optional. Completing the checklist confirms arrival in one step
-                  properties:
-                    idVerified:
-                      type: boolean
-                    questionnaireCompleted:
-                      type: boolean
-                    consentSigned:
-                      type: boolean
-            examples:
-              scanOnly:
-                summary: Scan QR only (arrival separate)
-                value:
-                  qrToken: demo-qr-noor-verify
-              scanAndArrival:
-                summary: Scan QR and confirm arrival in one step
-                value:
-                  qrToken: demo-qr-noor-verify
-                  checklist:
-                    idVerified: true
-                    questionnaireCompleted: true
-                    consentSigned: true
+            example:
+              qrToken: demo-qr-noor-verify
       responses:
         "200":
-          description: Verification started or arrival confirmed
+          description: QR scanned, verification session started
           content:
             application/json:
-              examples:
-                pending:
-                  summary: QR scanned, awaiting checklist
-                  value:
-                    success: true
-                    message: Donation verification started successfully
-                    data:
-                      verificationStatus: pending
-                      verificationSessionId: 2a9d4f6f5f4e4f2e8e2f5a2d1e0c9b8a
-                  appointment:
-                    id: 69fe540565ff7785a031315c
-                    appointmentDate: 2026-05-07T12:00:00.000Z
-                    status: confirmed
-                    donationType: Whole Blood
-                    qrToken: demo-qr-noor-verify
-                    qrScannedAt: 2026-05-07T09:00:00.000Z
-                    qrExpiresAt: 2026-05-08T09:00:00.000Z
-                  donor:
-                    id: 69f3df915f42685cbbbcbb18
-                    fullName: Aya Hassan
-                    initials: AH
-                    bloodType: O+
-                    phoneNumber: "01011111111"
-                    email: aya.hassan@lifelink.demo
-                    navigationUrl: https://www.google.com/maps/dir/?api=1&destination=30.0444,31.2357
-                  eligibility:
-                    eligible: true
-                    reason: Donor is eligible
-                  checklistRequirements:
-                    idVerified: true
-                    questionnaireCompleted: true
-                    consentSigned: true
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Donation verification started successfully
+                  data:
+                    type: object
+                    properties:
+                      verificationStatus:
+                        type: string
+                        example: pending
+                      verificationSessionId:
+                        type: string
+                        example: 2a9d4f6f5f4e4f2e8e2f5a2d1e0c9b8a
+                      appointment:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          appointmentDate:
+                            type: string
+                            format: date-time
+                          status:
+                            type: string
+                          donationType:
+                            type: string
+                          qrToken:
+                            type: string
+                          qrScannedAt:
+                            type: string
+                            format: date-time
+                          qrExpiresAt:
+                            type: string
+                            format: date-time
+                          requestId:
+                            type: string
+                          hospital:
+                            type: object
+                            properties:
+                              id:
+                                type: string
+                              fullName:
+                                type: string
+                              hospitalName:
+                                type: string
+                              contactNumber:
+                                type: string
+                      donor:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          fullName:
+                            type: string
+                          initials:
+                            type: string
+                          bloodType:
+                            type: string
+                          phoneNumber:
+                            type: string
+                          email:
+                            type: string
+                          location:
+                            type: object
+                            properties:
+                              lat:
+                                type: number
+                              lng:
+                                type: number
+                          lastDonationDate:
+                            type: string
+                            format: date-time
+                            nullable: true
+                          hemoglobinLevel:
+                            type: number
+                            nullable: true
+                          weight:
+                            type: number
+                            nullable: true
+                          participation:
+                            type: boolean
+                      eligibility:
+                        type: object
+                        properties:
+                          eligible:
+                            type: boolean
+                          reason:
+                            type: string
+                            nullable: true
+                          nextEligibleDate:
+                            type: string
+                            format: date-time
+                            nullable: true
         "400":
           description: |
             One of:
@@ -6313,6 +6278,221 @@ paths:
           description: Invalid QR code (token not found)
         "409":
           description: QR code already used
+
+  /appointments/{appointmentId}/verify:
+    post:
+      tags:
+        - Hospital
+      summary: Confirm donor arrival after checklist and disease screening
+      description: |-
+        Hospital staff submits the completed checklist and disease screening results
+        after physically verifying the donor.
+
+        - Requires `verificationSessionId` from the scan step
+        - All three checklist items must be `true`
+        - Disease screening must be completed
+        - If a disqualifying disease is found, the donor is deferred and verification rejected
+        - If all checks pass, verification is marked as `verified`
+
+        **Role required:** hospital | admin | superadmin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: appointmentId
+          required: true
+          schema:
+            type: string
+          example: 69fe540565ff7785a031315c
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - verificationSessionId
+                - checklist
+                - diseaseScreening
+              properties:
+                verificationSessionId:
+                  type: string
+                  description: Session ID returned from verify-qr scan
+                  example: 2a9d4f6f5f4e4f2e8e2f5a2d1e0c9b8a
+                checklist:
+                  type: object
+                  description: Pre-donation checklist completed by hospital staff
+                  required:
+                    - idVerified
+                    - questionnaireCompleted
+                    - consentSigned
+                  properties:
+                    idVerified:
+                      type: boolean
+                      example: true
+                    questionnaireCompleted:
+                      type: boolean
+                      example: true
+                    consentSigned:
+                      type: boolean
+                      example: true
+                diseaseScreening:
+                  type: object
+                  description: Disease screening results
+                  required:
+                    - screeningCompleted
+                    - disqualifyingDiseaseFound
+                  properties:
+                    screeningCompleted:
+                      type: boolean
+                      description: Whether the disease screening was performed
+                      example: true
+                    disqualifyingDiseaseFound:
+                      type: boolean
+                      description: Whether any disqualifying disease was found
+                      example: false
+                    disqualifyingDiseases:
+                      type: array
+                      description: List of disqualifying disease codes found (required if disqualifyingDiseaseFound is true)
+                      items:
+                        type: string
+                      example: []
+                    notes:
+                      type: string
+                      description: Optional notes from the hospital
+                      maxlength: 1000
+                      example: ""
+            examples:
+              confirmed:
+                summary: All checks pass
+                value:
+                  verificationSessionId: 2a9d4f6f5f4e4f2e8e2f5a2d1e0c9b8a
+                  checklist:
+                    idVerified: true
+                    questionnaireCompleted: true
+                    consentSigned: true
+                  diseaseScreening:
+                    screeningCompleted: true
+                    disqualifyingDiseaseFound: false
+                    disqualifyingDiseases: []
+                    notes: ""
+              deferred:
+                summary: Disqualifying disease found
+                value:
+                  verificationSessionId: 2a9d4f6f5f4e4f2e8e2f5a2d1e0c9b8a
+                  checklist:
+                    idVerified: true
+                    questionnaireCompleted: true
+                    consentSigned: true
+                  diseaseScreening:
+                    screeningCompleted: true
+                    disqualifyingDiseaseFound: true
+                    disqualifyingDiseases:
+                      - HIV_AIDS
+                    notes: Donor tested positive for HIV
+      responses:
+        "200":
+          description: Verification confirmed or donor deferred
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                  data:
+                    type: object
+                    properties:
+                      verificationStatus:
+                        type: string
+                        enum: [verified, rejected]
+                      appointmentId:
+                        type: string
+                      verificationRejectedReason:
+                        type: string
+                      donorDeferred:
+                        type: boolean
+                      appointment:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          status:
+                            type: string
+                          verificationStatus:
+                            type: string
+                          donationType:
+                            type: string
+                      donor:
+                        type: object
+                        properties:
+                          id:
+                            type: string
+                          fullName:
+                            type: string
+                          initials:
+                            type: string
+                          bloodType:
+                            type: string
+                      diseaseScreening:
+                        type: object
+                        properties:
+                          screeningCompleted:
+                            type: boolean
+                          disqualifyingDiseaseFound:
+                            type: boolean
+              examples:
+                confirmed:
+                  summary: All checks pass
+                  value:
+                    success: true
+                    message: Arrival confirmed successfully
+                    data:
+                      verificationStatus: verified
+                      appointmentId: 69fe540565ff7785a031315c
+                      appointment:
+                        id: 69fe540565ff7785a031315c
+                        status: confirmed
+                        verificationStatus: verified
+                        donationType: "Whole Blood"
+                      donor:
+                        id: 69f3df915f42685cbbbcbb1c
+                        fullName: "Noor El-Din"
+                        initials: "NE"
+                        bloodType: "O-"
+                      diseaseScreening:
+                        screeningCompleted: true
+                        disqualifyingDiseaseFound: false
+                deferred:
+                  summary: Disqualifying disease found
+                  value:
+                    success: true
+                    message: "Donor deferred due to disqualifying disease"
+                    data:
+                      verificationStatus: rejected
+                      verificationRejectedReason: "Disqualifying disease found: HIV_AIDS"
+                      donorDeferred: true
+                      appointmentId: 69fe540565ff7785a031315c
+        "400":
+          description: |
+            One of:
+            - Invalid appointment ID
+            - verificationSessionId is required
+            - All checklist items must be completed
+            - Disease screening must be completed
+            - Invalid verification session
+            - Appointment cannot be verified
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Role not allowed
+        "404":
+          description: Appointment not found
+        "409":
+          description: Verification is already completed or rejected
 
   /appointments/{appointmentId}/reject:
     post:
@@ -6344,6 +6524,34 @@ paths:
       responses:
         "200":
           description: Verification rejected successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Verification rejected successfully"
+                  data:
+                    type: object
+                    properties:
+                      appointmentId:
+                        type: string
+                      verificationStatus:
+                        type: string
+                        example: rejected
+                      rejectedAt:
+                        type: string
+                        format: date-time
+                      reason:
+                        type: string
+                      requestStatus:
+                        type: string
+                      donationStatus:
+                        type: string
         "401":
           description: Missing or invalid JWT token
         "403":
@@ -6369,37 +6577,31 @@ paths:
       responses:
         "200":
           description: Verification reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Verification reset successfully"
+                  data:
+                    type: object
+                    properties:
+                      appointmentId:
+                        type: string
+                      verificationStatus:
+                        type: string
+                        example: pending
         "401":
           description: Missing or invalid JWT token
         "403":
           description: Role not allowed
         "404":
           description: Appointment not found
-  /requests/{id}/generate-qr:
-    post:
-      deprecated: true
-      tags:
-        - Hospital
-      summary: Generate a secure QR token for a request
-      security:
-        - bearerAuth: []
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-      responses:
-        "200":
-          description: Example response
-          content:
-            application/json:
-              example:
-                success: true
-                message: QR generated successfully
-                data:
-                  qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
-                  qrImage: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
-                  qrCreatedAt: 2026-05-18T09:45:00.000Z
-                  qrExpiresAt: 2026-05-18T11:45:00.000Z
-                  requestId: 69fe540565ff7785a031314f
   /requests/verify-qr:
     post:
       tags:

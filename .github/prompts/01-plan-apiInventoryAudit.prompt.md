@@ -292,13 +292,12 @@ The API exhibits mature architectural patterns including centralized middleware 
 | GET | /nearby | request.controller | matching.service | Get nearby blood requests |
 | GET | /:id/google-maps | request.controller | request.model | Get request location for maps |
 | GET | /:id | request.controller | request.model | Get request details |
-| POST | /:id/generate-qr | request.controller | request.model | Generate QR code |
 | POST | /verify-qr | request.controller | request.model | Verify QR code |
 | POST | /:id/accept | request.controller | request-lifecycle.service | Accept blood request |
 | POST | /:id/reject | request.controller | request-lifecycle.service | Reject request |
 | POST | /:id/cancel | request.controller | request-lifecycle.service | Cancel request |
 
-**Request Module Total: 8 endpoints**
+**Request Module Total: 7 endpoints**
 
 ### REWARD Module (`/rewards`)
 
@@ -601,7 +600,7 @@ Header: Authorization: Bearer {jwt_token}
 - Suggests spatial queries and mapping integrations
 
 ### 10. QR Code Verification Workflow
-- `POST /requests/:id/generate-qr` and `POST /requests/verify-qr`
+- `POST /requests/verify-qr`
 - `POST /appointments/verify-qr`
 - Multiple verify endpoints for different contexts
 - Hospital verification pattern with QR signatures

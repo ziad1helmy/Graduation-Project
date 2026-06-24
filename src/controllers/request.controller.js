@@ -1,6 +1,4 @@
-import crypto from 'crypto';
 import mongoose from 'mongoose';
-import QRCode from 'qrcode';
 import response from '../utils/response.js';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
@@ -34,8 +32,6 @@ import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
 import { MISSED_DONATION_THRESHOLD } from '../constants/donation.constants.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
-
-const QR_TTL_MS = 2 * 60 * 60 * 1000;
 
 const getRequestCoordinates = (request) => extractLocation(request, 'request');
 
@@ -306,59 +302,6 @@ const resolveActiveDonorQr = async (donorId, requestId) => {
   // Donation exists but is in a non-displayable state (e.g. completed before QR cleared)
   return { qrToken: null, qrCreatedAt: null, qrExpiresAt: null, arrivalDeadline: null, donation };
 };
-
-export const generateQr = asyncHandler(async (req, res) => {
-  const validation = validateRequestIdParam(req.params);
-  if (!validation.valid) {
-    throw new HttpError(400, validation.errors[0]);
-  }
-
-  if (!['hospital', 'admin', 'superadmin'].includes(req.user.role)) {
-    throw new HttpError(403, 'Unauthorized');
-  }
-
-  const { id } = req.params;
-  if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request ID format');
-  }
-
-  const request = await populateRequest(Request.findById(id));
-  if (!request) {
-    throw new HttpError(404, 'Request not found');
-  }
-
-  if (!canAccessRequest(request, req)) {
-    throw new HttpError(403, 'Unauthorized access to this request');
-  }
-
-  if (['completed', 'cancelled'].includes(request.status)) {
-    throw new HttpError(400, 'QR cannot be generated for a closed request');
-  }
-  if (request.status === 'expired') {
-    throw new HttpError(400, 'QR cannot be generated for an expired request');
-  }
-
-  const now = new Date();
-  request.qrToken = crypto.randomBytes(32).toString('hex');
-  request.qrCreatedAt = now;
-  request.qrExpiresAt = new Date(now.getTime() + QR_TTL_MS);
-
-  await request.save();
-
-  const qrImage = await QRCode.toDataURL(request.qrToken, {
-    errorCorrectionLevel: 'M',
-    margin: 1,
-    scale: 6,
-  });
-
-  return response.success(res, 200, 'QR generated successfully', {
-    qrToken: request.qrToken,
-    qrImage,
-    qrCreatedAt: request.qrCreatedAt,
-    qrExpiresAt: request.qrExpiresAt,
-    requestId: request._id,
-  });
-});
 
 export const verifyQr = asyncHandler(async (req, res) => {
   const validation = validateQrBody(req.body);

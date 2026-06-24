@@ -33,9 +33,6 @@ router.get('/:id/google-maps', requestController.getRequestGoogleMaps);
 router.get('/:id', requestController.getRequestDetails);
 
 
-router.post('/:id/generate-qr', requireRole('hospital', 'admin', 'superadmin'), requestController.generateQr);
-
-
 router.post('/verify-qr', requireRole('hospital', 'admin', 'superadmin'), requestController.verifyQr);
 
 

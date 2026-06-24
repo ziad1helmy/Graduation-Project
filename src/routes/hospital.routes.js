@@ -39,10 +39,7 @@ router.get('/appointments/:appointmentId', hospitalController.getAppointmentDeta
 // Profile routes
 router.get('/profile', hospitalController.getProfile);
 router.put('/profile', hospitalController.updateProfile);
-router.put('/profile/working-hours', hospitalController.updateWorkingHours);
-router.put('/profile/notifications', hospitalController.updateNotificationPreferences);
 router.put('/profile/password', hospitalController.changePassword);
-router.put('/profile/location', hospitalController.updateProfileLocation);
 
 // Request management routes
 router.post('/request', hospitalController.createRequest);

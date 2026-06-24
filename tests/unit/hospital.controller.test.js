@@ -182,7 +182,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.findDonors(req, res, next);
 
-      expectHttpError(next, 400, /Invalid bloodType/);
+      expectHttpError(next, 400, /Invalid blood type/);
     });
   });
 

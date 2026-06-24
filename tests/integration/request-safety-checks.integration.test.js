@@ -86,16 +86,26 @@ describe('Hospital Request Flow Safety Checks', () => {
 
     const donationId = acceptResponse.body.data._id;
 
-    // Scan QR + confirm arrival (checklist) in one step
+    // Scan QR
     const scanRes = await request(app)
       .post('/appointments/verify-qr')
       .set('Authorization', `Bearer ${hospitalToken}`)
-      .send({
-        qrToken: acceptResponse.body.data.qrToken,
-        checklist: { idVerified: true, questionnaireCompleted: true, consentSigned: true },
-      });
+      .send({ qrToken: acceptResponse.body.data.qrToken });
     expect(scanRes.status).toBe(200);
-    expect(scanRes.body.data.verificationStatus).toBe('verified');
+    expect(scanRes.body.data.verificationStatus).toBe('pending');
+
+    // Mark donation as verified (simulating confirm step)
+    await Donation.findByIdAndUpdate(donationId, {
+      $set: {
+        verificationStatus: 'verified',
+        verificationChecklist: {
+          idVerified: true,
+          questionnaireCompleted: true,
+          consentSigned: true,
+          completedAt: new Date(),
+        },
+      },
+    });
 
     // Make donor ineligible post-acceptance (e.g. suspend donor)
     await Donor.findByIdAndUpdate(donor._id, { isSuspended: true });
