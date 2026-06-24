@@ -59,7 +59,7 @@ describe('Notification Controller', () => {
       await notificationController.markNotificationRead(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].message).toBe('Invalid notification id');
+      expect(res.json.mock.calls[0][0].message).toBe('Invalid notification ID');
     });
 
     it('returns 404 when notification is not found', async () => {

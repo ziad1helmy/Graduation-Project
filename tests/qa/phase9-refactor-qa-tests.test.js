@@ -186,7 +186,7 @@ describe('Phase 9 QA Tests - Refactor Verification', function() {
         .set('Authorization', `Bearer ${accessToken}`);
 
       expect(response.status).to.equal(200);
-      expect(response.body.data).to.have.property('requests');
+      expect(response.body.data).to.have.property('matches');
       expect(response.body.data).to.have.property('pagination');
     });
 

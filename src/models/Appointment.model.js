@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { DONATION_TYPE_LABELS, DONATION_TYPE_OPTIONS } from '../constants/donation.constants.js';
+import { DISQUALIFYING_DISEASE_CODES } from '../constants/disease.constants.js';
 
 const appointmentSchema = new mongoose.Schema(
   {
@@ -145,6 +146,21 @@ const appointmentSchema = new mongoose.Schema(
         type: Date,
         default: null,
       },
+    },
+
+    diseaseScreening: {
+      screeningCompleted: { type: Boolean, default: false },
+      disqualifyingDiseaseFound: { type: Boolean, default: false },
+      disqualifyingDiseases: {
+        type: [String],
+        default: [],
+        validate: {
+          validator: (v) => v.every((d) => DISQUALIFYING_DISEASE_CODES.includes(d)),
+          message: 'Invalid disease code: {VALUE}',
+        },
+      },
+      notes: { type: String, default: '', maxlength: 1000 },
+      screenedAt: { type: Date, default: null },
     },
 
     // Dev 1: Donation type selection

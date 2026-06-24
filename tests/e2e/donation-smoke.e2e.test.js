@@ -68,7 +68,11 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
 
     // 2. Donor books a hospital appointment for the request
     // Use a specific time (2:00 PM) to ensure it's within operating hours (9 AM - 5 PM)
-    const appointmentDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
+    // Working days exclude Sunday, so skip forward until we hit a valid day
+    let appointmentDate = new Date(Date.now() + 4 * 24 * 60 * 60 * 1000);
+    while (appointmentDate.getDay() === 0) {
+      appointmentDate = new Date(appointmentDate.getTime() + 24 * 60 * 60 * 1000);
+    }
     appointmentDate.setHours(14, 0, 0, 0); // Set to 2:00 PM
     
     res = await request(app)
@@ -81,32 +85,48 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
         donationType: 'Whole Blood',
         notes: 'Book a verified appointment',
       });
-    
-    // Debug: Log response if not successful
-    if (res.status !== 201) {
-      console.log('Booking failed with status:', res.status);
-      console.log('Response body:', JSON.stringify(res.body, null, 2));
-    }
-      
     expect(res.status).toBe(201);
     const appointmentId = res.body.data._id || res.body.data.id;
     const qrToken = res.body.data.qrToken;
     expect(appointmentId).toBeDefined();
     expect(qrToken).toBeDefined();
 
-    // 3. Hospital scans QR and confirms arrival with checklist in one step
+    // 3. Hospital scans QR
     res = await request(app)
       .post('/appointments/verify-qr')
       .set('Authorization', `Bearer ${hospitalToken}`)
+      .send({ qrToken });
+
+    expect(res.status).toBe(200);
+    expect(res.body.data.verificationStatus).toBe('pending');
+
+    // 3.5. Hospital confirms arrival with checklist and disease screening
+    const sessionId = res.body.data.verificationSessionId;
+    res = await request(app)
+      .post(`/appointments/${appointmentId}/verify`)
+      .set('Authorization', `Bearer ${hospitalToken}`)
       .send({
-        qrToken,
+        verificationSessionId: sessionId,
         checklist: { idVerified: true, questionnaireCompleted: true, consentSigned: true },
+        diseaseScreening: {
+          screeningCompleted: true,
+          disqualifyingDiseaseFound: false,
+          disqualifyingDiseases: [],
+          notes: '',
+        },
       });
 
     expect(res.status).toBe(200);
     expect(res.body.data.verificationStatus).toBe('verified');
 
-    // 4.5. Hospital updates request status to in-progress
+    // 4. Hospital updates request status to accepted (pending → accepted is valid)
+    res = await request(app)
+      .put(`/hospital/requests/${requestId}`)
+      .set('Authorization', `Bearer ${hospitalToken}`)
+      .send({ status: 'accepted' });
+    expect(res.status).toBe(200);
+
+    // 4.5. Hospital updates request status to in-progress (accepted → in-progress is valid)
     res = await request(app)
       .put(`/hospital/requests/${requestId}`)
       .set('Authorization', `Bearer ${hospitalToken}`)
@@ -125,10 +145,6 @@ describe('Donation Lifecycle Smoke E2E Flow', () => {
         notes: 'Donation completed successfully.',
       });
 
-    if (res.status !== 200) {
-      console.log('Completion failed with status:', res.status);
-      console.log('Response body:', JSON.stringify(res.body, null, 2));
-    }
     expect(res.status).toBe(200);
     expect(res.body.data.donation.status).toBe('completed');
     expect(res.body.data.pointsEarned).toBeGreaterThan(0);

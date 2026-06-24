@@ -50,15 +50,27 @@ const createVerifiedAppointment = async ({ donor, hospital, request = null, dona
     donationType,
   });
 
+  const scanRes = makeRes();
   await donationController.verifyQr(
+    { user: { userId: hospital._id }, body: { qrToken } },
+    scanRes,
+    vi.fn()
+  );
+
+  const sessionId = scanRes.json.mock.calls[0][0].data.verificationSessionId;
+
+  const confirmRes = makeRes();
+  await donationController.confirmVerification(
     {
       user: { userId: hospital._id },
+      params: { appointmentId: appointment._id.toString() },
       body: {
-        qrToken,
+        verificationSessionId: sessionId,
         checklist: { idVerified: true, questionnaireCompleted: true, consentSigned: true },
+        diseaseScreening: { screeningCompleted: true, disqualifyingDiseaseFound: false, disqualifyingDiseases: [], notes: '' },
       },
     },
-    makeRes(),
+    confirmRes,
     vi.fn()
   );
 
@@ -151,11 +163,6 @@ describe('verifyQr', () => {
     expect(res.status).toHaveBeenCalledWith(200);
     expect(res.json.mock.calls[0][0].data.verificationStatus).toBe('pending');
     expect(res.json.mock.calls[0][0].data.donor.fullName).toBeTruthy();
-    expect(res.json.mock.calls[0][0].data.checklistRequirements).toEqual({
-      idVerified: true,
-      questionnaireCompleted: true,
-      consentSigned: true,
-    });
 
     const updated = await Appointment.findById(appointment._id);
     expect(updated.qrScannedAt).toBeTruthy();

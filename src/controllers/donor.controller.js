@@ -329,8 +329,14 @@ export const getDonationHistory = asyncHandler(async (req, res) => {
     populate: { path: 'hospitalId', select: 'fullName hospitalName address' },
   });
 
+  const donationsWithHospital = donations.map((d) => {
+    const obj = d.toObject ? d.toObject() : { ...d };
+    obj.hospitalName = obj.requestId?.hospitalId?.hospitalName || obj.requestId?.hospitalId?.fullName || null;
+    return obj;
+  });
+
   response.success(res, 200, 'Donation history retrieved successfully', {
-    donations,
+    donations: donationsWithHospital,
     pagination: paginationMeta(total, page, limit),
   });
 });

@@ -90,6 +90,7 @@ describe('GET /hospital/profile', () => {
     expect(res.body.data.password).toBeUndefined();
     expect(res.body.data.contactNumber).toBe(hospital.contactNumber);
     expect(res.body.data).not.toHaveProperty('phone');
+    expect(res.body.data).toHaveProperty('location');
   });
 });
 
@@ -523,25 +524,55 @@ describe('PUT /hospital/profile', () => {
     expect(updated.phone).toBe('01044445555');
     expect(updated.contactNumber).toBe('01044445555');
   });
-});
 
-describe('PUT /hospital/profile/location', () => {
-  it('updates hospital location coordinates', async () => {
+  it('updates location coordinates via profile update', async () => {
     const hospital = await createHospital();
+    const token = tokenFor(hospital);
 
     const res = await request(app)
-      .put('/hospital/profile/location')
-      .set('Authorization', `Bearer ${tokenFor(hospital)}`)
-      .send({
-        lat: 30.0444,
-        lng: 31.2357,
-      });
+      .put('/hospital/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lat: 30.0444, lng: 31.2357 });
 
     expect(res.status).toBe(200);
-    expect(res.body.success).toBe(true);
-    expect(res.body.message).toBe('Hospital location updated successfully');
+
+    const updated = await Hospital.findById(hospital._id);
+    expect(updated.lat).toBe(30.0444);
+    expect(updated.long).toBe(31.2357);
+    expect(updated.location.coordinates).toEqual({ lat: 30.0444, lng: 31.2357 });
+  });
+
+  it('updates working hours via profile update', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    const res = await request(app)
+      .put('/hospital/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ workingHoursStart: 8, workingHoursEnd: 20, slotsPerHour: 6 });
+
+    expect(res.status).toBe(200);
+
+    const updated = await Hospital.findById(hospital._id);
+    expect(updated.workingHoursStart).toBe(8);
+    expect(updated.workingHoursEnd).toBe(20);
+    expect(updated.slotsPerHour).toBe(6);
+  });
+
+  it('rejects invalid lat/lng values', async () => {
+    const hospital = await createHospital();
+    const token = tokenFor(hospital);
+
+    const res = await request(app)
+      .put('/hospital/profile')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ lat: 100, lng: 31.2357 });
+
+    expect(res.status).toBe(400);
   });
 });
+
+
 
 // ═════════════════════════════════════════════════════════════════════════════
 // REQUEST CREATION

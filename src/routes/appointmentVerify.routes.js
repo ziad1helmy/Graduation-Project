@@ -17,6 +17,8 @@ const router = Router();
 
 router.post('/verify-qr', authMiddleware, requireRole('hospital', 'admin', 'superadmin'), verifyQr);
 
+router.post('/:appointmentId/verify', authMiddleware, requireRole('hospital', 'admin', 'superadmin'), donationController.confirmVerification);
+
 // Donor-facing appointment detail & reschedule endpoints (also reachable via /donations/book-appointment/:id)
 router.get('/:appointmentId', authMiddleware, requireRole('donor'), apptCtrl.getAppointmentById);
 router.patch('/:appointmentId', authMiddleware, requireRole('donor'), apptCtrl.rescheduleAppointment);

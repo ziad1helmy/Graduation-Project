@@ -446,6 +446,15 @@ async function ensureDocument(document) {
 }
 
 async function ensureRequest(filter, data) {
+  // Auto-derive hospitalLocationGeo from hospitalLocation if missing.
+  // findOneAndUpdate bypasses the pre('validate') hook that normally does this,
+  // and the $near geo query in findCompatibleRequests requires hospitalLocationGeo.
+  if (!data.hospitalLocationGeo && data.hospitalLocation) {
+    const { lat, lng } = data.hospitalLocation;
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      data.hospitalLocationGeo = { type: 'Point', coordinates: [lng, lat] };
+    }
+  }
   return Request.findOneAndUpdate(filter, { $set: data }, { upsert: true, returnDocument: 'after', runValidators: true });
 }
 

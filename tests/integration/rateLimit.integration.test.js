@@ -31,7 +31,7 @@ describe('Rate Limiting Integration Tests', () => {
   it('should apply expensive limits to expensive GET endpoints', async () => {
     // Under dev config: expensiveGetLimiter max is 100.
     const res = await request(app)
-      .get('/donor/requests')
+      .get('/requests/nearby')
       .set('Authorization', 'Bearer invalid-token'); // will fail auth later, but hits rate limiter first
     expect(res.headers['ratelimit-limit']).toBe('100');
   });
