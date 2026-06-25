@@ -74,6 +74,11 @@ const userSchema = new Schema(
       type: String,
       select: false,
     },
+    emailVerificationOtpAttempts: {
+      type: Number,
+      default: 0,
+      select: false,
+    },
     emailVerificationOtpExpires: {
       type: Date,
       select: false,

@@ -152,6 +152,11 @@
     '/admin/inbound-emails/{id}/read': 'Inbound Emails',
     '/admin/inbound-emails/{id}/archive': 'Inbound Emails',
 
+    '/admin/support': 'Support Inbox',
+    '/admin/support/{id}': 'Support Inbox',
+    '/admin/support/{id}/review': 'Support Inbox',
+    '/admin/support/{id}/reply': 'Support Inbox',
+
     '/admin/profile': 'User Management',
     '/admin/users': 'User Management',
     '/admin/users/hospital': 'User Management',

@@ -17,6 +17,7 @@ import {
   validateListRequestsQuery,
   validateBanDonorBody,
   validateUpdateAdminProfileBody,
+  validateUpdateSystemSettingsBody,
 } from '../validation/admin.validation.js';
 
 import { asyncHandler } from '../middlewares/asyncHandler.js';
@@ -241,12 +242,18 @@ export const getSystemSettings = asyncHandler(async (req, res) => {
 
 /** PUT /admin/system-settings */
 export const updateSystemSettings = asyncHandler(async (req, res) => {
-  const { emergencyAlertsEnabled, aiPredictionsEnabled, maintenanceModeEnabled } = req.body;
+  const { valid, errors } = validateUpdateSystemSettingsBody(req.body);
+  if (!valid) {
+    return response.error(res, 400, 'invalid system settings', errors);
+  }
+
+  const { maintenanceModeEnabled, donorRegistrationEnabled, notificationsEnabled, maxMissedDonationsBeforeBan } = req.body;
 
   const updatedSettings = await adminService.updateSystemSettings({
-    emergencyAlertsEnabled,
-    aiPredictionsEnabled,
     maintenanceModeEnabled,
+    donorRegistrationEnabled,
+    notificationsEnabled,
+    maxMissedDonationsBeforeBan,
   }, req.user._id);
 
   return response.success(res, 200, 'System settings updated successfully', {

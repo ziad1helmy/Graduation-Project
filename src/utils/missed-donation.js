@@ -1,8 +1,13 @@
 import Donor from '../models/Donor.model.js';
 import Notification from '../models/Notification.model.js';
-import { MISSED_DONATION_THRESHOLD } from '../constants/donation.constants.js';
+import SystemSettings from '../models/SystemSettings.model.js';
 
 const MISSED_DONATION_WARNING_LEVELS = [1, 2];
+
+const getThreshold = async () => {
+  const setting = await SystemSettings.findOne({ key: 'max_missed_donations_before_ban' });
+  return setting ? Math.max(1, Number(setting.value) || 3) : 3;
+};
 
 /**
  * Increment a donor's missed donation counter and auto-suspend after threshold.
@@ -29,16 +34,17 @@ export const trackMissedDonation = async ({ donorId, donationId, requestId, reas
   if (!donor.missedDonationDates) donor.missedDonationDates = [];
   donor.missedDonationDates.push(new Date());
 
+  const threshold = await getThreshold();
   let suspended = false;
-  if (donor.missedDonationCount >= MISSED_DONATION_THRESHOLD) {
+  if (donor.missedDonationCount >= threshold) {
     donor.isSuspended = true;
-    donor.suspendedReason = 'Auto-suspended after 3 missed donations';
+    donor.suspendedReason = `Auto-suspended after ${threshold} missed donations`;
     suspended = true;
   }
 
   await (session ? donor.save({ session }) : donor.save());
 
-  const remaining = Math.max(0, MISSED_DONATION_THRESHOLD - donor.missedDonationCount);
+  const remaining = Math.max(0, threshold - donor.missedDonationCount);
 
   if (suspended) {
     await (Notification.create([{

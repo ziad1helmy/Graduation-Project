@@ -215,6 +215,38 @@ export const validateListRequestsQuery = (query) => {
 export const validateCancelRequestBody = () => ({ valid: true, errors: [] });
 
 /**
+ * Validate system settings update body.
+ * At least one known key must be present.
+ * @param {object} body
+ * @returns {{ valid: boolean, errors: string[] }}
+ */
+export const validateUpdateSystemSettingsBody = (body) => {
+  const errors = [];
+  const booleanKeys = ['maintenanceModeEnabled', 'donorRegistrationEnabled', 'notificationsEnabled'];
+  const numberKeys = ['maxMissedDonationsBeforeBan'];
+  const allKeys = [...booleanKeys, ...numberKeys];
+  const provided = allKeys.filter((k) => body[k] !== undefined);
+
+  if (provided.length === 0) {
+    errors.push(`at least one of ${allKeys.join(', ')} is required`);
+  }
+
+  for (const k of provided) {
+    if (booleanKeys.includes(k) && typeof body[k] !== 'boolean') {
+      errors.push(`${k} must be a boolean`);
+    }
+    if (numberKeys.includes(k)) {
+      const val = body[k];
+      if (typeof val !== 'number' || !Number.isInteger(val) || val < 1) {
+        errors.push(`${k} must be a positive integer (>= 1)`);
+      }
+    }
+  }
+
+  return { valid: errors.length === 0, errors };
+};
+
+/**
  * Validate admin profile update body.
  */
 export const validateUpdateAdminProfileBody = (body) => {

@@ -1,7 +1,7 @@
 import cache from './cache.js';
 
-const DASHBOARD_KEY = 'analytics:dashboard';
-const OVERVIEW_KEY = 'analytics:overview';
+const DASHBOARD_KEY = 'analytics:dashboard:v2';
+const OVERVIEW_KEY = 'analytics:overview:v2';
 
 export const invalidateAnalyticsCache = async () => {
   try {

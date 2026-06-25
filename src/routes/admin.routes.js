@@ -104,7 +104,7 @@ router.get('/hospitals', adminController.listHospitals);
 
 router.get('/donors/:id', adminController.getUserById);
 
-router.get('/hospitals/:id', adminController.getUserById);
+router.get('/hospitals/:id', adminController.getHospitalById);
 
 router.get('/admins', requireRole('superadmin'), adminController.getAllAdmins);
 

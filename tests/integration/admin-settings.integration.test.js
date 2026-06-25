@@ -12,10 +12,9 @@ import { encryptAdminKey } from '../../src/utils/admin-key-crypto.js';
 setupTestDB();
 
 describe('Admin System Settings & Health Integration', () => {
-  it('GET /admin/system-settings returns profile details, settings toggles, and system health', async () => {
+  it('GET /admin/system-settings returns profile, 4 new settings, and health', async () => {
     await clearDatabase();
-    
-    // Create an admin with custom position, department, and encrypted adminKey
+
     const adminId = new mongoose.Types.ObjectId();
     const encryptedKey = encryptAdminKey('test-admin-secret-access-key', adminId.toString());
     const admin = await createAdmin({
@@ -24,12 +23,12 @@ describe('Admin System Settings & Health Integration', () => {
       department: 'Infrastructure',
       adminKey: encryptedKey,
     });
-    
-    // Seed system settings
+
     await SystemSettings.create([
-      { key: 'emergency_alerts_enabled', value: true, updatedBy: admin._id },
-      { key: 'ai_predictions_enabled', value: false, updatedBy: admin._id },
-      { key: 'maintenance_mode', value: false, updatedBy: admin._id },
+      { key: 'maintenance_mode', value: true, updatedBy: admin._id },
+      { key: 'donor_registration_enabled', value: false, updatedBy: admin._id },
+      { key: 'notifications_enabled', value: true, updatedBy: admin._id },
+      { key: 'max_missed_donations_before_ban', value: 5, updatedBy: admin._id },
     ]);
 
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
@@ -40,24 +39,23 @@ describe('Admin System Settings & Health Integration', () => {
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    
-    // Verify Admin profile details mapping
+
     const adminData = response.body.data.admin;
     expect(adminData).toBeDefined();
     expect(adminData._id).toBe(admin._id.toString());
     expect(adminData.position).toBe('Director of IT');
     expect(adminData.department).toBe('Infrastructure');
     expect(adminData.adminAccessKey).toBe('test-admin-secret-access-key');
-    
-    // Verify Settings toggles mapping (must NOT contain twoFactorAuthEnabled)
+
     const settingsData = response.body.data.settings;
     expect(settingsData).toBeDefined();
-    expect(settingsData.emergencyAlertsEnabled).toBe(true);
-    expect(settingsData.aiPredictionsEnabled).toBe(false);
-    expect(settingsData.maintenanceModeEnabled).toBe(false);
-    expect(settingsData.twoFactorAuthEnabled).toBeUndefined();
+    expect(settingsData.maintenanceModeEnabled).toBe(true);
+    expect(settingsData.donorRegistrationEnabled).toBe(false);
+    expect(settingsData.notificationsEnabled).toBe(true);
+    expect(settingsData.maxMissedDonationsBeforeBan).toBe(5);
+    expect(settingsData.emergencyAlertsEnabled).toBeUndefined();
+    expect(settingsData.aiPredictionsEnabled).toBeUndefined();
 
-    // Verify Health status structure matches the nested services status map
     const healthData = response.body.data.systemHealth;
     expect(healthData).toBeDefined();
     expect(healthData.status).toBe('healthy');
@@ -67,49 +65,142 @@ describe('Admin System Settings & Health Integration', () => {
     expect(healthData.nodeVersion).toMatch(/^v\d+\.\d+\.\d+$/);
   });
 
-  it('PUT /admin/system-settings updates system settings', async () => {
+  it('GET /admin/system-settings returns defaults when no settings seeded', async () => {
     await clearDatabase();
-    
+
     const admin = await createAdmin();
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
-    // Initial seed
-    await SystemSettings.create([
-      { key: 'emergency_alerts_enabled', value: true, updatedBy: admin._id },
-      { key: 'ai_predictions_enabled', value: true, updatedBy: admin._id },
-    ]);
+    const response = await request(app)
+      .get('/admin/system-settings')
+      .set('Authorization', `Bearer ${token}`);
+
+    expect(response.status).toBe(200);
+    const settings = response.body.data.settings;
+    expect(settings.maintenanceModeEnabled).toBe(false);
+    expect(settings.donorRegistrationEnabled).toBe(true);
+    expect(settings.notificationsEnabled).toBe(true);
+    expect(settings.maxMissedDonationsBeforeBan).toBe(3);
+  });
+
+  it('PUT /admin/system-settings updates all 4 new settings', async () => {
+    await clearDatabase();
+
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
     const response = await request(app)
       .put('/admin/system-settings')
       .set('Authorization', `Bearer ${token}`)
       .send({
-        emergencyAlertsEnabled: false,
-        aiPredictionsEnabled: false,
         maintenanceModeEnabled: true,
+        donorRegistrationEnabled: false,
+        notificationsEnabled: false,
+        maxMissedDonationsBeforeBan: 7,
       });
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
-    
+
     const settings = response.body.data.settings;
-    expect(settings.emergencyAlertsEnabled).toBe(false);
-    expect(settings.aiPredictionsEnabled).toBe(false);
     expect(settings.maintenanceModeEnabled).toBe(true);
-    expect(settings.twoFactorAuthEnabled).toBeUndefined();
+    expect(settings.donorRegistrationEnabled).toBe(false);
+    expect(settings.notificationsEnabled).toBe(false);
+    expect(settings.maxMissedDonationsBeforeBan).toBe(7);
 
-    // Verify persisted database records
-    const emergencyRecord = await SystemSettings.findOne({ key: 'emergency_alerts_enabled' });
-    const aiRecord = await SystemSettings.findOne({ key: 'ai_predictions_enabled' });
     const maintenanceRecord = await SystemSettings.findOne({ key: 'maintenance_mode' });
+    const donorRegRecord = await SystemSettings.findOne({ key: 'donor_registration_enabled' });
+    const notifRecord = await SystemSettings.findOne({ key: 'notifications_enabled' });
+    const maxMissedRecord = await SystemSettings.findOne({ key: 'max_missed_donations_before_ban' });
 
-    expect(emergencyRecord.value).toBe(false);
-    expect(aiRecord.value).toBe(false);
     expect(maintenanceRecord.value).toBe(true);
+    expect(donorRegRecord.value).toBe(false);
+    expect(notifRecord.value).toBe(false);
+    expect(maxMissedRecord.value).toBe(7);
+  });
+
+  it('PUT /admin/system-settings with partial update only changes provided keys', async () => {
+    await clearDatabase();
+
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .put('/admin/system-settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ donorRegistrationEnabled: false });
+
+    expect(response.status).toBe(200);
+    const settings = response.body.data.settings;
+    expect(settings.donorRegistrationEnabled).toBe(false);
+    expect(settings.maintenanceModeEnabled).toBe(false);
+    expect(settings.notificationsEnabled).toBe(true);
+    expect(settings.maxMissedDonationsBeforeBan).toBe(3);
+  });
+
+  it('PUT /admin/system-settings with invalid boolean field returns 400', async () => {
+    await clearDatabase();
+
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .put('/admin/system-settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ donorRegistrationEnabled: 'yes' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+  });
+
+  it('PUT /admin/system-settings with invalid number field returns 400', async () => {
+    await clearDatabase();
+
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .put('/admin/system-settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ maxMissedDonationsBeforeBan: 0 });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+  });
+
+  it('PUT /admin/system-settings with string number returns 400', async () => {
+    await clearDatabase();
+
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .put('/admin/system-settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({ maxMissedDonationsBeforeBan: 'hello' });
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
+  });
+
+  it('PUT /admin/system-settings with empty body returns 400', async () => {
+    await clearDatabase();
+
+    const admin = await createAdmin();
+    const token = signToken({ userId: admin._id.toString(), role: admin.role });
+
+    const response = await request(app)
+      .put('/admin/system-settings')
+      .set('Authorization', `Bearer ${token}`)
+      .send({});
+
+    expect(response.status).toBe(400);
+    expect(response.body.success).toBe(false);
   });
 
   it('GET /admin/system/health returns correct health payload', async () => {
     await clearDatabase();
-    
+
     const admin = await createAdmin();
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
@@ -131,14 +222,13 @@ describe('Admin System Settings & Health Integration', () => {
 
   it('GET /admin/audit-logs returns flat adminName, mapped action, dynamically computed details, and nested pagination', async () => {
     await clearDatabase();
-    
+
     const admin = await createAdmin({
       fullName: 'John Doe',
       email: 'john.doe@test.com',
     });
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
-    // Insert an audit log record
     const targetUserId = new mongoose.Types.ObjectId();
     await AuditLog.create({
       adminId: admin._id,
@@ -150,7 +240,6 @@ describe('Admin System Settings & Health Integration', () => {
       },
     });
 
-    // Insert another audit log record without details in changes to test dynamic computation fallback
     const targetUserId2 = new mongoose.Types.ObjectId();
     await AuditLog.create({
       adminId: admin._id,
@@ -175,15 +264,12 @@ describe('Admin System Settings & Health Integration', () => {
     expect(pagination.total).toBe(2);
     expect(pagination.totalPages).toBe(1);
 
-    // Verify logs contents
-    // Log 1: user.create_hospital
     const log1 = logs.find(l => l.action === 'Hospital Added');
     expect(log1).toBeDefined();
     expect(log1.adminName).toBe('john.doe@test.com');
     expect(log1.details).toBe('Added hospital account');
     expect(log1.targetType).toBe('user');
 
-    // Log 2: user.ban
     const log2 = logs.find(l => l.action === 'User Banned');
     expect(log2).toBeDefined();
     expect(log2.adminName).toBe('john.doe@test.com');

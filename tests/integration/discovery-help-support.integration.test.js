@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterEach, afterAll, vi } from 'vitest
 import request from 'supertest';
 import app from '../../src/app.js';
 import { connect, clearDatabase, closeDatabase } from '../helpers/db.js';
-import { createHospital, createDonor } from '../helpers/factories.js';
+import { createHospital, createDonor, createAdmin } from '../helpers/factories.js';
 import { signToken } from '../../src/utils/jwt.js';
 
 beforeAll(async () => {
@@ -248,4 +248,47 @@ describe('Discovery, Help, and Support Routes', () => {
       expect(res.status).toBe(404);
     });
   });
+
+  describe('GET /admin/support', () => {
+    it('returns 200 with all support tickets for an admin', async () => {
+      const donor = await createDonor();
+      const admin = await createAdmin();
+      const donorToken = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      // 1. Submit a support message as the donor
+      const postRes = await request(app)
+        .post('/support/contact')
+        .set('Authorization', `Bearer ${donorToken}`)
+        .send({ subject: 'Admin check ticket', category: 'TECHNICAL', message: 'Hello admin' });
+      expect(postRes.status).toBe(201);
+      const ticketId = postRes.body.data.ticket.id;
+
+      // 2. Query as an admin and see if the ticket exists
+      const getRes = await request(app)
+        .get('/admin/support')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      expect(getRes.body.success).toBe(true);
+      expect(Array.isArray(getRes.body.data.tickets)).toBe(true);
+      
+      const foundTicket = getRes.body.data.tickets.find(t => t._id.toString() === ticketId.toString());
+      expect(foundTicket).toBeDefined();
+      expect(foundTicket.subject).toBe('Admin check ticket');
+      expect(foundTicket.fullName).toBe(donor.fullName);
+    });
+
+    it('returns 403 for non-admin user trying to access the endpoint', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const res = await request(app)
+        .get('/admin/support')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+    });
+  });
 });
+

@@ -5,6 +5,19 @@ import * as notificationService from '../services/notification.service.js';
 import { logger } from '../utils/logger.js';
 
 const MAX_ATTEMPTS_DEFAULT = 5;
+const STALE_READY_THRESHOLD_MS = 2 * 60 * 1000;
+
+export const recoverStaleReady = async () => {
+  const cutoff = new Date(Date.now() - STALE_READY_THRESHOLD_MS);
+  const result = await NotificationOutbox.updateMany(
+    { status: 'ready', updatedAt: { $lt: cutoff } },
+    { $set: { status: 'pending' } },
+  );
+  if (result.modifiedCount > 0) {
+    logger.warn('Recovered stale outbox entries', { count: result.modifiedCount });
+  }
+  return result.modifiedCount;
+};
 
 /**
  * Atomically claim one pending outbox entry and mark it as 'ready' for processing.
@@ -76,6 +89,7 @@ export const processOutboxEntry = async (outbox) => {
  */
 export const processPendingOutbox = async (opts = {}) => {
   const { maxIterations = 100, maxAttempts = MAX_ATTEMPTS_DEFAULT } = opts;
+  await recoverStaleReady();
   let iterations = 0;
   let processed = 0;
   const stats = { processedSuccess: 0, processedFail: 0 };

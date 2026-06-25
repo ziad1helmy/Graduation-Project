@@ -7,6 +7,7 @@ import { signToken } from '../../src/utils/jwt.js';
 import RewardCatalog from '../../src/models/RewardCatalog.model.js';
 import DonorPoints from '../../src/models/DonorPoints.model.js';
 import PointsTransaction from '../../src/models/PointsTransaction.model.js';
+import Request from '../../src/models/Request.model.js';
 
 setupTestDB();
 
@@ -389,7 +390,7 @@ describe('Admin Routes Integration', () => {
     expect(response.body.data).toHaveProperty('user');
     expect(response.body.data.user._id.toString()).toBe(hospital._id.toString());
     expect(response.body.data.user.contactNumber).toBe(hospital.contactNumber);
-    expect(response.body.data.user.phone).toBeNull();
+    expect(response.body.data.user.phone).toBe(hospital.phone);
   });
 
   it('GET /admin/admins/:id returns admin details with adminKey', async () => {
@@ -632,7 +633,7 @@ describe('Admin Routes Integration', () => {
     expect(adminUser.phone).toBe('01000000000');
     expect(hospitalUser).toBeDefined();
     expect(hospitalUser.contactNumber).toBe('01011111111');
-    expect(hospitalUser.phone).toBeNull();
+    expect(hospitalUser.phone).toEqual(expect.any(String));
   });
 
   it('POST /admin/users/hospital with Flutter field names creates hospital', async () => {
@@ -716,7 +717,7 @@ describe('Admin Routes Integration', () => {
     expect(response.status).toBe(201);
     expect(response.body.success).toBe(true);
     expect(response.body.data.hospital.contactNumber).toBe(value);
-    expect(response.body.data.hospital.phone).toBeNull();
+    expect(response.body.data.hospital.phone).toBe(value);
   });
 
   it.each([
@@ -843,5 +844,132 @@ describe('Admin Routes Integration', () => {
     expect(response.body.data.requests[0]).toHaveProperty('completionTimeInHours');
     expect(response.body.data.requests[0].completionTimeInHours).toBe(2);
     expect(typeof response.body.data.requests[0].location).toBe('string');
+  });
+
+  describe('PATCH /admin/requests/:id/broadcast', () => {
+    it('returns 401 without token (auth guard)', async () => {
+      await clearDatabase();
+      const response = await request(app).patch('/admin/requests/000000000000000000000000/broadcast');
+      expect(response.status).toBe(401);
+    });
+
+    it('returns 403 for donor token (role guard)', async () => {
+      await clearDatabase();
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: donor.role });
+      const response = await request(app)
+        .patch('/admin/requests/000000000000000000000000/broadcast')
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.status).toBe(403);
+    });
+
+    it('returns 404 for non-existent request', async () => {
+      await clearDatabase();
+      const admin = await createAdmin();
+      const token = signToken({ userId: admin._id.toString(), role: admin.role });
+      const response = await request(app)
+        .patch('/admin/requests/000000000000000000000000/broadcast')
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.status).toBe(404);
+    });
+
+    it('returns 400 for cancelled request', async () => {
+      await clearDatabase();
+      const admin = await createAdmin();
+      const hospital = await createHospital();
+      const reqDoc = await Request.create({
+        hospitalId: hospital._id,
+        type: 'blood',
+        bloodType: ['O+'],
+        urgency: 'medium',
+        status: 'cancelled',
+        unitsNeeded: 2,
+        requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        hospitalContact: '01001112233',
+        hospitalName: 'Test Hospital',
+      });
+      const token = signToken({ userId: admin._id.toString(), role: admin.role });
+      const response = await request(app)
+        .patch(`/admin/requests/${reqDoc._id}/broadcast`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain('cannot broadcast');
+    });
+
+    it('returns 400 for completed request', async () => {
+      await clearDatabase();
+      const admin = await createAdmin();
+      const hospital = await createHospital();
+      const reqDoc = await Request.create({
+        hospitalId: hospital._id,
+        type: 'blood',
+        bloodType: ['O+'],
+        urgency: 'medium',
+        status: 'completed',
+        unitsNeeded: 2,
+        requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        hospitalContact: '01001112233',
+        hospitalName: 'Test Hospital',
+      });
+      const token = signToken({ userId: admin._id.toString(), role: admin.role });
+      const response = await request(app)
+        .patch(`/admin/requests/${reqDoc._id}/broadcast`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.status).toBe(400);
+      expect(response.body.message).toContain('cannot broadcast');
+    });
+
+    it('returns 200 for pending request with compatible donors', async () => {
+      await clearDatabase();
+      const admin = await createAdmin();
+      const hospital = await createHospital();
+      const donor = await createDonor({ bloodType: 'O+', isOptedIn: true });
+      const reqDoc = await Request.create({
+        hospitalId: hospital._id,
+        type: 'blood',
+        bloodType: ['O+'],
+        urgency: 'medium',
+        status: 'pending',
+        unitsNeeded: 2,
+        requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        hospitalContact: '01001112233',
+        hospitalName: 'Test Hospital',
+      });
+      const token = signToken({ userId: admin._id.toString(), role: admin.role });
+      const response = await request(app)
+        .patch(`/admin/requests/${reqDoc._id}/broadcast`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('donorsNotified');
+      expect(typeof response.body.data.donorsNotified).toBe('number');
+      const updatedRequest = await Request.findById(reqDoc._id);
+      expect(updatedRequest.lastBroadcastAt).toBeDefined();
+    });
+
+    it('returns 429 when broadcast cooldown is active', async () => {
+      await clearDatabase();
+      const admin = await createAdmin();
+      const hospital = await createHospital();
+      const donor = await createDonor({ bloodType: 'O+', isOptedIn: true });
+      const reqDoc = await Request.create({
+        hospitalId: hospital._id,
+        type: 'blood',
+        bloodType: ['O+'],
+        urgency: 'medium',
+        status: 'pending',
+        unitsNeeded: 2,
+        requiredBy: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        hospitalContact: '01001112233',
+        hospitalName: 'Test Hospital',
+        lastBroadcastAt: new Date(),
+      });
+      const token = signToken({ userId: admin._id.toString(), role: admin.role });
+      const response = await request(app)
+        .patch(`/admin/requests/${reqDoc._id}/broadcast`)
+        .set('Authorization', `Bearer ${token}`);
+      expect(response.status).toBe(429);
+      expect(response.body.message).toContain('cooldown active');
+    });
   });
 });

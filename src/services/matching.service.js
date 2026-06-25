@@ -324,7 +324,24 @@ export const findCompatibleDonors = async (requestId) => {
     };
   }
 
-  const donors = await Donor.find(donorQuery).limit(500);
+  let donors;
+  try {
+    donors = await Donor.find(donorQuery).limit(500);
+  } catch (error) {
+    if (isGeoIndexError(error)) {
+      logger.warn('Donor $nearSphere query failed; falling back to plain query', {
+        error: error.message,
+        requestId: String(requestId),
+      });
+      const fallbackQuery = { isOptedIn: true, isSuspended: { $ne: true } };
+      if (requestBloodTypes.length > 0) {
+        fallbackQuery.bloodType = { $in: getCompatibleDonorTypesForRequest(requestBloodTypes) };
+      }
+      donors = await Donor.find(fallbackQuery).limit(500);
+    } else {
+      throw error;
+    }
+  }
 
   // Batch check existing donations (eliminates N+1 queries)
   const donorIds = donors.map((d) => d._id);

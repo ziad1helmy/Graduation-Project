@@ -20,7 +20,7 @@ describe('QA failure scenarios and vulnerability checks', () => {
   });
 
   describe('1. Reset Password OTP Brute-force Vulnerability', () => {
-    it('should show that reset password endpoint does not block reset requests after 5 failed attempts (bypassing verify-otp limits)', async () => {
+    it('should block reset password after 5 failed OTP attempts', async () => {
       const donor = await createDonor();
       
       // Request password reset OTP
@@ -32,15 +32,13 @@ describe('QA failure scenarios and vulnerability checks', () => {
       const otpRecord = await OneTimeOtp.findOne({ email: donor.email, purpose: 'password_reset' });
       expect(otpRecord).toBeTruthy();
 
-      // We call the POST /auth/reset-password endpoint 10 times with a bad OTP
-      // If there was a check for 5 attempts, it would fail with "OTP attempts exceeded" or similar.
-      // Instead, it will keep return "Invalid OTP" and incrementing attempts beyond 5.
-      for (let i = 0; i < 10; i++) {
+      // First 5 attempts — should fail with "Invalid OTP"
+      for (let i = 0; i < 5; i++) {
         const response = await request(app)
           .post('/auth/reset-password')
           .send({
             email: donor.email,
-            otp: '000000', // incorrect OTP
+            otp: '000000',
             password: 'NewPassword@123',
           });
 
@@ -48,14 +46,22 @@ describe('QA failure scenarios and vulnerability checks', () => {
         expect(response.body.message).toBe('Invalid OTP');
       }
 
-      // Check DB record to verify that attempts went up to 10
-      const updatedOtp = await OneTimeOtp.findById(otpRecord._id);
-      expect(updatedOtp.attempts).toBe(10);
+      // 6th attempt — should be blocked
+      const blockedResponse = await request(app)
+        .post('/auth/reset-password')
+        .send({
+          email: donor.email,
+          otp: '000000',
+          password: 'NewPassword@123',
+        });
+
+      expect(blockedResponse.status).toBe(400);
+      expect(blockedResponse.body.message).toBe('OTP attempts exceeded');
     });
   });
 
   describe('2. Email Verification OTP Brute-force Vulnerability', () => {
-    it('should show that email verification OTP has no limit on the number of failed attempts', async () => {
+    it('should block email verification after 5 failed attempts', async () => {
       const donor = await createDonor({ isEmailVerified: false });
       
       // Request email verification OTP
@@ -63,23 +69,34 @@ describe('QA failure scenarios and vulnerability checks', () => {
         .post('/auth/verify-email')
         .send({ email: donor.email });
 
-      // Try 10 times with incorrect codes
-      for (let i = 0; i < 10; i++) {
+      // First 5 attempts — should fail with "Invalid or expired verification code"
+      for (let i = 0; i < 5; i++) {
         const response = await request(app)
           .post('/auth/verify-email-otp')
           .send({
             email: donor.email,
-            otp: '000000', // incorrect OTP
+            otp: '000000',
           });
 
         expect(response.status).toBe(400);
         expect(response.body.message).toBe('Invalid or expired verification code');
       }
+
+      // 6th attempt — should be blocked
+      const blockedResponse = await request(app)
+        .post('/auth/verify-email-otp')
+        .send({
+          email: donor.email,
+          otp: '000000',
+        });
+
+      expect(blockedResponse.status).toBe(400);
+      expect(blockedResponse.body.message).toBe('Verification code attempts exceeded');
     });
   });
 
   describe('3. Hospital Request Cancellation Leaves Donors Unnotified', () => {
-    it('should demonstrate that when a hospital cancels a request, the linked donations are cancelled but donors receive no notifications', async () => {
+    it('should demonstrate that when a hospital cancels a request, the linked donations are cancelled and donors receive a notification', async () => {
       const hospital = await createHospital();
       const donor = await createDonor();
       const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
@@ -115,7 +132,7 @@ describe('QA failure scenarios and vulnerability checks', () => {
         title: 'Request cancelled',
       });
       
-      expect(donorNotifications.length).toBe(0); // Proves the notification gap!
+      expect(donorNotifications.length).toBeGreaterThanOrEqual(1); // Notification is now sent!
     });
   });
 });
