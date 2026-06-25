@@ -132,34 +132,6 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
 
 // ── Admin endpoints ──────────────────────────
 
-export const adminAdjustPoints = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  const { amount, reason } = req.body;
-  if (!amount || !reason) throw new HttpError(400, 'Amount and reason are required');
-  try {
-    const data = await rewardService.adminAdjustPoints(userId, parseInt(amount), reason, req.user.userId);
-    response.success(res, 200, 'Points adjusted successfully', data);
-  } catch (err) {
-    if (err.statusCode) throw new HttpError(err.statusCode, err.message);
-    throw err;
-  }
-});
-
-export const adminUpdateRewardStatus = asyncHandler(async (req, res) => {
-  const { rewardId } = req.params;
-  const { status } = req.body;
-  if (!['ACTIVE', 'INACTIVE', 'LIMITED'].includes(status)) {
-    throw new HttpError(400, 'Status must be ACTIVE, INACTIVE, or LIMITED');
-  }
-  try {
-    const data = await rewardService.adminUpdateRewardStatus(rewardId, status, req.user.userId);
-    response.success(res, 200, 'Reward status updated', data);
-  } catch (err) {
-    if (err.statusCode) throw new HttpError(err.statusCode, err.message);
-    throw err;
-  }
-});
-
 export const adminGetRewardsAnalytics = asyncHandler(async (req, res) => {
   const data = await rewardService.getRewardsAnalytics();
   response.success(res, 200, 'Rewards analytics retrieved', data);

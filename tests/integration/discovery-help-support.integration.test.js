@@ -163,4 +163,89 @@ describe('Discovery, Help, and Support Routes', () => {
       expect(res.status).toBe(401);
     });
   });
+
+  describe('GET /support/my-tickets', () => {
+    it('returns 200 with paginated tickets for the authenticated donor', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      await SupportMessage.create({
+        userId: donor._id,
+        fullName: donor.fullName,
+        email: donor.email,
+        role: 'donor',
+        subject: 'First Ticket',
+        category: 'DONATION',
+        message: 'Hello',
+      });
+
+      const res = await request(app)
+        .get('/support/my-tickets')
+        .set('Authorization', `Bearer ${token}`);
+      
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.tickets).toHaveLength(1);
+      expect(res.body.data.tickets[0].subject).toBe('First Ticket');
+      expect(res.body.data.pagination.total).toBe(1);
+    });
+
+    it('returns 401 if unauthenticated', async () => {
+      const res = await request(app).get('/support/my-tickets');
+      expect(res.status).toBe(401);
+    });
+  });
+
+  describe('GET /support/my-tickets/:id', () => {
+    it('returns 200 with ticket details if owned by the donor', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      const ticket = await SupportMessage.create({
+        userId: donor._id,
+        fullName: donor.fullName,
+        email: donor.email,
+        role: 'donor',
+        subject: 'My specific ticket',
+        category: 'ACCOUNT',
+        message: 'Need help',
+      });
+
+      const res = await request(app)
+        .get(`/support/my-tickets/${ticket._id}`)
+        .set('Authorization', `Bearer ${token}`);
+      
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.ticket).toBeDefined();
+      expect(res.body.data.ticket.subject).toBe('My specific ticket');
+      // Ensure private fields are excluded
+      expect(res.body.data.ticket.userId).toBeUndefined();
+    });
+
+    it('returns 404 if ticket belongs to another user', async () => {
+      const donor1 = await createDonor();
+      const donor2 = await createDonor();
+      const token2 = signToken({ userId: donor2._id.toString(), role: 'donor', isEmailVerified: true });
+      
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      const ticket = await SupportMessage.create({
+        userId: donor1._id,
+        fullName: donor1.fullName,
+        email: donor1.email,
+        role: 'donor',
+        subject: 'Not your ticket',
+        category: 'ACCOUNT',
+        message: 'Need help',
+      });
+
+      const res = await request(app)
+        .get(`/support/my-tickets/${ticket._id}`)
+        .set('Authorization', `Bearer ${token2}`);
+      
+      expect(res.status).toBe(404);
+    });
+  });
 });

@@ -158,10 +158,12 @@ describe('Appointment Controller', () => {
 
       const appt = await appointmentService.bookAppointment(donor._id, hospital._id, null, apptDate);
 
+      const rescheduleDate = makeRescheduleDate();
+      const rescheduleDateStr = rescheduleDate.toISOString().slice(0, 10);
       const req = {
         user: { userId: donor._id },
         params: { appointmentId: appt._id.toString() },
-        body: { date: '2026-06-25', time, donationType: 'Plasma' },
+        body: { date: rescheduleDateStr, time, donationType: 'Plasma' },
       };
       const res = {
         json: vi.fn().mockReturnThis(),
@@ -174,7 +176,7 @@ describe('Appointment Controller', () => {
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(true);
       // appointmentDate is date-only YYYY-MM-DD; time precision lives in appointmentTime
-      expect(callArgs.data.appointmentDate).toBe('2026-06-25');
+      expect(callArgs.data.appointmentDate).toBe(rescheduleDateStr);
       expect(callArgs.data.appointmentTime).toBe('2:30 PM');
     });
 

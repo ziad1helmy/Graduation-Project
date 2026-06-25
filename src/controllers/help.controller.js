@@ -2,7 +2,8 @@ import response from '../utils/response.js';
 import HelpDocument from '../models/HelpDocument.model.js';
 import SupportMessage from '../models/SupportMessage.model.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
-
+import { parsePagination, paginationMeta } from '../utils/pagination.js';
+import { isValidObjectId } from '../utils/query.js';
 const FAQS = [
   { category: 'DONATION', question: 'How often can I donate blood?', answer: 'Donation intervals depend on type: whole blood every 56 days, plasma every 14 days, and platelets every 7 days.' },
   { category: 'HEALTH', question: 'Can I donate if I am feeling unwell?', answer: 'No. Please wait until you are fully recovered and meet eligibility requirements.' },
@@ -74,5 +75,58 @@ export const contactSupport = asyncHandler(async (req, res) => {
       message: ticket.message,
       createdAt: ticket.createdAt,
     },
+  });
+});
+
+const toSupportMessageResponse = (ticket) => {
+  if (!ticket) return null;
+  return {
+    _id: ticket._id,
+    id: ticket._id,
+    subject: ticket.subject,
+    category: ticket.category,
+    message: ticket.message,
+    status: ticket.status,
+    adminReply: ticket.adminReply,
+    adminReplyAt: ticket.adminReplyAt,
+    createdAt: ticket.createdAt,
+  };
+};
+
+export const getMyTickets = asyncHandler(async (req, res) => {
+  const { status, category } = req.query;
+  const { offset, limit, page } = parsePagination(req.query, 20);
+
+  const query = { userId: req.user._id };
+  if (status) query.status = status;
+  if (category) query.category = category;
+
+  const [tickets, total] = await Promise.all([
+    SupportMessage.find(query).sort({ createdAt: -1 }).skip(offset).limit(limit).lean(),
+    SupportMessage.countDocuments(query),
+  ]);
+
+  return response.success(res, 200, 'Support tickets retrieved successfully', {
+    tickets: tickets.map(toSupportMessageResponse),
+    pagination: paginationMeta(total, page, limit),
+  });
+});
+
+export const getMyTicketById = asyncHandler(async (req, res) => {
+  if (!isValidObjectId(req.params.id)) {
+    return response.error(res, 400, 'Invalid ticket ID');
+  }
+
+  const ticket = await SupportMessage.findOne({
+    _id: req.params.id,
+    userId: req.user._id,
+  }).lean();
+
+  if (!ticket) {
+    return response.error(res, 404, 'Support ticket not found');
+  }
+
+  return response.success(res, 200, 'Support ticket retrieved successfully', {
+    ticket: toSupportMessageResponse(ticket),
   });
 });

@@ -7,6 +7,7 @@ import {
   passwordChangedTemplate,
   resetPasswordOtpTemplate,
   resetPasswordTemplate,
+  supportReplyTemplate,
 } from './emailTemplates.js';
 
 // ─── Transport ────────────────────────────────────────────────────────────────
@@ -324,6 +325,31 @@ export async function sendWelcomeEmail({ to, fullName }) {
   return normalizeMailResult(result);
 }
 
+/**
+ * Send a support-reply notification email to the user who submitted the ticket.
+ * @param {{ to: string, fullName: string, subject: string, originalMessage: string, reply: string }} options
+ */
+export async function sendSupportReplyEmail({ to, fullName, subject, originalMessage, reply }) {
+  const emailSubject = `Re: ${subject} — LifeLink Support`;
+  const html = supportReplyTemplate({ name: fullName, subject, originalMessage, reply });
+  const text = [
+    `Hello ${fullName || 'there'},`,
+    '',
+    `Our support team has replied to your request: ${subject}`,
+    '',
+    'Their response:',
+    reply,
+    '',
+    'Your original message:',
+    originalMessage,
+    '',
+    'If you need further assistance, submit a new request in the LifeLink app.',
+  ].join('\n');
+
+  const result = await sendMail({ to, subject: emailSubject, text, html });
+  return normalizeMailResult(result);
+}
+
 export default {
   sendPasswordResetEmail,
   sendPasswordResetOtpEmail,
@@ -331,4 +357,5 @@ export default {
   sendEmailVerificationEmail,
   sendEmailVerificationConfirmationEmail,
   sendWelcomeEmail,
+  sendSupportReplyEmail,
 };

@@ -143,6 +143,9 @@
     '/analytics/overview': 'Dashboard & Statistics',
 
     '/admin/rewards': 'Rewards',
+    '/admin/rewards/{rewardId}/status': 'Rewards',
+    '/admin/rewards/bulk-points': 'Rewards',
+    '/admin/rewards/users/{userId}/points/adjust': 'Rewards',
 
     '/admin/inbound-emails': 'Inbound Emails',
     '/admin/inbound-emails/{id}': 'Inbound Emails',

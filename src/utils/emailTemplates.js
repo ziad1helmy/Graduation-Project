@@ -162,10 +162,40 @@ export const emailVerifiedTemplate = ({ name = 'LifeLink user' }) =>
     `,
   });
 
+
+/**
+ * Support reply email template — sent to donor/user when admin replies to their support ticket.
+ * @param {{ name: string, subject: string, originalMessage: string, reply: string }} params
+ */
+export const supportReplyTemplate = ({ name = 'LifeLink user', subject, originalMessage, reply }) =>
+  renderShell({
+    preheader: `Your support request "${subject}" has received a response from the LifeLink team.`,
+    content: `
+      <p style="margin:0 0 10px; color:${BRAND.primary}; font-size:12px; font-weight:700; letter-spacing:0.08em; text-transform:uppercase;">Support reply</p>
+      <h1 style="margin:0 0 16px; font-size:30px; line-height:1.2;">We've Responded to Your Request</h1>
+      <p style="margin:0 0 16px; font-size:16px; line-height:1.7;">Hello ${name},</p>
+      <p style="margin:0 0 24px; font-size:16px; line-height:1.7;">
+        Our support team has replied to your request: <strong>${subject}</strong>
+      </p>
+      <div style="margin:0 0 20px; padding:18px 20px; background:#F9FAFB; border:1px solid ${BRAND.border}; border-radius:14px;">
+        <p style="margin:0 0 8px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:${BRAND.muted};">Support team reply</p>
+        <p style="margin:0; font-size:15px; line-height:1.7; white-space:pre-wrap;">${reply}</p>
+      </div>
+      <div style="margin:0 0 20px; padding:16px 18px; background:${BRAND.accent}; border:1px solid #FECACA; border-radius:14px;">
+        <p style="margin:0 0 6px; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:0.06em; color:${BRAND.muted};">Your original message</p>
+        <p style="margin:0; font-size:14px; line-height:1.7; color:${BRAND.muted}; white-space:pre-wrap;">${originalMessage}</p>
+      </div>
+      <p style="margin:0; font-size:14px; color:${BRAND.muted}; line-height:1.7;">
+        If you need further assistance, you can submit a new support request in the LifeLink app.
+      </p>
+    `,
+  });
+
 export default {
   confirmEmailTemplate,
   resetPasswordTemplate,
   resetPasswordOtpTemplate,
   passwordChangedTemplate,
   emailVerifiedTemplate,
+  supportReplyTemplate,
 };

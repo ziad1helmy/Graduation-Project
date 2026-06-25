@@ -470,17 +470,20 @@ describe('Appointment Routes Integration', () => {
 
     const appointmentId = createResponse.body.data._id;
 
+    const rescheduleDate = makeRescheduleDate();
+    const rescheduleDateStr = rescheduleDate.toISOString().slice(0, 10);
+
     const updateResponse = await request(app)
       .patch(`/appointments/${appointmentId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        date: '2026-06-25',
+        date: rescheduleDateStr,
         time: '02:30 PM',
         donationType: 'Whole Blood',
       });
 
     expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.data.appointmentDate).toBe('2026-06-25');
+    expect(updateResponse.body.data.appointmentDate).toBe(rescheduleDateStr);
     expect(updateResponse.body.data.appointmentTime).toBe('2:30 PM');
   });
 
@@ -504,17 +507,20 @@ describe('Appointment Routes Integration', () => {
 
     const appointmentId = createResponse.body.data._id;
 
+    const rescheduleDate = makeRescheduleDate();
+    const rescheduleDateStr = rescheduleDate.toISOString().slice(0, 10);
+
     const updateResponse = await request(app)
       .patch(`/appointments/${appointmentId}`)
       .set('Authorization', `Bearer ${token}`)
       .send({
-        date: '2026-06-25',
+        date: rescheduleDateStr,
         time: '14:30',
         donationType: 'Whole Blood',
       });
 
     expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.data.appointmentDate).toBe('2026-06-25');
+    expect(updateResponse.body.data.appointmentDate).toBe(rescheduleDateStr);
     expect(updateResponse.body.data.appointmentTime).toBe('2:30 PM');
   });
 });

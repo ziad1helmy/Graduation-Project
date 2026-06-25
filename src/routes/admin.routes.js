@@ -55,8 +55,13 @@ router.get('/alerts', adminController.getAlerts);
 
 router.get('/rewards', adminController.getAdminRewards);
 
+router.post('/rewards', adminController.createReward);
 
-router.post('/rewards', adminController.writeAdminRewards);
+router.patch('/rewards/:rewardId/status', adminController.updateRewardStatus);
+
+router.patch('/rewards/bulk-points', adminController.bulkUpdateRewardPoints);
+
+router.post('/rewards/users/:userId/points/adjust', adminController.adjustUserPoints);
 
 // Badges Management
 router.get('/badges', adminController.getBadges);

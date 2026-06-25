@@ -158,16 +158,16 @@ describe('Admin Routes Integration', () => {
     expect(persisted.status).toBe('ACTIVE');
   });
 
-  it('POST /admin/rewards updates reward status via { id, status }', async () => {
+  it('PATCH /admin/rewards/:rewardId/status updates reward status', async () => {
     await clearDatabase();
     const admin = await createAdmin();
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
     const reward = await RewardCatalog.create({ name: 'Test', description: 'Test', pointsCost: 100, category: 'FOOD', status: 'ACTIVE' });
 
     const response = await request(app)
-      .post('/admin/rewards')
+      .patch(`/admin/rewards/${reward._id.toString()}/status`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ id: reward._id.toString(), status: 'INACTIVE' });
+      .send({ status: 'INACTIVE' });
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -177,16 +177,16 @@ describe('Admin Routes Integration', () => {
     expect(persisted.status).toBe('INACTIVE');
   });
 
-  it('POST /admin/rewards adjusts points via { userId, amount, reason }', async () => {
+  it('POST /admin/rewards/users/:userId/points/adjust adjusts donor points', async () => {
     await clearDatabase();
     const admin = await createAdmin();
     const donor = await createDonor();
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
     const response = await request(app)
-      .post('/admin/rewards')
+      .post(`/admin/rewards/users/${donor._id.toString()}/points/adjust`)
       .set('Authorization', `Bearer ${token}`)
-      .send({ userId: donor._id.toString(), amount: 100, reason: 'Test adjustment' });
+      .send({ amount: 100, reason: 'Test adjustment' });
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -202,7 +202,7 @@ describe('Admin Routes Integration', () => {
     expect(tx.description).toBe('Test adjustment');
   });
 
-  it('POST /admin/rewards bulk updates reward points via { updates: [...] }', async () => {
+  it('PATCH /admin/rewards/bulk-points bulk updates reward points', async () => {
     await clearDatabase();
     const admin = await createAdmin();
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
@@ -210,7 +210,7 @@ describe('Admin Routes Integration', () => {
     const r2 = await RewardCatalog.create({ name: 'R2', description: 'D2', pointsCost: 200, category: 'HEALTH', status: 'ACTIVE' });
 
     const response = await request(app)
-      .post('/admin/rewards')
+      .patch('/admin/rewards/bulk-points')
       .set('Authorization', `Bearer ${token}`)
       .send({
         updates: [
@@ -229,7 +229,7 @@ describe('Admin Routes Integration', () => {
     expect(updatedR2.pointsCost).toBe(250);
   });
 
-  it('POST /admin/rewards with invalid body returns 400', async () => {
+  it('POST /admin/rewards with empty body returns 400', async () => {
     await clearDatabase();
     const admin = await createAdmin();
     const token = signToken({ userId: admin._id.toString(), role: admin.role });

@@ -62,7 +62,7 @@ export const REQUEST_TRANSITIONS = {
  */
 export const DONATION_TRANSITIONS = {
   pending: ['scheduled', 'completed', 'cancelled', 'rejected', 'expired', 'abandoned'],
-  scheduled: ['completed', 'cancelled', 'rejected'],
+  scheduled: ['completed', 'cancelled', 'rejected', 'expired'],
   completed: [],
   cancelled: [],
   rejected: [],
@@ -77,12 +77,14 @@ export const DONATION_TRANSITIONS = {
  * confirmed – donor confirmed arrival; QR scanned
  * completed – donation completed at the hospital
  * cancelled – withdrawn by either party
+ * expired   – appointment date passed without completion
  */
 export const APPOINTMENT_TRANSITIONS = {
-  pending: ['confirmed', 'cancelled'],
-  confirmed: ['completed', 'cancelled', 'pending'],
+  pending: ['confirmed', 'cancelled', 'expired'],
+  confirmed: ['completed', 'cancelled', 'pending', 'expired'],
   completed: [],
   cancelled: [],
+  expired: [],
 };
 
 // ─── Entity Registry ─────────────────────────────────────────────────────────
@@ -96,7 +98,7 @@ const TRANSITION_MAPS = {
 const TERMINAL_STATES = {
   request: ['completed', 'cancelled', 'expired'],
   donation: ['completed', 'cancelled', 'rejected', 'expired', 'abandoned'],
-  appointment: ['completed', 'cancelled'],
+  appointment: ['completed', 'cancelled', 'expired'],
 };
 
 // ─── Core Validation ─────────────────────────────────────────────────────────
