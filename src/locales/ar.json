@@ -98,6 +98,32 @@
     "platinum": "[AR] بلاتينيوم"
   },
 
+  "admin": {
+    "audit_logs": "[AR] سجلات التدقيق",
+    "audit": {
+      "action": {
+        "create_hospital": "[AR] تمت إضافة مستشفى",
+        "ban": "[AR] تم حظر المستخدم",
+        "unban": "[AR] تم إلغاء حظر المستخدم",
+        "suspend": "[AR] تم تعليق المستخدم",
+        "unsuspend": "[AR] تم إلغاء تعليق المستخدم",
+        "delete": "[AR] تم حذف المستخدم",
+        "create_admin": "[AR] تمت إضافة مشرف",
+        "maintenance": "[AR] تم تحديث وضع الصيانة"
+      },
+      "details": {
+        "create_hospital": "[AR] تمت إضافة حساب مستشفى",
+        "ban": "[AR] تم حظر حساب المستخدم (المعرف: {{targetId}})",
+        "unban": "[AR] تم إلغاء حظر حساب المستخدم (المعرف: {{targetId}})",
+        "suspend": "[AR] تم تعليق حساب المستخدم (المعرف: {{targetId}})",
+        "unsuspend": "[AR] تم إلغاء تعليق حساب المستخدم (المعرف: {{targetId}})",
+        "delete": "[AR] تم حذف حساب المستخدم (المعرف: {{targetId}})",
+        "create_admin": "[AR] تم إنشاء حساب مشرف (المعرف: {{targetId}})",
+        "maintenance": "[AR] تم تحديث وضع الصيانة للنظام",
+        "default": "[AR] تم تنفيذ الإجراء {{action}} على {{targetType}}"
+      }
+    }
+  },
   "ui": {
     "accept": "[AR] قبول",
     "decline": "[AR] رفض",

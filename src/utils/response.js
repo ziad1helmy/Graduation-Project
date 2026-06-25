@@ -74,9 +74,10 @@ const translateValue = (res, value) => {
  * @returns {import('express').Response} The same res for optional chaining.
  */
 export function successResponse(res, statusCode, message, data = undefined) {
+  const translatedMessage = translateValue(res, message);
   const body = {
     success: true,
-    message: message || undefined,
+    message: translatedMessage || undefined,
     data: data !== undefined ? data : message ?? null,
   };
   return res.status(statusCode).json(body);

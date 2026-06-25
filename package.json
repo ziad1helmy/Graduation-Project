@@ -7,6 +7,7 @@
     "start": "node src/server.js",
     "dev": "node scripts/run-server.js --dev",
     "seed-demo": "node scripts/seed-demo.js",
+    "seed-real-data": "node scripts/seed-real-data.js",
     "seed": "node scripts/seed.js",
     "smoke": "node scripts/smoke.js",
     "test:auth-flow": "node scripts/auth-e2e.js",

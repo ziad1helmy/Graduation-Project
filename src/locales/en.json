@@ -359,6 +359,29 @@
     "broadcast_sent": "Broadcast sent",
     "emergency_broadcast_sent": "Emergency broadcast sent",
     "audit_logs": "Audit logs",
+    "audit": {
+      "action": {
+        "create_hospital": "Hospital Added",
+        "ban": "User Banned",
+        "unban": "User Unbanned",
+        "suspend": "User Suspended",
+        "unsuspend": "User Unsuspended",
+        "delete": "User Deleted",
+        "create_admin": "Admin Added",
+        "maintenance": "Maintenance Mode Updated"
+      },
+      "details": {
+        "create_hospital": "Added hospital account",
+        "ban": "Banned user account (ID: {{targetId}})",
+        "unban": "Unbanned user account (ID: {{targetId}})",
+        "suspend": "Suspended user account (ID: {{targetId}})",
+        "unsuspend": "Unsuspended user account (ID: {{targetId}})",
+        "delete": "Soft-deleted user account (ID: {{targetId}})",
+        "create_admin": "Created admin account (ID: {{targetId}})",
+        "maintenance": "Updated system maintenance mode",
+        "default": "Performed action {{action}} on {{targetType}}"
+      }
+    },
     "roles_retrieved": "Roles retrieved successfully",
     "role_retrieved": "Role retrieved successfully",
     "role_created": "Role created successfully",

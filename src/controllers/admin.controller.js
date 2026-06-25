@@ -138,52 +138,18 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
     { page, limit }
   );
 
+  const actionKey = (actionCode) => `admin.audit.action.${actionCode.replace(/^(user|system)\./, '')}`;
+  const detailsKey = (actionCode) => `admin.audit.details.${actionCode.replace(/^(user|system)\./, '')}`;
+
   const formattedLogs = result.logs.map((log) => {
     const logObj = log.toObject ? log.toObject() : log;
     const adminEmail = logObj.adminId?.email || 'System';
 
-    const actionMappings = {
-      'user.create_hospital': 'Hospital Added',
-      'user.ban': 'User Banned',
-      'user.unban': 'User Unbanned',
-      'user.suspend': 'User Suspended',
-      'user.unsuspend': 'User Unsuspended',
-      'user.delete': 'User Deleted',
-      'user.create_admin': 'Admin Added',
-      'system.maintenance': 'Maintenance Mode Updated',
-    };
-    const friendlyAction = actionMappings[logObj.action] || logObj.action;
+    const friendlyAction = req.t(actionKey(logObj.action), logObj);
 
     let details = logObj.changes?.details || '';
     if (!details) {
-      switch (logObj.action) {
-        case 'user.create_hospital':
-          details = `Added hospital account`;
-          break;
-        case 'user.ban':
-          details = `Banned user account (ID: ${logObj.targetId})`;
-          break;
-        case 'user.unban':
-          details = `Unbanned user account (ID: ${logObj.targetId})`;
-          break;
-        case 'user.suspend':
-          details = `Suspended user account (ID: ${logObj.targetId})`;
-          break;
-        case 'user.unsuspend':
-          details = `Unsuspended user account (ID: ${logObj.targetId})`;
-          break;
-        case 'user.delete':
-          details = `Soft-deleted user account (ID: ${logObj.targetId})`;
-          break;
-        case 'user.create_admin':
-          details = `Created admin account (ID: ${logObj.targetId})`;
-          break;
-        case 'system.maintenance':
-          details = `Updated system maintenance mode`;
-          break;
-        default:
-          details = `Performed action ${logObj.action} on ${logObj.targetType}`;
-      }
+      details = req.t(detailsKey(logObj.action), { targetId: logObj.targetId, action: logObj.action, targetType: logObj.targetType });
     }
 
     return {
@@ -206,7 +172,7 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
     totalPages,
   };
 
-  return response.success(res, 200, 'Audit logs', {
+  return response.success(res, 200, 'admin.audit_logs', {
     logs: formattedLogs,
     pagination,
   });
