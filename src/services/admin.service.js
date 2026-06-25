@@ -842,7 +842,9 @@ export const createAdmin = async (data, adminId) => {
     }
   }
 
-  const plaintextKey = 'ADM' + crypto.randomBytes(8).toString('hex');
+  const plaintextKey = 'ADM' + Array.from(crypto.randomBytes(3))
+    .map((b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[b % 36])
+    .join('');
 
   const admin = await User.create({
     fullName: data.fullName,
@@ -1032,7 +1034,9 @@ export const rotateAdminKey = async (id, adminId) => {
   if (!admin) return null;
   if (!['admin', 'superadmin'].includes(admin.role)) return null;
 
-  const plaintextKey = 'ADM' + crypto.randomBytes(8).toString('hex');
+  const plaintextKey = 'ADM' + Array.from(crypto.randomBytes(3))
+    .map((b) => 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789'[b % 36])
+    .join('');
 
   admin.adminKey = encryptAdminKey(plaintextKey, id.toString());
   admin.passwordChangedAt = new Date();

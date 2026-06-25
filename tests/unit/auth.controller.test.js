@@ -146,7 +146,7 @@ describe('Auth Controller', () => {
         body: {
           email: 'admin@lifelink.demo',
           password: 'AdminPass@123',
-          adminCode: 'ADMIN-DEMO-KEY-2026',
+          adminCode: 'ADM001',
         },
       });
       const res = makeMockRes();
@@ -163,8 +163,8 @@ describe('Auth Controller', () => {
       expect(authService.loginAdmin).toHaveBeenCalledWith({
         email: 'admin@lifelink.demo',
         password: 'AdminPass@123',
-        adminCode: 'ADMIN-DEMO-KEY-2026',
-        adminKey: 'ADMIN-DEMO-KEY-2026',
+        adminCode: 'ADM001',
+        adminKey: 'ADM001',
         role: 'admin',
       });
       expect(res.status).toHaveBeenCalledWith(200);

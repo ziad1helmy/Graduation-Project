@@ -38,8 +38,8 @@ const pastDate = (days, hour = 10) => {
 const demoBaseUrl = `http://localhost:${process.env.PORT || 5000}`;
 
 const demoCredentials = [
-  { role: 'admin', email: 'admin@lifelink.demo', password: 'AdminPass@123', adminKey: 'ADMIN-DEMO-KEY-2026' },
-  { role: 'superadmin', email: 'root@lifelink.demo', password: 'SuperAdminPass@123', adminKey: 'SUPERADMIN-DEMO-KEY-2026' },
+  { role: 'admin', email: 'admin@lifelink.demo', password: 'AdminPass@123', adminKey: 'ADM001' },
+  { role: 'superadmin', email: 'root@lifelink.demo', password: 'SuperAdminPass@123', adminKey: 'SUP001' },
   { role: 'donor', email: 'aya.hassan@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'omar.nabil@lifelink.demo', password: 'DonorPass@123' },
   { role: 'donor', email: 'mariam.adel@lifelink.demo', password: 'DonorPass@123' },
@@ -588,7 +588,7 @@ async function main() {
     email: 'admin@lifelink.demo',
     password: 'AdminPass@123',
     role: 'admin',
-    adminKey: 'ADMIN-DEMO-KEY-2026',
+    adminKey: 'ADM001',
     location: {
       city: 'Cairo',
       governorate: 'Cairo',
@@ -602,7 +602,7 @@ async function main() {
     email: 'root@lifelink.demo',
     password: 'SuperAdminPass@123',
     role: 'superadmin',
-    adminKey: 'SUPERADMIN-DEMO-KEY-2026',
+    adminKey: 'SUP001',
     location: {
       city: 'Cairo',
       governorate: 'Cairo',
@@ -1786,7 +1786,7 @@ async function main() {
     },
     {
       title: 'Admin login',
-      command: `curl -X POST ${demoBaseUrl}/auth/admin/login -H "Content-Type: application/json" -d "{\\"email\\":\\"admin@lifelink.demo\\",\\"password\\":\\"AdminPass@123\\",\\"adminKey\\":\\"ADMIN-DEMO-KEY-2026\\"}"`,
+      command: `curl -X POST ${demoBaseUrl}/auth/admin/login -H "Content-Type: application/json" -d "{\\"email\\":\\"admin@lifelink.demo\\",\\"password\\":\\"AdminPass@123\\",\\"adminKey\\":\\"ADM001\\"}"`,
     },
     {
       title: 'Donor requests feed after login',

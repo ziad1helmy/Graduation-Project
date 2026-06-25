@@ -16,7 +16,7 @@ describe('Admin System Settings & Health Integration', () => {
     await clearDatabase();
 
     const adminId = new mongoose.Types.ObjectId();
-    const encryptedKey = encryptAdminKey('test-admin-secret-access-key', adminId.toString());
+    const encryptedKey = encryptAdminKey('ADM999', adminId.toString());
     const admin = await createAdmin({
       _id: adminId,
       position: 'Director of IT',
@@ -45,7 +45,7 @@ describe('Admin System Settings & Health Integration', () => {
     expect(adminData._id).toBe(admin._id.toString());
     expect(adminData.position).toBe('Director of IT');
     expect(adminData.department).toBe('Infrastructure');
-    expect(adminData.adminAccessKey).toBe('test-admin-secret-access-key');
+    expect(adminData.adminAccessKey).toBe('ADM999');
 
     const settingsData = response.body.data.settings;
     expect(settingsData).toBeDefined();
