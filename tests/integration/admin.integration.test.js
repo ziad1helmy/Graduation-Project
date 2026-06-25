@@ -178,16 +178,16 @@ describe('Admin Routes Integration', () => {
     expect(persisted.status).toBe('INACTIVE');
   });
 
-  it('POST /admin/rewards/users/:userId/points/adjust adjusts donor points', async () => {
+  it('POST /admin/rewards/points/adjust-by-email adjusts donor points by email', async () => {
     await clearDatabase();
     const admin = await createAdmin();
     const donor = await createDonor();
     const token = signToken({ userId: admin._id.toString(), role: admin.role });
 
     const response = await request(app)
-      .post(`/admin/rewards/users/${donor._id.toString()}/points/adjust`)
+      .post('/admin/rewards/points/adjust-by-email')
       .set('Authorization', `Bearer ${token}`)
-      .send({ amount: 100, reason: 'Test adjustment' });
+      .send({ email: donor.email, amount: 100, reason: 'Test adjustment' });
 
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
@@ -947,7 +947,7 @@ describe('Admin Routes Integration', () => {
       expect(updatedRequest.lastBroadcastAt).toBeDefined();
     });
 
-    it('returns 429 when broadcast cooldown is active', async () => {
+    it('ignores cooldown and returns 200 even when lastBroadcastAt is recent', async () => {
       await clearDatabase();
       const admin = await createAdmin();
       const hospital = await createHospital();
@@ -968,8 +968,8 @@ describe('Admin Routes Integration', () => {
       const response = await request(app)
         .patch(`/admin/requests/${reqDoc._id}/broadcast`)
         .set('Authorization', `Bearer ${token}`);
-      expect(response.status).toBe(429);
-      expect(response.body.message).toContain('cooldown active');
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
     });
   });
 });

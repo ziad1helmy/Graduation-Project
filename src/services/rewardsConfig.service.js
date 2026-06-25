@@ -12,6 +12,9 @@ const cloneConfig = (config) => ({
 const normalizeConfig = (config = DEFAULT_REWARDS_CONFIG) => ({
   points: {
     bloodDonation: Number(config.points?.bloodDonation),
+    plasmaDonation: Number(config.points?.plasmaDonation),
+    plateletsDonation: Number(config.points?.plateletsDonation),
+    doubleRedCellsDonation: Number(config.points?.doubleRedCellsDonation),
     emergencyResponse: Number(config.points?.emergencyResponse),
     profileCompletion: Number(config.points?.profileCompletion),
     referral: Number(config.points?.referral),
@@ -96,13 +99,3 @@ export const updateRewardsConfig = async (updates = {}, updatedBy = null) => {
   return cloneConfig(cachedRewardsConfig);
 };
 
-export const getRewardsEarningRules = async () => {
-  const config = await getRewardsConfig();
-
-  return [
-    { type: 'blood_donation', title: 'Blood Donation', points: config.points.bloodDonation },
-    { type: 'emergency_response', title: 'Emergency Response', points: config.points.emergencyResponse },
-    { type: 'profile_completion', title: 'Profile Completion', points: config.points.profileCompletion },
-    { type: 'referral', title: 'Referral', points: config.points.referral },
-  ];
-};

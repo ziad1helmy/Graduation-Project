@@ -509,7 +509,7 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
 });
 
 const applyBasicProfileFields = (hospital, body) => {
-  const { hospitalName, department, phone, contactNumber, email, address } = body;
+  const { hospitalName, department, phone, contactNumber, email, address, bloodBanksAvailable, capacity } = body;
 
   if (hospitalName !== undefined) {
     hospital.hospitalName = hospitalName;
@@ -524,6 +524,8 @@ const applyBasicProfileFields = (hospital, body) => {
   }
   if (email !== undefined) hospital.email = email;
   if (address !== undefined) hospital.address = address;
+  if (bloodBanksAvailable !== undefined) hospital.bloodBanksAvailable = bloodBanksAvailable;
+  if (capacity !== undefined) hospital.capacity = capacity;
 };
 
 const applyLocationFields = (hospital, lat, lng) => {

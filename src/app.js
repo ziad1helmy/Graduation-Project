@@ -165,15 +165,17 @@ if (env.NODE_ENV !== 'test') {
   }
 }
 
-// Maintenance check — blocks non-admin routes when enabled
-app.use(maintenanceMiddleware);
+// Auth routes BEFORE maintenance so login/signup always work (including to disable maintenance)
+app.use('/auth', authLimiter, authRoutes);
 
-// Serve static files from public directory
+// Serve static files from public directory (BEFORE maintenance so swagger CSS/JS always load)
 app.use(express.static('public'));
+
+// Maintenance check — blocks non-admin/non-auth routes when enabled
+app.use(maintenanceMiddleware);
 
 // ─── Business Routes ──────────────────────────────────────────────────────────
 // Mount all routes at base path
-app.use('/auth', authLimiter, authRoutes);
 app.use('/donor', limiter, donorRoutes);
 app.use('/donor', limiter, activityRoutes);
 app.use('/hospital', limiter, hospitalRoutes);

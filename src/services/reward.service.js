@@ -15,12 +15,11 @@ import { logger } from '../utils/logger.js';
 import Donor from '../models/Donor.model.js';
 import { formatPointsTitle, ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
 
-// Points awarded per request/donation type
-export const POINTS_BY_TYPE = {
-  blood: 200,
-  plasma: 150,
-  platelets: 175,
-  double_red_cells: 175,
+const DONATION_TYPE_TO_CONFIG_FIELD = {
+  blood: 'bloodDonation',
+  plasma: 'plasmaDonation',
+  platelets: 'plateletsDonation',
+  double_red_cells: 'doubleRedCellsDonation',
 };
 
 const TRANSACTION_TYPE_BY_TYPE = {
@@ -290,8 +289,8 @@ export const onDonationCompleted = async (donorId, donationId, isEmergency = fal
       donationType = 'blood';
     }
 
-    // Base donation points: lookup by type with fallbacks to legacy config
-    const basePoints = POINTS_BY_TYPE[donationType] ?? rewardsConfig.points.bloodDonation ?? 0;
+    const configField = DONATION_TYPE_TO_CONFIG_FIELD[donationType] || 'bloodDonation';
+    const basePoints = rewardsConfig.points[configField] ?? 0;
     const txType = TRANSACTION_TYPE_BY_TYPE[donationType] || 'BLOOD_DONATION';
 
     const finalPoints = basePoints;
@@ -774,6 +773,13 @@ export const adminAdjustPoints = async (donorId, amount, reason, adminId) => {
   return updatedAccount;
 };
 
+export const adminAdjustPointsByEmail = async (email, amount, reason, adminId) => {
+  const user = await User.findOne({ email: email.toLowerCase().trim(), deletedAt: null });
+  if (!user) throw Object.assign(new Error('User not found'), { statusCode: 404 });
+  if (user.role !== 'donor') throw Object.assign(new Error('Only donor accounts have points'), { statusCode: 400 });
+  return adminAdjustPoints(user._id, amount, reason, adminId);
+};
+
 export const adminUpdateRewardStatus = async (rewardId, status, adminId) => {
   const reward = await RewardCatalog.findByIdAndUpdate(rewardId, { status }, { returnDocument: 'after' });
   if (!reward) throw Object.assign(new Error('Reward not found'), { statusCode: 404 });
@@ -1016,16 +1022,14 @@ export const adminGetPointsAdjustments = async (limit = 20) => {
 export const getEarningRules = async () => {
   const rewardsConfig = await getRewardsConfig();
 
-  // Return all donation types with their specific point values from POINTS_BY_TYPE,
-  // plus bonus activities from the config so the Flutter UI can show accurate rules.
   return [
-    { type: 'blood_donation',      title: 'Blood Donation',      points: POINTS_BY_TYPE.blood,        category: 'donation' },
-    { type: 'plasma_donation',     title: 'Plasma Donation',     points: POINTS_BY_TYPE.plasma,       category: 'donation' },
-    { type: 'platelets_donation',  title: 'Platelet Donation',   points: POINTS_BY_TYPE.platelets,    category: 'donation' },
-    { type: 'double_red_cells_donation', title: 'Double Red Cells Donation', points: POINTS_BY_TYPE.double_red_cells, category: 'donation' },
-    { type: 'first_donation',      title: 'First Donation Bonus', points: rewardsConfig.points.firstDonation,      category: 'bonus' },
-    { type: 'emergency_response',  title: 'Emergency Response',  points: rewardsConfig.points.emergencyResponse,  category: 'bonus' },
-    { type: 'profile_completion',  title: 'Profile Completion',  points: rewardsConfig.points.profileCompletion,  category: 'bonus' },
-    { type: 'referral',            title: 'Referral',            points: rewardsConfig.points.referral,           category: 'bonus' },
+    { type: 'blood_donation', title: 'Blood Donation', points: rewardsConfig.points.bloodDonation, category: 'donation' },
+    { type: 'plasma_donation', title: 'Plasma Donation', points: rewardsConfig.points.plasmaDonation, category: 'donation' },
+    { type: 'platelets_donation', title: 'Platelet Donation', points: rewardsConfig.points.plateletsDonation, category: 'donation' },
+    { type: 'double_red_cells_donation', title: 'Double Red Cells Donation', points: rewardsConfig.points.doubleRedCellsDonation, category: 'donation' },
+    { type: 'first_donation', title: 'First Donation Bonus', points: rewardsConfig.points.firstDonation, category: 'bonus' },
+    { type: 'emergency_response', title: 'Emergency Response', points: rewardsConfig.points.emergencyResponse, category: 'bonus' },
+    { type: 'profile_completion', title: 'Profile Completion', points: rewardsConfig.points.profileCompletion, category: 'bonus' },
+    { type: 'referral', title: 'Referral', points: rewardsConfig.points.referral, category: 'bonus' },
   ];
 };

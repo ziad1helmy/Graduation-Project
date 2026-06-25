@@ -4765,6 +4765,20 @@ paths:
                 smsAlerts:
                   type: boolean
                   example: false
+                bloodBanksAvailable:
+                  type: array
+                  items:
+                    type: string
+                  description: Blood types available at the hospital
+                  example:
+                    - O+
+                    - O-
+                    - A+
+                    - B+
+                capacity:
+                  type: number
+                  description: Hospital capacity or bed count
+                  example: 200
             example:
               hospitalName: Metro General Hospital
               department: Emergency Department
@@ -4780,6 +4794,12 @@ paths:
               emergencyAlerts: true
               emailNotifications: true
               smsAlerts: false
+              bloodBanksAvailable:
+                - O+
+                - O-
+                - A+
+                - B+
+              capacity: 200
       responses:
         "200":
           description: Profile updated successfully
@@ -6710,60 +6730,6 @@ paths:
           description: Role not allowed
         "404":
           description: Appointment not found
-  /requests/verify-qr:
-    post:
-      tags:
-        - Hospital
-      summary: Verify a request QR token
-      security:
-        - bearerAuth: []
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com Parameter examples are
-        aligned with the seeded demo dataset where possible."
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - qrToken
-              properties:
-                qrToken:
-                  type: string
-                  description: The QR token scanned from the donor's device
-                  example: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
-            example:
-              qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
-      responses:
-        "200":
-          description: Example response
-          content:
-            application/json:
-              example:
-                success: true
-                message: QR verified successfully
-                data:
-                  valid: true
-                  requestId: 69fe540565ff7785a031314f
-                  donationId: 69fe540565ff7785a0313150
-                  hospitalName: Cairo Care Hospital
-                  bloodType:
-                    - O-
-                  bloodTypeLabel: O Negative
-                  patientType: adult
-                  patientDetails: general
-                  contactNumber: "0223456789"
-                  unitsNeeded: 3
-                  isEmergency: true
-                  createdAt: 2026-05-18T08:20:00.000Z
-                  requestStatus: accepted
-                  donationStatus: pending
-                  donorName: Noor El-Din
-                  donorBloodType: O-
-                  qrToken: a18df3083c83f3a8c1d90a61d6c70a0f5316897f4feefdc9611b32ad7dd114e2
-                  qrExpiresAt: 2026-05-18T11:45:00.000Z
-                  arrivalDeadline: 2026-05-18T14:45:00.000Z
   /requests/{id}/confirm:
     post:
       tags:
@@ -7794,21 +7760,13 @@ paths:
                       pointsRequired: 1100
         "400":
           description: Invalid updates array
-  /admin/rewards/users/{userId}/points/adjust:
+  /admin/rewards/points/adjust-by-email:
     post:
-      summary: Manually adjust a donor's points balance
+      summary: Adjust a donor's points by email address
       tags:
         - Admin
       security:
         - bearerAuth: []
-      parameters:
-        - in: path
-          name: userId
-          required: true
-          schema:
-            type: string
-          description: MongoDB ObjectId of the donor
-          example: 69f3df915f42685cbbbcbb18
       requestBody:
         required: true
         content:
@@ -7816,9 +7774,15 @@ paths:
             schema:
               type: object
               required:
+                - email
                 - amount
                 - reason
               properties:
+                email:
+                  type: string
+                  format: email
+                  description: Email of the donor to adjust points for
+                  example: donor@example.com
                 amount:
                   type: integer
                   description: Positive = credit, negative = debit. Must be non-zero.
@@ -7829,9 +7793,10 @@ paths:
                   description: Reason displayed in audit log
                   example: Community engagement bonus
             examples:
-              adjustPoints:
-                summary: Credit points to a donor
+              adjustPointsByEmail:
+                summary: Credit points by donor email
                 value:
+                  email: donor@example.com
                   amount: 200
                   reason: Community engagement bonus
       responses:
@@ -7843,13 +7808,15 @@ paths:
                 success: true
                 message: Points adjusted successfully
                 data:
-                  userId: 69f3df915f42685cbbbcbb18
+                  email: donor@example.com
                   newBalance: 1450
         "400":
-          description: Invalid amount or missing reason
+          description: Invalid amount, missing reason, or non-donor email
+        "404":
+          description: User not found
   /admin/inbound-emails:
     get:
-      summary: List inbound emails
+      summary: List inbound emails and support tickets
       tags:
         - Admin
       security:
@@ -7872,20 +7839,39 @@ paths:
           name: read
           schema:
             type: boolean
-          description: Filter by read status
+          description: Filter inbound emails by read status
         - in: query
           name: archived
           schema:
             type: boolean
-          description: Filter by archived status
+          description: Filter inbound emails by archived status
         - in: query
           name: search
           schema:
             type: string
-          description: Search across sender, subject, body, and recipients
+          description: Search across inbound email fields and support ticket fields
+        - in: query
+          name: supportStatus
+          schema:
+            type: string
+            enum:
+              - OPEN
+              - REVIEWED
+          description: Filter support tickets by status
+        - in: query
+          name: supportCategory
+          schema:
+            type: string
+            enum:
+              - TECHNICAL
+              - ACCOUNT
+              - DONATION
+              - REWARDS
+              - OTHER
+          description: Filter support tickets by category
       responses:
         "200":
-          description: Inbound emails retrieved successfully
+          description: Inbound emails and support tickets retrieved successfully
           content:
             application/json:
               example:
@@ -7902,6 +7888,17 @@ paths:
                       isRead: false
                       isArchived: false
                       receivedAt: 2026-05-18T08:30:00.000Z
+                  supportTickets:
+                    - _id: "670000000000000000000001"
+                      userId: "670000000000000000000000"
+                      fullName: "Mohamed Yaser"
+                      email: "donor@example.com"
+                      role: "donor"
+                      subject: "Need help with reward redemption"
+                      category: "REWARDS"
+                      status: "OPEN"
+                      adminReply: null
+                      createdAt: "2026-05-24T16:24:00.000Z"
                   pagination:
                     total: 1
                     page: 1
@@ -8023,230 +8020,7 @@ paths:
                     _id: 66f700000000000000000001
                     isArchived: true
                     archivedAt: 2026-05-18T09:05:00.000Z
-  /admin/support:
-    get:
-      summary: List support messages
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      description: Retrieve a paginated list of support tickets submitted by donors and hospitals.
-      parameters:
-        - in: query
-          name: page
-          schema:
-            type: integer
-            default: 1
-          description: Page number
-        - in: query
-          name: limit
-          schema:
-            type: integer
-            default: 20
-          description: Number of items per page
-        - in: query
-          name: status
-          schema:
-            type: string
-            enum:
-              - OPEN
-              - REVIEWED
-          description: Filter by status
-        - in: query
-          name: category
-          schema:
-            type: string
-            enum:
-              - TECHNICAL
-              - ACCOUNT
-              - DONATION
-              - REWARDS
-              - OTHER
-          description: Filter by category
-        - in: query
-          name: search
-          schema:
-            type: string
-          description: Search term matching sender name, email, subject, or message text
-      responses:
-        "200":
-          description: Support messages retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Support messages retrieved successfully
-                data:
-                  tickets:
-                    - _id: "670000000000000000000001"
-                      userId: "670000000000000000000000"
-                      fullName: "Mohamed Yaser"
-                      email: "donor@example.com"
-                      role: "donor"
-                      subject: "Need help with reward redemption"
-                      category: "REWARDS"
-                      message: "I can see my points balance but I want to confirm when the Coffee Voucher becomes available."
-                      status: "OPEN"
-                      adminReply: null
-                      adminReplyAt: null
-                      adminReplyBy: null
-                      createdAt: "2026-05-24T16:24:00.000Z"
-                  pagination:
-                    total: 1
-                    page: 1
-                    currentPage: 1
-                    limit: 20
-                    totalPages: 1
-                    hasNextPage: false
-                    hasPrevPage: false
-        "401":
-          description: Unauthenticated request
-        "403":
-          description: Forbidden (admin role required)
-  /admin/support/{id}:
-    get:
-      summary: Get a support message by ID
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      description: Retrieve details of a specific support ticket.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Support message retrieved successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Support message retrieved successfully
-                data:
-                  ticket:
-                    _id: "670000000000000000000001"
-                    userId: "670000000000000000000000"
-                    fullName: "Mohamed Yaser"
-                    email: "donor@example.com"
-                    role: "donor"
-                    subject: "Need help with reward redemption"
-                    category: "REWARDS"
-                    message: "I can see my points balance but I want to confirm when the Coffee Voucher becomes available."
-                    status: "OPEN"
-                    adminReply: null
-                    adminReplyAt: null
-                    adminReplyBy: null
-                    createdAt: "2026-05-24T16:24:00.000Z"
-        "401":
-          description: Unauthenticated request
-        "403":
-          description: Forbidden (admin role required)
-        "404":
-          description: Support message not found
-  /admin/support/{id}/review:
-    patch:
-      summary: Mark a support message as reviewed
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      description: Update the status of a support ticket to REVIEWED.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Support message marked as reviewed
-          content:
-            application/json:
-              example:
-                success: true
-                message: Support message marked as reviewed
-                data:
-                  ticket:
-                    _id: "670000000000000000000001"
-                    userId: "670000000000000000000000"
-                    fullName: "Mohamed Yaser"
-                    email: "donor@example.com"
-                    role: "donor"
-                    subject: "Need help with reward redemption"
-                    category: "REWARDS"
-                    message: "I can see my points balance but I want to confirm when the Coffee Voucher becomes available."
-                    status: "REVIEWED"
-                    adminReply: null
-                    adminReplyAt: "2026-05-24T17:00:00.000Z"
-                    adminReplyBy: "670000000000000000000002"
-                    createdAt: "2026-05-24T16:24:00.000Z"
-        "401":
-          description: Unauthenticated request
-        "403":
-          description: Forbidden (admin role required)
-        "404":
-          description: Support message not found
-  /admin/support/{id}/reply:
-    post:
-      summary: Reply to a support message
-      tags:
-        - Admin
-      security:
-        - bearerAuth: []
-      description: Submit an admin reply to a support ticket, which marks the ticket as REVIEWED and triggers push + email notifications to the sender.
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - reply
-              properties:
-                reply:
-                  type: string
-                  description: The reply text to send to the user
-                  example: "The Coffee Voucher will be active on the first of next month."
-      responses:
-        "200":
-          description: Reply submitted successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Reply submitted successfully
-                data:
-                  ticket:
-                    _id: "670000000000000000000001"
-                    userId: "670000000000000000000000"
-                    fullName: "Mohamed Yaser"
-                    email: "donor@example.com"
-                    role: "donor"
-                    subject: "Need help with reward redemption"
-                    category: "REWARDS"
-                    message: "I can see my points balance but I want to confirm when the Coffee Voucher becomes available."
-                    status: "REVIEWED"
-                    adminReply: "The Coffee Voucher will be active on the first of next month."
-                    adminReplyAt: "2026-05-24T17:00:00.000Z"
-                    adminReplyBy: "670000000000000000000002"
-                    createdAt: "2026-05-24T16:24:00.000Z"
-        "400":
-          description: Reply is required
-        "401":
-          description: Unauthenticated request
-        "403":
-          description: Forbidden (admin role required)
-        "404":
-          description: Support message not found
+
   /admin/profile:
     get:
       tags:
@@ -9241,6 +9015,54 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation works for
         donors, hospitals, and admins (superadmin required for admin accounts)."
+  /admin/users/{id}/password:
+    put:
+      tags:
+        - Admin
+      summary: Reset a user's password (admin only)
+      description: Allows an admin to change any user's password without knowing the current password.
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: 69f3df915f42685cbbbcbb18
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - password
+              properties:
+                password:
+                  type: string
+                  minLength: 8
+                  description: New password (min 8 characters)
+                  example: NewSecurePass123!
+            example:
+              password: NewSecurePass123!
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Password changed successfully
+                data:
+                  user:
+                    _id: 69f3df915f42685cbbbcbb18
+                    email: donor@example.com
+                    role: donor
+        "400":
+          description: Password must be at least 8 characters
+        "404":
+          description: User not found
   /admin/admins:
     get:
       tags:
@@ -9761,13 +9583,6 @@ paths:
               example:
                 success: false
                 message: Request not found
-        "429":
-          description: Broadcast cooldown active — wait before re-broadcasting
-          content:
-            application/json:
-              example:
-                success: false
-                message: "broadcast cooldown active — try again in 14 minute(s)"
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."

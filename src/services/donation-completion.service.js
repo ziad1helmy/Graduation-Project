@@ -5,7 +5,8 @@ import Donor from '../models/Donor.model.js';
 import Request from '../models/Request.model.js';
 import * as activityService from './activity.service.js';
 import { ACTIVITY_TITLE_MAP } from '../constants/rewards.constants.js';
-import { APPOINTMENT_POINTS_BY_DONATION_TYPE, DONATION_TYPE_LABELS } from '../constants/donation.constants.js';
+import { DONATION_TYPE_LABELS } from '../constants/donation.constants.js';
+import { getRewardsConfig } from './rewardsConfig.service.js';
 import * as eligibilityService from './eligibility.service.js';
 import * as rewardService from './reward.service.js';
 import { normalizeDonationTypeRequestKey } from './appointment.service.js';
@@ -69,9 +70,17 @@ export const validateMedicalInputs = (body = {}, donationType = DONATION_TYPE_LA
   };
 };
 
-const getAppointmentPoints = (donationType = DONATION_TYPE_LABELS.WHOLE_BLOOD) => {
-  return APPOINTMENT_POINTS_BY_DONATION_TYPE[donationType]
-    ?? APPOINTMENT_POINTS_BY_DONATION_TYPE[DONATION_TYPE_LABELS.WHOLE_BLOOD];
+const DONATION_LABEL_TO_CONFIG_FIELD = {
+  [DONATION_TYPE_LABELS.WHOLE_BLOOD]: 'bloodDonation',
+  [DONATION_TYPE_LABELS.PLASMA]: 'plasmaDonation',
+  [DONATION_TYPE_LABELS.PLATELETS]: 'plateletsDonation',
+  [DONATION_TYPE_LABELS.DOUBLE_RED_CELLS]: 'doubleRedCellsDonation',
+};
+
+const getDonationPointsFromConfig = async (donationType = DONATION_TYPE_LABELS.WHOLE_BLOOD) => {
+  const config = await getRewardsConfig();
+  const field = DONATION_LABEL_TO_CONFIG_FIELD[donationType] || 'bloodDonation';
+  return config.points[field] ?? 0;
 };
 
 const runEligibilityCheck = async (donor, { donationType, excludeDonationId }) => {
@@ -278,7 +287,7 @@ export const completeAppointmentDonation = async ({ appointment, donor, donation
     });
   });
 
-  const pointsEarned = getAppointmentPoints(appointment.donationType);
+  const pointsEarned = await getDonationPointsFromConfig(appointment.donationType);
 
   return {
     rejected: false,
@@ -387,7 +396,7 @@ export const completeRequestDonation = async ({ donation, donor, medicalValidati
     });
   });
 
-  const pointsEarned = getAppointmentPoints(donation.requestId?.type === 'double_red_cells' ? DONATION_TYPE_LABELS.DOUBLE_RED_CELLS : DONATION_TYPE_LABELS.WHOLE_BLOOD);
+  const pointsEarned = await getDonationPointsFromConfig(donation.requestId?.type === 'double_red_cells' ? DONATION_TYPE_LABELS.DOUBLE_RED_CELLS : DONATION_TYPE_LABELS.WHOLE_BLOOD);
 
   return {
     rejected: false,

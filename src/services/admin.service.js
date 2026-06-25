@@ -25,7 +25,6 @@ import { sendToMultiple } from '../utils/fcm.js';
 import { ERR } from '../utils/errorCodes.js';
 import { HttpError } from '../utils/HttpError.js';
 import { env } from '../config/env.js';
-import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 import { buildRequestPayload } from '../controllers/request.controller.js';
 import { validateTransition } from '../utils/state-machine.js';
@@ -316,7 +315,7 @@ export const updateSystemSettings = async (settingsData, adminId) => {
 
 const DEFAULT_SETTINGS = [
   { key: 'maintenance_mode', value: false },
-  { key: 'maintenance_message', value: '' },
+  { key: 'maintenance_message', value: 'LifeLink is currently under maintenance. We will be back shortly.' },
   { key: 'donor_registration_enabled', value: true },
   { key: 'notifications_enabled', value: true },
   { key: 'max_missed_donations_before_ban', value: 3 },
@@ -1009,7 +1008,9 @@ export const updateAdminProfile = async (adminId, data) => {
   return { admin, emailChanged };
 };
 
-export const deleteAdmin = async (id, adminId) => {
+export const deleteAdmin = async (id, adminId, callerRole) => {
+  if (callerRole !== 'superadmin') return null;
+
   const admin = await User.findOne({ _id: id, deletedAt: null });
   if (!admin) return null;
   if (!['admin', 'superadmin'].includes(admin.role)) return null;
@@ -1029,7 +1030,9 @@ export const deleteAdmin = async (id, adminId) => {
  * Rotate an admin's adminKey. The previous key is invalidated immediately.
  * Returns the new plaintext key exactly once — it is unrecoverable afterwards.
  */
-export const rotateAdminKey = async (id, adminId) => {
+export const rotateAdminKey = async (id, adminId, callerRole) => {
+  if (callerRole !== 'superadmin') return null;
+
   const admin = await User.findOne({ _id: id, deletedAt: null });
   if (!admin) return null;
   if (!['admin', 'superadmin'].includes(admin.role)) return null;
@@ -1045,6 +1048,7 @@ export const rotateAdminKey = async (id, adminId) => {
   await logAudit(adminId, 'user.rotate_admin_key', 'User', id);
   return { admin: attachAdminKey(admin), plaintextKey };
 };
+
 
 /**
  * Emit an audit log entry for a badge configuration update.
@@ -1645,16 +1649,6 @@ export const broadcastRequest = async (id, adminId) => {
 
   if (!['pending', 'in-progress'].includes(request.status)) {
     throw new HttpError(400, `cannot broadcast a request with status: ${request.status}`);
-  }
-
-  const urgencyKey = request.urgency || 'medium';
-  const cooldownMs = URGENCY_TIMEOUTS[urgencyKey]?.reBroadcastIntervalMs ?? 15 * 60 * 1000;
-  if (request.lastBroadcastAt) {
-    const msSinceLast = Date.now() - new Date(request.lastBroadcastAt).getTime();
-    if (msSinceLast < cooldownMs) {
-      const minutesLeft = Math.ceil((cooldownMs - msSinceLast) / 60000);
-      throw new HttpError(429, `broadcast cooldown active — try again in ${minutesLeft} minute(s)`);
-    }
   }
 
   const bloodTypes = request.bloodType ?? request._doc?.bloodType ?? [];

@@ -249,8 +249,8 @@ describe('Discovery, Help, and Support Routes', () => {
     });
   });
 
-  describe('GET /admin/support', () => {
-    it('returns 200 with all support tickets for an admin', async () => {
+  describe('GET /admin/inbound-emails includes support tickets', () => {
+    it('returns 200 with support tickets alongside inbound emails for an admin', async () => {
       const donor = await createDonor();
       const admin = await createAdmin();
       const donorToken = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
@@ -264,16 +264,16 @@ describe('Discovery, Help, and Support Routes', () => {
       expect(postRes.status).toBe(201);
       const ticketId = postRes.body.data.ticket.id;
 
-      // 2. Query as an admin and see if the ticket exists
+      // 2. Query /admin/inbound-emails as an admin and check supportTickets are included
       const getRes = await request(app)
-        .get('/admin/support')
+        .get('/admin/inbound-emails')
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(getRes.status).toBe(200);
       expect(getRes.body.success).toBe(true);
-      expect(Array.isArray(getRes.body.data.tickets)).toBe(true);
+      expect(Array.isArray(getRes.body.data.supportTickets)).toBe(true);
       
-      const foundTicket = getRes.body.data.tickets.find(t => t._id.toString() === ticketId.toString());
+      const foundTicket = getRes.body.data.supportTickets.find(t => t._id.toString() === ticketId.toString());
       expect(foundTicket).toBeDefined();
       expect(foundTicket.subject).toBe('Admin check ticket');
       expect(foundTicket.fullName).toBe(donor.fullName);
@@ -284,7 +284,7 @@ describe('Discovery, Help, and Support Routes', () => {
       const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
 
       const res = await request(app)
-        .get('/admin/support')
+        .get('/admin/inbound-emails')
         .set('Authorization', `Bearer ${token}`);
 
       expect(res.status).toBe(403);

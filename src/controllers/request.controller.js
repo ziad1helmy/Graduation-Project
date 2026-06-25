@@ -20,7 +20,6 @@ import { sendToMultipleWithRetry, sendToMultiple } from '../utils/fcm.js';
 import {
   validateNearbyRequestsQuery,
   validateRequestIdParam,
-  validateQrBody,
 } from '../validation/request.validation.js';
 import {
   formatBloodTypeLabel,
@@ -302,107 +301,6 @@ const resolveActiveDonorQr = async (donorId, requestId) => {
   // Donation exists but is in a non-displayable state (e.g. completed before QR cleared)
   return { qrToken: null, qrCreatedAt: null, qrExpiresAt: null, arrivalDeadline: null, donation };
 };
-
-export const verifyQr = asyncHandler(async (req, res) => {
-  const validation = validateQrBody(req.body);
-  if (!validation.valid) {
-    throw new HttpError(400, validation.errors[0]);
-  }
-
-  if (!['hospital', 'admin', 'superadmin'].includes(req.user.role)) {
-    throw new HttpError(403, 'Unauthorized');
-  }
-
-  const qrToken = String(req.body.qrToken || req.body.qrCode).trim();
-
-  // Atomic check-and-mark: find donation where qrUsed=false and set qrUsed=true + qrUsedAt
-  // This prevents double-verification from concurrent QR scans (F2)
-  const donation = await Donation.findOneAndUpdate(
-    { qrToken, qrUsed: false },
-    { $set: { qrUsed: true, qrUsedAt: new Date() } },
-    { returnDocument: 'after' },
-  );
-
-  if (!donation) {
-    // Either token doesn't exist or was already used
-    const existingDonation = await Donation.findOne({ qrToken });
-    if (!existingDonation) {
-      return response.success(res, 200, 'QR verification completed', {
-        valid: false,
-        message: 'Invalid or expired QR token',
-      });
-    }
-    // Token exists but was already used
-    return response.success(res, 200, 'QR verification completed', {
-      valid: false,
-      message: 'QR code has already been used',
-    });
-  }
-
-  const request = await populateRequest(Request.findById(donation.requestId));
-  if (!request) {
-    return response.success(res, 200, 'QR verification completed', {
-      valid: false,
-      message: 'Invalid QR token - no associated request',
-    });
-  }
-
-  const donorDoc = await Donor.findById(donation.donorId).select('fullName bloodType phoneNumber');
-
-  await normalizeRequestIfExpired(request);
-
-  if (!donorDoc) {
-    return response.success(res, 200, 'QR verification completed', {
-      valid: false,
-      message: 'Donor no longer exists',
-    });
-  }
-
-  const now = new Date();
-
-  if (donation.qrExpiresAt && now > new Date(donation.qrExpiresAt)) {
-    return response.success(res, 200, 'QR verification completed', {
-      valid: false,
-      message: 'QR code has expired',
-    });
-  }
-
-  if (!['accepted', 'in-progress'].includes(request.status)) {
-    return response.success(res, 200, 'QR verification completed', {
-      valid: false,
-      message: 'Request is no longer active',
-    });
-  }
-
-  if (donation.status !== 'pending') {
-    return response.success(res, 200, 'QR verification completed', {
-      valid: false,
-      message: 'Donation is no longer valid for verification',
-    });
-  }
-
-  return response.success(res, 200, 'QR verified successfully', {
-    valid: true,
-    requestId: request._id,
-    donationId: donation._id,
-    hospitalName: request.hospitalName || request.hospitalId?.hospitalName || request.hospitalId?.fullName || null,
-    bloodType: normalizeBloodTypeList(request.bloodType),
-    bloodTypeLabel: formatBloodTypeLabel(request.bloodType),
-    patientType: request.patientType || null,
-    patientDetails: request.patientDetails || null,
-    contactNumber: request.contactNumber || request.hospitalContact || request.hospitalId?.contactNumber || request.hospitalId?.phone || null,
-    unitsNeeded: request.unitsNeeded ?? 1,
-    isEmergency: Boolean(request.isEmergency || request.urgency === 'critical'),
-    createdAt: request.createdAt,
-    requestStatus: request.status,
-    donationStatus: donation.status,
-    donorName: donorDoc?.fullName || null,
-    donorBloodType: donorDoc?.bloodType || null,
-    qrToken: donation.qrToken || null,
-    qrExpiresAt: donation.qrExpiresAt || null,
-    arrivalDeadline: donation.arrivalDeadline || null,
-  });
-});
 
 export const getRequestDetails = asyncHandler(async (req, res) => {
   const validation = validateRequestIdParam(req.params);

@@ -36,7 +36,7 @@ describe('Reward Service', () => {
     const account = await DonorPoints.findOne({ donorId: donor._id });
     expect(account).toBeTruthy();
 
-    const expectedEarned = rewardService.POINTS_BY_TYPE.blood + rewardsConfig.points.firstDonation;
+    const expectedEarned = rewardsConfig.points.bloodDonation + rewardsConfig.points.firstDonation;
     expect(account.lifetimePointsEarned).toBe(expectedEarned);
     expect(account.pointsBalance).toBe(expectedEarned);
 
@@ -214,12 +214,13 @@ describe('Type-specific awards and cooldowns', () => {
     const donor = await createDonor();
     const request = await createRequest(hospital._id, { type: 'platelets' });
     const donation = await createDonation(donor._id, request._id, { status: 'completed' });
+    const cfg = await getRewardsConfig();
 
     await onDonationCompleted(donor._id, donation._id, false);
 
     const tx = await PointsTransaction.findOne({ donorId: donor._id, transactionType: 'PLATELETS_DONATION' });
     expect(tx).toBeTruthy();
-    expect(tx.pointsAmount).toBe(rewardService.POINTS_BY_TYPE.platelets);
+    expect(tx.pointsAmount).toBe(cfg.points.plateletsDonation);
   });
 
   it('enforces per-type cooldowns', async () => {

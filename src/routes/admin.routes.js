@@ -61,7 +61,11 @@ router.patch('/rewards/:rewardId/status', adminController.updateRewardStatus);
 
 router.patch('/rewards/bulk-points', adminController.bulkUpdateRewardPoints);
 
-router.post('/rewards/users/:userId/points/adjust', adminController.adjustUserPoints);
+router.post('/rewards/points/adjust-by-email', adminController.adjustUserPointsByEmail);
+
+router.get('/rewards/earning-rules', adminController.getRewardsEarningRules);
+
+router.put('/rewards/earning-rules', adminController.updateRewardsEarningRules);
 
 // Badges Management
 router.get('/badges', adminController.getBadges);
@@ -86,15 +90,6 @@ router.patch('/inbound-emails/:id/archive', adminController.archiveInboundEmail)
 
 router.delete('/inbound-emails/:id', adminController.deleteInboundEmail);
 
-// Support inbox management
-
-router.get('/support', adminController.listSupportMessages);
-
-router.get('/support/:id', adminController.getSupportMessageById);
-
-router.patch('/support/:id/review', adminController.reviewSupportMessage);
-
-router.post('/support/:id/reply', adminController.replySupportMessage);
 // Dedicated donor/hospital listing aliases
 
 router.get('/donors', adminController.listDonors);
@@ -149,6 +144,7 @@ router.get('/users/:id', adminController.getUserById);
 router.put('/users/donor/:id', adminController.updateDonor);
 router.put('/users/hospital/:id', adminController.updateHospital);
 router.put('/users/admin/:id', requireRole('superadmin'), adminController.updateAdmin);
+
 
 router.delete('/users/:id', adminController.deleteUser);
 

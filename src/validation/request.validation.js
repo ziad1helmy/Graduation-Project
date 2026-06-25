@@ -54,10 +54,3 @@ export const validateRequestIdParam = (params = {}) => {
   return { valid: errors.length === 0, errors };
 };
 
-export const validateQrBody = (body = {}) => {
-  const errors = [];
-  if (!body.qrToken || typeof body.qrToken !== 'string') {
-    errors.push('qrToken is required');
-  }
-  return { valid: errors.length === 0, errors };
-};

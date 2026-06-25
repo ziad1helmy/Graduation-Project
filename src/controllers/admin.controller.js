@@ -7,6 +7,7 @@ import InboundEmail from '../models/InboundEmail.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as analyticsService from '../services/analytics.service.js';
 import * as rewardService from '../services/reward.service.js';
+import * as rewardsConfigService from '../services/rewardsConfig.service.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import { parseBooleanQuery } from '../utils/query.js';
 import {
@@ -315,17 +316,22 @@ export const listInboundEmails = asyncHandler(async (req, res) => {
     ];
   }
 
-  const [inboundEmails, total] = await Promise.all([
+  const [inboundEmails, total, supportResult] = await Promise.all([
     InboundEmail.find(filter)
       .sort({ receivedAt: -1, createdAt: -1 })
       .skip(offset)
       .limit(limit)
       .lean(),
     InboundEmail.countDocuments(filter),
+    adminService.listSupportMessages(
+      { status: req.query.supportStatus, category: req.query.supportCategory, search },
+      { page, limit }
+    ),
   ]);
 
   return response.success(res, 200, 'Inbound emails retrieved successfully', {
     inboundEmails: inboundEmails.map(toInboundEmailResponse),
+    supportTickets: supportResult.tickets,
     pagination: paginationMeta(total, page, limit),
   });
 });
@@ -560,6 +566,7 @@ export const deleteUser = asyncHandler(async (req, res) => {
   }
 });
 
+
 /** POST /admin/users/hospital */
 export const createHospital = asyncHandler(async (req, res) => {
   try {
@@ -644,7 +651,7 @@ export const createAdmin = asyncHandler(async (req, res) => {
 
 export const deleteAdmin = asyncHandler(async (req, res) => {
   try {
-    const admin = await adminService.deleteAdmin(req.params.id, req.user._id);
+    const admin = await adminService.deleteAdmin(req.params.id, req.user._id, req.user.role);
     if (!admin) {
       throw new HttpError(404, 'Admin not found');
     }
@@ -658,7 +665,7 @@ export const deleteAdmin = asyncHandler(async (req, res) => {
 });
 
 export const rotateAdminKey = asyncHandler(async (req, res) => {
-  const result = await adminService.rotateAdminKey(req.params.id, req.user._id);
+  const result = await adminService.rotateAdminKey(req.params.id, req.user._id, req.user.role);
   if (!result) {
     throw new HttpError(404, 'Admin not found');
   }
@@ -923,72 +930,61 @@ export const bulkUpdateRewardPoints = asyncHandler(async (req, res) => {
   return response.success(res, 200, 'Reward points updated successfully', { updated: result });
 });
 
-export const adjustUserPoints = asyncHandler(async (req, res) => {
-  const { userId } = req.params;
-  const { amount, reason } = req.body;
+export const adjustUserPointsByEmail = asyncHandler(async (req, res) => {
+  const { email, amount, reason } = req.body;
 
-  if (amount === undefined || !reason) {
-    throw new HttpError(400, 'amount and reason are required');
+  if (!email || amount === undefined || !reason) {
+    throw new HttpError(400, 'email, amount, and reason are required');
   }
 
   if (typeof amount !== 'number' || amount === 0) {
     throw new HttpError(400, 'amount must be a non-zero number');
   }
 
-  const data = await rewardService.adminAdjustPoints(userId, amount, reason, req.user._id);
+  const data = await rewardService.adminAdjustPointsByEmail(email, amount, reason, req.user._id);
   return response.success(res, 200, 'Points adjusted successfully', {
-    userId,
+    email,
     newBalance: data.pointsBalance,
   });
 });
 
-// ──────────────────────────────────────────────
-//  Support Inbox
-// ──────────────────────────────────────────────
+/** GET /admin/rewards/earning-rules */
+export const getRewardsEarningRules = asyncHandler(async (req, res) => {
+  const config = await rewardsConfigService.getRewardsConfig();
+  return response.success(res, 200, 'Rewards earning rules retrieved', config);
+});
 
-export const listSupportMessages = asyncHandler(async (req, res) => {
-  const { status, category, search, page, limit } = req.query;
-  const result = await adminService.listSupportMessages(
-    { status, category, search },
-    { page, limit }
+/** PUT /admin/rewards/earning-rules */
+export const updateRewardsEarningRules = asyncHandler(async (req, res) => {
+  const { points } = req.body;
+
+  if (!points || typeof points !== 'object') {
+    throw new HttpError(400, 'points object is required');
+  }
+
+  const allowedFields = [
+    'bloodDonation', 'plasmaDonation', 'plateletsDonation',
+    'doubleRedCellsDonation', 'emergencyResponse', 'profileCompletion',
+    'referral', 'firstDonation',
+  ];
+
+  const unknownFields = Object.keys(points).filter(k => !allowedFields.includes(k));
+  if (unknownFields.length > 0) {
+    throw new HttpError(400, `Unknown point fields: ${unknownFields.join(', ')}`);
+  }
+
+  for (const [key, value] of Object.entries(points)) {
+    if (typeof value !== 'number' || value < 0) {
+      throw new HttpError(400, `${key} must be a non-negative number`);
+    }
+  }
+
+  const config = await rewardsConfigService.updateRewardsConfig(
+    { points },
+    req.user._id
   );
 
-  return response.success(res, 200, 'Support messages retrieved successfully', {
-    tickets: result.tickets,
-    pagination: paginationMeta(result.total, result.page, result.limit),
-  });
-});
-
-export const getSupportMessageById = asyncHandler(async (req, res) => {
-  const ticket = await adminService.getSupportMessageById(req.params.id);
-  if (!ticket) {
-    throw new HttpError(404, 'Support message not found');
-  }
-
-  return response.success(res, 200, 'Support message retrieved successfully', { ticket });
-});
-
-export const reviewSupportMessage = asyncHandler(async (req, res) => {
-  const ticket = await adminService.reviewSupportMessage(req.params.id, req.user._id);
-  if (!ticket) {
-    throw new HttpError(404, 'Support message not found');
-  }
-
-  return response.success(res, 200, 'Support message marked as reviewed', { ticket });
-});
-
-export const replySupportMessage = asyncHandler(async (req, res) => {
-  const reply = String(req.body?.reply || '').trim();
-  if (!reply) {
-    throw new HttpError(400, 'reply is required');
-  }
-
-  const ticket = await adminService.replySupportMessage(req.params.id, reply, req.user._id);
-  if (!ticket) {
-    throw new HttpError(404, 'Support message not found');
-  }
-
-  return response.success(res, 200, 'Support reply saved successfully', { ticket });
+  return response.success(res, 200, 'Rewards earning rules updated', config);
 });
 
 // ──────────────────────────────────────────────

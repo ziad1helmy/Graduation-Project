@@ -125,7 +125,6 @@
     '/appointments/{appointmentId}/verify': 'QR Code & Checklist Verification',
     '/appointments/{appointmentId}/reject': 'QR Code & Checklist Verification',
     '/appointments/{appointmentId}/rescan': 'QR Code & Checklist Verification',
-    '/requests/verify-qr': 'QR Code & Checklist Verification',
 
     // Admin
     '/admin/system/health': 'System & Health',
@@ -152,10 +151,7 @@
     '/admin/inbound-emails/{id}/read': 'Inbound Emails',
     '/admin/inbound-emails/{id}/archive': 'Inbound Emails',
 
-    '/admin/support': 'Support Inbox',
-    '/admin/support/{id}': 'Support Inbox',
-    '/admin/support/{id}/review': 'Support Inbox',
-    '/admin/support/{id}/reply': 'Support Inbox',
+
 
     '/admin/profile': 'User Management',
     '/admin/users': 'User Management',

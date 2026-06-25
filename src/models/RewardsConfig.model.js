@@ -5,6 +5,9 @@ export const REWARDS_CONFIG_KEY = 'default';
 export const DEFAULT_REWARDS_CONFIG = {
   points: {
     bloodDonation: 200,
+    plasmaDonation: 150,
+    plateletsDonation: 175,
+    doubleRedCellsDonation: 175,
     emergencyResponse: 100,
     profileCompletion: 50,
     referral: 150,
@@ -36,6 +39,9 @@ const rewardsConfigSchema = new mongoose.Schema(
 
     points: {
       bloodDonation: { type: Number, required: true, min: 0 },
+      plasmaDonation: { type: Number, required: true, min: 0 },
+      plateletsDonation: { type: Number, required: true, min: 0 },
+      doubleRedCellsDonation: { type: Number, required: true, min: 0 },
       emergencyResponse: { type: Number, required: true, min: 0 },
       profileCompletion: { type: Number, required: true, min: 0 },
       referral: { type: Number, required: true, min: 0 },

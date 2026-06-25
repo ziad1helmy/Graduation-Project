@@ -8,7 +8,7 @@ import * as requestController from '../controllers/request.controller.js';
 // Update openapi.yaml whenever you add, change, or remove an endpoint here.
 // Do NOT add inline @openapi JSDoc to this file.
 // ─────────────────────────────────────────────────────────────────────────────
-// IMPORTANT: Static paths (e.g., /accepted, /nearby, /verify-qr) MUST be
+// IMPORTANT: Static paths (e.g., /accepted, /nearby) MUST be
 // registered BEFORE parameterized paths (e.g., /:id) to avoid route shadowing.
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -31,9 +31,6 @@ router.get('/:id/google-maps', requestController.getRequestGoogleMaps);
 
 
 router.get('/:id', requestController.getRequestDetails);
-
-
-router.post('/verify-qr', requireRole('hospital', 'admin', 'superadmin'), requestController.verifyQr);
 
 
 router.post('/:id/accept', requireRole('donor'), requestController.acceptRequest);

@@ -49,56 +49,6 @@ describe('Request Details Integration', () => {
   });
 
 
-  it('POST /requests/verify-qr validates a donation QR token after donor accepts', async () => {
-    await clearDatabase();
-    const hospital = await createHospital();
-    const donor = await createDonor();
-    const urgentRequest = await createRequest(hospital._id, {
-      bloodType: donor.bloodType,
-      contactNumber: hospital.phone,
-      isEmergency: true,
-      urgency: 'critical',
-      unitsNeeded: 1,
-    });
-
-    const hospitalToken = signToken({ userId: hospital._id.toString(), role: hospital.role });
-    const donorToken = signToken({ userId: donor._id.toString(), role: donor.role });
-
-    // Donor accepts the request — creates donation with QR
-    const acceptResponse = await request(app)
-      .post(`/requests/${urgentRequest._id}/accept`)
-      .set('Authorization', `Bearer ${donorToken}`)
-      .send({});
-
-    expect(acceptResponse.status).toBe(200);
-    expect(acceptResponse.body.data.qrToken).toBeDefined();
-
-    const qrToken = acceptResponse.body.data.qrToken;
-
-    // Hospital verifies the QR token
-    const verifyResponse = await request(app)
-      .post('/requests/verify-qr')
-      .set('Authorization', `Bearer ${hospitalToken}`)
-      .send({ qrToken });
-
-    expect(verifyResponse.status).toBe(200);
-    expect(verifyResponse.body.success).toBe(true);
-    expect(verifyResponse.body.data.valid).toBe(true);
-    expect(verifyResponse.body.data.requestId).toBe(urgentRequest._id.toString());
-    expect(verifyResponse.body.data.donationId).toBeDefined();
-    expect(verifyResponse.body.data.hospitalName).toContain('Test Hospital');
-
-    // Second scan should fail — QR already used
-    const secondVerify = await request(app)
-      .post('/requests/verify-qr')
-      .set('Authorization', `Bearer ${hospitalToken}`)
-      .send({ qrToken });
-
-    expect(secondVerify.status).toBe(200);
-    expect(secondVerify.body.data.valid).toBe(false);
-    expect(secondVerify.body.data.message).toContain('already been used');
-  });
-
   it('GET /requests/nearby filters by radius and sorts by distance', async () => {
     await clearDatabase();
     const donor = await createDonor({

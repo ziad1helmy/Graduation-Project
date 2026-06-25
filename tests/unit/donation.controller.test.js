@@ -328,7 +328,7 @@ describe('completeDonation', () => {
     );
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json.mock.calls[0][0].data.pointsEarned).toBe(100);
+    expect(res.json.mock.calls[0][0].data.pointsEarned).toBe(200);
 
     const createdDonation = await Donation.findOne({ appointmentId: appointment._id });
     expect(createdDonation).not.toBeNull();
@@ -437,7 +437,7 @@ describe('completeDonation', () => {
     await new Promise((resolve) => setTimeout(resolve, 200));
 
     expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json.mock.calls[0][0].data.pointsEarned).toBe(100);
+    expect(res.json.mock.calls[0][0].data.pointsEarned).toBe(200);
 
     // Assert logger.error was called with the failure event
     expect(loggerErrorSpy).toHaveBeenCalledWith(

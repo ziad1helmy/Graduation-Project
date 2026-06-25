@@ -30,7 +30,7 @@ export default async function maintenanceMiddleware(req, res, next) {
         SystemSettings.findOne({ key: 'maintenance_message' }),
       ]);
       cachedMode = modeSetting?.value ?? false;
-      cachedMessage = msgSetting?.value || 'System is under maintenance. Please try again later.';
+      cachedMessage = msgSetting?.value || 'LifeLink is currently under maintenance. We will be back shortly. Please try again later.';
       cacheExpiry = Date.now() + CACHE_TTL_MS;
     }
 
