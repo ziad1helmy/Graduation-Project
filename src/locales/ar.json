@@ -29,10 +29,6 @@
     "insufficient_points": "[AR] نقاط غير كافية"
   },
 
-  "admin": {
-    "dashboard_retrieved": "[AR] Dashboard summary"
-  },
-
   "notification": {
     "badge_unlocked_title": "[AR] 🏆 تم فتح الشارة: {{badgeName}}",
     "tier_up_title": "[AR] 🎉 تم الترقية إلى {{tier}}!",

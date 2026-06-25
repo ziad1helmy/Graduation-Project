@@ -120,11 +120,12 @@ export const rejectDonationLifecycle = async ({
         : null;
 
     let cancelledAppointment = null;
+    const appointmentTargetStatus = donationStatus === 'expired' ? 'expired' : 'cancelled';
     if (appointmentQuery) {
       const appointmentsToCancel = await Appointment.find(appointmentQuery).session(activeSession);
       for (const appt of appointmentsToCancel) {
-        if (appt.status !== 'cancelled') {
-          validateTransition('appointment', appt.status, 'cancelled');
+        if (appt.status !== appointmentTargetStatus) {
+          validateTransition('appointment', appt.status, appointmentTargetStatus);
         }
       }
 
@@ -134,9 +135,9 @@ export const rejectDonationLifecycle = async ({
           appointmentId,
           {
             $set: {
-              status: 'cancelled',
+              status: appointmentTargetStatus,
               cancelledAt: now,
-              notes: reason || (donationStatus === 'cancelled' ? 'Donation cancelled' : 'Donation rejected by hospital'),
+              notes: reason || (donationStatus === 'cancelled' ? 'Donation cancelled' : donationStatus === 'expired' ? 'Donation expired - no-show' : 'Donation rejected by hospital'),
             },
           },
           { returnDocument: 'after', session: activeSession }
@@ -146,9 +147,9 @@ export const rejectDonationLifecycle = async ({
           appointmentQuery,
           {
             $set: {
-              status: 'cancelled',
+              status: appointmentTargetStatus,
               cancelledAt: now,
-              notes: reason || (donationStatus === 'cancelled' ? 'Donation cancelled' : 'Donation rejected by hospital'),
+              notes: reason || (donationStatus === 'cancelled' ? 'Donation cancelled' : donationStatus === 'expired' ? 'Donation expired - no-show' : 'Donation rejected by hospital'),
             },
           },
           { session: activeSession }

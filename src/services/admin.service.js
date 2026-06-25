@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import * as jwt from '../utils/jwt.js';
 import { logger } from '../utils/logger.js';
-import { sendEmailVerificationEmail } from '../utils/mailer.js';
+import { sendEmailVerificationEmail, sendSupportReplyEmail } from '../utils/mailer.js';
 import { logAudit } from './audit.service.js';
 export { logAudit } from './audit.service.js';
 import AuditLog from '../models/AuditLog.model.js';
@@ -656,6 +656,8 @@ export const softDeleteUser = async (id, adminId) => {
     throw new Error('Cannot delete admin accounts');
   }
 
+  const atIndex = user.email.indexOf('@');
+  user.email = user.email.slice(0, atIndex) + `:deleted:${Date.now()}` + user.email.slice(atIndex);
   user.deletedAt = new Date();
   user.isSuspended = true;
   await user.save({ validateBeforeSave: false });
@@ -1418,6 +1420,14 @@ export const reviewSupportMessage = async (id, adminId) => {
   return ticket.toObject();
 };
 
+/**
+ * Reply to a support message, mark it reviewed, and notify the user via
+ * push notification + email so the reply actually reaches them.
+ * @param {string} id - SupportMessage ID
+ * @param {string} reply - Admin reply text
+ * @param {string} adminId - Replying admin's user ID
+ * @returns {Object|null} Updated ticket plain object, or null if not found
+ */
 export const replySupportMessage = async (id, reply, adminId) => {
   const ticket = await SupportMessage.findById(id);
   if (!ticket) return null;
@@ -1428,7 +1438,86 @@ export const replySupportMessage = async (id, reply, adminId) => {
   ticket.adminReplyBy = adminId;
   await ticket.save({ validateBeforeSave: false });
 
-  return ticket.toObject();
+  const ticketObj = ticket.toObject();
+
+  // Fetch user for push token + email delivery (fire-and-forget — never fail the reply)
+  setImmediate(async () => {
+    try {
+      const user = await User.findById(ticket.userId).select('fcmTokens fullName email').lean();
+      if (!user) return;
+
+      const notifTitle = 'Support Reply Received';
+      const notifMessage = `Your support request "${ticket.subject}" has been answered.`;
+
+      // In-app push notification
+      if (Array.isArray(user.fcmTokens) && user.fcmTokens.length > 0) {
+        try {
+          await sendToMultiple(
+            user.fcmTokens,
+            notifTitle,
+            notifMessage,
+            {
+              type: 'admin',
+              ticketId: String(ticket._id),
+              click_action: 'FLUTTER_NOTIFICATION_CLICK',
+            },
+            { channelId: 'support_replies' }
+          );
+        } catch (fcmErr) {
+          logger.warn('Support reply FCM delivery failed', {
+            userId: String(ticket.userId),
+            ticketId: String(ticket._id),
+            message: fcmErr.message,
+          });
+        }
+      }
+
+      // Persist in-app notification record
+      try {
+        await Notification.create({
+          userId: ticket.userId,
+          type: 'admin',
+          title: notifTitle,
+          message: notifMessage,
+          relatedId: ticket._id,
+          relatedType: null,
+          data: { ticketId: String(ticket._id) },
+        });
+      } catch (notifErr) {
+        logger.warn('Support reply in-app notification create failed', {
+          userId: String(ticket.userId),
+          ticketId: String(ticket._id),
+          message: notifErr.message,
+        });
+      }
+
+      // Email delivery
+      if (user.email) {
+        try {
+          await sendSupportReplyEmail({
+            to: user.email,
+            fullName: user.fullName,
+            subject: ticket.subject,
+            originalMessage: ticket.message,
+            reply,
+          });
+        } catch (mailErr) {
+          logger.warn('Support reply email delivery failed', {
+            userId: String(ticket.userId),
+            ticketId: String(ticket._id),
+            message: mailErr.message,
+          });
+        }
+      }
+    } catch (err) {
+      logger.error('Support reply notification dispatch error', {
+        ticketId: String(ticket._id),
+        message: err.message,
+      });
+    }
+  });
+
+  return ticketObj;
 };
 
 /**

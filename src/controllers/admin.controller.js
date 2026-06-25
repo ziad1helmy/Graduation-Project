@@ -272,9 +272,7 @@ const toInboundEmailResponse = (email) => {
     headers: email.headers,
     attachments: email.attachments,
     receivedAt: email.receivedAt,
-    read: email.read,
     readAt: email.readAt,
-    archived: email.archived,
     archivedAt: email.archivedAt,
     isRead: email.isRead,
     isArchived: email.isArchived,
@@ -861,58 +859,80 @@ export const getAdminRewards = asyncHandler(async (req, res) => {
   });
 });
 
-export const writeAdminRewards = asyncHandler(async (req, res) => {
-  const { rewardName, category, pointsRequired, status, id, updates, userId, amount, reason } = req.body;
+export const createReward = asyncHandler(async (req, res) => {
+  const { rewardName, category, pointsRequired, status, rewardSubtitle } = req.body;
 
-  if (rewardName && category && pointsRequired !== undefined) {
-    const data = await rewardService.adminCreateReward({
-      rewardName,
-      rewardSubtitle: req.body.rewardSubtitle || '',
-      category,
-      pointsRequired,
-      status,
-    });
-    return response.success(res, 201, 'Reward created successfully', data);
+  if (!rewardName || !category || pointsRequired === undefined) {
+    throw new HttpError(400, 'rewardName, category, and pointsRequired are required');
   }
 
-  if (id && status) {
-    if (!['ACTIVE', 'INACTIVE', 'LIMITED'].includes(status)) {
-      throw new HttpError(400, 'Status must be ACTIVE, INACTIVE, or LIMITED');
-    }
-    const data = await rewardService.adminUpdateRewardStatus(id, status, req.user._id);
-    if (!data) throw new HttpError(404, 'Reward not found');
-    return response.success(res, 200, 'Reward status updated successfully', {
-      id: data._id,
-      rewardName: data.name,
-      status: data.status,
-    });
+  const data = await rewardService.adminCreateReward({
+    rewardName,
+    rewardSubtitle: rewardSubtitle || '',
+    category,
+    pointsRequired,
+    status,
+  });
+
+  return response.success(res, 201, 'Reward created successfully', data);
+});
+
+export const updateRewardStatus = asyncHandler(async (req, res) => {
+  const { rewardId } = req.params;
+  const { status } = req.body;
+
+  if (!status) {
+    throw new HttpError(400, 'status is required');
   }
 
-  if (Array.isArray(updates)) {
-    if (updates.length === 0) {
-      throw new HttpError(400, 'updates array must have at least one entry');
-    }
-    for (const item of updates) {
-      if (!item.id || typeof item.pointsRequired !== 'number') {
-        throw new HttpError(400, 'Each update must have an id and pointsRequired number');
-      }
-    }
-    const result = await rewardService.adminBulkUpdateRewardPoints(updates);
-    return response.success(res, 200, 'Reward points updated successfully', { updated: result });
+  if (!['ACTIVE', 'INACTIVE', 'LIMITED'].includes(status)) {
+    throw new HttpError(400, 'Status must be ACTIVE, INACTIVE, or LIMITED');
   }
 
-  if (userId && amount !== undefined && reason) {
-    if (typeof amount !== 'number' || amount === 0) {
-      throw new HttpError(400, 'amount must be a non-zero number');
-    }
-    const data = await rewardService.adminAdjustPoints(userId, amount, reason, req.user._id);
-    return response.success(res, 200, 'Points adjusted successfully', {
-      userId,
-      newBalance: data.pointsBalance,
-    });
+  const data = await rewardService.adminUpdateRewardStatus(rewardId, status, req.user._id);
+  if (!data) throw new HttpError(404, 'Reward not found');
+
+  return response.success(res, 200, 'Reward status updated successfully', {
+    id: data._id,
+    rewardName: data.name,
+    status: data.status,
+  });
+});
+
+export const bulkUpdateRewardPoints = asyncHandler(async (req, res) => {
+  const { updates } = req.body;
+
+  if (!Array.isArray(updates) || updates.length === 0) {
+    throw new HttpError(400, 'updates array must have at least one entry');
   }
 
-  throw new HttpError(400, 'Invalid request body — provide rewardName/category/pointsRequired, id/status, updates[], or userId/amount/reason');
+  for (const item of updates) {
+    if (!item.id || typeof item.pointsRequired !== 'number') {
+      throw new HttpError(400, 'Each update must have an id and pointsRequired number');
+    }
+  }
+
+  const result = await rewardService.adminBulkUpdateRewardPoints(updates);
+  return response.success(res, 200, 'Reward points updated successfully', { updated: result });
+});
+
+export const adjustUserPoints = asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const { amount, reason } = req.body;
+
+  if (amount === undefined || !reason) {
+    throw new HttpError(400, 'amount and reason are required');
+  }
+
+  if (typeof amount !== 'number' || amount === 0) {
+    throw new HttpError(400, 'amount must be a non-zero number');
+  }
+
+  const data = await rewardService.adminAdjustPoints(userId, amount, reason, req.user._id);
+  return response.success(res, 200, 'Points adjusted successfully', {
+    userId,
+    newBalance: data.pointsBalance,
+  });
 });
 
 // ──────────────────────────────────────────────
@@ -926,7 +946,10 @@ export const listSupportMessages = asyncHandler(async (req, res) => {
     { page, limit }
   );
 
-  return response.success(res, 200, 'Support messages retrieved successfully', result);
+  return response.success(res, 200, 'Support messages retrieved successfully', {
+    tickets: result.tickets,
+    pagination: paginationMeta(result.total, result.page, result.limit),
+  });
 });
 
 export const getSupportMessageById = asyncHandler(async (req, res) => {

@@ -64,6 +64,9 @@ const RESCHEDULE_ERROR_PATTERNS = [
   'Hospital does not allow rescheduling',
   'linked request is no longer active',
   'Selected time slot is no longer available',
+  'Selected day is not available',
+  'Selected time slot is outside operating hours',
+  'Daily appointment capacity has been reached',
   'at least',
   'cannot be more than',
   'support this donation type',
@@ -75,6 +78,17 @@ const RESCHEDULE_ERROR_PATTERNS = [
   'Hospital is suspended',
   'Hospital is not verified',
   'Hospital appointment scheduling is currently disabled',
+  // eligibility key strings (i18n keys used as error identifiers)
+  ELIGIBILITY_KEYS.DONOR_HAS_NO_BLOOD_TYPE,
+  ELIGIBILITY_KEYS.BLOOD_TYPE_INCOMPATIBLE,
+  ELIGIBILITY_KEYS.DONATION_COOLDOWN_ACTIVE,
+  ELIGIBILITY_KEYS.OUTSIDE_MATCHING_RADIUS,
+  ELIGIBILITY_KEYS.DONOR_SUSPENDED,
+  ELIGIBILITY_KEYS.DONOR_CURRENTLY_UNAVAILABLE,
+  ELIGIBILITY_KEYS.TEMPORARILY_DEFERRED,
+  ELIGIBILITY_KEYS.TRAVEL_DEFERRAL,
+  ELIGIBILITY_KEYS.DONOR_NOT_ELIGIBLE,
+  ELIGIBILITY_KEYS.ACTIVE_DONATION_IN_PROGRESS,
 ];
 
 const BOOKING_ERROR_400_MESSAGES = [

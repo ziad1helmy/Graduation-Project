@@ -41,10 +41,6 @@ router.get('/leaderboard', rc.getLeaderboard);
 
 // ── Admin routes ──────────────────────────────────────────
 
-router.post('/admin/users/:userId/points/adjust', requireRole('admin', 'superadmin'), rc.adminAdjustPoints);
-
-router.patch('/admin/catalog/:rewardId/status', requireRole('admin', 'superadmin'), rc.adminUpdateRewardStatus);
-
 router.get('/admin/analytics', requireRole('admin', 'superadmin'), rc.adminGetRewardsAnalytics);
 
 export default router;

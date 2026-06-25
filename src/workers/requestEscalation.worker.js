@@ -1,12 +1,16 @@
 import mongoose from 'mongoose';
 import Request from '../models/Request.model.js';
 import Donation from '../models/Donation.model.js';
+import Appointment from '../models/Appointment.model.js';
 import { validateTransition } from '../utils/state-machine.js';
 import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
 import { logger } from '../utils/logger.js';
 
 const getMatchingService = async () => import('../services/matching.service.js');
 const getNotificationService = async () => import('../services/notification.service.js');
+const getRejectDonationLifecycle = async () => import('../services/request-lifecycle.service.js');
+
+const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
 
 export const processArrivalExpirations = async () => {
   const now = new Date();
@@ -271,18 +275,81 @@ export const processEmergencyReBroadcasts = async () => {
   return { reBroadcast, skipped, failed };
 };
 
+export const processAppointmentExpirations = async () => {
+  const now = new Date();
+  let expired = 0;
+  let skipped = 0;
+  let failed = 0;
+
+  const staleAppointments = await Appointment.find({
+    status: { $in: ACTIVE_APPOINTMENT_STATUSES },
+    qrExpiresAt: { $ne: null, $lt: now },
+  });
+
+  for (const appointment of staleAppointments) {
+    const session = await mongoose.startSession();
+    try {
+      let processed = false;
+      await session.withTransaction(async () => {
+        const sessionAppointment = await Appointment.findById(appointment._id).session(session);
+        if (!sessionAppointment || !ACTIVE_APPOINTMENT_STATUSES.includes(sessionAppointment.status)) {
+          return;
+        }
+        if (!sessionAppointment.qrExpiresAt || now <= new Date(sessionAppointment.qrExpiresAt)) {
+          return;
+        }
+
+        const { rejectDonationLifecycle } = await getRejectDonationLifecycle();
+        await rejectDonationLifecycle({
+          appointmentId: sessionAppointment._id,
+          requestId: sessionAppointment.requestId || undefined,
+          donorId: sessionAppointment.donorId,
+          reason: 'Appointment expired - donor did not arrive',
+          requestStatus: 'pending',
+          donationStatus: 'expired',
+          session,
+        });
+
+        processed = true;
+      });
+
+      if (processed) {
+        expired += 1;
+        logger.info('Appointment expired', {
+          appointmentId: String(appointment._id),
+          donorId: String(appointment.donorId),
+        });
+      } else {
+        skipped += 1;
+      }
+    } catch (err) {
+      logger.error('Failed to process appointment expiration', {
+        appointmentId: String(appointment._id),
+        error: err.message,
+      });
+      failed += 1;
+    } finally {
+      session.endSession();
+    }
+  }
+
+  return { expired, skipped, failed };
+};
+
 export const runIteration = async () => {
-  const [expiryResult, broadcastResult, emergencyResult] = await Promise.all([
+  const [expiryResult, broadcastResult, emergencyResult, appointmentResult] = await Promise.all([
     processArrivalExpirations(),
     processReBroadcasts(),
     processEmergencyReBroadcasts(),
+    processAppointmentExpirations(),
   ]);
 
   return {
     arrivalExpirations: expiryResult,
     reBroadcasts: broadcastResult,
     emergencyReBroadcasts: emergencyResult,
+    appointmentExpirations: appointmentResult,
   };
 };
 
-export default { processArrivalExpirations, processReBroadcasts, processEmergencyReBroadcasts, runIteration };
+export default { processArrivalExpirations, processReBroadcasts, processEmergencyReBroadcasts, processAppointmentExpirations, runIteration };

@@ -4065,6 +4065,114 @@ paths:
                 message: Identity fields cannot be provided in the request body
         "401":
           description: Unauthenticated request
+  /support/my-tickets:
+    get:
+      summary: List my support tickets
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      description: Retrieve a paginated list of support tickets submitted by the authenticated donor.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Number of items per page
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - OPEN
+              - REVIEWED
+          description: Filter by status
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum:
+              - TECHNICAL
+              - ACCOUNT
+              - DONATION
+              - REWARDS
+              - OTHER
+          description: Filter by category
+      responses:
+        "200":
+          description: Support tickets retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Support tickets retrieved successfully
+                data:
+                  tickets:
+                    - _id: "670000000000000000000001"
+                      id: "670000000000000000000001"
+                      subject: Need help with reward redemption
+                      category: REWARDS
+                      message: I can see my points balance but I want to confirm when the Coffee Voucher becomes available.
+                      status: OPEN
+                      adminReply: null
+                      adminReplyAt: null
+                      createdAt: "2026-05-24T16:24:00.000Z"
+                  pagination:
+                    total: 1
+                    page: 1
+                    currentPage: 1
+                    limit: 20
+                    totalPages: 1
+                    hasNextPage: false
+                    hasPrevPage: false
+        "401":
+          description: Unauthenticated request
+  /support/my-tickets/{id}:
+    get:
+      summary: Get my support ticket details
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      description: Retrieve details of a specific support ticket submitted by the authenticated donor, including the admin reply if available.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Support ticket retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Support ticket retrieved successfully
+                data:
+                  ticket:
+                    _id: "670000000000000000000001"
+                    id: "670000000000000000000001"
+                    subject: Need help with reward redemption
+                    category: REWARDS
+                    message: I can see my points balance but I want to confirm when the Coffee Voucher becomes available.
+                    status: REVIEWED
+                    adminReply: The Coffee Voucher will be active on the first of next month.
+                    adminReplyAt: "2026-05-24T17:00:00.000Z"
+                    createdAt: "2026-05-24T16:24:00.000Z"
+        "400":
+          description: Invalid ticket ID
+        "401":
+          description: Unauthenticated request
+        "404":
+          description: Support ticket not found
   /notifications:
     get:
       summary: List notifications for authenticated user
@@ -7505,17 +7613,7 @@ paths:
                       role: donor
                       currentPoints: 1250
     post:
-      summary: All admin rewards write operations
-      description: |
-        Single endpoint for every write operation in the rewards system.
-        The body shape determines which action is performed:
-
-        | Action | Required body fields | Response status |
-        |--------|---------------------|-----------------|
-        | Create reward | `rewardName`, `category`, `pointsRequired` (+ optional `status`) | **201** |
-        | Update reward status | `id`, `status` | **200** |
-        | Bulk update points | `updates` (array of `{id, pointsRequired}`) | **200** |
-        | Adjust user points | `userId`, `amount`, `reason` | **200** |
+      summary: Create a new reward in the catalog
       tags:
         - Admin
       security:
@@ -7526,74 +7624,43 @@ paths:
           application/json:
             schema:
               type: object
-              description: Body shape determines action — see summary table above
+              required:
+                - rewardName
+                - category
+                - pointsRequired
               properties:
                 rewardName:
                   type: string
-                  description: Required for create-reward action
+                  description: Display name of the reward
+                  example: Coffee Voucher
+                rewardSubtitle:
+                  type: string
+                  description: Optional short description
+                  example: Free coffee at partner cafes
                 category:
                   type: string
-                  description: Required for create-reward action (e.g. FOOD, HEALTH, ENTERTAINMENT, STATUS)
+                  enum: [FOOD, ENTERTAINMENT, HEALTH, STATUS]
+                  description: Category grouping
+                  example: FOOD
                 pointsRequired:
                   type: integer
-                  description: Required for create-reward and bulk-update actions
+                  minimum: 1
+                  description: Points cost to redeem
+                  example: 500
                 status:
                   type: string
-                  enum: [ACTIVE, INACTIVE]
-                  description: Used in create-reward (optional, default ACTIVE) and status-update actions
-                id:
-                  type: string
-                  description: Required for status-update action
-                updates:
-                  type: array
-                  description: Required for bulk-update action
-                  items:
-                    type: object
-                    properties:
-                      id:
-                        type: string
-                      pointsRequired:
-                        type: integer
-                userId:
-                  type: string
-                  description: Required for adjust-points action
-                amount:
-                  type: integer
-                  description: Required for adjust-points action. Positive = credit, negative = debit
-                reason:
-                  type: string
-                  description: Required for adjust-points action
+                  enum: [ACTIVE, INACTIVE, LIMITED]
+                  description: Defaults to ACTIVE
+                  default: ACTIVE
             examples:
               createReward:
                 summary: Create reward
-                description: Used by the Add Reward dialog in both Overview and Configuration tabs
                 value:
                   rewardName: Coffee Voucher
+                  rewardSubtitle: Free coffee at partner cafes
                   category: FOOD
                   pointsRequired: 500
                   status: ACTIVE
-              updateStatus:
-                summary: Update reward status
-                description: Used by the status toggle dropdown on each catalog row
-                value:
-                  id: 664a123456789abcdef12345
-                  status: INACTIVE
-              bulkUpdate:
-                summary: Bulk update reward points
-                description: Used when admin hits Save after editing point values in the Configuration tab
-                value:
-                  updates:
-                    - id: 664a123456789abcdef12345
-                      pointsRequired: 600
-                    - id: 664a123456789abcdef12346
-                      pointsRequired: 1100
-              adjustPoints:
-                summary: Adjust user points
-                description: Used by the Manual Points Adjustment card in the Adjust Points tab
-                value:
-                  userId: 69f3df915f42685cbbbcbb18
-                  amount: 200
-                  reason: Community engagement bonus
       responses:
         "201":
           description: Reward created successfully
@@ -7609,43 +7676,172 @@ paths:
                   pointsRequired: 500
                   redeemedCount: 0
                   status: ACTIVE
+        "400":
+          description: Missing required fields
+  /admin/rewards/{rewardId}/status:
+    patch:
+      summary: Update a reward's active status
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: rewardId
+          required: true
+          schema:
+            type: string
+          description: MongoDB ObjectId of the reward
+          example: 664a123456789abcdef12345
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - status
+              properties:
+                status:
+                  type: string
+                  enum: [ACTIVE, INACTIVE, LIMITED]
+                  description: New status
+                  example: INACTIVE
+            examples:
+              updateStatus:
+                summary: Deactivate a reward
+                value:
+                  status: INACTIVE
+      responses:
         "200":
-          description: Successful update or adjustment
+          description: Reward status updated
           content:
             application/json:
-              examples:
-                statusUpdated:
-                  summary: Reward status updated
-                  value:
-                    success: true
-                    message: Reward status updated successfully
-                    data:
-                      id: 664a123456789abcdef12345
-                      rewardName: Coffee Voucher
-                      status: INACTIVE
-                bulkUpdated:
-                  summary: Reward points updated
-                  value:
-                    success: true
-                    message: Reward points updated successfully
-                    data:
-                      updated:
-                        - id: 664a123456789abcdef12345
-                          rewardName: Coffee Voucher
-                          pointsRequired: 600
-                        - id: 664a123456789abcdef12346
-                          rewardName: Movie Tickets
-                          pointsRequired: 1100
-                pointsAdjusted:
-                  summary: Points adjusted
-                  value:
-                    success: true
-                    message: Points adjusted successfully
-                    data:
-                      userId: 69f3df915f42685cbbbcbb18
-                      newBalance: 1450
+              example:
+                success: true
+                message: Reward status updated successfully
+                data:
+                  id: 664a123456789abcdef12345
+                  rewardName: Coffee Voucher
+                  status: INACTIVE
         "400":
-          description: Invalid request body. Valid body shapes are documented in the requestBody section above.
+          description: Invalid status value
+        "404":
+          description: Reward not found
+  /admin/rewards/bulk-points:
+    patch:
+      summary: Bulk update points cost for multiple rewards
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - updates
+              properties:
+                updates:
+                  type: array
+                  minItems: 1
+                  items:
+                    type: object
+                    required:
+                      - id
+                      - pointsRequired
+                    properties:
+                      id:
+                        type: string
+                        description: Reward ObjectId
+                        example: 664a123456789abcdef12345
+                      pointsRequired:
+                        type: integer
+                        minimum: 1
+                        description: New points cost
+                        example: 600
+            examples:
+              bulkUpdate:
+                summary: Update multiple rewards
+                value:
+                  updates:
+                    - id: 664a123456789abcdef12345
+                      pointsRequired: 600
+                    - id: 664a123456789abcdef12346
+                      pointsRequired: 1100
+      responses:
+        "200":
+          description: Rewards updated
+          content:
+            application/json:
+              example:
+                success: true
+                message: Reward points updated successfully
+                data:
+                  updated:
+                    - id: 664a123456789abcdef12345
+                      rewardName: Coffee Voucher
+                      pointsRequired: 600
+                    - id: 664a123456789abcdef12346
+                      rewardName: Movie Tickets
+                      pointsRequired: 1100
+        "400":
+          description: Invalid updates array
+  /admin/rewards/users/{userId}/points/adjust:
+    post:
+      summary: Manually adjust a donor's points balance
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: userId
+          required: true
+          schema:
+            type: string
+          description: MongoDB ObjectId of the donor
+          example: 69f3df915f42685cbbbcbb18
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - amount
+                - reason
+              properties:
+                amount:
+                  type: integer
+                  description: Positive = credit, negative = debit. Must be non-zero.
+                  example: 200
+                reason:
+                  type: string
+                  minLength: 1
+                  description: Reason displayed in audit log
+                  example: Community engagement bonus
+            examples:
+              adjustPoints:
+                summary: Credit points to a donor
+                value:
+                  amount: 200
+                  reason: Community engagement bonus
+      responses:
+        "200":
+          description: Points adjusted
+          content:
+            application/json:
+              example:
+                success: true
+                message: Points adjusted successfully
+                data:
+                  userId: 69f3df915f42685cbbbcbb18
+                  newBalance: 1450
+        "400":
+          description: Invalid amount or missing reason
   /admin/inbound-emails:
     get:
       summary: List inbound emails
@@ -7766,6 +7962,10 @@ paths:
                 data:
                   inboundEmail:
                     _id: 66f700000000000000000001
+        "400":
+          description: Invalid inbound email ID
+        "404":
+          description: Inbound email not found
   /admin/inbound-emails/{id}/read:
     patch:
       summary: Mark an inbound email as read

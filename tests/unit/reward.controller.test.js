@@ -13,8 +13,6 @@ vi.mock('../../src/services/reward.service.js', () => ({
   redeemReward: vi.fn(),
   getDonorRedemptions: vi.fn(),
   getLeaderboard: vi.fn(),
-  adminAdjustPoints: vi.fn(),
-  adminUpdateRewardStatus: vi.fn(),
   getRewardsAnalytics: vi.fn(),
 }));
 
@@ -129,76 +127,4 @@ describe('Reward Controller', () => {
     });
   });
 
-  describe('adminAdjustPoints', () => {
-    it('returns 400 if amount or reason missing', async () => {
-      const req = makeMockReq({
-        user: { userId: adminId },
-        params: { userId },
-        body: { amount: 100 }, // missing reason
-      });
-      const res = makeMockRes();
-      const next = vi.fn();
-
-      await rewardController.adminAdjustPoints(req, res, next);
-
-      expect(next).toHaveBeenCalledTimes(1);
-      const httpErr = next.mock.calls[0][0];
-      expect(httpErr).toBeInstanceOf(HttpError);
-      expect(httpErr.statusCode).toBe(400);
-      expect(httpErr.message).toBe('Amount and reason are required');
-    });
-
-    it('successfully adjusts points when request is valid', async () => {
-      const req = makeMockReq({
-        user: { userId: adminId },
-        params: { userId },
-        body: { amount: 100, reason: 'Good deed' },
-      });
-      const res = makeMockRes();
-      const next = vi.fn();
-
-      rewardService.adminAdjustPoints.mockResolvedValue({ success: true, pointsBalance: 200 });
-
-      await rewardController.adminAdjustPoints(req, res, next);
-
-      expect(rewardService.adminAdjustPoints).toHaveBeenCalledWith(userId, 100, 'Good deed', adminId);
-      expect(res.status).toHaveBeenCalledWith(200);
-    });
-  });
-
-  describe('adminUpdateRewardStatus', () => {
-    it('returns 400 if status is invalid', async () => {
-      const req = makeMockReq({
-        user: { userId: adminId },
-        params: { rewardId },
-        body: { status: 'EXPIRED' }, // Invalid status, should be ACTIVE/INACTIVE/LIMITED
-      });
-      const res = makeMockRes();
-      const next = vi.fn();
-
-      await rewardController.adminUpdateRewardStatus(req, res, next);
-
-      expect(next).toHaveBeenCalledTimes(1);
-      const httpErr = next.mock.calls[0][0];
-      expect(httpErr).toBeInstanceOf(HttpError);
-      expect(httpErr.statusCode).toBe(400);
-    });
-
-    it('updates status when status is valid', async () => {
-      const req = makeMockReq({
-        user: { userId: adminId },
-        params: { rewardId },
-        body: { status: 'ACTIVE' },
-      });
-      const res = makeMockRes();
-      const next = vi.fn();
-
-      rewardService.adminUpdateRewardStatus.mockResolvedValue({ rewardId, status: 'ACTIVE' });
-
-      await rewardController.adminUpdateRewardStatus(req, res, next);
-
-      expect(rewardService.adminUpdateRewardStatus).toHaveBeenCalledWith(rewardId, 'ACTIVE', adminId);
-      expect(res.status).toHaveBeenCalledWith(200);
-    });
-  });
 });
