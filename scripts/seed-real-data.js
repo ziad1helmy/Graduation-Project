@@ -11,6 +11,7 @@
 import mongoose from 'mongoose';
 import { validateEnv } from '../src/config/env.js';
 import { connectDB, disconnectDB } from '../src/config/db.js';
+import { encryptAdminKey } from '../src/utils/admin-key-crypto.js';
 import User from '../src/models/User.model.js';
 import Donor from '../src/models/Donor.model.js';
 import Hospital from '../src/models/Hospital.model.js';
@@ -65,6 +66,7 @@ const LAST_NAMES = [
   'El Masry', 'El Hindi', 'Shaker', 'Badr',
 ];
 
+// Spread donors across 15 Egyptian governorates to enable realistic geo-matching
 const GOVERNORATES = [
   { gov: 'Cairo', cities: ['Cairo', 'Nasr City', 'Heliopolis', 'Maadi', 'Helwan', 'Shubra', 'Zamalek', 'Mohandessin', 'Dokki'], latBase: 30.05, lngBase: 31.25 },
   { gov: 'Giza', cities: ['Giza', 'Haram', 'Faisal', 'Agouza', 'Imbaba', 'Dokki'], latBase: 30.01, lngBase: 31.20 },
@@ -177,31 +179,41 @@ async function ensureUser(model, payload) {
     ? { ...payload, name: payload.hospitalName }
     : payload;
 
-  const existingBase = await User.findOne({ email: normalizedPayload.email }).select('+password +adminKey');
+  const { adminKey: plaintextKey, ...userPayload } = normalizedPayload;
 
-  if (existingBase && existingBase.role !== normalizedPayload.role) {
-    throw new Error(`Existing user role mismatch for ${normalizedPayload.email}`);
+  const existingBase = await User.findOne({ email: userPayload.email }).select('+password +adminKey');
+
+  if (existingBase && existingBase.role !== userPayload.role) {
+    throw new Error(`Existing user role mismatch for ${userPayload.email}`);
   }
 
+  let user;
   if (!existingBase) {
-    return model.create({
-      ...normalizedPayload,
+    user = await model.create({
+      ...userPayload,
       isEmailVerified: true,
       emailVerifiedAt: now,
       isSuspended: false,
       deletedAt: null,
     });
+  } else {
+    user = await model.findById(existingBase._id).select('+password +adminKey');
+    Object.entries(userPayload).forEach(([key, value]) => {
+      user[key] = value;
+    });
+    user.isEmailVerified = true;
+    user.emailVerifiedAt = now;
+    user.deletedAt = null;
+    await user.save();
+    user = await model.findById(existingBase._id).select('+adminKey');
   }
 
-  const doc = await model.findById(existingBase._id).select('+password +adminKey');
-  Object.entries(normalizedPayload).forEach(([key, value]) => {
-    doc[key] = value;
-  });
-  doc.isEmailVerified = true;
-  doc.emailVerifiedAt = now;
-  doc.deletedAt = null;
-  await doc.save();
-  return doc;
+  if (plaintextKey) {
+    user.adminKey = encryptAdminKey(plaintextKey, user._id.toString());
+    await user.save({ validateBeforeSave: false });
+  }
+
+  return user;
 }
 
 async function ensureRequest(filter, data) {
@@ -220,27 +232,9 @@ async function ensureDonation(filter, data) {
 
 // ─── Main ───────────────────────────────────────────────────────────────────
 
-async function main() {
-  validateEnv();
-
-  const uri = process.env.MONGO_URI || process.env.MONGODB_URI || '';
-  if (
-    process.env.NODE_ENV === 'production' ||
-    uri.toLowerCase().includes('prod') ||
-    uri.toLowerCase().includes('production')
-  ) {
-    console.error('❌ Safe-guard: Cannot run seed script against a production cluster!');
-    process.exit(1);
-  }
-
-  await connectDB();
-
-  if (mongoose.connection.readyState !== 1) {
-    throw new Error('Seed requires an active MongoDB connection.');
-  }
-
+async function seedHospitals() {
   console.log('Seeding 20 real Egyptian hospitals...');
-  const hospitalDocs = [];
+  const docs = [];
   for (let i = 0; i < HOSPITALS.length; i++) {
     const h = HOSPITALS[i];
     const idx = String(i + 1).padStart(3, '0');
@@ -271,13 +265,16 @@ async function main() {
         lastUpdated: now,
       },
     });
-    hospitalDocs.push(doc);
+    docs.push(doc);
     if ((i + 1) % 5 === 0) console.log(`  ✓ ${i + 1}/${HOSPITALS.length} hospitals seeded`);
   }
   console.log(`  ✓ All ${HOSPITALS.length} hospitals seeded`);
+  return docs;
+}
 
+async function seedDonors() {
   console.log('Seeding 100 realistic Egyptian donors...');
-  const donorDocs = [];
+  const docs = [];
   for (let i = 0; i < 100; i++) {
     const isMale = Math.random() < 0.5;
     const firstName = isMale ? pick(MALE_FIRST_NAMES) : pick(FEMALE_FIRST_NAMES);
@@ -309,15 +306,17 @@ async function main() {
         lastUpdated: new Date(Date.now() - Math.floor(Math.random() * 60) * 24 * 60 * 60 * 1000),
       },
     });
-    donorDocs.push(donor);
+    docs.push(donor);
   }
   console.log('  ✓ All 100 donors seeded');
+  return docs;
+}
 
-  // Create a few blood requests from the hospitals
+async function seedRequests(hospitals) {
   console.log('Seeding sample blood requests and donations...');
-  const seededRequests = [];
+  const docs = [];
   for (let i = 0; i < Math.min(30, HOSPITALS.length); i++) {
-    const hospital = hospitalDocs[i];
+    const hospital = hospitals[i];
     const needsBlood = BLOOD_TYPES.filter(() => Math.random() < 0.4);
     if (needsBlood.length === 0) continue;
 
@@ -341,19 +340,21 @@ async function main() {
         notes: `[real-data] request-${i}`,
       }
     );
-    seededRequests.push(request);
+    docs.push(request);
   }
-  console.log(`  ✓ ${seededRequests.length} blood requests created`);
+  console.log(`  ✓ ${docs.length} blood requests created`);
+  return docs;
+}
 
-  // Link some donors to some requests as donations
-  let donationCount = 0;
-  for (let i = 0; i < seededRequests.length && i < donorDocs.length; i++) {
-    const request = seededRequests[i];
-    const donor = donorDocs[i];
+async function seedDonations(requests, donors) {
+  let count = 0;
+  for (let i = 0; i < requests.length && i < donors.length; i++) {
+    const request = requests[i];
+    const donor = donors[i];
     const statuses = ['pending', 'scheduled', 'completed', 'completed', 'cancelled'];
     const status = pick(statuses);
 
-    const donationData = {
+    const data = {
       donorId: donor._id,
       requestId: request._id,
       status,
@@ -362,30 +363,29 @@ async function main() {
     };
 
     if (status === 'scheduled') {
-      donationData.scheduledDate = futureDate(1 + Math.floor(Math.random() * 5));
+      data.scheduledDate = futureDate(1 + Math.floor(Math.random() * 5));
     }
     if (status === 'completed') {
-      donationData.completedDate = pastDate(1 + Math.floor(Math.random() * 30));
+      data.completedDate = pastDate(1 + Math.floor(Math.random() * 30));
     }
 
-    await ensureDonation(
-      { donorId: donor._id, requestId: request._id },
-      donationData
-    );
-    donationCount++;
+    await ensureDonation({ donorId: donor._id, requestId: request._id }, data);
+    count++;
   }
-  console.log(`  ✓ ${donationCount} donations linked to requests`);
+  console.log(`  ✓ ${count} donations linked to requests`);
+  return count;
+}
 
-  // Print summary
+function printSummary(hospitals, donors, requests, donations) {
   console.log('');
   console.log('╔══════════════════════════════════════════════════════════╗');
   console.log('║   Real Egypt Data Seed — Complete                       ║');
   console.log('╚══════════════════════════════════════════════════════════╝');
   console.log('');
-  console.log(`  Hospitals: ${hospitalDocs.length} (real Wikidata data)`);
-  console.log(`  Donors:    ${donorDocs.length} (realistic Egyptian profiles)`);
-  console.log(`  Requests:  ${seededRequests.length}`);
-  console.log(`  Donations: ${donationCount}`);
+  console.log(`  Hospitals: ${hospitals.length} (real Wikidata data)`);
+  console.log(`  Donors:    ${donors.length} (realistic Egyptian profiles)`);
+  console.log(`  Requests:  ${requests.length}`);
+  console.log(`  Donations: ${donations}`);
   console.log('');
   console.log('Credentials (all accounts — password varies by role):');
   console.log(`  Donors:    any donor email / DonorPass@123`);
@@ -403,10 +403,37 @@ async function main() {
   }
   console.log('');
   console.log('Sample donor logins (first 5):');
-  for (let i = 0; i < 5 && i < donorDocs.length; i++) {
-    console.log(`  ${donorDocs[i].email} / DonorPass@123`);
+  for (let i = 0; i < 5 && i < donors.length; i++) {
+    console.log(`  ${donors[i].email} / DonorPass@123`);
   }
-  console.log(`  ... and ${donorDocs.length - 5} more donors`);
+  console.log(`  ... and ${donors.length - 5} more donors`);
+}
+
+async function main() {
+  validateEnv();
+
+  const uri = process.env.MONGO_URI || process.env.MONGODB_URI || '';
+  if (
+    process.env.NODE_ENV === 'production' ||
+    uri.toLowerCase().includes('prod') ||
+    uri.toLowerCase().includes('production')
+  ) {
+    console.error('❌ Safe-guard: Cannot run seed script against a production cluster!');
+    process.exit(1);
+  }
+
+  await connectDB();
+
+  if (mongoose.connection.readyState !== 1) {
+    throw new Error('Seed requires an active MongoDB connection.');
+  }
+
+  const hospitals = await seedHospitals();
+  const donors = await seedDonors();
+  const requests = await seedRequests(hospitals);
+  const donationCount = await seedDonations(requests, donors);
+
+  printSummary(hospitals, donors, requests, donationCount);
 }
 
 try {

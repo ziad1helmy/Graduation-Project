@@ -8739,8 +8739,18 @@ paths:
                   type: array
                   items:
                     type: string
+                    enum:
+                      - O+
+                      - O-
+                      - A+
+                      - A-
+                      - B+
+                      - B-
+                      - AB+
+                      - AB-
                 capacity:
                   type: number
+                  minimum: 0
             example:
               fullName: Cairo Care Hospital
               hospitalName: Cairo Care Hospital
@@ -9084,11 +9094,13 @@ paths:
                       fullName: Noura Hassan
                       email: admin@lifelink.demo
                       role: admin
+                      adminKey: ADMA1B
                       isEmailVerified: true
                     - _id: 66f200000000000000000002
                       fullName: Youssef Fathy
                       email: superadmin@lifelink.demo
                       role: superadmin
+                      adminKey: SUPA1B
                       isEmailVerified: true
                   total: 2
                   page: 1

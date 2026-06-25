@@ -130,6 +130,33 @@ export const getAlerts = asyncHandler(async (req, res) => {
 });
 
 
+const formatAuditLog = (log, t) => {
+  const logObj = log.toObject ? log.toObject() : log;
+  const adminEmail = logObj.adminId?.email || t('admin.audit.system_label');
+
+  const actionKey = `admin.audit.action.${logObj.action}`;
+  const friendlyAction = t(actionKey, logObj);
+  const displayAction = friendlyAction !== actionKey ? friendlyAction : logObj.action;
+
+  let details = logObj.changes?.details || '';
+  if (!details) {
+    const detailKey = `admin.audit.details.${logObj.action}`;
+    const detailValue = t(detailKey, { targetId: logObj.targetId, action: logObj.action, targetType: logObj.targetType });
+    details = detailValue !== detailKey ? detailValue : t('admin.audit.details.default', { targetId: logObj.targetId, action: logObj.action, targetType: logObj.targetType });
+  }
+
+  return {
+    _id: logObj._id,
+    adminId: logObj.adminId?._id || logObj.adminId || null,
+    adminName: adminEmail,
+    action: displayAction,
+    targetId: logObj.targetId,
+    targetType: logObj.targetType ? logObj.targetType.toLowerCase() : null,
+    details,
+    createdAt: logObj.createdAt,
+  };
+};
+
 /** GET /admin/audit-logs */
 export const getAuditLogs = asyncHandler(async (req, res) => {
   const { action, targetType, adminId, page, limit } = req.query;
@@ -138,31 +165,7 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
     { page, limit }
   );
 
-  const actionKey = (actionCode) => `admin.audit.action.${actionCode.replace(/^(user|system)\./, '')}`;
-  const detailsKey = (actionCode) => `admin.audit.details.${actionCode.replace(/^(user|system)\./, '')}`;
-
-  const formattedLogs = result.logs.map((log) => {
-    const logObj = log.toObject ? log.toObject() : log;
-    const adminEmail = logObj.adminId?.email || 'System';
-
-    const friendlyAction = req.t(actionKey(logObj.action), logObj);
-
-    let details = logObj.changes?.details || '';
-    if (!details) {
-      details = req.t(detailsKey(logObj.action), { targetId: logObj.targetId, action: logObj.action, targetType: logObj.targetType });
-    }
-
-    return {
-      _id: logObj._id,
-      adminId: logObj.adminId?._id || logObj.adminId || null,
-      adminName: adminEmail,
-      action: friendlyAction,
-      targetId: logObj.targetId,
-      targetType: logObj.targetType ? logObj.targetType.toLowerCase() : null,
-      details,
-      createdAt: logObj.createdAt,
-    };
-  });
+  const formattedLogs = result.logs.map((log) => formatAuditLog(log, req.t));
 
   const totalPages = Math.ceil(result.total / result.limit) || 1;
   const pagination = {

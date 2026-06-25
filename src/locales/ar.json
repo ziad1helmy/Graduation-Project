@@ -101,25 +101,76 @@
   "admin": {
     "audit_logs": "[AR] سجلات التدقيق",
     "audit": {
+      "system_label": "[AR] النظام",
       "action": {
-        "create_hospital": "[AR] تمت إضافة مستشفى",
-        "ban": "[AR] تم حظر المستخدم",
-        "unban": "[AR] تم إلغاء حظر المستخدم",
-        "suspend": "[AR] تم تعليق المستخدم",
-        "unsuspend": "[AR] تم إلغاء تعليق المستخدم",
-        "delete": "[AR] تم حذف المستخدم",
-        "create_admin": "[AR] تمت إضافة مشرف",
-        "maintenance": "[AR] تم تحديث وضع الصيانة"
+        "user": {
+          "ban": "[AR] تم حظر المستخدم",
+          "unban": "[AR] تم إلغاء حظر المستخدم",
+          "delete": "[AR] تم حذف المستخدم",
+          "create_hospital": "[AR] تمت إضافة مستشفى",
+          "create_admin": "[AR] تمت إضافة مشرف",
+          "update_donor": "[AR] تم تحديث المتبرع",
+          "update_hospital": "[AR] تم تحديث المستشفى",
+          "update_admin": "[AR] تم تحديث المشرف",
+          "delete_admin": "[AR] تم حذف المشرف",
+          "rotate_admin_key": "[AR] تم تدوير مفتاح المشرف"
+        },
+        "system": {
+          "maintenance": "[AR] تم تحديث وضع الصيانة"
+        },
+        "admin": {
+          "update_profile": "[AR] تم تحديث الملف الشخصي",
+          "update_badge": "[AR] تم تحديث الشارة",
+          "update_rewards_config": "[AR] تم تحديث إعدادات المكافآت"
+        },
+        "permissions": {
+          "create_role": "[AR] تم إنشاء الدور",
+          "update_role": "[AR] تم تحديث الدور",
+          "delete_role": "[AR] تم حذف الدور"
+        },
+        "request": {
+          "fulfill": "[AR] تم تلبية الطلب",
+          "cancel": "[AR] تم إلغاء الطلب",
+          "broadcast": "[AR] تم بث الطلب"
+        },
+        "hospital": {
+          "create": "[AR] تم إنشاء المستشفى"
+        }
       },
       "details": {
-        "create_hospital": "[AR] تمت إضافة حساب مستشفى",
-        "ban": "[AR] تم حظر حساب المستخدم (المعرف: {{targetId}})",
-        "unban": "[AR] تم إلغاء حظر حساب المستخدم (المعرف: {{targetId}})",
-        "suspend": "[AR] تم تعليق حساب المستخدم (المعرف: {{targetId}})",
-        "unsuspend": "[AR] تم إلغاء تعليق حساب المستخدم (المعرف: {{targetId}})",
-        "delete": "[AR] تم حذف حساب المستخدم (المعرف: {{targetId}})",
-        "create_admin": "[AR] تم إنشاء حساب مشرف (المعرف: {{targetId}})",
-        "maintenance": "[AR] تم تحديث وضع الصيانة للنظام",
+        "user": {
+          "create_hospital": "[AR] تمت إضافة حساب مستشفى",
+          "ban": "[AR] تم حظر حساب المستخدم (المعرف: {{targetId}})",
+          "unban": "[AR] تم إلغاء حظر حساب المستخدم (المعرف: {{targetId}})",
+          "delete": "[AR] تم حذف حساب المستخدم (المعرف: {{targetId}})",
+          "create_admin": "[AR] تم إنشاء حساب مشرف (المعرف: {{targetId}})",
+          "update_donor": "[AR] تم تحديث حساب المتبرع (المعرف: {{targetId}})",
+          "update_hospital": "[AR] تم تحديث حساب المستشفى (المعرف: {{targetId}})",
+          "update_admin": "[AR] تم تحديث حساب المشرف (المعرف: {{targetId}})",
+          "delete_admin": "[AR] تم حذف حساب المشرف (المعرف: {{targetId}})",
+          "rotate_admin_key": "[AR] تم تدوير مفتاح المشرف (المعرف: {{targetId}})"
+        },
+        "system": {
+          "maintenance": "[AR] تم تحديث وضع الصيانة للنظام"
+        },
+        "admin": {
+          "update_profile": "[AR] تم تحديث الملف الشخصي للمشرف",
+          "update_badge": "[AR] تم تحديث إعدادات الشارة",
+          "update_rewards_config": "[AR] تم تحديث إعدادات المكافآت"
+        },
+        "permissions": {
+          "create_role": "[AR] تم إنشاء دور جديد",
+          "update_role": "[AR] تم تحديث صلاحيات الدور",
+          "delete_role": "[AR] تم حذف الدور"
+        },
+        "request": {
+          "fulfill": "[AR] تم تلبية الطلب (المعرف: {{targetId}})",
+          "cancel": "[AR] تم إلغاء الطلب (المعرف: {{targetId}})",
+          "broadcast": "[AR] تم بث الطلب (المعرف: {{targetId}})"
+        },
+        "hospital": {
+          "create": "[AR] تم إنشاء حساب مستشفى"
+        },
         "default": "[AR] تم تنفيذ الإجراء {{action}} على {{targetType}}"
       }
     }

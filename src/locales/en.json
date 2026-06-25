@@ -360,25 +360,76 @@
     "emergency_broadcast_sent": "Emergency broadcast sent",
     "audit_logs": "Audit logs",
     "audit": {
+      "system_label": "System",
       "action": {
-        "create_hospital": "Hospital Added",
-        "ban": "User Banned",
-        "unban": "User Unbanned",
-        "suspend": "User Suspended",
-        "unsuspend": "User Unsuspended",
-        "delete": "User Deleted",
-        "create_admin": "Admin Added",
-        "maintenance": "Maintenance Mode Updated"
+        "user": {
+          "ban": "User Banned",
+          "unban": "User Unbanned",
+          "delete": "User Deleted",
+          "create_hospital": "Hospital Added",
+          "create_admin": "Admin Added",
+          "update_donor": "Donor Updated",
+          "update_hospital": "Hospital Updated",
+          "update_admin": "Admin Updated",
+          "delete_admin": "Admin Deleted",
+          "rotate_admin_key": "Admin Key Rotated"
+        },
+        "system": {
+          "maintenance": "Maintenance Mode Updated"
+        },
+        "admin": {
+          "update_profile": "Profile Updated",
+          "update_badge": "Badge Updated",
+          "update_rewards_config": "Rewards Config Updated"
+        },
+        "permissions": {
+          "create_role": "Role Created",
+          "update_role": "Role Updated",
+          "delete_role": "Role Deleted"
+        },
+        "request": {
+          "fulfill": "Request Fulfilled",
+          "cancel": "Request Cancelled",
+          "broadcast": "Request Broadcasted"
+        },
+        "hospital": {
+          "create": "Hospital Created"
+        }
       },
       "details": {
-        "create_hospital": "Added hospital account",
-        "ban": "Banned user account (ID: {{targetId}})",
-        "unban": "Unbanned user account (ID: {{targetId}})",
-        "suspend": "Suspended user account (ID: {{targetId}})",
-        "unsuspend": "Unsuspended user account (ID: {{targetId}})",
-        "delete": "Soft-deleted user account (ID: {{targetId}})",
-        "create_admin": "Created admin account (ID: {{targetId}})",
-        "maintenance": "Updated system maintenance mode",
+        "user": {
+          "create_hospital": "Added hospital account",
+          "ban": "Banned user account (ID: {{targetId}})",
+          "unban": "Unbanned user account (ID: {{targetId}})",
+          "delete": "Soft-deleted user account (ID: {{targetId}})",
+          "create_admin": "Created admin account (ID: {{targetId}})",
+          "update_donor": "Updated donor account (ID: {{targetId}})",
+          "update_hospital": "Updated hospital account (ID: {{targetId}})",
+          "update_admin": "Updated admin account (ID: {{targetId}})",
+          "delete_admin": "Deleted admin account (ID: {{targetId}})",
+          "rotate_admin_key": "Rotated admin key (ID: {{targetId}})"
+        },
+        "system": {
+          "maintenance": "Updated system maintenance mode"
+        },
+        "admin": {
+          "update_profile": "Updated admin profile",
+          "update_badge": "Updated badge configuration",
+          "update_rewards_config": "Updated rewards configuration"
+        },
+        "permissions": {
+          "create_role": "Created new role",
+          "update_role": "Updated role permissions",
+          "delete_role": "Deleted role"
+        },
+        "request": {
+          "fulfill": "Fulfilled request (ID: {{targetId}})",
+          "cancel": "Cancelled request (ID: {{targetId}})",
+          "broadcast": "Broadcasted request (ID: {{targetId}})"
+        },
+        "hospital": {
+          "create": "Created hospital account"
+        },
         "default": "Performed action {{action}} on {{targetType}}"
       }
     },

@@ -46,7 +46,7 @@ export const getAuditLogs = async (filters = {}, pagination = {}) => {
 
   const query = {};
   if (action) query.action = action;
-  if (targetType) query.targetType = targetType;
+  if (targetType) query.targetType = targetType.charAt(0).toUpperCase() + targetType.slice(1).toLowerCase();
   if (adminId) query.adminId = adminId;
 
   const [logs, total] = await Promise.all([
@@ -919,8 +919,8 @@ const attachAdminKey = (admin) => {
   const obj = admin.toObject ? admin.toObject() : { ...admin };
   if (isEncryptedKey(String(obj.adminKey || ''))) {
     obj.adminKey = decryptAdminKey(obj.adminKey, String(obj._id));
-  } else {
-    delete obj.adminKey;
+  } else if (obj.adminKey) {
+    obj.adminKey = 'Legacy key — contact super admin to rotate';
   }
   return obj;
 };
