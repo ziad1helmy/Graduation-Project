@@ -31,6 +31,7 @@ import Hospital from '../models/Hospital.model.js';
 import RefreshTokenBlacklist from '../models/RefreshTokenBlacklist.model.js';
 import { validateRegister } from '../validation/auth.validation.js';
 import OneTimeOtp from '../models/OneTimeOtp.model.js';
+import SystemSettings from '../models/SystemSettings.model.js';
 import { ERR } from '../utils/errorCodes.js';
 import * as adminService from './admin.service.js';
 
@@ -264,6 +265,11 @@ export const verifyOtp = async ({ email, otp }) => {
  * @returns {object} - { accessToken, refreshToken, user }
  */
 export const register = async (data, trace = {}) => {
+    const donorReg = await SystemSettings.findOne({ key: 'donor_registration_enabled' });
+    if (donorReg && donorReg.value === false) {
+      throw createServiceError('donor registration is currently disabled', 403);
+    }
+
     const traceId = trace.traceId || `signup-${Date.now()}`;
     const requestStartedAt = process.hrtime.bigint();
     const { role, fullName, email, password, location, ...roleSpecificData } = data;
@@ -672,6 +678,8 @@ export const resetPassword = async ({ email, otp, password }) => {
 
   if (!record) throw new Error('Invalid or expired OTP');
 
+  if (record.attempts >= 5) throw new Error('OTP attempts exceeded');
+
   if (record.otpHash !== hashOtp(otp)) {
     record.attempts += 1;
     await record.save();
@@ -776,17 +784,27 @@ export const verifyEmailOtp = async ({ email, otp }) => {
   const hashedOtp = hashOtp(otp);
   const user = await User.findOne({
     email: normalizedEmail,
-    emailVerificationOtp: hashedOtp,
     emailVerificationOtpExpires: { $gt: Date.now() },
-  }).select('+emailVerificationOtp +emailVerificationOtpExpires');
+  }).select('+emailVerificationOtp +emailVerificationOtpExpires +emailVerificationOtpAttempts');
 
   if (!user) {
+    throw new Error('Invalid or expired verification code');
+  }
+
+  if (user.emailVerificationOtpAttempts >= 5) {
+    throw new Error('Verification code attempts exceeded');
+  }
+
+  user.emailVerificationOtpAttempts += 1;
+  if (user.emailVerificationOtp !== hashedOtp) {
+    await user.save({ validateBeforeSave: false });
     throw new Error('Invalid or expired verification code');
   }
 
   user.isEmailVerified = true;
   user.emailVerifiedAt = new Date();
   user.emailVerificationOtp = undefined;
+  user.emailVerificationOtpAttempts = 0;
   user.emailVerificationOtpExpires = undefined;
   await user.save();
 

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { logger } from './logger.js';
 import User from '../models/User.model.js';
+import SystemSettings from '../models/SystemSettings.model.js';
 
 /**
  * FCM (Firebase Cloud Messaging) utility for push notifications.
@@ -241,6 +242,12 @@ export const sendToMultiple = async (fcmTokens, title, body, data = {}, options 
   // Remove duplicates and empty tokens
   const uniqueTokens = [...new Set(fcmTokens.filter(Boolean))];
 
+  const notifSetting = await SystemSettings.findOne({ key: 'notifications_enabled' });
+  if (notifSetting && notifSetting.value === false) {
+    logger.warn('Push notifications disabled by system setting (notifications_enabled=false)');
+    return { successCount: 0, failureCount: 0, skipped: true };
+  }
+
   const initialized = await initFirebase();
 
   if (!initialized || !firebaseAdmin) {
@@ -312,6 +319,12 @@ export const sendToMultipleWithRetry = async (
   }
 
   const { attempts = 3, baseDelayMs = 200 } = retryOptions || {};
+
+  const notifSetting = await SystemSettings.findOne({ key: 'notifications_enabled' });
+  if (notifSetting && notifSetting.value === false) {
+    logger.warn('Push notifications disabled by system setting (notifications_enabled=false)');
+    return { successCount: 0, failureCount: 0, skipped: true };
+  }
 
   // Remove duplicates and empty tokens
   const uniqueTokens = [...new Set(fcmTokens.filter(Boolean))];

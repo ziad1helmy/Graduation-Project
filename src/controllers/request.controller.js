@@ -28,8 +28,8 @@ import {
 } from '../utils/blood-type.js';
 import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 import { validateOrphanState, validateTransition } from '../utils/state-machine.js';
+import SystemSettings from '../models/SystemSettings.model.js';
 import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
-import { MISSED_DONATION_THRESHOLD } from '../constants/donation.constants.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 
@@ -702,7 +702,9 @@ export const acceptRequest = asyncHandler(async (req, res) => {
   const unitsAccepted = acceptedRequest.unitsAccepted || 0;
   const unitsNeeded = acceptedRequest.unitsNeeded || 1;
   const missedDonationCount = donor?.missedDonationCount || 0;
-  const missedDonationRemaining = Math.max(0, MISSED_DONATION_THRESHOLD - missedDonationCount);
+  const thresholdSetting = await SystemSettings.findOne({ key: 'max_missed_donations_before_ban' });
+  const threshold = thresholdSetting ? Math.max(1, Number(thresholdSetting.value) || 3) : 3;
+  const missedDonationRemaining = Math.max(0, threshold - missedDonationCount);
 
   sendAcceptNotifications({
     acceptedRequest, donation, donor, isFullyAccepted: fullyAccepted,
@@ -828,9 +830,10 @@ export const cancelRequest = asyncHandler(async (req, res) => {
 
   const cancelledAt = new Date();
   const session = await mongoose.startSession();
+  let activeDonations = [];
   try {
     await session.withTransaction(async () => {
-      const activeDonations = await Donation.find({ requestId: request._id, status: { $in: ['pending', 'scheduled'] } }).session(session);
+      activeDonations = await Donation.find({ requestId: request._id, status: { $in: ['pending', 'scheduled'] } }).session(session);
       for (const donation of activeDonations) {
         validateTransition('donation', donation.status, 'cancelled');
         donation.status = 'cancelled';
@@ -857,6 +860,25 @@ export const cancelRequest = asyncHandler(async (req, res) => {
   } finally {
     session.endSession();
   }
+
+  setImmediate(async () => {
+    try {
+      const affectedDonorIds = activeDonations.map((d) => d.donorId.toString());
+      if (affectedDonorIds.length > 0) {
+        await Notification.create(
+          affectedDonorIds.map((userId) => ({
+            userId,
+            type: 'request',
+            title: 'Request cancelled',
+            message: `Your accepted donation for ${request.hospitalName || 'the hospital'} has been cancelled.`,
+            relatedId: request._id,
+            relatedType: 'Request',
+            data: { requestId: request._id.toString(), status: 'cancelled' },
+          })),
+        );
+      }
+    } catch (_) { /* non-critical */ }
+  });
 
   return response.success(res, 200, 'Request cancelled successfully', {
     requestId: request._id.toString(),

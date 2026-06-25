@@ -6977,9 +6977,10 @@ paths:
                     department: "IT Department"
                     adminAccessKey: "Super Admin"
                   settings:
-                    emergencyAlertsEnabled: true
-                    aiPredictionsEnabled: true
                     maintenanceModeEnabled: false
+                    donorRegistrationEnabled: true
+                    notificationsEnabled: true
+                    maxMissedDonationsBeforeBan: 3
                   systemHealth:
                     status: "healthy"
                     uptime: "99.9%"
@@ -6997,16 +6998,19 @@ paths:
             schema:
               type: object
               properties:
-                emergencyAlertsEnabled:
-                  type: boolean
-                aiPredictionsEnabled:
-                  type: boolean
                 maintenanceModeEnabled:
                   type: boolean
+                donorRegistrationEnabled:
+                  type: boolean
+                notificationsEnabled:
+                  type: boolean
+                maxMissedDonationsBeforeBan:
+                  type: integer
+                  minimum: 1
             example:
-              emergencyAlertsEnabled: true
-              aiPredictionsEnabled: true
-              maintenanceModeEnabled: false
+              donorRegistrationEnabled: true
+              notificationsEnabled: true
+              maxMissedDonationsBeforeBan: 3
       responses:
         "200":
           description: System settings updated successfully
@@ -7017,9 +7021,10 @@ paths:
                 message: System settings updated successfully
                 data:
                   settings:
-                    emergencyAlertsEnabled: true
-                    aiPredictionsEnabled: true
                     maintenanceModeEnabled: false
+                    donorRegistrationEnabled: true
+                    notificationsEnabled: true
+                    maxMissedDonationsBeforeBan: 3
   /admin/system/health:
     get:
       summary: System health check
@@ -8018,6 +8023,230 @@ paths:
                     _id: 66f700000000000000000001
                     isArchived: true
                     archivedAt: 2026-05-18T09:05:00.000Z
+  /admin/support:
+    get:
+      summary: List support messages
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      description: Retrieve a paginated list of support tickets submitted by donors and hospitals.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Page number
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Number of items per page
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - OPEN
+              - REVIEWED
+          description: Filter by status
+        - in: query
+          name: category
+          schema:
+            type: string
+            enum:
+              - TECHNICAL
+              - ACCOUNT
+              - DONATION
+              - REWARDS
+              - OTHER
+          description: Filter by category
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Search term matching sender name, email, subject, or message text
+      responses:
+        "200":
+          description: Support messages retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Support messages retrieved successfully
+                data:
+                  tickets:
+                    - _id: "670000000000000000000001"
+                      userId: "670000000000000000000000"
+                      fullName: "Mohamed Yaser"
+                      email: "donor@example.com"
+                      role: "donor"
+                      subject: "Need help with reward redemption"
+                      category: "REWARDS"
+                      message: "I can see my points balance but I want to confirm when the Coffee Voucher becomes available."
+                      status: "OPEN"
+                      adminReply: null
+                      adminReplyAt: null
+                      adminReplyBy: null
+                      createdAt: "2026-05-24T16:24:00.000Z"
+                  pagination:
+                    total: 1
+                    page: 1
+                    currentPage: 1
+                    limit: 20
+                    totalPages: 1
+                    hasNextPage: false
+                    hasPrevPage: false
+        "401":
+          description: Unauthenticated request
+        "403":
+          description: Forbidden (admin role required)
+  /admin/support/{id}:
+    get:
+      summary: Get a support message by ID
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      description: Retrieve details of a specific support ticket.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Support message retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Support message retrieved successfully
+                data:
+                  ticket:
+                    _id: "670000000000000000000001"
+                    userId: "670000000000000000000000"
+                    fullName: "Mohamed Yaser"
+                    email: "donor@example.com"
+                    role: "donor"
+                    subject: "Need help with reward redemption"
+                    category: "REWARDS"
+                    message: "I can see my points balance but I want to confirm when the Coffee Voucher becomes available."
+                    status: "OPEN"
+                    adminReply: null
+                    adminReplyAt: null
+                    adminReplyBy: null
+                    createdAt: "2026-05-24T16:24:00.000Z"
+        "401":
+          description: Unauthenticated request
+        "403":
+          description: Forbidden (admin role required)
+        "404":
+          description: Support message not found
+  /admin/support/{id}/review:
+    patch:
+      summary: Mark a support message as reviewed
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      description: Update the status of a support ticket to REVIEWED.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Support message marked as reviewed
+          content:
+            application/json:
+              example:
+                success: true
+                message: Support message marked as reviewed
+                data:
+                  ticket:
+                    _id: "670000000000000000000001"
+                    userId: "670000000000000000000000"
+                    fullName: "Mohamed Yaser"
+                    email: "donor@example.com"
+                    role: "donor"
+                    subject: "Need help with reward redemption"
+                    category: "REWARDS"
+                    message: "I can see my points balance but I want to confirm when the Coffee Voucher becomes available."
+                    status: "REVIEWED"
+                    adminReply: null
+                    adminReplyAt: "2026-05-24T17:00:00.000Z"
+                    adminReplyBy: "670000000000000000000002"
+                    createdAt: "2026-05-24T16:24:00.000Z"
+        "401":
+          description: Unauthenticated request
+        "403":
+          description: Forbidden (admin role required)
+        "404":
+          description: Support message not found
+  /admin/support/{id}/reply:
+    post:
+      summary: Reply to a support message
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      description: Submit an admin reply to a support ticket, which marks the ticket as REVIEWED and triggers push + email notifications to the sender.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reply
+              properties:
+                reply:
+                  type: string
+                  description: The reply text to send to the user
+                  example: "The Coffee Voucher will be active on the first of next month."
+      responses:
+        "200":
+          description: Reply submitted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Reply submitted successfully
+                data:
+                  ticket:
+                    _id: "670000000000000000000001"
+                    userId: "670000000000000000000000"
+                    fullName: "Mohamed Yaser"
+                    email: "donor@example.com"
+                    role: "donor"
+                    subject: "Need help with reward redemption"
+                    category: "REWARDS"
+                    message: "I can see my points balance but I want to confirm when the Coffee Voucher becomes available."
+                    status: "REVIEWED"
+                    adminReply: "The Coffee Voucher will be active on the first of next month."
+                    adminReplyAt: "2026-05-24T17:00:00.000Z"
+                    adminReplyBy: "670000000000000000000002"
+                    createdAt: "2026-05-24T16:24:00.000Z"
+        "400":
+          description: Reply is required
+        "401":
+          description: Unauthenticated request
+        "403":
+          description: Forbidden (admin role required)
+        "404":
+          description: Support message not found
   /admin/profile:
     get:
       tags:
@@ -9517,6 +9746,13 @@ paths:
               example:
                 success: false
                 message: Invalid token
+        "400":
+          description: Request status does not permit a broadcast (e.g., cancelled)
+          content:
+            application/json:
+              example:
+                success: false
+                message: "cannot broadcast a request with status: cancelled"
         "404":
           description: Request not found
           content:
@@ -9524,6 +9760,13 @@ paths:
               example:
                 success: false
                 message: Request not found
+        "429":
+          description: Broadcast cooldown active — wait before re-broadcasting
+          content:
+            application/json:
+              example:
+                success: false
+                message: "broadcast cooldown active — try again in 14 minute(s)"
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are
         aligned with the seeded demo dataset where possible."

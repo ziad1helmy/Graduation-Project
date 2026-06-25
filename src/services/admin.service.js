@@ -23,7 +23,9 @@ import * as appointmentService from './appointment.service.js';
 import * as matchingService from './matching.service.js';
 import { sendToMultiple } from '../utils/fcm.js';
 import { ERR } from '../utils/errorCodes.js';
+import { HttpError } from '../utils/HttpError.js';
 import { env } from '../config/env.js';
+import { URGENCY_TIMEOUTS } from '../constants/request-timeout.constants.js';
 import { invalidateMaintenanceCache } from '../middlewares/maintenance.middleware.js';
 import { buildRequestPayload } from '../controllers/request.controller.js';
 import { validateTransition } from '../utils/state-machine.js';
@@ -255,15 +257,17 @@ export const getMaintenanceStatus = async () => {
  * Get all system settings as an object.
  */
 export const getSystemSettingsObj = async () => {
-  const [maintenance, emergency, ai] = await Promise.all([
+  const [maintenance, donorReg, notif, maxMissed] = await Promise.all([
     SystemSettings.findOne({ key: 'maintenance_mode' }),
-    SystemSettings.findOne({ key: 'emergency_alerts_enabled' }),
-    SystemSettings.findOne({ key: 'ai_predictions_enabled' }),
+    SystemSettings.findOne({ key: 'donor_registration_enabled' }),
+    SystemSettings.findOne({ key: 'notifications_enabled' }),
+    SystemSettings.findOne({ key: 'max_missed_donations_before_ban' }),
   ]);
   return {
-    emergencyAlertsEnabled: emergency ? Boolean(emergency.value) : true,
-    aiPredictionsEnabled: ai ? Boolean(ai.value) : true,
     maintenanceModeEnabled: maintenance ? Boolean(maintenance.value) : false,
+    donorRegistrationEnabled: donorReg ? Boolean(donorReg.value) : true,
+    notificationsEnabled: notif ? Boolean(notif.value) : true,
+    maxMissedDonationsBeforeBan: maxMissed ? Number(maxMissed.value) : 3,
   };
 };
 
@@ -272,28 +276,35 @@ export const getSystemSettingsObj = async () => {
  */
 export const updateSystemSettings = async (settingsData, adminId) => {
   const operations = [];
-  if (settingsData.emergencyAlertsEnabled !== undefined) {
-    operations.push(SystemSettings.findOneAndUpdate(
-      { key: 'emergency_alerts_enabled' },
-      { value: Boolean(settingsData.emergencyAlertsEnabled), updatedBy: adminId },
-      { upsert: true, returnDocument: 'after' }
-    ));
-  }
-  if (settingsData.aiPredictionsEnabled !== undefined) {
-    operations.push(SystemSettings.findOneAndUpdate(
-      { key: 'ai_predictions_enabled' },
-      { value: Boolean(settingsData.aiPredictionsEnabled), updatedBy: adminId },
-      { upsert: true, returnDocument: 'after' }
-    ));
-  }
   if (settingsData.maintenanceModeEnabled !== undefined) {
     operations.push(SystemSettings.findOneAndUpdate(
       { key: 'maintenance_mode' },
       { value: Boolean(settingsData.maintenanceModeEnabled), updatedBy: adminId },
       { upsert: true, returnDocument: 'after' }
     ));
-    // Invalidate maintenance cache
     invalidateMaintenanceCache();
+  }
+  if (settingsData.donorRegistrationEnabled !== undefined) {
+    operations.push(SystemSettings.findOneAndUpdate(
+      { key: 'donor_registration_enabled' },
+      { value: Boolean(settingsData.donorRegistrationEnabled), updatedBy: adminId },
+      { upsert: true, returnDocument: 'after' }
+    ));
+  }
+  if (settingsData.notificationsEnabled !== undefined) {
+    operations.push(SystemSettings.findOneAndUpdate(
+      { key: 'notifications_enabled' },
+      { value: Boolean(settingsData.notificationsEnabled), updatedBy: adminId },
+      { upsert: true, returnDocument: 'after' }
+    ));
+  }
+  if (settingsData.maxMissedDonationsBeforeBan !== undefined) {
+    const parsed = Math.max(1, settingsData.maxMissedDonationsBeforeBan);
+    operations.push(SystemSettings.findOneAndUpdate(
+      { key: 'max_missed_donations_before_ban' },
+      { value: parsed, updatedBy: adminId },
+      { upsert: true, returnDocument: 'after' }
+    ));
   }
   await Promise.all(operations);
   return getSystemSettingsObj();
@@ -306,8 +317,9 @@ export const updateSystemSettings = async (settingsData, adminId) => {
 const DEFAULT_SETTINGS = [
   { key: 'maintenance_mode', value: false },
   { key: 'maintenance_message', value: '' },
-  { key: 'emergency_alerts_enabled', value: true },
-  { key: 'ai_predictions_enabled', value: true },
+  { key: 'donor_registration_enabled', value: true },
+  { key: 'notifications_enabled', value: true },
+  { key: 'max_missed_donations_before_ban', value: 3 },
 ];
 
 /**
@@ -372,8 +384,7 @@ export const toAdminUserListItem = (user) => {
   const isVerified = Boolean(object.isEmailVerified);
   const joinedAt = object.createdAt || null;
 
-  const isHospital = object.role === 'hospital';
-  const resolvedPhone = isHospital ? null : (object.phoneNumber ?? object.phone ?? null);
+  const resolvedPhone = object.phoneNumber ?? object.phone ?? null;
 
   return {
     ...object,
@@ -405,7 +416,7 @@ export const toAdminUserListItem = (user) => {
  */
 export const getUserById = async (id, callerRole = null, expectedRole = null, callerId = null) => {
   const user = await User.findOne({ _id: id, deletedAt: null })
-    .select('+adminKey -password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt');
+    .select('-password -emailVerificationOtp -emailVerificationOtpExpires -resetPasswordToken -resetPasswordExpires -passwordChangedAt +adminKey');
 
   if (!user) return null;
 
@@ -447,7 +458,6 @@ export const getUserById = async (id, callerRole = null, expectedRole = null, ca
     const requestCount = await Request.countDocuments({ hospitalId: id });
     return {
       ...user.toObject(),
-      phone: null,
       totalRequests: requestCount,
     };
   }
@@ -697,12 +707,8 @@ export const createHospital = async (data, adminId) => {
     adminId
   );
 
-  // Admin responses expose only contactNumber for hospitals; phone is kept for internal compatibility.
   const hospitalDoc = result.hospital.toObject ? result.hospital.toObject() : result.hospital;
-  return {
-    ...hospitalDoc,
-    phone: null,
-  };
+  return hospitalDoc;
 };
 
 export const updateDonor = async (id, data, adminId) => {
@@ -1565,6 +1571,7 @@ export const cancelRequest = async (id, reason, adminId) => {
   const session = await mongoose.startSession();
   let request = null;
   const cancelledAt = new Date();
+  let activeDonations = [];
   try {
     await session.withTransaction(async () => {
       request = await Request.findById(id).session(session);
@@ -1576,7 +1583,7 @@ export const cancelRequest = async (id, reason, adminId) => {
 
       validateTransition('request', request.status, 'cancelled', { isAdminOverride: true });
 
-      const activeDonations = await Donation.find({ requestId: request._id, status: { $in: ['pending', 'scheduled'] } }).session(session);
+      activeDonations = await Donation.find({ requestId: request._id, status: { $in: ['pending', 'scheduled'] } }).session(session);
       for (const donation of activeDonations) {
         validateTransition('donation', donation.status, 'cancelled');
         donation.status = 'cancelled';
@@ -1600,6 +1607,25 @@ export const cancelRequest = async (id, reason, adminId) => {
 
   if (!request) return null;
 
+  setImmediate(async () => {
+    try {
+      const affectedDonorIds = activeDonations.map((d) => d.donorId.toString());
+      if (affectedDonorIds.length > 0) {
+        await Notification.create(
+          affectedDonorIds.map((userId) => ({
+            userId,
+            type: 'request',
+            title: 'Request cancelled',
+            message: `Your accepted donation for ${request.hospitalName || 'the hospital'} has been cancelled.`,
+            relatedId: request._id,
+            relatedType: 'Request',
+            data: { requestId: request._id.toString(), status: 'cancelled' },
+          })),
+        );
+      }
+    } catch (_) { /* non-critical */ }
+  });
+
   await logAudit(adminId, 'request.cancel', 'Request', id);
   return request;
 };
@@ -1612,6 +1638,20 @@ export const broadcastRequest = async (id, adminId) => {
   const request = await Request.findById(id)
     .populate('hospitalId', 'fullName hospitalName location');
   if (!request) return null;
+
+  if (!['pending', 'in-progress'].includes(request.status)) {
+    throw new HttpError(400, `cannot broadcast a request with status: ${request.status}`);
+  }
+
+  const urgencyKey = request.urgency || 'medium';
+  const cooldownMs = URGENCY_TIMEOUTS[urgencyKey]?.reBroadcastIntervalMs ?? 15 * 60 * 1000;
+  if (request.lastBroadcastAt) {
+    const msSinceLast = Date.now() - new Date(request.lastBroadcastAt).getTime();
+    if (msSinceLast < cooldownMs) {
+      const minutesLeft = Math.ceil((cooldownMs - msSinceLast) / 60000);
+      throw new HttpError(429, `broadcast cooldown active — try again in ${minutesLeft} minute(s)`);
+    }
+  }
 
   const bloodTypes = request.bloodType ?? request._doc?.bloodType ?? [];
   const requestBloodTypes = normalizeBloodTypeList(bloodTypes);
@@ -1664,6 +1704,10 @@ export const broadcastRequest = async (id, adminId) => {
   }
 
   await logAudit(adminId, 'request.broadcast', 'Request', id);
+
+  await Request.findByIdAndUpdate(id, {
+    $set: { lastBroadcastAt: new Date() },
+  });
 
   const radiusKm = ['high', 'critical'].includes(request.urgency) ? 60 : 30;
 

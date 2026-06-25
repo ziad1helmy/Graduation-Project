@@ -792,5 +792,32 @@ describe('Geospatial Index matching with ENABLE_GEOSPATIAL_INDEX', () => {
     expect(donorIds).toContain(nearbyDonor._id.toString());
     expect(donorIds).not.toContain(farDonor._id.toString());
   });
+
+  it('falls back to plain query when geospatial index is missing or corrupted', async () => {
+    const hospital = await createHospital({
+      location: {
+        city: 'Cairo',
+        governorate: 'Cairo',
+        coordinates: { lat: 30.05, lng: 31.24 },
+        lastUpdated: new Date(),
+      },
+    });
+    const request = await createRequest(hospital._id, { bloodType: 'O+' });
+
+    await createDonor({ bloodType: 'O+', isOptedIn: true });
+
+    // Drop the 2dsphere index to simulate a geo-index error
+    const Donor = (await import('../../src/models/Donor.model.js')).default;
+    try {
+      await Donor.collection.dropIndex('location.coordinates_2dsphere');
+    } catch (_) {
+      // Index may not exist — that's fine for this test
+    }
+
+    // With ENABLE_GEOSPATIAL_INDEX=true and no 2dsphere index,
+    // the $nearSphere query will fail and the fallback should kick in
+    const results = await findCompatibleDonors(request._id);
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
 });
 
