@@ -424,7 +424,7 @@ describe('Appointment Service', () => {
 
     await expect(
       appointmentService.bookAppointment(donor._id, hospital2._id, null, apptDate2)
-    ).rejects.toThrow(/active donation/i);
+    ).rejects.toThrow(/eligibility.activeDonationInProgress/);
   });
 
   it('allows rebooking after cancelling previous appointment', async () => {

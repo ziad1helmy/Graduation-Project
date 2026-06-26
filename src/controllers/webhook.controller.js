@@ -9,7 +9,7 @@ import { HttpError } from '../utils/HttpError.js';
 function verifySignature(rawBody, headerValue) {
   if (!headerValue) return false;
   const secret = env.RESEND_WEBHOOK_SECRET;
-  if (!secret) return true; // no secret configured — skip verification
+  if (!secret) return false;
 
   try {
     const computed = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
@@ -80,7 +80,7 @@ export const handleResendWebhook = asyncHandler(async (req, res) => {
 
   if (!verifySignature(raw, String(signatureHeader || ''))) {
     logger.warn('Webhook signature verification failed', { ip: req.ip });
-    throw new HttpError(401, 'Invalid signature');
+    throw new HttpError(401, 'webhook.invalid_signature');
   }
 
   let parsed;
@@ -88,7 +88,7 @@ export const handleResendWebhook = asyncHandler(async (req, res) => {
     parsed = JSON.parse(raw.toString('utf8'));
   } catch (err) {
     logger.warn('Malformed webhook payload', { message: err.message });
-    throw new HttpError(400, 'Malformed payload');
+    throw new HttpError(400, 'webhook.malformed_payload');
   }
 
   logger.info('Resend webhook received', { type: parsed?.type, to: parsed?.data?.to });
@@ -100,5 +100,5 @@ export const handleResendWebhook = asyncHandler(async (req, res) => {
     });
   });
 
-  return response.success(res, 200, 'Webhook received', { received: true });
+  return response.success(res, 200, 'webhook.received', { received: true });
 });

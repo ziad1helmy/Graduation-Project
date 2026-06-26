@@ -24,7 +24,7 @@ export const ELIGIBILITY_KEYS = Object.freeze({
   NO_HEMOGLOBIN_RESTRICTION: 'eligibility.noHemoglobinRestriction',
   HEMOGLOBIN_BELOW_MINIMUM: 'eligibility.hemoglobinBelowMinimum',
   HEMOGLOBIN_LEVEL_ACCEPTABLE: 'eligibility.hemoglobinLevelAcceptable',
-  ACTIVE_DONATION_IN_PROGRESS: 'Donor already has an active donation in progress',
+  ACTIVE_DONATION_IN_PROGRESS: 'eligibility.activeDonationInProgress',
   DONOR_SUSPENDED: 'eligibility.donorSuspended',
   DONOR_CURRENTLY_UNAVAILABLE: 'eligibility.donorCurrentlyUnavailable',
   REQUEST_NO_LONGER_ACTIVE: 'eligibility.requestNoLongerActive',

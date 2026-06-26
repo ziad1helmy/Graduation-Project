@@ -32,9 +32,9 @@ import { HttpError } from '../utils/HttpError.js';
 export const getAdminProfile = asyncHandler(async (req, res) => {
   const admin = await adminService.getAdminProfile(req.user._id);
   if (!admin) {
-    throw new HttpError(404, 'Admin profile not found');
+    throw new HttpError(404, 'admin.error_profile_not_found');
   }
-  return response.success(res, 200, 'Admin profile', { admin });
+  return response.success(res, 200, 'admin.admin_profile', { admin });
 });
 
 export const updateAdminProfile = asyncHandler(async (req, res) => {
@@ -55,7 +55,7 @@ export const updateAdminProfile = asyncHandler(async (req, res) => {
     });
 
     if (!result || !result.admin) {
-      throw new HttpError(404, 'Admin profile not found');
+      throw new HttpError(404, 'admin.error_profile_not_found');
     }
 
     const { admin, emailChanged } = result;
@@ -67,7 +67,7 @@ export const updateAdminProfile = asyncHandler(async (req, res) => {
       payload.note = 'Email changed — check your inbox to re-verify your address';
     }
 
-    return response.success(res, 200, 'Admin profile updated successfully', payload);
+    return response.success(res, 200, 'admin.profile_updated', payload);
   } catch (error) {
     if (error.message === 'Email is already in use by another account') {
       throw new HttpError(409, error.message);
@@ -89,7 +89,7 @@ export const getProfile = getAdminProfile;
 /** GET /admin/system/health */
 export const getSystemHealth = asyncHandler(async (req, res) => {
   const health = await adminService.getSystemHealth();
-  return response.success(res, 200, 'System health', health);
+  return response.success(res, 200, 'admin.system_health', health);
 });
 
 /** POST /admin/system/maintenance */
@@ -104,13 +104,13 @@ export const setMaintenanceMode = asyncHandler(async (req, res) => {
     req.body.message,
     req.user._id
   );
-  return response.success(res, 200, 'Maintenance mode updated', result);
+  return response.success(res, 200, 'admin.maintenance_updated', result);
 });
 
 /** GET /admin/system/maintenance */
 export const getMaintenanceStatus = asyncHandler(async (req, res) => {
   const status = await adminService.getMaintenanceStatus();
-  return response.success(res, 200, 'Maintenance status', status);
+  return response.success(res, 200, 'admin.maintenance_status', status);
 });
 
 export const getAlerts = asyncHandler(async (req, res) => {
@@ -120,7 +120,7 @@ export const getAlerts = asyncHandler(async (req, res) => {
     adminService.getShortageAlerts(),
   ]);
 
-  return response.success(res, 200, 'Alerts retrieved successfully', {
+  return response.success(res, 200, 'admin.alerts_retrieved', {
     alerts: {
       criticalAlerts: dashboard.criticalAlerts,
       criticalRequests,
@@ -185,7 +185,7 @@ export const getAuditLogs = asyncHandler(async (req, res) => {
 export const getSystemSettings = asyncHandler(async (req, res) => {
   const user = await adminService.getUserById(req.user._id, req.user.role, null, req.user._id.toString());
   if (!user) {
-    throw new HttpError(404, 'Admin user not found');
+    throw new HttpError(404, 'admin.error_admin_user_not_found');
   }
 
   const userObj = user.toObject ? user.toObject() : user;
@@ -203,7 +203,7 @@ export const getSystemSettings = asyncHandler(async (req, res) => {
   const settings = await adminService.getSystemSettingsObj();
   const systemHealth = await adminService.getSystemHealth();
 
-  return response.success(res, 200, 'System settings retrieved', {
+  return response.success(res, 200, 'admin.system_settings_retrieved', {
     admin,
     settings,
     systemHealth,
@@ -214,7 +214,7 @@ export const getSystemSettings = asyncHandler(async (req, res) => {
 export const updateSystemSettings = asyncHandler(async (req, res) => {
   const { valid, errors } = validateUpdateSystemSettingsBody(req.body);
   if (!valid) {
-    return response.error(res, 400, 'invalid system settings', errors);
+    return response.error(res, 400, 'admin.error_invalid_system_settings', errors);
   }
 
   const { maintenanceModeEnabled, donorRegistrationEnabled, notificationsEnabled, maxMissedDonationsBeforeBan } = req.body;
@@ -226,7 +226,7 @@ export const updateSystemSettings = asyncHandler(async (req, res) => {
     maxMissedDonationsBeforeBan,
   }, req.user._id);
 
-  return response.success(res, 200, 'System settings updated successfully', {
+  return response.success(res, 200, 'admin.system_settings_updated', {
     settings: updatedSettings,
   });
 });
@@ -293,12 +293,12 @@ export const listInboundEmails = asyncHandler(async (req, res) => {
       .lean(),
     InboundEmail.countDocuments(filter),
     adminService.listSupportMessages(
-      { status: req.query.supportStatus, category: req.query.supportCategory, search },
+      { status: req.query.supportStatus, category: req.query.supportCategory, search, read, archived },
       { page, limit }
     ),
   ]);
 
-  return response.success(res, 200, 'Inbound emails retrieved successfully', {
+  return response.success(res, 200, 'admin.inbound_emails_retrieved', {
     inboundEmails: inboundEmails.map(toInboundEmailResponse),
     supportTickets: supportResult.tickets,
     pagination: paginationMeta(total, page, limit),
@@ -308,15 +308,15 @@ export const listInboundEmails = asyncHandler(async (req, res) => {
 /** GET /admin/inbound-emails/:id */
 export const getInboundEmailById = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid inbound email ID');
+    throw new HttpError(400, 'admin.error_invalid_inbound_email_id');
   }
 
   const inboundEmail = await InboundEmail.findById(req.params.id).lean();
   if (!inboundEmail) {
-    throw new HttpError(404, 'Inbound email not found');
+    throw new HttpError(404, 'admin.error_inbound_not_found');
   }
 
-  return response.success(res, 200, 'Inbound email retrieved successfully', {
+  return response.success(res, 200, 'admin.inbound_email_retrieved', {
     inboundEmail: toInboundEmailResponse(inboundEmail),
   });
 });
@@ -324,7 +324,7 @@ export const getInboundEmailById = asyncHandler(async (req, res) => {
 /** PATCH /admin/inbound-emails/:id/read */
 export const markInboundEmailRead = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid inbound email ID');
+    throw new HttpError(400, 'admin.error_invalid_inbound_email_id');
   }
 
   const inboundEmail = await InboundEmail.findByIdAndUpdate(
@@ -339,10 +339,10 @@ export const markInboundEmailRead = asyncHandler(async (req, res) => {
   ).lean();
 
   if (!inboundEmail) {
-    throw new HttpError(404, 'Inbound email not found');
+    throw new HttpError(404, 'admin.error_inbound_not_found');
   }
 
-  return response.success(res, 200, 'Inbound email marked as read', {
+  return response.success(res, 200, 'admin.inbound_email_read', {
     inboundEmail: toInboundEmailResponse(inboundEmail),
   });
 });
@@ -350,7 +350,7 @@ export const markInboundEmailRead = asyncHandler(async (req, res) => {
 /** PATCH /admin/inbound-emails/:id/archive */
 export const archiveInboundEmail = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid inbound email ID');
+    throw new HttpError(400, 'admin.error_invalid_inbound_email_id');
   }
 
   const inboundEmail = await InboundEmail.findByIdAndUpdate(
@@ -365,10 +365,10 @@ export const archiveInboundEmail = asyncHandler(async (req, res) => {
   ).lean();
 
   if (!inboundEmail) {
-    throw new HttpError(404, 'Inbound email not found');
+    throw new HttpError(404, 'admin.error_inbound_not_found');
   }
 
-  return response.success(res, 200, 'Inbound email archived', {
+  return response.success(res, 200, 'admin.inbound_email_archived', {
     inboundEmail: toInboundEmailResponse(inboundEmail),
   });
 });
@@ -376,16 +376,56 @@ export const archiveInboundEmail = asyncHandler(async (req, res) => {
 /** DELETE /admin/inbound-emails/:id */
 export const deleteInboundEmail = asyncHandler(async (req, res) => {
   if (!mongoose.isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid inbound email ID');
+    throw new HttpError(400, 'admin.error_invalid_inbound_email_id');
   }
 
   const inboundEmail = await InboundEmail.findByIdAndDelete(req.params.id).lean();
   if (!inboundEmail) {
-    throw new HttpError(404, 'Inbound email not found');
+    throw new HttpError(404, 'admin.error_inbound_not_found');
   }
 
-  return response.success(res, 200, 'Inbound email deleted successfully', {
+  return response.success(res, 200, 'admin.inbound_email_deleted', {
     inboundEmail: toInboundEmailResponse(inboundEmail),
+  });
+});
+
+/** GET /admin/inbound-emails/:id/support-ticket */
+export const getSupportTicketById = asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    throw new HttpError(400, 'admin.error_invalid_support_ticket_id');
+  }
+
+  const ticket = await adminService.getSupportMessageById(req.params.id);
+  if (!ticket) {
+    throw new HttpError(404, 'admin.error_support_ticket_not_found');
+  }
+
+  return response.success(res, 200, 'admin.support_ticket_retrieved', {
+    ticket,
+  });
+});
+
+/** POST /admin/inbound-emails/:id/reply */
+export const replyToSupportTicket = asyncHandler(async (req, res) => {
+  if (!mongoose.isValidObjectId(req.params.id)) {
+    throw new HttpError(400, 'admin.error_invalid_support_ticket_id');
+  }
+
+  const { reply } = req.body;
+  if (!reply || typeof reply !== 'string' || reply.trim().length === 0) {
+    throw new HttpError(400, 'admin.error_reply_message_required');
+  }
+  if (reply.trim().length > 4000) {
+    throw new HttpError(400, 'admin.error_reply_message_too_long');
+  }
+
+  const ticket = await adminService.replySupportMessage(req.params.id, reply.trim(), req.user.userId);
+  if (!ticket) {
+    throw new HttpError(404, 'admin.error_support_ticket_not_found');
+  }
+
+  return response.success(res, 200, 'admin.reply_sent', {
+    ticket,
   });
 });
 
@@ -405,7 +445,7 @@ export const listUsers = asyncHandler(async (req, res) => {
     { role, verified, suspended, search },
     { page, limit }
   );
-  return response.success(res, 200, 'Users list', result);
+  return response.success(res, 200, 'admin.users_list', result);
 });
 
 /** GET /admin/donors — convenience alias for GET /admin/users?role=donor */
@@ -428,7 +468,7 @@ export const listAdmins = asyncHandler(async (req, res) => {
 
   const { page, limit } = parsePagination(req.query, 20);
   const result = await adminService.getAllAdmins({ page, limit }, req.user.role);
-  return response.success(res, 200, 'Admins list', result);
+  return response.success(res, 200, 'admin.admin_list', result);
 });
 
 export const getAllAdmins = listAdmins;
@@ -436,36 +476,36 @@ export const getAllAdmins = listAdmins;
 export const getAdminById = asyncHandler(async (req, res) => {
   const user = await adminService.getUserById(req.params.id, req.user.role);
   if (!user || !['admin', 'superadmin'].includes(user.role)) {
-    throw new HttpError(404, 'Admin not found');
+    throw new HttpError(404, 'admin.error_not_found');
   }
-  return response.success(res, 200, 'Admin details', { user });
+  return response.success(res, 200, 'admin.admin_details', { user });
 });
 
 /** GET /admin/users/:id */
 export const getUserById = asyncHandler(async (req, res) => {
   const user = await adminService.getUserById(req.params.id, req.user.role, null, req.user._id);
   if (!user) {
-    throw new HttpError(404, 'User not found');
+    throw new HttpError(404, 'admin.error_user_not_found');
   }
-  return response.success(res, 200, 'User details', { user });
+  return response.success(res, 200, 'admin.user_details', { user });
 });
 
 /** GET /admin/donors/:id */
 export const getDonorById = asyncHandler(async (req, res) => {
   const user = await adminService.getUserById(req.params.id, req.user.role, 'donor', req.user._id);
   if (!user) {
-    throw new HttpError(404, 'Donor not found');
+    throw new HttpError(404, 'admin.error_donor_not_found');
   }
-  return response.success(res, 200, 'Donor details', { user });
+  return response.success(res, 200, 'admin.donor_details', { user });
 });
 
 /** GET /admin/hospitals/:id */
 export const getHospitalById = asyncHandler(async (req, res) => {
   const user = await adminService.getUserById(req.params.id, req.user.role, 'hospital', req.user._id);
   if (!user) {
-    throw new HttpError(404, 'Hospital not found');
+    throw new HttpError(404, 'admin.error_hospital_not_found');
   }
-  return response.success(res, 200, 'Hospital details', { user });
+  return response.success(res, 200, 'admin.hospital_details', { user });
 });
 
 /** PUT /admin/users/donor/:id */
@@ -473,9 +513,9 @@ export const updateDonor = asyncHandler(async (req, res) => {
   try {
     const user = await adminService.updateDonor(req.params.id, req.body, req.user._id);
     if (!user) {
-      throw new HttpError(404, 'Donor not found');
+      throw new HttpError(404, 'admin.error_donor_not_found');
     }
-    return response.success(res, 200, 'Donor updated successfully', { user });
+    return response.success(res, 200, 'admin.donor_updated', { user });
   } catch (error) {
     if (error.message === 'Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.') {
       throw new HttpError(400, error.message);
@@ -489,9 +529,9 @@ export const updateHospital = asyncHandler(async (req, res) => {
   try {
     const user = await adminService.updateHospital(req.params.id, req.body, req.user._id);
     if (!user) {
-      throw new HttpError(404, 'Hospital not found');
+      throw new HttpError(404, 'admin.error_hospital_not_found');
     }
-    return response.success(res, 200, 'Hospital updated successfully', { user });
+    return response.success(res, 200, 'admin.hospital_updated', { user });
   } catch (error) {
     if (error.message === 'Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.') {
       throw new HttpError(400, error.message);
@@ -505,9 +545,9 @@ export const updateAdmin = asyncHandler(async (req, res) => {
   try {
     const user = await adminService.updateAdmin(req.params.id, req.body, req.user._id, req.user.role);
     if (!user) {
-      throw new HttpError(404, 'Admin not found');
+      throw new HttpError(404, 'admin.error_not_found');
     }
-    return response.success(res, 200, 'Admin updated successfully', { user });
+    return response.success(res, 200, 'admin.admin_updated', { user });
   } catch (error) {
     if (error.message === 'Email cannot be changed via the admin endpoint. Users must use the self-service profile flow.') {
       throw new HttpError(400, error.message);
@@ -524,12 +564,12 @@ export const deleteUser = asyncHandler(async (req, res) => {
   try {
     const user = await adminService.softDeleteUser(req.params.id, req.user._id);
     if (!user) {
-      throw new HttpError(404, 'User not found');
+      throw new HttpError(404, 'admin.error_user_not_found');
     }
-    return response.success(res, 200, 'User deleted successfully');
+    return response.success(res, 200, 'admin.user_deleted');
   } catch (error) {
     if (error.message === ERR.ADMIN_CANNOT_DELETE) {
-      throw new HttpError(403, error.message);
+      throw new HttpError(403, 'admin.error_cannot_delete_admin');
     }
     throw error;
   }
@@ -545,10 +585,10 @@ export const createHospital = asyncHandler(async (req, res) => {
     }
 
     const hospital = await adminService.createHospital(req.body, req.user._id);
-    return response.success(res, 201, 'Hospital created successfully', { hospital });
+    return response.success(res, 201, 'admin.hospital_created', { hospital });
   } catch (error) {
     if (error.message === ERR.ADMIN_EMAIL_EXISTS) {
-      throw new HttpError(409, error.message);
+      throw new HttpError(409, 'admin.error_email_exists');
     }
     throw error;
   }
@@ -563,12 +603,12 @@ export const banUser = asyncHandler(async (req, res) => {
   try {
     const user = await adminService.banUser(req.params.id, req.body.reason, req.user._id, req.user.role);
     if (!user) {
-      throw new HttpError(404, 'User not found');
+      throw new HttpError(404, 'admin.error_user_not_found');
     }
-    return response.success(res, 200, 'User banned successfully', { user });
+    return response.success(res, 200, 'admin.user_banned', { user });
   } catch (error) {
     if (error.message === 'User is already banned') {
-      throw new HttpError(400, ERR.DONOR_ALREADY_BANNED);
+      throw new HttpError(400, 'admin.error_donor_already_banned');
     }
     if (error.message === 'Only superadmin can ban admin accounts') {
       throw new HttpError(403, error.message);
@@ -581,12 +621,12 @@ export const unbanUser = asyncHandler(async (req, res) => {
   try {
     const user = await adminService.unbanUser(req.params.id, req.user._id, req.user.role);
     if (!user) {
-      throw new HttpError(404, 'User not found');
+      throw new HttpError(404, 'admin.error_user_not_found');
     }
-    return response.success(res, 200, 'User unbanned successfully', { user });
+    return response.success(res, 200, 'admin.user_unbanned', { user });
   } catch (error) {
     if (error.message === 'User is not banned') {
-      throw new HttpError(400, ERR.DONOR_NOT_BANNED);
+      throw new HttpError(400, 'admin.error_donor_not_banned');
     }
     if (error.message === 'Only superadmin can unban admin accounts') {
       throw new HttpError(403, error.message);
@@ -603,7 +643,7 @@ export const createAdmin = asyncHandler(async (req, res) => {
     }
 
     const admin = await adminService.createAdmin(req.body, req.user._id);
-    return response.success(res, 201, 'Admin created successfully', { admin });
+    return response.success(res, 201, 'admin.admin_created', { admin });
   } catch (error) {
     if (error.message === ERR.ADMIN_EMAIL_EXISTS) {
       throw new HttpError(409, error.message);
@@ -622,12 +662,12 @@ export const deleteAdmin = asyncHandler(async (req, res) => {
   try {
     const admin = await adminService.deleteAdmin(req.params.id, req.user._id, req.user.role);
     if (!admin) {
-      throw new HttpError(404, 'Admin not found');
+      throw new HttpError(404, 'admin.error_not_found');
     }
-    return response.success(res, 200, 'Admin deleted successfully');
+    return response.success(res, 200, 'admin.admin_deleted');
   } catch (error) {
     if (error.message === 'Cannot delete your own account') {
-      throw new HttpError(403, ERR.ADMIN_CANNOT_DELETE_SELF);
+      throw new HttpError(403, 'admin.error_cannot_delete_self');
     }
     throw error;
   }
@@ -636,9 +676,9 @@ export const deleteAdmin = asyncHandler(async (req, res) => {
 export const rotateAdminKey = asyncHandler(async (req, res) => {
   const result = await adminService.rotateAdminKey(req.params.id, req.user._id, req.user.role);
   if (!result) {
-    throw new HttpError(404, 'Admin not found');
+    throw new HttpError(404, 'admin.error_not_found');
   }
-  return response.success(res, 200, 'Admin key rotated successfully. The new key is shown only once — store it securely.', {
+  return response.success(res, 200, 'admin.admin_key_rotated', {
     admin: result.admin,
     adminKey: result.plaintextKey,
   });
@@ -646,32 +686,32 @@ export const rotateAdminKey = asyncHandler(async (req, res) => {
 
 export const listRolePermissions = asyncHandler(async (req, res) => {
   const roles = await adminService.listRolePermissions();
-  return response.success(res, 200, 'Roles retrieved successfully', { roles });
+  return response.success(res, 200, 'admin.roles_retrieved', { roles });
 });
 
 export const getRolePermissionDetails = asyncHandler(async (req, res) => {
   const role = await adminService.getRolePermissionDetails(req.params.role);
   if (!role) {
-    throw new HttpError(404, ERR.ADMIN_ROLE_NOT_FOUND);
+    throw new HttpError(404, 'admin.error_role_not_found');
   }
-  return response.success(res, 200, 'Role retrieved successfully', { role });
+  return response.success(res, 200, 'admin.role_retrieved', { role });
 });
 
 export const createRolePermission = asyncHandler(async (req, res) => {
   try {
     const { role, displayName, description, isSystemRole, permissions } = req.body;
     if (!role || !displayName) {
-      throw new HttpError(400, 'role and displayName are required');
+      throw new HttpError(400, 'admin.error_role_display_required');
     }
 
     const created = await adminService.createRolePermission({ role, displayName, description, isSystemRole, permissions }, req.user._id);
-    return response.success(res, 201, 'Role created successfully', { role: created });
+    return response.success(res, 201, 'admin.role_created', { role: created });
   } catch (error) {
     if (error.message === 'Cannot modify a system role') {
-      throw new HttpError(403, ERR.ADMIN_ROLE_IS_SYSTEM);
+      throw new HttpError(403, 'admin.error_role_is_system');
     }
     if (error.message === 'Role already exists') {
-      throw new HttpError(409, ERR.ADMIN_ROLE_ALREADY_EXISTS);
+      throw new HttpError(409, 'admin.error_role_already_exists');
     }
     throw error;
   }
@@ -681,12 +721,12 @@ export const updateRolePermissions = asyncHandler(async (req, res) => {
   try {
     const updated = await adminService.updateRolePermissions(req.params.role, req.body, req.user._id);
     if (!updated) {
-      throw new HttpError(404, ERR.ADMIN_ROLE_NOT_FOUND);
+      throw new HttpError(404, 'admin.error_role_not_found');
     }
-    return response.success(res, 200, 'Role permissions updated successfully', { role: updated });
+    return response.success(res, 200, 'admin.role_updated', { role: updated });
   } catch (error) {
     if (error.message === 'Cannot modify a system role') {
-      throw new HttpError(403, ERR.ADMIN_ROLE_IS_SYSTEM);
+      throw new HttpError(403, 'admin.error_role_is_system');
     }
     throw error;
   }
@@ -696,12 +736,12 @@ export const deleteRolePermission = asyncHandler(async (req, res) => {
   try {
     const deleted = await adminService.deleteRolePermission(req.params.role, req.user._id);
     if (!deleted) {
-      throw new HttpError(404, ERR.ADMIN_ROLE_NOT_FOUND);
+      throw new HttpError(404, 'admin.error_role_not_found');
     }
-    return response.success(res, 200, 'Role deleted successfully', { role: deleted });
+    return response.success(res, 200, 'admin.role_deleted', { role: deleted });
   } catch (error) {
     if (error.message === 'Cannot delete a system role') {
-      throw new HttpError(403, ERR.ADMIN_ROLE_IS_SYSTEM);
+      throw new HttpError(403, 'admin.error_role_is_system');
     }
     throw error;
   }
@@ -723,23 +763,23 @@ export const listRequests = asyncHandler(async (req, res) => {
     { status, urgency, bloodType, hospitalId, type },
     { page, limit }
   );
-  return response.success(res, 200, 'Requests list', result);
+  return response.success(res, 200, 'admin.requests_list', result);
 });
 
 /** GET /admin/requests/:id */
 export const getRequestDetails = asyncHandler(async (req, res) => {
   const result = await adminService.getRequestDetails(req.params.id);
   if (!result) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'admin.error_request_not_found');
   }
-  return response.success(res, 200, 'Request details', result);
+  return response.success(res, 200, 'admin.request_details', result);
 });
 
 /** GET /admin/requests/:id/donations */
 export const getRequestDonations = asyncHandler(async (req, res) => {
   const { page, limit } = req.query;
   const result = await adminService.getRequestDonations(req.params.id, { page, limit });
-  return response.success(res, 200, 'Request donations', result);
+  return response.success(res, 200, 'admin.request_donations', result);
 });
 
 /** PATCH /admin/requests/:id/fulfill */
@@ -747,12 +787,12 @@ export const fulfillRequest = asyncHandler(async (req, res) => {
   try {
     const request = await adminService.fulfillRequest(req.params.id, req.user._id);
     if (!request) {
-      throw new HttpError(404, 'Request not found');
+      throw new HttpError(404, 'admin.error_request_not_found');
     }
-    return response.success(res, 200, 'Request marked as fulfilled', { request });
+    return response.success(res, 200, 'admin.request_fulfilled', { request });
   } catch (error) {
     if (error.message === ERR.REQUEST_ALREADY_FULFILLED) {
-      throw new HttpError(400, error.message);
+      throw new HttpError(400, 'admin.error_request_already_fulfilled');
     }
     throw error;
   }
@@ -763,12 +803,12 @@ export const cancelRequest = asyncHandler(async (req, res) => {
   try {
     const request = await adminService.cancelRequest(req.params.id, req.body.reason, req.user._id);
     if (!request) {
-      throw new HttpError(404, 'Request not found');
+      throw new HttpError(404, 'admin.error_request_not_found');
     }
-    return response.success(res, 200, 'Request cancelled', { request });
+    return response.success(res, 200, 'admin.request_cancelled', { request });
   } catch (error) {
     if (error.message === ERR.REQUEST_ALREADY_CANCELLED) {
-      throw new HttpError(400, error.message);
+      throw new HttpError(400, 'admin.error_request_already_cancelled');
     }
     throw error;
   }
@@ -778,9 +818,9 @@ export const cancelRequest = asyncHandler(async (req, res) => {
 export const broadcastRequest = asyncHandler(async (req, res) => {
   const result = await adminService.broadcastRequest(req.params.id, req.user._id);
   if (!result) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'admin.error_request_not_found');
   }
-  return response.success(res, 200, 'Broadcast sent', result);
+  return response.success(res, 200, 'admin.broadcast_sent', result);
 });
 
 // ──────────────────────────────────────────────
@@ -790,7 +830,7 @@ export const broadcastRequest = asyncHandler(async (req, res) => {
 /** GET /admin/dashboard */
 export const getDashboard = asyncHandler(async (req, res) => {
   const summary = await analyticsService.getDashboardSummary();
-  return response.success(res, 200, 'Dashboard summary', summary);
+  return response.success(res, 200, 'admin.dashboard_retrieved', summary);
 });
 
 
@@ -802,13 +842,13 @@ export const getDashboard = asyncHandler(async (req, res) => {
 /** GET /admin/emergency/critical */
 export const getCriticalRequests = asyncHandler(async (req, res) => {
   const requests = await adminService.getCriticalRequests();
-  return response.success(res, 200, 'Critical requests', { requests });
+  return response.success(res, 200, 'admin.critical_requests', { requests });
 });
 
 /** GET /admin/emergency/shortage-alerts */
 export const getShortageAlerts = asyncHandler(async (req, res) => {
   const alerts = await adminService.getShortageAlerts();
-  return response.success(res, 200, 'Shortage alerts', { alerts });
+  return response.success(res, 200, 'admin.shortage_alerts', { alerts });
 });
 
 // ──────────────────────────────────────────────
@@ -831,7 +871,7 @@ export const getAdminRewards = asyncHandler(async (req, res) => {
       : Promise.resolve([]),
   ]);
 
-  return response.success(res, 200, 'Rewards data retrieved successfully', {
+  return response.success(res, 200, 'admin.rewards_data_retrieved', {
     totalPoints: pointsSummary.totalPoints,
     percentageChange: pointsSummary.percentageChange,
     tiers,
@@ -846,7 +886,7 @@ export const createReward = asyncHandler(async (req, res) => {
   const { rewardName, category, pointsRequired, status, rewardSubtitle } = req.body;
 
   if (!rewardName || !category || pointsRequired === undefined) {
-    throw new HttpError(400, 'rewardName, category, and pointsRequired are required');
+    throw new HttpError(400, 'admin.error_name_category_points_required');
   }
 
   const data = await rewardService.adminCreateReward({
@@ -857,7 +897,7 @@ export const createReward = asyncHandler(async (req, res) => {
     status,
   });
 
-  return response.success(res, 201, 'Reward created successfully', data);
+  return response.success(res, 201, 'admin.reward_created', data);
 });
 
 export const updateRewardStatus = asyncHandler(async (req, res) => {
@@ -865,17 +905,17 @@ export const updateRewardStatus = asyncHandler(async (req, res) => {
   const { status } = req.body;
 
   if (!status) {
-    throw new HttpError(400, 'status is required');
+    throw new HttpError(400, 'admin.error_status_required');
   }
 
   if (!['ACTIVE', 'INACTIVE', 'LIMITED'].includes(status)) {
-    throw new HttpError(400, 'Status must be ACTIVE, INACTIVE, or LIMITED');
+    throw new HttpError(400, 'reward.error_invalid_status');
   }
 
   const data = await rewardService.adminUpdateRewardStatus(rewardId, status, req.user._id);
-  if (!data) throw new HttpError(404, 'Reward not found');
+  if (!data) throw new HttpError(404, 'admin.reward_not_found');
 
-  return response.success(res, 200, 'Reward status updated successfully', {
+  return response.success(res, 200, 'admin.reward_status_updated', {
     id: data._id,
     rewardName: data.name,
     status: data.status,
@@ -886,32 +926,32 @@ export const bulkUpdateRewardPoints = asyncHandler(async (req, res) => {
   const { updates } = req.body;
 
   if (!Array.isArray(updates) || updates.length === 0) {
-    throw new HttpError(400, 'updates array must have at least one entry');
+    throw new HttpError(400, 'admin.error_updates_array_required');
   }
 
   for (const item of updates) {
     if (!item.id || typeof item.pointsRequired !== 'number') {
-      throw new HttpError(400, 'Each update must have an id and pointsRequired number');
+      throw new HttpError(400, 'admin.error_each_update_fields');
     }
   }
 
   const result = await rewardService.adminBulkUpdateRewardPoints(updates);
-  return response.success(res, 200, 'Reward points updated successfully', { updated: result });
+  return response.success(res, 200, 'admin.reward_points_updated', { updated: result });
 });
 
 export const adjustUserPointsByEmail = asyncHandler(async (req, res) => {
   const { email, amount, reason } = req.body;
 
   if (!email || amount === undefined || !reason) {
-    throw new HttpError(400, 'email, amount, and reason are required');
+    throw new HttpError(400, 'admin.error_email_amount_reason_required');
   }
 
   if (typeof amount !== 'number' || amount === 0) {
-    throw new HttpError(400, 'amount must be a non-zero number');
+    throw new HttpError(400, 'admin.error_amount_non_zero');
   }
 
   const data = await rewardService.adminAdjustPointsByEmail(email, amount, reason, req.user._id);
-  return response.success(res, 200, 'Points adjusted successfully', {
+  return response.success(res, 200, 'reward.points_adjusted', {
     email,
     newBalance: data.pointsBalance,
   });
@@ -922,10 +962,10 @@ export const createEarningRule = asyncHandler(async (req, res) => {
   const { type, title, points, category, isActive } = req.body;
 
   if (!type || !title || points === undefined || !category) {
-    throw new HttpError(400, 'type, title, points, and category are required');
+    throw new HttpError(400, 'admin.error_type_title_points_category_required');
   }
   if (typeof points !== 'number' || points < 0) {
-    throw new HttpError(400, 'points must be a non-negative number');
+    throw new HttpError(400, 'admin.error_points_non_negative');
   }
 
   const rule = await rewardsConfigService.createEarningRule(
@@ -933,25 +973,25 @@ export const createEarningRule = asyncHandler(async (req, res) => {
     req.user._id
   );
 
-  return response.success(res, 201, 'Earning rule created', rule);
+  return response.success(res, 201, 'admin.earning_rule_created', rule);
 });
 
 /** GET /admin/rewards/earning-rules */
 export const listEarningRules = asyncHandler(async (req, res) => {
   const rules = await rewardsConfigService.listEarningRules();
-  return response.success(res, 200, 'Earning rules retrieved', rules);
+  return response.success(res, 200, 'admin.earning_rules_retrieved', rules);
 });
 
 /** GET /admin/rewards/earning-rules/:id */
 export const getEarningRule = asyncHandler(async (req, res) => {
   const rule = await rewardsConfigService.getEarningRuleById(req.params.id);
-  return response.success(res, 200, 'Earning rule retrieved', rule);
+  return response.success(res, 200, 'admin.earning_rule_retrieved', rule);
 });
 
 /** PATCH /admin/rewards/earning-rules/:id */
 export const updateEarningRule = asyncHandler(async (req, res) => {
   if (req.body.points !== undefined && (typeof req.body.points !== 'number' || req.body.points < 0)) {
-    throw new HttpError(400, 'points must be a non-negative number');
+    throw new HttpError(400, 'admin.error_points_non_negative');
   }
 
   const rule = await rewardsConfigService.updateEarningRule(
@@ -960,13 +1000,13 @@ export const updateEarningRule = asyncHandler(async (req, res) => {
     req.user._id
   );
 
-  return response.success(res, 200, 'Earning rule updated', rule);
+  return response.success(res, 200, 'admin.earning_rule_updated', rule);
 });
 
 /** DELETE /admin/rewards/earning-rules/:id */
 export const deleteEarningRule = asyncHandler(async (req, res) => {
   await rewardsConfigService.deleteEarningRule(req.params.id, req.user._id);
-  return response.success(res, 200, 'Earning rule deleted');
+  return response.success(res, 200, 'admin.earning_rule_deleted');
 });
 
 // ──────────────────────────────────────────────
@@ -976,14 +1016,14 @@ export const deleteEarningRule = asyncHandler(async (req, res) => {
 /** GET /admin/badges */
 export const getBadges = asyncHandler(async (req, res) => {
   const badges = await Badge.find().sort({ sortOrder: 1 });
-  return response.success(res, 200, 'Badges retrieved successfully', { badges });
+  return response.success(res, 200, 'reward.badges_retrieved', { badges });
 });
 
 /** PATCH /admin/badges/:id */
 export const updateBadge = asyncHandler(async (req, res) => {
   const { id } = req.params;
   if (!mongoose.Types.ObjectId.isValid(id)) {
-    throw new HttpError(400, 'Invalid badge ID');
+    throw new HttpError(400, 'admin.error_invalid_badge_id');
   }
 
   const { unlockThreshold, pointsReward, bonusPoints } = req.body;
@@ -991,7 +1031,7 @@ export const updateBadge = asyncHandler(async (req, res) => {
 
   if (unlockThreshold !== undefined) {
     if (typeof unlockThreshold !== 'number' || unlockThreshold < 1) {
-      throw new HttpError(400, 'unlockThreshold must be a number greater than or equal to 1');
+      throw new HttpError(400, 'admin.error_unlock_threshold_invalid');
     }
     update.unlockThreshold = unlockThreshold;
   }
@@ -1000,13 +1040,13 @@ export const updateBadge = asyncHandler(async (req, res) => {
   const pointsVal = pointsReward !== undefined ? pointsReward : bonusPoints;
   if (pointsVal !== undefined) {
     if (typeof pointsVal !== 'number' || pointsVal < 0) {
-      throw new HttpError(400, 'pointsReward/bonusPoints must be a non-negative number');
+      throw new HttpError(400, 'admin.error_points_reward_invalid');
     }
     update.pointsReward = pointsVal;
   }
 
   if (Object.keys(update).length === 0) {
-    throw new HttpError(400, 'At least one field to update is required');
+    throw new HttpError(400, 'admin.error_at_least_one_field');
   }
 
   const badge = await Badge.findByIdAndUpdate(
@@ -1016,10 +1056,10 @@ export const updateBadge = asyncHandler(async (req, res) => {
   );
 
   if (!badge) {
-    throw new HttpError(404, 'Badge not found');
+    throw new HttpError(404, 'admin.badge_not_found');
   }
 
   await adminService.logBadgeUpdate(req.user?._id, badge._id, update);
 
-  return response.success(res, 200, 'Badge updated successfully', { badge });
+  return response.success(res, 200, 'admin.badge_updated', { badge });
 });

@@ -12,15 +12,15 @@ const FAQS = [
 ];
 
 export const getFaq = asyncHandler(async (req, res) => {
-  return response.success(res, 200, 'FAQ retrieved successfully', { faqs: FAQS });
+  return response.success(res, 200, 'help.faq_retrieved', { faqs: FAQS });
 });
 
 export const getDocument = asyncHandler(async (req, res) => {
   const type = String(req.params.type || '').trim().toLowerCase();
   const doc = await HelpDocument.findOne({ type });
-  if (!doc) return response.error(res, 404, 'Document not found');
+  if (!doc) return response.error(res, 404, 'help.error_document_not_found');
 
-  return response.success(res, 200, 'Document retrieved successfully', {
+  return response.success(res, 200, 'help.document_retrieved', {
     document_url: doc.documentUrl,
     title: doc.title,
     version: doc.version,
@@ -36,12 +36,12 @@ export const contactSupport = asyncHandler(async (req, res) => {
     req.body.userId !== undefined ||
     req.body.id !== undefined
   ) {
-    return response.error(res, 400, 'Identity fields cannot be provided in the request body');
+    return response.error(res, 400, 'help.error_identity_fields');
   }
 
   const { subject, category, message } = req.body;
   if (!subject || !category || !message) {
-    return response.error(res, 400, 'subject, category, and message are required');
+    return response.error(res, 400, 'help.error_subject_category_message_required');
   }
 
   const allowedCategories = ['TECHNICAL', 'ACCOUNT', 'DONATION', 'REWARDS', 'OTHER'];
@@ -51,7 +51,7 @@ export const contactSupport = asyncHandler(async (req, res) => {
 
   const user = req.user;
   if (!user) {
-    return response.error(res, 401, 'Unauthorized');
+    return response.error(res, 401, 'error.unauthorized');
   }
 
   const ticket = await SupportMessage.create({
@@ -64,7 +64,7 @@ export const contactSupport = asyncHandler(async (req, res) => {
     message,
   });
 
-  return response.success(res, 201, 'Support request submitted successfully', {
+  return response.success(res, 201, 'help.support_submitted', {
     ticket: {
       id: ticket._id,
       fullName: ticket.fullName,
@@ -106,7 +106,7 @@ export const getMyTickets = asyncHandler(async (req, res) => {
     SupportMessage.countDocuments(query),
   ]);
 
-  return response.success(res, 200, 'Support tickets retrieved successfully', {
+  return response.success(res, 200, 'help.support_tickets_retrieved', {
     tickets: tickets.map(toSupportMessageResponse),
     pagination: paginationMeta(total, page, limit),
   });
@@ -114,7 +114,7 @@ export const getMyTickets = asyncHandler(async (req, res) => {
 
 export const getMyTicketById = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
-    return response.error(res, 400, 'Invalid ticket ID');
+    return response.error(res, 400, 'help.error_invalid_ticket_id');
   }
 
   const ticket = await SupportMessage.findOne({
@@ -123,10 +123,10 @@ export const getMyTicketById = asyncHandler(async (req, res) => {
   }).lean();
 
   if (!ticket) {
-    return response.error(res, 404, 'Support ticket not found');
+    return response.error(res, 404, 'help.error_support_ticket_not_found');
   }
 
-  return response.success(res, 200, 'Support ticket retrieved successfully', {
+  return response.success(res, 200, 'help.support_ticket_retrieved', {
     ticket: toSupportMessageResponse(ticket),
   });
 });

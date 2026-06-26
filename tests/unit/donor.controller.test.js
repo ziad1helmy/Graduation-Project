@@ -252,7 +252,7 @@ describe('getProfile', () => {
     const res = makeRes();
     const next = vi.fn();
     await donorController.getProfile({ user: { userId: '507f1f77bcf86cd799439011' } }, res, next);
-    expectHttpError(next, 404, /not found/);
+    expectHttpError(next, 404, /donor.error_profile_not_found/);
   });
 
   it('verificationStatus reflects isEmailVerified', async () => {
@@ -293,7 +293,7 @@ describe('updateProfile', () => {
       res,
       next
     );
-    expectHttpError(next, 400, /11 digits/);
+    expectHttpError(next, 400, /donor.error_invalid_phone/);
   });
 });
 
@@ -468,6 +468,6 @@ describe('getSettings / updateSettings', () => {
       res,
       next
     );
-    expectHttpError(next, 400, /"en" or "ar"/);
+    expectHttpError(next, 400, /donor.error_invalid_language/);
   });
 });

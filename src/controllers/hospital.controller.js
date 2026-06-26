@@ -262,7 +262,7 @@ const buildHospitalProfileStats = async (hospitalId) => {
 export const getProfile = asyncHandler(async (req, res) => {
   const hospital = await Hospital.findById(req.user.userId).select('-password');
   if (!hospital) {
-    throw new HttpError(404, 'Hospital profile not found');
+    throw new HttpError(404, 'hospital.error_not_found');
   }
 
   const [stats, settings] = await Promise.all([
@@ -283,7 +283,7 @@ export const getProfile = asyncHandler(async (req, res) => {
   const lng = Number(hospital.long ?? hospital.location?.coordinates?.lng);
   const hasCoords = Number.isFinite(lat) && Number.isFinite(lng);
 
-  response.success(res, 200, 'Hospital profile retrieved successfully', {
+  response.success(res, 200, 'hospital.profile_retrieved', {
     hospitalName: getHospitalDisplayName(hospital),
     department: hospital.department || null,
     contactNumber: hospital.contactNumber || hospital.phone || null,
@@ -366,17 +366,17 @@ export const findDonors = asyncHandler(async (req, res) => {
 
   if (!searchCoordinates) {
     if (req.user.role !== 'hospital') {
-      throw new HttpError(400, 'lat and lng are required for admin and superadmin users');
+      throw new HttpError(400, 'hospital.error_lat_lng_required');
     }
 
     const hospital = await Hospital.findById(req.user.userId).select('location lat long');
     if (!hospital) {
-      throw new HttpError(404, 'Hospital profile not found');
+      throw new HttpError(404, 'hospital.error_not_found');
     }
 
     searchCoordinates = resolveHospitalCoordinates(hospital);
     if (!searchCoordinates) {
-      throw new HttpError(400, 'Hospital coordinates are required to search for donors');
+      throw new HttpError(400, 'hospital.error_hospital_coordinates_required');
     }
   }
 
@@ -434,12 +434,12 @@ export const findDonors = asyncHandler(async (req, res) => {
       return groupsByBloodType;
     }, new Map());
 
-    return response.success(res, 200, 'Nearby donor groups retrieved successfully', {
+    return response.success(res, 200, 'hospital.nearby_donor_groups_retrieved', {
       groups: [...grouped.values()].sort((left, right) => left.bloodType.localeCompare(right.bloodType)),
     });
   }
 
-  return response.success(res, 200, 'Nearby donors retrieved successfully', {
+  return response.success(res, 200, 'hospital.nearby_donors_retrieved', {
     donors: paginatedDonors,
     pagination: {
       page: pagination.page,
@@ -455,7 +455,7 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
   const { appointmentDate, date, time, notes, donationType, requestId } = req.body;
 
   if (!donorId) {
-    throw new HttpError(400, 'Donor ID is required');
+    throw new HttpError(400, 'hospital.error_donor_id_required');
   }
 
   const normalizedAppointmentDate = buildAppointmentDate({ appointmentDate, date, time });
@@ -482,7 +482,7 @@ export const bookDonorAppointment = asyncHandler(async (req, res) => {
 
     const appointmentResponse = toAppointmentResponse(appointment);
 
-    return response.success(res, 201, 'Appointment booked successfully', appointmentResponse);
+    return response.success(res, 201, 'hospital.appointment_booked', appointmentResponse);
   } catch (error) {
     if (error.message === ELIGIBILITY_KEYS.DONOR_NOT_FOUND || error.message === 'Hospital not found' || error.message === ELIGIBILITY_KEYS.REQUEST_NOT_FOUND) {
       throw new HttpError(404, error.message);
@@ -535,10 +535,10 @@ const applyLocationFields = (hospital, lat, lng) => {
   const parsedLng = lng !== undefined ? Number(lng) : Number(hospital.long ?? hospital.location?.coordinates?.lng);
 
   if (lat !== undefined && (!Number.isFinite(parsedLat) || parsedLat < -90 || parsedLat > 90)) {
-    throw new HttpError(400, 'lat must be a valid number between -90 and 90');
+    throw new HttpError(400, 'hospital.error_lat_invalid');
   }
   if (lng !== undefined && (!Number.isFinite(parsedLng) || parsedLng < -180 || parsedLng > 180)) {
-    throw new HttpError(400, 'lng must be a valid number between -180 and 180');
+    throw new HttpError(400, 'hospital.error_lng_invalid');
   }
 
   hospital.lat = parsedLat;
@@ -553,19 +553,19 @@ const applyLocationFields = (hospital, lat, lng) => {
 const applyWorkingHoursFields = (hospital, workingHoursStart, workingHoursEnd, slotsPerHour) => {
   if (workingHoursStart !== undefined) {
     if (!Number.isInteger(workingHoursStart) || workingHoursStart < 0 || workingHoursStart > 23) {
-      throw new HttpError(400, 'workingHoursStart must be an integer between 0 and 23');
+      throw new HttpError(400, 'hospital.error_working_hours_start_invalid');
     }
     hospital.workingHoursStart = workingHoursStart;
   }
   if (workingHoursEnd !== undefined) {
     if (!Number.isInteger(workingHoursEnd) || workingHoursEnd < 0 || workingHoursEnd > 23) {
-      throw new HttpError(400, 'workingHoursEnd must be an integer between 0 and 23');
+      throw new HttpError(400, 'hospital.error_working_hours_end_invalid');
     }
     hospital.workingHoursEnd = workingHoursEnd;
   }
   if (slotsPerHour !== undefined) {
     if (!Number.isInteger(slotsPerHour) || slotsPerHour < 1) {
-      throw new HttpError(400, 'slotsPerHour must be a positive integer');
+      throw new HttpError(400, 'hospital.error_slots_per_hour_invalid');
     }
     hospital.slotsPerHour = slotsPerHour;
   }
@@ -592,7 +592,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   const hospital = await Hospital.findById(req.user.userId);
   if (!hospital) {
-    throw new HttpError(404, 'Hospital profile not found');
+    throw new HttpError(404, 'hospital.error_not_found');
   }
 
   applyBasicProfileFields(hospital, req.body);
@@ -610,7 +610,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   await applyNotificationFields(req.user.userId, pushNotifications, emergencyAlerts, emailNotifications, smsAlerts);
 
-  response.success(res, 200, 'Profile updated successfully');
+  response.success(res, 200, 'hospital.profile_updated_success');
 });
 
 
@@ -646,10 +646,10 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
 
   const hospital = await Hospital.findById(req.user.userId).select('phone contactNumber location fullName hospitalName');
   if (!hospital) {
-    throw new HttpError(404, 'Hospital profile not found');
+    throw new HttpError(404, 'hospital.error_not_found');
   }
   if (!hospital.phone && !hospital.contactNumber) {
-    throw new HttpError(400, 'Hospital contact number is required before creating a request');
+    throw new HttpError(400, 'hospital.error_contact_number_required');
   }
 
   const requestData = emergencyOnly
@@ -661,7 +661,7 @@ const createRequestFromHospital = async (req, res, { emergencyOnly = false } = {
   const { savedRequest, outboxEntry } = await saveRequestWithOutbook(requestData);
 
   await savedRequest.populate('hospitalId', 'fullName hospitalName address phone contactNumber');
-  response.success(res, 201, 'Donation request created successfully', toHospitalRequestResponse(savedRequest));
+  response.success(res, 201, 'hospital.request_created', toHospitalRequestResponse(savedRequest));
 
   if (requestData.isEmergency) {
     await sendEmergencyNotifications(savedRequest, outboxEntry);
@@ -698,7 +698,7 @@ export const getRequests = asyncHandler(async (req, res) => {
 
   const totalPages = Math.ceil(total / limit) || 1;
 
-  response.success(res, 200, 'Requests retrieved successfully', {
+  response.success(res, 200, 'hospital.requests_retrieved', {
     requests: requests.map((item) => {
       const r = toHospitalRequestResponse(item, requestMetrics.get(item._id.toString()));
       delete r.hospital;
@@ -757,11 +757,11 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
   );
 
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   if (request.hospitalId._id.toString() !== req.user.userId.toString()) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   // Get donations for this request
@@ -771,17 +771,17 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
   );
 
   const responseData = formatRequestDetailResponse(request, donations);
-  response.success(res, 200, 'Request details retrieved successfully', responseData);
+  response.success(res, 200, 'hospital.request_details_retrieved', responseData);
 });
 
 export const getRequestResponses = asyncHandler(async (req, res) => {
   const { requestId } = req.params;
   const request = await Request.findById(requestId).select('hospitalId');
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
   if (request.hospitalId.toString() !== req.user.userId.toString()) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   const donations = await Donation.find({ requestId })
@@ -800,21 +800,21 @@ export const getRequestResponses = asyncHandler(async (req, res) => {
       respondedAt: donation.createdAt,
     }));
 
-  return response.success(res, 200, 'Request responses retrieved successfully', { donors });
+  return response.success(res, 200, 'hospital.request_responses_retrieved', { donors });
 });
 
 export const confirmDonation = asyncHandler(async (req, res) => {
   const { donorId, requestId } = req.body;
   if (!mongoose.Types.ObjectId.isValid(donorId) || !mongoose.Types.ObjectId.isValid(requestId)) {
-    throw new HttpError(400, 'donorId and requestId must be valid ids');
+    throw new HttpError(400, 'hospital.error_donor_request_id_invalid');
   }
 
   const request = await Request.findById(requestId);
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
   if (request.hospitalId.toString() !== req.user.userId.toString()) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   const donation = await Donation.findOne({
@@ -823,16 +823,16 @@ export const confirmDonation = asyncHandler(async (req, res) => {
     status: { $in: ['pending', 'scheduled'] },
   });
   if (!donation) {
-    throw new HttpError(404, 'Active donor response not found');
+    throw new HttpError(404, 'hospital.error_active_donor_response_not_found');
   }
 
   if (!['accepted', 'in-progress'].includes(request.status)) {
-    throw new HttpError(400, 'Request must be accepted or in-progress before confirming donation');
+    throw new HttpError(400, 'hospital.error_request_must_be_accepted_or_in_progress');
   }
 
   const donor = await Donor.findById(donorId);
   if (!donor) {
-    throw new HttpError(404, 'Donor not found');
+    throw new HttpError(404, 'donation.error_donor_not_found');
   }
 
   const session = await mongoose.startSession();
@@ -863,7 +863,7 @@ export const confirmDonation = asyncHandler(async (req, res) => {
     session.endSession();
   }
 
-  return response.success(res, 200, 'Donation confirmed', {
+  return response.success(res, 200, 'hospital.donation_confirmed', {
     requestId: request._id.toString(),
     donorId: donor._id.toString(),
     donationId: donation._id.toString(),
@@ -889,16 +889,16 @@ export const updateRequest = asyncHandler(async (req, res) => {
 
   const request = await Request.findById(requestId);
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   if (request.hospitalId.toString() !== req.user.userId.toString()) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   if (status !== undefined) {
     if (!['pending', 'accepted', 'in-progress', 'completed', 'cancelled', 'expired'].includes(status)) {
-      throw new HttpError(400, 'Valid status is required. Allowed values: pending, accepted, in-progress, completed, cancelled, expired');
+      throw new HttpError(400, 'hospital.error_valid_status_required');
     }
 
     if (request.status !== status) {
@@ -915,12 +915,12 @@ export const updateRequest = asyncHandler(async (req, res) => {
           status: 'completed',
         });
         if (!completedDonation) {
-          throw new HttpError(400, 'Cannot complete request: no completed donation found for this request. Use cancel instead.');
+          throw new HttpError(400, 'hospital.error_cannot_complete_request_no_donation');
         }
       }
 
       if (status === 'accepted' && !request.acceptedDonationId) {
-        throw new HttpError(400, 'Cannot mark request accepted without an accepted donation');
+        throw new HttpError(400, 'hospital.error_cannot_mark_accepted_without_donation');
       }
 
       request.status = status;
@@ -948,14 +948,14 @@ export const updateRequest = asyncHandler(async (req, res) => {
       const bloodTypeInput = bloodTypes !== undefined ? bloodTypes : bloodType;
       const normalizedBloodTypes = normalizeBloodTypeList(bloodTypeInput);
       if (normalizedBloodTypes.length === 0 && ['blood', 'double_red_cells'].includes(request.type)) {
-        throw new HttpError(400, 'Blood type is required for blood or double red cells requests');
+        throw new HttpError(400, 'hospital.error_blood_type_required');
       }
       request.bloodType = normalizedBloodTypes;
     }
 
     if (urgency !== undefined) {
       if (!['low', 'medium', 'high', 'critical'].includes(urgency)) {
-        throw new HttpError(400, 'Urgency must be low, medium, high, or critical');
+        throw new HttpError(400, 'hospital.error_urgency_invalid');
       }
       request.urgency = urgency;
     }
@@ -963,10 +963,10 @@ export const updateRequest = asyncHandler(async (req, res) => {
     if (requiredBy !== undefined) {
       const requiredByDate = new Date(requiredBy);
       if (Number.isNaN(requiredByDate.getTime())) {
-        throw new HttpError(400, 'Required date must be a valid date');
+        throw new HttpError(400, 'hospital.error_required_date_invalid');
       }
       if (requiredByDate <= new Date()) {
-        throw new HttpError(400, 'Required date must be in the future');
+        throw new HttpError(400, 'hospital.error_required_date_future');
       }
       request.requiredBy = requiredByDate;
     }
@@ -974,7 +974,7 @@ export const updateRequest = asyncHandler(async (req, res) => {
     if (unitsNeeded !== undefined || quantity !== undefined) {
       const val = Number(unitsNeeded ?? quantity);
       if (!Number.isInteger(val) || val < 1) {
-        throw new HttpError(400, 'Units needed must be at least 1');
+        throw new HttpError(400, 'hospital.error_units_needed_minimum');
       }
       request.unitsNeeded = val;
     }
@@ -995,7 +995,7 @@ export const updateRequest = asyncHandler(async (req, res) => {
 
     if (contactNumber !== undefined) {
       if (contactNumber && !/^\+?[0-9]{10,15}$/.test(contactNumber)) {
-        throw new HttpError(400, 'Contact number must be a valid phone number');
+        throw new HttpError(400, 'hospital.error_contact_number_format');
       }
       request.contactNumber = contactNumber;
     }
@@ -1031,7 +1031,7 @@ export const updateRequest = asyncHandler(async (req, res) => {
 
   const donations = await Donation.find({ requestId: request._id });
   const responseData = formatRequestDetailResponse(request, donations);
-  response.success(res, 200, 'Request updated successfully', responseData);
+  response.success(res, 200, 'hospital.request_updated', responseData);
 });
 
 export const deleteRequest = asyncHandler(async (req, res) => {
@@ -1039,11 +1039,11 @@ export const deleteRequest = asyncHandler(async (req, res) => {
 
   const request = await Request.findById(requestId);
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   if (request.hospitalId.toString() !== req.user.userId.toString()) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   // Guard: only non-terminal requests can be cancelled.
@@ -1103,7 +1103,7 @@ export const deleteRequest = asyncHandler(async (req, res) => {
   request.acceptedAt = null;
   request.acceptedDonationId = null;
 
-  response.success(res, 200, 'Request cancelled successfully', {
+  response.success(res, 200, 'hospital.request_cancelled', {
     request,
   });
 });
@@ -1156,7 +1156,7 @@ export const getDonations = asyncHandler(async (req, res) => {
     { path: 'requestId', select: 'type bloodType organType urgency' },
   ]);
 
-  response.success(res, 200, 'Donations retrieved successfully', {
+  response.success(res, 200, 'hospital.donations_retrieved', {
     donations: populatedDonations,
     pagination: paginationMeta(total, page, limit),
   });
@@ -1166,10 +1166,10 @@ export const changePassword = asyncHandler(async (req, res) => {
   const { currentPassword, newPassword, confirmPassword } = req.body;
 
   if (!currentPassword || !newPassword || !confirmPassword) {
-    throw new HttpError(400, 'currentPassword, newPassword, and confirmPassword are required');
+    throw new HttpError(400, 'hospital.error_password_change_fields_required');
   }
   if (newPassword !== confirmPassword) {
-    throw new HttpError(400, 'newPassword and confirmPassword must match');
+    throw new HttpError(400, 'hospital.error_password_mismatch');
   }
 
   try {
@@ -1188,7 +1188,7 @@ export const changePassword = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  response.success(res, 200, 'Password updated successfully');
+  response.success(res, 200, 'hospital.password_updated');
 });
 
 export const getAppointments = asyncHandler(async (req, res) => {
@@ -1217,7 +1217,7 @@ export const getAppointments = asyncHandler(async (req, res) => {
 
   const appointmentResponses = appointments.map(toAppointmentResponse);
 
-  return response.success(res, 200, 'Appointments retrieved successfully', {
+  return response.success(res, 200, 'hospital.appointments_retrieved', {
     appointments: appointmentResponses,
     pagination: paginationMeta(total, page, limit),
   });
@@ -1227,17 +1227,17 @@ export const getAppointments = asyncHandler(async (req, res) => {
 export const getAppointmentDetails = asyncHandler(async (req, res) => {
   const { appointmentId } = req.params;
 
-  if (!appointmentId) throw new HttpError(400, 'Appointment ID is required');
-  if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new HttpError(400, 'Invalid appointment ID');
+  if (!appointmentId) throw new HttpError(400, 'hospital.error_appointment_id_required');
+  if (!mongoose.Types.ObjectId.isValid(appointmentId)) throw new HttpError(400, 'hospital.error_appointment_id_required');
 
   const appointment = await Appointment.findOne({ _id: appointmentId, hospitalId: req.user.userId });
-  if (!appointment) throw new HttpError(404, 'Appointment not found');
+  if (!appointment) throw new HttpError(404, 'appointment.error_not_found');
 
   await appointment.populate(appointmentPopulateOptions);
   await appointment.populate({ path: 'requestId', select: 'type bloodType organType urgency hospitalId' });
 
   const appointmentResponse = toAppointmentResponse(appointment);
-  return response.success(res, 200, 'Appointment retrieved successfully', appointmentResponse);
+  return response.success(res, 200, 'hospital.appointment_retrieved', appointmentResponse);
 });
 
 const donationLookupStages = (hospitalObjectId, startDate, endDate, extraMatch = {}) => [
@@ -1321,7 +1321,7 @@ export const getMonthlyReports = asyncHandler(async (req, res) => {
   const avgDaysToRequiredBy = avgDaysResult[0]?.avgDays ? Math.round(avgDaysResult[0].avgDays * 10) / 10 : 0;
   const responsesToday = responsesTodayAgg[0]?.count || 0;
 
-  return response.success(res, 200, 'Monthly report retrieved successfully', {
+  return response.success(res, 200, 'hospital.monthly_report_retrieved', {
     month,
     totalRequests,
     openRequests: openCount,
@@ -1405,7 +1405,7 @@ export const getActivity = asyncHandler(async (req, res) => {
     .sort((left, right) => new Date(right.timestamp) - new Date(left.timestamp))
     .slice(0, limit);
 
-  return response.success(res, 200, 'Hospital activity retrieved successfully', { activities });
+  return response.success(res, 200, 'hospital.hospital_activity_retrieved', { activities });
 });
 
 export const getRequestHistory = asyncHandler(async (req, res) => {
@@ -1568,7 +1568,7 @@ export const getRequestHistory = asyncHandler(async (req, res) => {
   const completedRequests = statusCounts.completed || 0;
   const cancelledRequests = statusCounts.cancelled || 0;
 
-  response.success(res, 200, 'Request history retrieved successfully', {
+  response.success(res, 200, 'hospital.request_history_retrieved', {
     statistics: {
       activeRequests,
       completedRequests,
@@ -1587,7 +1587,7 @@ export const createHospital = asyncHandler(async (req, res) => {
 
   try {
     const result = await hospitalService.createHospitalByAdmin(req.body, req.user._id);
-    return response.success(res, 201, 'Hospital created successfully', result);
+    return response.success(res, 201, 'hospital.created', result);
   } catch (error) {
     if (error.message === 'Email already registered') {
       throw new HttpError(409, error.message);

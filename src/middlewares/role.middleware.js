@@ -14,11 +14,11 @@ import response from '../utils/response.js';
 export default function requireRole(...allowedRoles) {
   return (req, res, next) => {
     if (!req.user) {
-      return response.error(res, 401, 'Unauthorized');
+      return response.error(res, 401, 'error.unauthorized');
     }
 
     if (!allowedRoles.includes(req.user.role)) {
-      return response.error(res, 403, 'Forbidden');
+      return response.error(res, 403, 'error.forbidden');
     }
 
     return next();

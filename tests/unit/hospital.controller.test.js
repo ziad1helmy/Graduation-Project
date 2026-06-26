@@ -211,7 +211,7 @@ describe('Hospital Controller', () => {
 
       expect(next).not.toHaveBeenCalled();
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json.mock.calls[0][0].message).toBe('Profile updated successfully');
+      expect(res.json.mock.calls[0][0].message).toBe('hospital.profile_updated_success');
     });
   });
 
@@ -338,7 +338,7 @@ describe('Hospital Controller', () => {
 
       await hospitalController.getAppointmentDetails(req, res, next);
 
-      expectHttpError(next, 404, /not found/);
+      expectHttpError(next, 404, /error_not_found/);
     });
   });
 });

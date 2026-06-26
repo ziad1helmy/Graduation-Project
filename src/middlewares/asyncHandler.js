@@ -7,7 +7,7 @@
  *   export const getThing = asyncHandler(async (req, res) => {
  *     const thing = await Thing.findById(req.params.id);
  *     if (!thing) throw new ApiError(404, 'Not found');
- *     response.success(res, 200, 'OK', thing);
+ *     response.success(res, 200, 'success', thing);
  *   });
  *
  * @param {Function} fn - An async (req, res, next) handler
