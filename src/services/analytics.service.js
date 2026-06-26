@@ -375,9 +375,10 @@ export const getTopDonors = async (limit = 10) => {
     {
       $lookup: {
         from: 'users',
-        let: { donorId: '$_id' },
+        localField: '_id',
+        foreignField: '_id',
         pipeline: [
-          { $match: { $expr: { $and: [{ $eq: ['$_id', '$$donorId'] }, { $eq: ['$deletedAt', null] }] } } },
+          { $match: { deletedAt: null } },
           { $project: {
               fullName: 1,
               email: 1,

@@ -10,6 +10,7 @@ import Donation from '../models/Donation.model.js';
 import Notification from '../models/Notification.model.js';
 import * as activityService from './activity.service.js';
 import { getRewardsConfig } from './rewardsConfig.service.js';
+import earningRuleRepo from '../repositories/EarningRuleRepository.js';
 import { paginationMeta, parsePagination } from '../utils/pagination.js';
 import { logger } from '../utils/logger.js';
 import Donor from '../models/Donor.model.js';
@@ -1020,16 +1021,12 @@ export const adminGetPointsAdjustments = async (limit = 20) => {
 };
 
 export const getEarningRules = async () => {
-  const rewardsConfig = await getRewardsConfig();
+  const rules = await earningRuleRepo.findActive();
 
-  return [
-    { type: 'blood_donation', title: 'Blood Donation', points: rewardsConfig.points.bloodDonation, category: 'donation' },
-    { type: 'plasma_donation', title: 'Plasma Donation', points: rewardsConfig.points.plasmaDonation, category: 'donation' },
-    { type: 'platelets_donation', title: 'Platelet Donation', points: rewardsConfig.points.plateletsDonation, category: 'donation' },
-    { type: 'double_red_cells_donation', title: 'Double Red Cells Donation', points: rewardsConfig.points.doubleRedCellsDonation, category: 'donation' },
-    { type: 'first_donation', title: 'First Donation Bonus', points: rewardsConfig.points.firstDonation, category: 'bonus' },
-    { type: 'emergency_response', title: 'Emergency Response', points: rewardsConfig.points.emergencyResponse, category: 'bonus' },
-    { type: 'profile_completion', title: 'Profile Completion', points: rewardsConfig.points.profileCompletion, category: 'bonus' },
-    { type: 'referral', title: 'Referral', points: rewardsConfig.points.referral, category: 'bonus' },
-  ];
+  return rules.map((rule) => ({
+    type: rule.type.replace(/([A-Z])/g, '_$1').toLowerCase(),
+    title: rule.title,
+    points: rule.points,
+    category: rule.category,
+  }));
 };

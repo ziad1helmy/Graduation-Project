@@ -63,9 +63,15 @@ router.patch('/rewards/bulk-points', adminController.bulkUpdateRewardPoints);
 
 router.post('/rewards/points/adjust-by-email', adminController.adjustUserPointsByEmail);
 
-router.get('/rewards/earning-rules', adminController.getRewardsEarningRules);
+router.post('/rewards/earning-rules', adminController.createEarningRule);
 
-router.put('/rewards/earning-rules', adminController.updateRewardsEarningRules);
+router.get('/rewards/earning-rules', adminController.listEarningRules);
+
+router.get('/rewards/earning-rules/:id', adminController.getEarningRule);
+
+router.patch('/rewards/earning-rules/:id', adminController.updateEarningRule);
+
+router.delete('/rewards/earning-rules/:id', adminController.deleteEarningRule);
 
 // Badges Management
 router.get('/badges', adminController.getBadges);

@@ -7814,6 +7814,234 @@ paths:
           description: Invalid amount, missing reason, or non-donor email
         "404":
           description: User not found
+  /admin/rewards/earning-rules:
+    post:
+      summary: Create a new earning rule
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - type
+                - title
+                - points
+                - category
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - bloodDonation
+                    - plasmaDonation
+                    - plateletsDonation
+                    - doubleRedCellsDonation
+                    - emergencyResponse
+                    - profileCompletion
+                    - referral
+                    - firstDonation
+                  description: Unique rule type identifier
+                title:
+                  type: string
+                  description: Display name for the rule
+                  example: Blood Donation
+                points:
+                  type: integer
+                  minimum: 0
+                  description: Points awarded for this activity
+                  example: 200
+                category:
+                  type: string
+                  enum:
+                    - donation
+                    - bonus
+                  description: Rule category
+                isActive:
+                  type: boolean
+                  default: true
+                  description: Whether the rule is active
+            examples:
+              createEarningRule:
+                summary: Create a blood donation rule
+                value:
+                  type: bloodDonation
+                  title: Blood Donation
+                  points: 200
+                  category: donation
+                  isActive: true
+      responses:
+        "201":
+          description: Earning rule created
+          content:
+            application/json:
+              example:
+                success: true
+                message: Earning rule created
+                data:
+                  _id: 664a123456789abcdef12399
+                  type: bloodDonation
+                  title: Blood Donation
+                  points: 200
+                  category: donation
+                  isActive: true
+        "400":
+          description: Invalid input or missing required fields
+        "409":
+          description: Rule type already exists
+    get:
+      summary: List all earning rules
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: List of earning rules
+          content:
+            application/json:
+              example:
+                success: true
+                message: Earning rules retrieved
+                data:
+                  - _id: 664a123456789abcdef12399
+                    type: bloodDonation
+                    title: Blood Donation
+                    points: 200
+                    category: donation
+                    isActive: true
+                  - _id: 664a123456789abcdef123aa
+                    type: plasmaDonation
+                    title: Plasma Donation
+                    points: 150
+                    category: donation
+                    isActive: true
+  /admin/rewards/earning-rules/{id}:
+    get:
+      summary: Get an earning rule by ID
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Earning rule ID
+      responses:
+        "200":
+          description: Earning rule details
+          content:
+            application/json:
+              example:
+                success: true
+                message: Earning rule retrieved
+                data:
+                  _id: 664a123456789abcdef12399
+                  type: bloodDonation
+                  title: Blood Donation
+                  points: 200
+                  category: donation
+                  isActive: true
+        "404":
+          description: Earning rule not found
+    patch:
+      summary: Update an earning rule
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Earning rule ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                type:
+                  type: string
+                  enum:
+                    - bloodDonation
+                    - plasmaDonation
+                    - plateletsDonation
+                    - doubleRedCellsDonation
+                    - emergencyResponse
+                    - profileCompletion
+                    - referral
+                    - firstDonation
+                title:
+                  type: string
+                  example: Blood Donation
+                points:
+                  type: integer
+                  minimum: 0
+                  example: 250
+                category:
+                  type: string
+                  enum:
+                    - donation
+                    - bonus
+                isActive:
+                  type: boolean
+            examples:
+              updateEarningRule:
+                summary: Update points for blood donation
+                value:
+                  points: 250
+      responses:
+        "200":
+          description: Earning rule updated
+          content:
+            application/json:
+              example:
+                success: true
+                message: Earning rule updated
+                data:
+                  _id: 664a123456789abcdef12399
+                  type: bloodDonation
+                  title: Blood Donation
+                  points: 250
+                  category: donation
+                  isActive: true
+        "400":
+          description: Invalid input
+        "404":
+          description: Earning rule not found
+    delete:
+      summary: Delete an earning rule
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Earning rule ID
+      responses:
+        "200":
+          description: Earning rule deleted
+          content:
+            application/json:
+              example:
+                success: true
+                message: Earning rule deleted
+        "404":
+          description: Earning rule not found
   /admin/inbound-emails:
     get:
       summary: List inbound emails and support tickets
@@ -9025,54 +9253,6 @@ paths:
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com This operation works for
         donors, hospitals, and admins (superadmin required for admin accounts)."
-  /admin/users/{id}/password:
-    put:
-      tags:
-        - Admin
-      summary: Reset a user's password (admin only)
-      description: Allows an admin to change any user's password without knowing the current password.
-      security:
-        - bearerAuth: []
-      parameters:
-        - in: path
-          name: id
-          required: true
-          schema:
-            type: string
-          example: 69f3df915f42685cbbbcbb18
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              required:
-                - password
-              properties:
-                password:
-                  type: string
-                  minLength: 8
-                  description: New password (min 8 characters)
-                  example: NewSecurePass123!
-            example:
-              password: NewSecurePass123!
-      responses:
-        "200":
-          description: Password changed successfully
-          content:
-            application/json:
-              example:
-                success: true
-                message: Password changed successfully
-                data:
-                  user:
-                    _id: 69f3df915f42685cbbbcbb18
-                    email: donor@example.com
-                    role: donor
-        "400":
-          description: Password must be at least 8 characters
-        "404":
-          description: User not found
   /admin/admins:
     get:
       tags:

@@ -917,43 +917,56 @@ export const adjustUserPointsByEmail = asyncHandler(async (req, res) => {
   });
 });
 
-/** GET /admin/rewards/earning-rules */
-export const getRewardsEarningRules = asyncHandler(async (req, res) => {
-  const config = await rewardsConfigService.getRewardsConfig();
-  return response.success(res, 200, 'Rewards earning rules retrieved', config);
-});
+/** POST /admin/rewards/earning-rules */
+export const createEarningRule = asyncHandler(async (req, res) => {
+  const { type, title, points, category, isActive } = req.body;
 
-/** PUT /admin/rewards/earning-rules */
-export const updateRewardsEarningRules = asyncHandler(async (req, res) => {
-  const { points } = req.body;
-
-  if (!points || typeof points !== 'object') {
-    throw new HttpError(400, 'points object is required');
+  if (!type || !title || points === undefined || !category) {
+    throw new HttpError(400, 'type, title, points, and category are required');
+  }
+  if (typeof points !== 'number' || points < 0) {
+    throw new HttpError(400, 'points must be a non-negative number');
   }
 
-  const allowedFields = [
-    'bloodDonation', 'plasmaDonation', 'plateletsDonation',
-    'doubleRedCellsDonation', 'emergencyResponse', 'profileCompletion',
-    'referral', 'firstDonation',
-  ];
-
-  const unknownFields = Object.keys(points).filter(k => !allowedFields.includes(k));
-  if (unknownFields.length > 0) {
-    throw new HttpError(400, `Unknown point fields: ${unknownFields.join(', ')}`);
-  }
-
-  for (const [key, value] of Object.entries(points)) {
-    if (typeof value !== 'number' || value < 0) {
-      throw new HttpError(400, `${key} must be a non-negative number`);
-    }
-  }
-
-  const config = await rewardsConfigService.updateRewardsConfig(
-    { points },
+  const rule = await rewardsConfigService.createEarningRule(
+    { type, title, points, category, isActive },
     req.user._id
   );
 
-  return response.success(res, 200, 'Rewards earning rules updated', config);
+  return response.success(res, 201, 'Earning rule created', rule);
+});
+
+/** GET /admin/rewards/earning-rules */
+export const listEarningRules = asyncHandler(async (req, res) => {
+  const rules = await rewardsConfigService.listEarningRules();
+  return response.success(res, 200, 'Earning rules retrieved', rules);
+});
+
+/** GET /admin/rewards/earning-rules/:id */
+export const getEarningRule = asyncHandler(async (req, res) => {
+  const rule = await rewardsConfigService.getEarningRuleById(req.params.id);
+  return response.success(res, 200, 'Earning rule retrieved', rule);
+});
+
+/** PATCH /admin/rewards/earning-rules/:id */
+export const updateEarningRule = asyncHandler(async (req, res) => {
+  if (req.body.points !== undefined && (typeof req.body.points !== 'number' || req.body.points < 0)) {
+    throw new HttpError(400, 'points must be a non-negative number');
+  }
+
+  const rule = await rewardsConfigService.updateEarningRule(
+    req.params.id,
+    req.body,
+    req.user._id
+  );
+
+  return response.success(res, 200, 'Earning rule updated', rule);
+});
+
+/** DELETE /admin/rewards/earning-rules/:id */
+export const deleteEarningRule = asyncHandler(async (req, res) => {
+  await rewardsConfigService.deleteEarningRule(req.params.id, req.user._id);
+  return response.success(res, 200, 'Earning rule deleted');
 });
 
 // ──────────────────────────────────────────────
