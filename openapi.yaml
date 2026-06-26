@@ -8540,6 +8540,12 @@ paths:
                       isSuspended: false
                       createdAt: 2026-01-15T08:00:00.000Z
                       joinedAt: 2026-01-15T08:00:00.000Z
+                      bloodBanksAvailable:
+                        - O+
+                        - O-
+                        - A+
+                        - B+
+                      capacity: 200
                   pagination:
                     total: 2
                     page: 1
@@ -8757,6 +8763,12 @@ paths:
                         isEmailVerified: true
                         isSuspended: false
                         totalRequests: 24
+                        bloodBanksAvailable:
+                          - O+
+                          - O-
+                          - A+
+                          - B+
+                        capacity: 200
                         createdAt: 2026-01-05T07:30:00.000Z
                 admin:
                   summary: Admin Details
@@ -8881,6 +8893,12 @@ paths:
                       role: hospital
                       isEmailVerified: true
                       isSuspended: false
+                      bloodBanksAvailable:
+                        - O+
+                        - O-
+                        - A+
+                        - B+
+                      capacity: 200
                     - _id: 69f3df925f42685cbbbcbb1c
                       fullName: Alexandria Health Desk
                       hospitalName: Alexandria Central Hospital
@@ -8888,6 +8906,12 @@ paths:
                       role: hospital
                       isEmailVerified: true
                       isSuspended: false
+                      bloodBanksAvailable:
+                        - O+
+                        - A+
+                        - B-
+                        - AB+
+                      capacity: 150
                   total: 2
                   page: 1
                   limit: 10
@@ -8975,6 +8999,12 @@ paths:
                     isEmailVerified: true
                     isSuspended: false
                     totalRequests: 24
+                    bloodBanksAvailable:
+                      - O+
+                      - O-
+                      - A+
+                      - B+
+                    capacity: 200
                     createdAt: 2026-01-05T07:30:00.000Z
       description: "Demo seed available via `npm run seed-demo`. Base URL example:
         https://graduation-project-cy61.onrender.com Parameter examples are

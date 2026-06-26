@@ -64,7 +64,7 @@ export const updateAdminProfile = asyncHandler(async (req, res) => {
 
     const payload = { admin: adminObj };
     if (emailChanged) {
-      payload.note = 'Email changed — check your inbox to re-verify your address';
+      payload.note = 'Email changed — log in again with your new email';
     }
 
     return response.success(res, 200, 'admin.profile_updated', payload);

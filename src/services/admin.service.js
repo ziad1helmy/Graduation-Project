@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
 import * as jwt from '../utils/jwt.js';
 import { logger } from '../utils/logger.js';
-import { sendEmailVerificationEmail, sendSupportReplyEmail } from '../utils/mailer.js';
+import { sendSupportReplyEmail } from '../utils/mailer.js';
 import { logAudit } from './audit.service.js';
 export { logAudit } from './audit.service.js';
 import AuditLog from '../models/AuditLog.model.js';
@@ -399,6 +399,8 @@ export const toAdminUserListItem = (user) => {
     joinedAt,
     createdAt: joinedAt,
     totalDonations: object.totalDonations ?? 0,
+    bloodBanksAvailable: object.bloodBanksAvailable ?? [],
+    capacity: object.capacity ?? null,
   };
 };
 
@@ -452,12 +454,14 @@ export const getUserById = async (id, callerRole = null, expectedRole = null, ca
     };
   }
 
-  // For hospitals, also get request stats
+  // For hospitals, also get request stats, blood banks, and capacity
   if (user.role === 'hospital') {
     const requestCount = await Request.countDocuments({ hospitalId: id });
     return {
       ...user.toObject(),
       totalRequests: requestCount,
+      bloodBanksAvailable: user.bloodBanksAvailable ?? [],
+      capacity: user.capacity ?? null,
     };
   }
 
@@ -973,16 +977,13 @@ export const updateAdminProfile = async (adminId, data) => {
   if (!admin) return null;
 
   const emailChanged = data.email && data.email !== admin.email;
-  let verificationOtp;
 
   if (emailChanged) {
     const normalizedEmail = String(data.email).trim().toLowerCase();
     const dup = await User.findOne({ email: normalizedEmail, _id: { $ne: adminId } });
     if (dup) throw new Error('Email is already in use by another account');
     admin.email = normalizedEmail;
-    admin.isEmailVerified = false;
     admin.passwordChangedAt = new Date();
-    verificationOtp = admin.createEmailVerificationOtp();
   }
 
   const changedFields = buildFieldDiff(admin, data, ['fullName', 'email', 'phone']);
@@ -991,16 +992,6 @@ export const updateAdminProfile = async (adminId, data) => {
   }
 
   await admin.save();
-
-  if (emailChanged) {
-    void sendEmailVerificationEmail({
-      to: admin.email,
-      fullName: admin.fullName,
-      otp: verificationOtp,
-    }).catch((err) => {
-      logger.warn('Admin profile email verification send failed', { email: admin.email, message: err?.message });
-    });
-  }
 
   const auditChanges = Object.keys(changedFields).length > 0 ? changedFields : null;
   await logAudit(adminId, 'admin.update_profile', 'User', adminId, auditChanges);

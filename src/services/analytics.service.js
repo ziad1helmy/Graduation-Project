@@ -356,26 +356,19 @@ export const getBloodTypeDistribution = async () => {
 };
 
 /**
- * Get top donors by completed donation count.
+ * Get top donors ranked by points balance.
  * @param {number} limit - Number of top donors to return (default 10)
  */
 export const getTopDonors = async (limit = 10) => {
-  const topDonors = await Donation.aggregate([
-    { $match: { status: 'completed' } },
-    {
-      $group: {
-        _id: '$donorId',
-        completedDonations: { $sum: 1 },
-        totalUnits: { $sum: '$quantity' },
-        lastDonation: { $max: '$completedDate' },
-      },
-    },
-    { $sort: { completedDonations: -1 } },
-    { $limit: parseInt(limit) },
+  const parsedLimit = parseInt(limit);
+  const topDonors = await DonorPoints.aggregate([
+    { $match: { pointsBalance: { $gt: 0 } } },
+    { $sort: { pointsBalance: -1 } },
+    { $limit: parsedLimit },
     {
       $lookup: {
         from: 'users',
-        localField: '_id',
+        localField: 'donorId',
         foreignField: '_id',
         pipeline: [
           { $match: { deletedAt: null } },
@@ -401,19 +394,35 @@ export const getTopDonors = async (limit = 10) => {
     { $unwind: '$donor' },
     {
       $lookup: {
-        from: 'donorpoints',
-        localField: '_id',
-        foreignField: 'donorId',
-        as: 'points',
+        from: 'donations',
+        let: { donorId: '$donorId' },
+        pipeline: [
+          { $match: { $expr: { $eq: ['$donorId', '$$donorId'] }, status: 'completed' } },
+          {
+            $group: {
+              _id: null,
+              completedDonations: { $sum: 1 },
+              totalUnits: { $sum: '$quantity' },
+              lastDonation: { $max: '$completedDate' },
+            },
+          },
+        ],
+        as: 'donationStats',
       },
     },
-    { $unwind: { path: '$points', preserveNullAndEmptyArrays: true } },
+    {
+      $addFields: {
+        donationStats: { $ifNull: [{ $arrayElemAt: ['$donationStats', 0] }, { completedDonations: 0, totalUnits: 0, lastDonation: null }] },
+      },
+    },
     {
       $project: {
-        donorId: '$_id',
-        completedDonations: '$completedDonations',
-        totalUnits: 1,
-        lastDonation: 1,
+        donorId: 1,
+        points: '$pointsBalance',
+        tier: 1,
+        completedDonations: '$donationStats.completedDonations',
+        totalUnits: '$donationStats.totalUnits',
+        lastDonation: '$donationStats.lastDonation',
         fullName: '$donor.fullName',
         email: '$donor.email',
         phoneNumber: '$donor.phoneNumber',
@@ -427,8 +436,6 @@ export const getTopDonors = async (limit = 10) => {
         healthHistory: '$donor.healthHistory',
         temporaryDeferralUntil: '$donor.temporaryDeferralUntil',
         createdAt: '$donor.createdAt',
-        points: { $ifNull: ['$points.pointsBalance', 0] },
-        tier: { $ifNull: ['$points.tier', 'bronze'] },
       },
     },
   ]);

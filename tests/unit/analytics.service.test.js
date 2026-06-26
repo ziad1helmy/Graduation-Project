@@ -93,6 +93,10 @@ describe('Analytics Service', () => {
     await createDonation(donor1._id, request._id, { status: 'completed', quantity: 1 });
     await createDonation(donor2._id, request._id, { status: 'completed', quantity: 2 });
 
+    // Create DonorPoints records so donors pass the points filter
+    await DonorPoints.create({ donorId: donor1._id, pointsBalance: 300, lifetimePointsEarned: 300 });
+    await DonorPoints.create({ donorId: donor2._id, pointsBalance: 100, lifetimePointsEarned: 100 });
+
     const topDonors = await analyticsService.getTopDonors(10);
 
     expect(Array.isArray(topDonors)).toBe(true);
