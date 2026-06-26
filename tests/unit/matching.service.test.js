@@ -819,5 +819,25 @@ describe('Geospatial Index matching with ENABLE_GEOSPATIAL_INDEX', () => {
     const results = await findCompatibleDonors(request._id);
     expect(results.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('searchCompatibleDonors falls back to plain query when geospatial index is missing', async () => {
+    // Drop the 2dsphere index to simulate a geo-index error
+    const Donor = (await import('../../src/models/Donor.model.js')).default;
+    try {
+      await Donor.collection.dropIndex('location.coordinates_2dsphere');
+    } catch (_) {
+      // Index may not exist — that's fine for this test
+    }
+
+    await createDonor({ bloodType: 'O+', isOptedIn: true });
+
+    const results = await searchCompatibleDonors({
+      bloodType: 'O+',
+      location: { lat: 30.0444, lng: 31.2357 },
+      radiusKm: 5,
+    });
+
+    expect(results.length).toBeGreaterThanOrEqual(1);
+  });
 });
 

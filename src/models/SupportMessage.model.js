@@ -33,7 +33,7 @@ const supportMessageSchema = new mongoose.Schema(
     attachmentUrls: [{ type: String }],
     status: {
       type: String,
-      enum: ['OPEN', 'REVIEWED'],
+      enum: ['OPEN', 'REVIEWED', 'CLOSED'],
       default: 'OPEN',
     },
     adminReply: {
@@ -51,6 +51,8 @@ const supportMessageSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    isRead: { type: Boolean, default: false },
+    isArchived: { type: Boolean, default: false },
   },
   { timestamps: true, strict: 'throw' }
 );
@@ -58,7 +60,10 @@ const supportMessageSchema = new mongoose.Schema(
 supportMessageSchema.index({ userId: 1 });
 supportMessageSchema.index({ status: 1 });
 supportMessageSchema.index({ category: 1 });
+supportMessageSchema.index({ isArchived: 1 });
+supportMessageSchema.index({ isRead: 1 });
 supportMessageSchema.index({ status: 1, createdAt: -1 });
+supportMessageSchema.index({ status: 1, adminReplyAt: 1 });
 supportMessageSchema.index({ createdAt: -1 });
 
 const SupportMessage = mongoose.model('SupportMessage', supportMessageSchema);

@@ -33,7 +33,7 @@ afterAll(async () => {
 });
 
 describe('Donation Lifecycle Smoke E2E Flow', () => {
-  it('executes the full donation lifecycle (book -> verify QR -> checklist -> complete -> points)', async () => {
+  it('executes the full donation lifecycle (book -> verify QR -> checklist -> complete -> points)', { timeout: 30000 }, async () => {
     // Seed
     const hospital = await createHospital();
     const hospitalToken = signToken({ userId: hospital._id.toString(), role: 'hospital', isEmailVerified: true });

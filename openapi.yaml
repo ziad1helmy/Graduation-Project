@@ -4093,6 +4093,7 @@ paths:
             enum:
               - OPEN
               - REVIEWED
+              - CLOSED
           description: Filter by status
         - in: query
           name: category
@@ -8067,12 +8068,12 @@ paths:
           name: read
           schema:
             type: boolean
-          description: Filter inbound emails by read status
+          description: Filter inbound emails and support tickets by read status
         - in: query
           name: archived
           schema:
             type: boolean
-          description: Filter inbound emails by archived status
+          description: Filter inbound emails and support tickets by archived status
         - in: query
           name: search
           schema:
@@ -8085,6 +8086,7 @@ paths:
             enum:
               - OPEN
               - REVIEWED
+              - CLOSED
           description: Filter support tickets by status
         - in: query
           name: supportCategory
@@ -8125,6 +8127,8 @@ paths:
                       subject: "Need help with reward redemption"
                       category: "REWARDS"
                       status: "OPEN"
+                      isRead: false
+                      isArchived: false
                       adminReply: null
                       createdAt: "2026-05-24T16:24:00.000Z"
                   pagination:
@@ -8248,6 +8252,103 @@ paths:
                     _id: 66f700000000000000000001
                     isArchived: true
                     archivedAt: 2026-05-18T09:05:00.000Z
+
+  /admin/inbound-emails/{id}/support-ticket:
+    get:
+      summary: Get a support ticket by ID
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Support ticket ID
+      responses:
+        "200":
+          description: Support ticket retrieved successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Support ticket retrieved successfully
+                data:
+                  ticket:
+                    _id: "670000000000000000000001"
+                    userId: "670000000000000000000000"
+                    fullName: "Mohamed Yaser"
+                    email: "donor@example.com"
+                    role: "donor"
+                    subject: "Need help with reward redemption"
+                    category: "REWARDS"
+                    message: "I am unable to redeem my reward points."
+                    attachmentUrls: []
+                    status: "OPEN"
+                    adminReply: null
+                    adminReplyAt: null
+                    adminReplyBy: null
+                    createdAt: "2026-05-24T16:24:00.000Z"
+                    updatedAt: "2026-05-24T16:24:00.000Z"
+        "400":
+          description: Invalid support ticket ID
+        "404":
+          description: Support ticket not found
+  /admin/inbound-emails/{id}/reply:
+    post:
+      summary: Reply to a support ticket
+      tags:
+        - Admin
+      security:
+        - bearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: Support ticket ID
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reply
+              properties:
+                reply:
+                  type: string
+                  maxLength: 4000
+                  description: Admin reply text
+      responses:
+        "200":
+          description: Reply sent successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Reply sent successfully
+                data:
+                  ticket:
+                    _id: "670000000000000000000001"
+                    fullName: "Mohamed Yaser"
+                    email: "donor@example.com"
+                    subject: "Need help with reward redemption"
+                    category: "REWARDS"
+                    message: "I am unable to redeem my reward points."
+                    status: "REVIEWED"
+                    adminReply: "Thank you for reaching out. Please contact our support team for further assistance."
+                    adminReplyAt: "2026-05-25T10:00:00.000Z"
+                    adminReplyBy: "670000000000000000000010"
+                    createdAt: "2026-05-24T16:24:00.000Z"
+                    updatedAt: "2026-05-25T10:00:00.000Z"
+        "400":
+          description: Invalid support ticket ID or missing reply
+        "404":
+          description: Support ticket not found
 
   /admin/profile:
     get:

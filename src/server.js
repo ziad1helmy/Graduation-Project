@@ -7,6 +7,7 @@ import { initializeDefaultConfig } from './services/rewardsConfig.service.js';
 import { logger } from './utils/logger.js';
 import outboxWorker from './workers/notificationOutbox.worker.js';
 import requestEscalationWorker from './workers/requestEscalation.worker.js';
+import supportTicketClosureWorker from './workers/supportTicketClosure.worker.js';
 
 validateEnv();
 await connectDB();
@@ -36,7 +37,7 @@ const server = app.listen(env.PORT, () => {
 // The worker is safe to run in multiple instances because it claims entries atomically.
 let outboxInterval = null;
 const startOutboxWorker = (intervalMs = 5000) => {
-  if (process.env.NODE_ENV === 'test') return;
+  if (env.NODE_ENV === 'test') return;
   if (outboxInterval) return;
   outboxInterval = setInterval(async () => {
     try {
@@ -49,12 +50,12 @@ const startOutboxWorker = (intervalMs = 5000) => {
 };
 
 // Start worker by default in non-test environments. For production, consider running a separate worker process.
-startOutboxWorker(parseInt(process.env.OUTBOX_POLL_INTERVAL_MS, 10) || 5000);
+startOutboxWorker(parseInt(env.OUTBOX_POLL_INTERVAL_MS, 10) || 5000);
 
 // Start the request escalation worker: handles arrival expirations and re-broadcasts.
 let escalationInterval = null;
 const startEscalationWorker = (intervalMs = 60000) => {
-  if (process.env.NODE_ENV === 'test') return;
+  if (env.NODE_ENV === 'test') return;
   if (escalationInterval) return;
   escalationInterval = setInterval(async () => {
     try {
@@ -73,7 +74,27 @@ const startEscalationWorker = (intervalMs = 60000) => {
   logger.info('Request Escalation worker started', { intervalMs });
 };
 
-startEscalationWorker(parseInt(process.env.ESCALATION_POLL_INTERVAL_MS, 10) || 60000);
+startEscalationWorker(parseInt(env.ESCALATION_POLL_INTERVAL_MS, 10) || 60000);
+
+// Start the support ticket closure worker: auto-closes tickets 72h after admin reply.
+let supportTicketInterval = null;
+const startSupportTicketClosureWorker = (intervalMs = 900000) => {
+  if (env.NODE_ENV === 'test') return;
+  if (supportTicketInterval) return;
+  supportTicketInterval = setInterval(async () => {
+    try {
+      const result = await supportTicketClosureWorker.processUnansweredTickets();
+      if (result.closed > 0 || result.failed > 0) {
+        logger.info('Support ticket closure worker completed', { result });
+      }
+    } catch (err) {
+      logger.warn('Support ticket closure worker iteration failed', { message: err.message });
+    }
+  }, intervalMs);
+  logger.info('Support Ticket Closure worker started', { intervalMs });
+};
+
+startSupportTicketClosureWorker(parseInt(env.SUPPORT_CLOSURE_POLL_INTERVAL_MS, 10) || 900000);
 
 server.on('error', (error) => {
   if (error.code === 'EADDRINUSE') {
@@ -108,7 +129,7 @@ const shutdown = async (signal) => {
   forceExitTimer.unref();
 
   server.close(async (serverError) => {
-  // Stop background workers (outbox + escalation) to prevent them from issuing DB ops during shutdown
+  // Stop background workers (outbox + escalation + support ticket) to prevent them from issuing DB ops during shutdown
   try {
     if (outboxInterval) {
       clearInterval(outboxInterval);
@@ -117,6 +138,10 @@ const shutdown = async (signal) => {
     if (escalationInterval) {
       clearInterval(escalationInterval);
       escalationInterval = null;
+    }
+    if (supportTicketInterval) {
+      clearInterval(supportTicketInterval);
+      supportTicketInterval = null;
     }
     // Small grace period for any in-flight worker iteration to complete
     await new Promise((resolve) => setTimeout(resolve, 500));

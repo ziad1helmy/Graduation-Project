@@ -53,7 +53,7 @@ describe('Webhook Controller', () => {
 
       await webhookController.handleResendWebhook(req, res, next);
 
-      expectHttpError(next, 401, /Invalid signature/);
+      expectHttpError(next, 401, /webhook\.invalid_signature/);
     });
 
     it('returns 401 if signature is invalid', async () => {
@@ -89,40 +89,39 @@ describe('Webhook Controller', () => {
       expect(res.json.mock.calls[0][0].data).toEqual({ received: true });
     });
 
-    it('skips verification if RESEND_WEBHOOK_SECRET is not configured', async () => {
+    it('returns 401 if RESEND_WEBHOOK_SECRET is not configured', async () => {
       env.RESEND_WEBHOOK_SECRET = '';
       const rawBody = Buffer.from(JSON.stringify({ type: 'email.delivered' }));
       const req = makeMockReq({
         body: rawBody,
-        headers: { 'resend-signature': 'dummy' }, // header present, but secret is empty
+        headers: { 'resend-signature': 'dummy' },
       });
       const res = makeMockRes();
       const next = vi.fn();
 
       await webhookController.handleResendWebhook(req, res, next);
 
-      expect(next).not.toHaveBeenCalled();
-      expect(res.status).toHaveBeenCalledWith(200);
+      expectHttpError(next, 401, /webhook\.invalid_signature/);
     });
   });
 
   describe('handleResendWebhook — Payload Parsing & Processing', () => {
     it('returns 400 if payload cannot be parsed as JSON', async () => {
+      const rawBody = Buffer.from('{ invalid json ');
+      const computed = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
       const req = makeMockReq({
-        body: Buffer.from('{ invalid json '),
-        headers: { 'resend-signature': 'anything_goes_since_we_bypass' },
+        body: rawBody,
+        headers: { 'resend-signature': `sha256=${computed}` },
       });
-      env.RESEND_WEBHOOK_SECRET = ''; // Bypass signature check
       const res = makeMockRes();
       const next = vi.fn();
 
       await webhookController.handleResendWebhook(req, res, next);
 
-      expectHttpError(next, 400, /Malformed payload/);
+      expectHttpError(next, 400, /webhook\.malformed_payload/);
     });
 
     it('processes email.received event and saves InboundEmail record', async () => {
-      env.RESEND_WEBHOOK_SECRET = ''; // Bypass signature
       const payload = {
         type: 'email.received',
         id: 'evt_123',
@@ -135,9 +134,11 @@ describe('Webhook Controller', () => {
           text: 'Body content',
         },
       };
+      const rawBody = Buffer.from(JSON.stringify(payload));
+      const computed = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
       const req = makeMockReq({
-        body: Buffer.from(JSON.stringify(payload)),
-        headers: { 'resend-signature': 'dummy' },
+        body: rawBody,
+        headers: { 'resend-signature': `sha256=${computed}` },
       });
       const res = makeMockRes();
       const next = vi.fn();
