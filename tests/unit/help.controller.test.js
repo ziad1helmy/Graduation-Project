@@ -72,7 +72,7 @@ describe('Help Controller', () => {
       expect(res.status).toHaveBeenCalledWith(404);
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
-      expect(callArgs.message).toBe('Document not found');
+      expect(callArgs.message).toBe('help.error_document_not_found');
     });
   });
 
@@ -128,7 +128,7 @@ describe('Help Controller', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
-      expect(callArgs.message).toBe('subject, category, and message are required');
+      expect(callArgs.message).toBe('help.error_subject_category_message_required');
     });
 
     it('should return 400 when category is invalid', async () => {
@@ -160,7 +160,7 @@ describe('Help Controller', () => {
       expect(res.status).toHaveBeenCalledWith(400);
       const callArgs = res.json.mock.calls[0][0];
       expect(callArgs.success).toBe(false);
-      expect(callArgs.message).toBe('Identity fields cannot be provided in the request body');
+      expect(callArgs.message).toBe('help.error_identity_fields');
     });
   });
 });

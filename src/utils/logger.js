@@ -15,6 +15,8 @@
  *   logger.warn('Rate limit exceeded', { ip })
  */
 
+import crypto from 'node:crypto';
+
 const colors = {
   reset: '\x1b[0m',
   bright: '\x1b[1m',
@@ -121,6 +123,10 @@ export const logger = {
  */
 export const requestLogger = (req, res, next) => {
   const startTime = Date.now();
+  const correlationId = req.headers['x-correlation-id'] || crypto.randomUUID();
+  req.correlationId = correlationId;
+  res.setHeader('x-correlation-id', correlationId);
+
   const originalSend = res.send;
 
   res.send = function (data) {
@@ -133,6 +139,7 @@ export const requestLogger = (req, res, next) => {
     if (statusCode >= 400 && statusCode < 500) logLevel = 'warn';
 
     const logData = {
+      correlationId,
       method: req.method,
       path: req.path,
       statusCode,

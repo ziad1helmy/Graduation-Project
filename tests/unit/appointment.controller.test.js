@@ -89,7 +89,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.getAppointmentById(req, res, next);
 
-      expectHttpError(next, 404, /Appointment not found/);
+      expectHttpError(next, 404, /appointment.error_not_found/);
     });
 
     it('returns error when donor does not own the appointment', async () => {
@@ -112,7 +112,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.getAppointmentById(req, res, next);
 
-      expectHttpError(next, 404, /Appointment not found/);
+      expectHttpError(next, 404, /appointment.error_not_found/);
     });
   });
 
@@ -248,7 +248,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      expectHttpError(next, 404, /Appointment not found/);
+      expectHttpError(next, 404, /appointment.error_not_found/);
     });
 
     it('returns error when donor does not own the appointment', async () => {
@@ -273,7 +273,7 @@ describe('Appointment Controller', () => {
 
       await appointmentController.rescheduleAppointment(req, res, next);
 
-      expectHttpError(next, 404, /Appointment not found/);
+      expectHttpError(next, 404, /appointment.error_not_found/);
     });
   });
 

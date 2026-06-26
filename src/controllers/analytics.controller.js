@@ -9,7 +9,7 @@ import { asyncHandler } from '../middlewares/asyncHandler.js';
 export const getMyStats = asyncHandler(async (req, res) => {
   const { userId } = req.user;
   const stats = await analyticsService.getDonorStats(userId);
-  return response.success(res, 200, 'Donor stats retrieved', stats);
+  return response.success(res, 200, 'donor.stats_retrieved', stats);
 });
 
 /**
@@ -19,7 +19,7 @@ export const getMyStats = asyncHandler(async (req, res) => {
 export const getLeaderboard = asyncHandler(async (req, res) => {
   const { limit = 10, days = 30 } = req.query;
   const leaderboard = await analyticsService.getLeaderboard(parseInt(limit), parseInt(days));
-  return response.success(res, 200, 'Leaderboard retrieved', leaderboard);
+  return response.success(res, 200, 'analytics.leaderboard_retrieved', leaderboard);
 });
 
 /**
@@ -28,7 +28,7 @@ export const getLeaderboard = asyncHandler(async (req, res) => {
  */
 export const getDonationTypeStats = asyncHandler(async (req, res) => {
   const stats = await analyticsService.getDonationTypeStats();
-  return response.success(res, 200, 'Donation type stats retrieved', stats);
+  return response.success(res, 200, 'analytics.donation_type_stats_retrieved', stats);
 });
 
 /**
@@ -37,7 +37,7 @@ export const getDonationTypeStats = asyncHandler(async (req, res) => {
  */
 export const getDashboardSummary = asyncHandler(async (req, res) => {
   const summary = await analyticsService.getDashboardSummary();
-  return response.success(res, 200, 'Dashboard summary retrieved', summary);
+  return response.success(res, 200, 'analytics.dashboard_summary_retrieved', summary);
 });
 
 /**
@@ -46,7 +46,7 @@ export const getDashboardSummary = asyncHandler(async (req, res) => {
  */
 export const getAnalyticsOverview = asyncHandler(async (req, res) => {
   const overview = await analyticsService.getAnalyticsOverview();
-  return response.success(res, 200, 'Analytics overview retrieved', overview);
+  return response.success(res, 200, 'analytics.analytics_overview_retrieved', overview);
 });
 
 /**
@@ -56,7 +56,7 @@ export const getAnalyticsOverview = asyncHandler(async (req, res) => {
 export const getTopDonors = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 10;
   const topDonors = await analyticsService.getTopDonors(limit);
-  return response.success(res, 200, 'Top donors', { topDonors });
+  return response.success(res, 200, 'admin.top_donors', { topDonors });
 });
 
 export default {

@@ -1,8 +1,18 @@
-import { createRequire } from 'node:module';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 
-const require = createRequire(import.meta.url);
-const en = require('../locales/en.json');
-const ar = require('../locales/ar.json');
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+// Strip single-line comments (//) before parsing JSON
+const loadJSON = (file) => {
+  const raw = readFileSync(join(__dirname, '../locales', file), 'utf8');
+  const stripped = raw.replace(/\/\/.*$/gm, '');
+  return JSON.parse(stripped);
+};
+
+const en = loadJSON('en.json');
+const ar = loadJSON('ar.json');
 
 const LOCALES = { en, ar };
 

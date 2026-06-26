@@ -47,15 +47,15 @@ export default function errorMiddleware(err, req, res, next) {
       userId: req.user?._id,
       ip: req.ip,
     });
-    return response.error(res, 401, 'Token has expired');
+    return response.error(res, 401, 'auth.error_token_expired');
   }
 
   if (err instanceof JsonWebTokenError) {
-    logger.warn('Invalid token', {
+    logger.warn('auth.error_invalid_token_generic', {
       ip: req.ip,
       userAgent: req.get('user-agent'),
     });
-    return response.error(res, 401, 'Invalid token');
+    return response.error(res, 401, 'auth.error_invalid_token_generic');
   }
 
   if (err?.name === 'ValidationError') {
@@ -72,7 +72,7 @@ export default function errorMiddleware(err, req, res, next) {
       path: err.path,
       value: err.value,
     });
-    return response.error(res, 400, `Invalid ${err.path}`);
+    return response.error(res, 400, 'error.invalid_resource_identifier');
   }
 
   if (err?.code === 11000) {

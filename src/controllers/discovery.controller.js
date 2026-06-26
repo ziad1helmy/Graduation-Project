@@ -62,7 +62,7 @@ export const listHospitals = asyncHandler(async (req, res) => {
     settings.forEach(s => settingsMap.set(s.hospitalId.toString(), s));
   }
 
-  return response.success(res, 200, 'Hospitals retrieved successfully', {
+  return response.success(res, 200, 'discovery.hospitals_retrieved', {
     hospitals: hospitals.map(h => {
       const settings = settingsMap.get(h._id.toString());
       return mapHospital(h, {
@@ -77,7 +77,7 @@ export const listHospitals = asyncHandler(async (req, res) => {
 
 export const getHospitalById = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
-    throw new HttpError(400, 'Invalid hospital ID');
+    throw new HttpError(400, 'discovery.error_invalid_hospital_id');
   }
 
   const hospital = await Hospital.findOne({
@@ -89,7 +89,7 @@ export const getHospitalById = asyncHandler(async (req, res) => {
   });
 
   if (!hospital) {
-    throw new HttpError(404, 'Hospital not found');
+    throw new HttpError(404, 'discovery.error_hospital_not_found');
   }
 
   // Fetch HospitalSettings for this hospital
@@ -111,7 +111,7 @@ export const getHospitalById = asyncHandler(async (req, res) => {
     result.distance = formatDistance(distanceKm);
   }
 
-  return response.success(res, 200, 'Hospital retrieved successfully', {
+  return response.success(res, 200, 'discovery.hospital_retrieved', {
     hospital: result,
   });
 });
@@ -122,11 +122,11 @@ export const getNearbyHospitals = asyncHandler(async (req, res) => {
   const radiusKm = req.query.radius_km ? Number(req.query.radius_km) : null;
 
   if (radiusKm !== null && (!Number.isFinite(radiusKm) || radiusKm <= 0)) {
-    throw new HttpError(400, 'radius_km must be a positive number');
+    throw new HttpError(400, 'discovery.error_radius_required');
   }
 
   if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
-    throw new HttpError(400, 'Invalid blood type. Must be one of: A+, A-, B+, B-, AB+, AB-, O+, O-');
+    throw new HttpError(400, 'discovery.error_invalid_blood_type');
   }
 
   const query = { role: 'hospital', deletedAt: null, isSuspended: false, isEmailVerified: true };
@@ -190,7 +190,7 @@ export const getNearbyHospitals = asyncHandler(async (req, res) => {
   const { offset, limit, page } = parsePagination(req.query, 20);
   const paginated = mapped.slice(offset, offset + limit);
 
-  return response.success(res, 200, 'Nearby hospitals retrieved successfully', {
+  return response.success(res, 200, 'discovery.nearby_hospitals_retrieved', {
     hospitals: paginated,
     pagination: paginationMeta(mapped.length, page, limit),
   });
@@ -201,7 +201,7 @@ export const searchHospitals = asyncHandler(async (req, res) => {
   const { q = '', bloodType, availableOnly } = req.query;
 
   if (bloodType && !['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'].includes(bloodType)) {
-    throw new HttpError(400, 'Invalid blood type. Must be one of: A+, A-, B+, B-, AB+, AB-, O+, O-');
+    throw new HttpError(400, 'discovery.error_invalid_blood_type');
   }
 
   const query = { role: 'hospital', deletedAt: null, isSuspended: false, isEmailVerified: true };
@@ -260,7 +260,7 @@ export const searchHospitals = asyncHandler(async (req, res) => {
     results = results.filter((hospital) => hospital.isAvailable);
   }
 
-  return response.success(res, 200, 'Hospitals searched successfully', { hospitals: results });
+  return response.success(res, 200, 'discovery.hospital_searched', { hospitals: results });
 });
 
 export const getHospitalsForMap = asyncHandler(async (req, res) => {
@@ -271,7 +271,7 @@ export const getHospitalsForMap = asyncHandler(async (req, res) => {
     isEmailVerified: true,
   }).select('hospitalName fullName lat long');
 
-  return response.success(res, 200, 'Hospitals retrieved successfully for map', {
+  return response.success(res, 200, 'discovery.hospitals_map_retrieved', {
     hospitals: hospitals.map((h) => ({
       id: h._id,
       name: h.hospitalName || h.fullName,

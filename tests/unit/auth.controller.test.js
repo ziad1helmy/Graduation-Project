@@ -71,7 +71,7 @@ describe('Auth Controller', () => {
 
       await authController.register(req, res, next);
 
-      expectHttpError(next, 403, /Public signup is available for donors only/);
+      expectHttpError(next, 403, /auth.error_donors_only/);
     });
 
     it('returns 400 when registration fails validation', async () => {
@@ -187,7 +187,7 @@ describe('Auth Controller', () => {
       await authController.logout(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json.mock.calls[0][0].data).toBe('Logged out successfully');
+      expect(res.json.mock.calls[0][0].data).toBe('auth.logout_success');
     });
 
     it('returns 400 when refresh token is missing or invalid', async () => {
@@ -236,7 +236,7 @@ describe('Auth Controller', () => {
       await authController.changePassword(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json.mock.calls[0][0].data).toBe('Password changed successfully');
+      expect(res.json.mock.calls[0][0].data).toBe('auth.password_changed');
     });
 
     it('returns 400 on incorrect current password', async () => {

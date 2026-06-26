@@ -32,6 +32,7 @@ const EMERGENCY_MATCHING_DISTANCE_KM = (() => {
 
 const ACTIVE_REQUEST_STATUSES = ['pending', 'in-progress'];
 const ACTIVE_APPOINTMENT_STATUSES = ['pending', 'confirmed'];
+const EVALUATE_BATCH_SIZE = 50;
 
 const isGeoIndexError = (error) =>
   error.name === 'MongoServerError' &&
@@ -362,38 +363,42 @@ export const findCompatibleDonors = async (requestId) => {
 
   const compatibleDonors = [];
 
-  for (const donor of donors) {
-    if (respondedDonorIds.has(donor._id.toString())) {
-      continue;
+  const eligibleDonors = donors.filter(donor =>
+    !respondedDonorIds.has(donor._id.toString()) &&
+    !activeDonationDonorIds.has(donor._id.toString())
+  );
+
+  for (let i = 0; i < eligibleDonors.length; i += EVALUATE_BATCH_SIZE) {
+    const batch = eligibleDonors.slice(i, i + EVALUATE_BATCH_SIZE);
+    const matchResults = await Promise.all(
+      batch.map(donor => evaluateMatch(donor, request, { radiusKm }))
+    );
+
+    for (let j = 0; j < batch.length; j++) {
+      const donor = batch[j];
+      const match = matchResults[j];
+      if (!match.matched) continue;
+
+      // Calculate compatibility score (0-100 scale)
+      let score = 100;
+
+      // Bonus for exact blood type match
+      if (requestBloodTypes.includes(donor.bloodType)) {
+        score += 20;
+      }
+
+      // Geo-based location scoring using Haversine distance
+      const locationScore = calculateLocationScore(donor.location, hospitalLocation);
+      score = (score + locationScore) / 2;
+
+      compatibleDonors.push({
+        donor,
+        score: Math.round(score * 10) / 10,
+        locationScore,
+        eligibility: match.eligibility,
+        distanceKm: match.distanceKm,
+      });
     }
-    if (activeDonationDonorIds.has(donor._id.toString())) {
-      continue;
-    }
-
-    const match = await evaluateMatch(donor, request, { radiusKm });
-    if (!match.matched) {
-      continue;
-    }
-
-    // Calculate compatibility score (0-100 scale)
-    let score = 100;
-
-    // Bonus for exact blood type match
-    if (requestBloodTypes.includes(donor.bloodType)) {
-      score += 20;
-    }
-
-    // Geo-based location scoring using Haversine distance
-    const locationScore = calculateLocationScore(donor.location, hospitalLocation);
-    score = (score + locationScore) / 2;
-
-    compatibleDonors.push({
-      donor,
-      score: Math.round(score * 10) / 10,
-      locationScore,
-      eligibility: match.eligibility,
-      distanceKm: match.distanceKm,
-    });
   }
 
   return compatibleDonors.sort((a, b) => b.score - a.score);
@@ -433,7 +438,20 @@ export const searchCompatibleDonors = async ({
     };
   }
 
-  const donors = await Donor.find(donorQuery).limit(500);
+  let donors;
+  try {
+    donors = await Donor.find(donorQuery).limit(500);
+  } catch (error) {
+    if (isGeoIndexError(error)) {
+      logger.warn('Donor $nearSphere search query failed; falling back to plain query', {
+        error: error.message,
+      });
+      const { 'location.coordinates': _removed, ...plainQuery } = donorQuery;
+      donors = await Donor.find(plainQuery).limit(500);
+    } else {
+      throw error;
+    }
+  }
   const activeDonations = await Donation.find({
     donorId: { $in: donors.map((donor) => donor._id) },
     status: { $in: ['pending', 'scheduled'] },
@@ -443,50 +461,56 @@ export const searchCompatibleDonors = async ({
   const searchRequest = normalizedSearchBloodTypes.length > 0 ? { type: 'blood', bloodType: normalizedSearchBloodTypes } : { type: 'search' };
   const compatibleDonors = [];
 
-  for (const donor of donors) {
-    if (activeDonationDonorIds.has(donor._id.toString())) {
-      continue;
-    }
+  const eligibleDonors = donors.filter(donor => !activeDonationDonorIds.has(donor._id.toString()));
 
-    let distanceKm = null;
-    let locationScore = 50;
-    let eligibilityReason = ELIGIBILITY_KEYS.DONOR_ELIGIBLE;
+  for (let i = 0; i < eligibleDonors.length; i += EVALUATE_BATCH_SIZE) {
+    const batch = eligibleDonors.slice(i, i + EVALUATE_BATCH_SIZE);
 
-    if (searchHasLocation) {
-      const match = await evaluateMatch(donor, {
-        ...searchRequest,
-        hospitalLocationGeo: { type: 'Point', coordinates: [geoPoint.longitude, geoPoint.latitude] },
-      }, { radiusKm: normalizedRadiusKm, allowOptedOut: participation === false });
+    const matchResults = searchHasLocation
+      ? await Promise.all(batch.map(donor =>
+          evaluateMatch(donor, {
+            ...searchRequest,
+            hospitalLocationGeo: { type: 'Point', coordinates: [geoPoint.longitude, geoPoint.latitude] },
+          }, { radiusKm: normalizedRadiusKm, allowOptedOut: participation === false })
+        ))
+      : await Promise.all(batch.map(donor =>
+          checkEligibility(donor, searchRequest)
+        ));
 
-      if (!match.matched) {
-        continue;
+    for (let j = 0; j < batch.length; j++) {
+      const donor = batch[j];
+      const result = matchResults[j];
+
+      let distanceKm = null;
+      let locationScore = 50;
+      let eligibilityReason = ELIGIBILITY_KEYS.DONOR_ELIGIBLE;
+
+      if (searchHasLocation) {
+        const match = result;
+        if (!match.matched) continue;
+        distanceKm = match.distanceKm;
+        locationScore = match.locationScore;
+        eligibilityReason = match.eligibility;
+      } else {
+        const eligibility = result;
+        if (!eligibility.eligible) continue;
+        eligibilityReason = eligibility.reason;
       }
 
-      distanceKm = match.distanceKm;
-      locationScore = match.locationScore;
-      eligibilityReason = match.eligibility;
-    } else {
-      const eligibility = await checkEligibility(donor, searchRequest);
-      if (!eligibility.eligible) {
-        continue;
+      let score = 100;
+      if (normalizedSearchBloodTypes.includes(donor.bloodType)) {
+        score += 20;
       }
+      score = (score + locationScore) / 2;
 
-      eligibilityReason = eligibility.reason;
+      compatibleDonors.push({
+        donor,
+        score: Math.round(score * 10) / 10,
+        locationScore,
+        eligibility: eligibilityReason,
+        distanceKm: distanceKm === null ? null : Math.round(distanceKm * 100) / 100,
+      });
     }
-
-    let score = 100;
-    if (normalizedSearchBloodTypes.includes(donor.bloodType)) {
-      score += 20;
-    }
-    score = (score + locationScore) / 2;
-
-    compatibleDonors.push({
-      donor,
-      score: Math.round(score * 10) / 10,
-      locationScore,
-      eligibility: eligibilityReason,
-      distanceKm: distanceKm === null ? null : Math.round(distanceKm * 100) / 100,
-    });
   }
 
   return compatibleDonors.sort((a, b) => {
@@ -605,43 +629,56 @@ export const findCompatibleRequests = async (
 
   const compatibleRequests = [];
 
-  for (const request of requests) {
-    const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
-    if (respondedRequestIds.has(request._id.toString())) continue;
+  const eligibleRequests = requests.filter(r => !respondedRequestIds.has(r._id.toString()));
 
-    const maxDist = ['high', 'critical'].includes(request.urgency)
-      ? EMERGENCY_MATCHING_DISTANCE_KM
-      : radiusKm;
+  const BATCH_SIZE = EVALUATE_BATCH_SIZE;
+  for (let i = 0; i < eligibleRequests.length; i += BATCH_SIZE) {
+    const batch = eligibleRequests.slice(i, i + BATCH_SIZE);
 
-    const match = await evaluateMatch(donor, request, { radiusKm: maxDist });
-    if (!match.matched) continue;
+    const maxDists = batch.map(r =>
+      ['high', 'critical'].includes(r.urgency)
+        ? EMERGENCY_MATCHING_DISTANCE_KM
+        : radiusKm
+    );
 
-    // Calculate compatibility score
-    let score = 100;
+    const matchResults = await Promise.all(
+      batch.map((request, idx) => evaluateMatch(donor, request, { radiusKm: maxDists[idx] }))
+    );
 
-    // Blood type match bonus
-    if (requestBloodTypes.includes(donor.bloodType)) {
-      score += 20;
+    for (let j = 0; j < batch.length; j++) {
+      const request = batch[j];
+      const match = matchResults[j];
+      if (!match.matched) continue;
+
+      const requestBloodTypes = normalizeBloodTypeList(request.bloodType);
+
+      // Calculate compatibility score
+      let score = 100;
+
+      // Blood type match bonus
+      if (requestBloodTypes.includes(donor.bloodType)) {
+        score += 20;
+      }
+
+      // Urgency factor (critical requests get priority)
+      const urgencyBonus = { critical: 25, high: 15, medium: 5, low: 0 };
+      score += urgencyBonus[request.urgency] || 0;
+
+      // Geo-based location scoring using Haversine distance
+      const locationScore = calculateLocationScore(donor.location, request.hospitalId?.location);
+      score = (score + locationScore) / 2;
+
+      compatibleRequests.push({
+        request,
+        score: Math.round(score * 10) / 10,
+        locationScore,
+        compatibility: {
+          bloodTypeMatch: isBloodTypeCompatible(donor.bloodType, request.bloodType),
+          eligible: true,
+          distanceKm: match.distanceKm,
+        },
+      });
     }
-
-    // Urgency factor (critical requests get priority)
-    const urgencyBonus = { critical: 25, high: 15, medium: 5, low: 0 };
-    score += urgencyBonus[request.urgency] || 0;
-
-    // Geo-based location scoring using Haversine distance
-    const locationScore = calculateLocationScore(donor.location, request.hospitalId?.location);
-    score = (score + locationScore) / 2;
-
-    compatibleRequests.push({
-      request,
-      score: Math.round(score * 10) / 10,
-      locationScore,
-      compatibility: {
-        bloodTypeMatch: isBloodTypeCompatible(donor.bloodType, request.bloodType),
-        eligible: true,
-        distanceKm: match.distanceKm,
-      },
-    });
   }
 
   return compatibleRequests.sort((a, b) => b.score - a.score);

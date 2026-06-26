@@ -1397,12 +1397,14 @@ export const getRequestDetails = async (id) => {
 };
 
 export const listSupportMessages = async (filters = {}, pagination = {}) => {
-  const { status, category, search } = filters;
+  const { status, category, search, read, archived } = filters;
   const { offset, limit, page } = parsePagination(pagination, 20);
 
   const query = {};
   if (status) query.status = status;
   if (category) query.category = category;
+  if (read !== null && read !== undefined) query.isRead = read;
+  if (archived !== null && archived !== undefined) query.isArchived = archived;
   if (search) {
     query.$or = [
       { fullName: { $regex: search, $options: 'i' } },
@@ -1420,19 +1422,8 @@ export const listSupportMessages = async (filters = {}, pagination = {}) => {
   return { tickets, total, page, limit };
 };
 
-export const getSupportMessageById = async (id) => SupportMessage.findById(id).lean();
-
-export const reviewSupportMessage = async (id, adminId) => {
-  const ticket = await SupportMessage.findById(id);
-  if (!ticket) return null;
-
-  ticket.status = 'REVIEWED';
-  ticket.adminReplyAt = ticket.adminReplyAt || new Date();
-  ticket.adminReplyBy = adminId;
-  await ticket.save({ validateBeforeSave: false });
-
-  return ticket.toObject();
-};
+export const getSupportMessageById = async (id) =>
+  SupportMessage.findById(id).select('-__v').lean();
 
 /**
  * Reply to a support message, mark it reviewed, and notify the user via
@@ -1452,7 +1443,10 @@ export const replySupportMessage = async (id, reply, adminId) => {
   ticket.adminReplyBy = adminId;
   await ticket.save({ validateBeforeSave: false });
 
-  const ticketObj = ticket.toObject();
+  const ticketObj = ticket.toObject({ versionKey: false });
+  if (ticketObj.adminReplyBy && typeof ticketObj.adminReplyBy === 'object') {
+    ticketObj.adminReplyBy = String(ticketObj.adminReplyBy);
+  }
 
   // Fetch user for push token + email delivery (fire-and-forget — never fail the reply)
   setImmediate(async () => {

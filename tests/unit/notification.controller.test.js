@@ -59,7 +59,7 @@ describe('Notification Controller', () => {
       await notificationController.markNotificationRead(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(400);
-      expect(res.json.mock.calls[0][0].message).toBe('Invalid notification ID');
+      expect(res.json.mock.calls[0][0].message).toBe('notification.error_invalid_notification_id');
     });
 
     it('returns 404 when notification is not found', async () => {
@@ -75,7 +75,7 @@ describe('Notification Controller', () => {
       await notificationController.markNotificationRead(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(404);
-      expect(res.json.mock.calls[0][0].message).toBe('Notification not found');
+      expect(res.json.mock.calls[0][0].message).toBe('notification.error_not_found');
     });
 
     it('returns 200 and marked notification when found', async () => {
@@ -168,7 +168,7 @@ describe('Notification Controller', () => {
       await notificationController.deleteNotificationById(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json.mock.calls[0][0].data).toBe('Notification deleted successfully');
+      expect(res.json.mock.calls[0][0].data).toBe('notification.deleted');
     });
   });
 

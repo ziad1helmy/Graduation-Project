@@ -18,6 +18,7 @@ import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 import * as jwt from '../utils/jwt.js';
 import { logger } from '../utils/logger.js';
+import { PASSWORD_PATTERN } from '../validation/auth.validation.js';
 import {
   sendEmailVerificationConfirmationEmail,
   sendEmailVerificationEmail,
@@ -668,6 +669,10 @@ export const resetPassword = async ({ email, otp, password }) => {
   if (!email) throw new Error('Email is required');
   if (!otp) throw new Error('OTP is required');
   if (!password) throw new Error('Password is required');
+
+  if (!PASSWORD_PATTERN.test(password)) {
+    throw new Error('Password must be at least 8 characters and include uppercase, lowercase, digit, and special character (@$!%*?&)');
+  }
 
   const normalizedEmail = String(email).trim().toLowerCase();
   const record = await OneTimeOtp.findOne({

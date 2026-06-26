@@ -150,6 +150,8 @@
     '/admin/inbound-emails/{id}': 'Inbound Emails',
     '/admin/inbound-emails/{id}/read': 'Inbound Emails',
     '/admin/inbound-emails/{id}/archive': 'Inbound Emails',
+    '/admin/inbound-emails/{id}/support-ticket': 'Inbound Emails',
+    '/admin/inbound-emails/{id}/reply': 'Inbound Emails',
 
 
 

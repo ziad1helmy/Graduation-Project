@@ -23,7 +23,7 @@ export const getNotifications = asyncHandler(async (req, res) => {
 
   const unread = await notificationService.getUnreadNotifications(req.user.userId);
 
-  return response.success(res, 200, 'Notifications retrieved successfully', {
+  return response.success(res, 200, 'notification.retrieved', {
     notifications: result.notifications,
     unreadCount: unread.length,
     pagination: paginationMeta(result.total, page, limit),
@@ -32,49 +32,49 @@ export const getNotifications = asyncHandler(async (req, res) => {
 
 export const markNotificationRead = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
-    return response.error(res, 400, 'Invalid notification ID');
+    return response.error(res, 400, 'notification.error_invalid_notification_id');
   }
 
   const notification = await notificationService.markAsReadForUser(req.user.userId, req.params.id);
   if (!notification) {
-    return response.error(res, 404, 'Notification not found');
+    return response.error(res, 404, 'notification.error_not_found');
   }
 
-  return response.success(res, 200, 'Notification marked as read', { notification });
+  return response.success(res, 200, 'notification.marked_read', { notification });
 });
 
 export const markAllNotificationsRead = asyncHandler(async (req, res) => {
   const result = await notificationService.markMultipleAsRead(req.user.userId);
-  return response.success(res, 200, 'All notifications marked as read', { modifiedCount: result.modifiedCount || 0 });
+  return response.success(res, 200, 'notification.all_marked_read', { modifiedCount: result.modifiedCount || 0 });
 });
 
 export const deleteAllNotifications = asyncHandler(async (req, res) => {
   const result = await notificationService.clearAllNotifications(req.user.userId);
-  return response.success(res, 200, 'All notifications deleted successfully', { deletedCount: result.deletedCount || 0 });
+  return response.success(res, 200, 'notification.all_deleted', { deletedCount: result.deletedCount || 0 });
 });
 
 export const deleteNotificationById = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
-    return response.error(res, 400, 'Invalid notification ID');
+    return response.error(res, 400, 'notification.error_invalid_notification_id');
   }
 
   const notification = await notificationService.deleteNotificationForUser(req.user.userId, req.params.id);
   if (!notification) {
-    return response.error(res, 404, 'Notification not found');
+    return response.error(res, 404, 'notification.error_not_found');
   }
 
-  return response.success(res, 200, 'Notification deleted successfully');
+  return response.success(res, 200, 'notification.deleted');
 });
 
 export const getNotificationById = asyncHandler(async (req, res) => {
   if (!isValidObjectId(req.params.id)) {
-    return response.error(res, 400, 'Invalid notification ID');
+    return response.error(res, 400, 'notification.error_invalid_notification_id');
   }
 
   const notification = await notificationService.getNotificationForUser(req.user.userId, req.params.id);
   if (!notification) {
-    return response.error(res, 404, 'Notification not found');
+    return response.error(res, 404, 'notification.error_not_found');
   }
 
-  return response.success(res, 200, 'Notification retrieved successfully', { notification });
+  return response.success(res, 200, 'notification.retrieved_single', { notification });
 });

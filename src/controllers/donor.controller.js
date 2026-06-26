@@ -58,7 +58,7 @@ export const getProfile = asyncHandler(async (req, res) => {
     rewardService.getPointsSummary(donorId),
     rewardService.getDonorBadges(donorId),
   ]);
-  if (!donor) throw new HttpError(404, 'Donor profile not found');
+  if (!donor) throw new HttpError(404, 'donor.error_profile_not_found');
 
   // Compute age from dateOfBirth
   const age = donor.dateOfBirth
@@ -83,7 +83,7 @@ export const getProfile = asyncHandler(async (req, res) => {
 
   const donorObj = donor.toObject ? donor.toObject() : { ...donor };
 
-  response.success(res, 200, 'Donor profile retrieved successfully', {
+  response.success(res, 200, 'donor.profile_retrieved', {
     ...donorObj,
     verificationStatus: donor.isEmailVerified ? 'verified' : 'unverified',
     age,
@@ -99,14 +99,14 @@ export const updateProfile = asyncHandler(async (req, res) => {
 
   const donor = await Donor.findById(req.user.userId);
   if (!donor) {
-    throw new HttpError(404, 'Donor not found');
+    throw new HttpError(404, 'donor.error_not_found');
   }
 
   if (fullName) donor.fullName = fullName;
   if (phoneNumber) {
     const phoneRegex = /^[0-9]{11}$/;
     if (!phoneRegex.test(phoneNumber)) {
-      throw new HttpError(400, 'Phone number must be 11 digits long');
+      throw new HttpError(400, 'donor.error_invalid_phone');
     }
     donor.phoneNumber = phoneNumber;
   }
@@ -140,7 +140,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
     // Check if email is already used by another user
     const existingUser = await User.findOne({ email: normalizedEmail, _id: { $ne: req.user.userId } });
     if (existingUser) {
-      throw new HttpError(400, 'Email is already in use by another account');
+      throw new HttpError(400, 'donor.error_email_in_use');
     }
 
     if (donor.email !== normalizedEmail) {
@@ -172,7 +172,7 @@ export const updateProfile = asyncHandler(async (req, res) => {
   const donorObj = donor.toObject();
   delete donorObj.password;
 
-  response.success(res, 200, 'Donor profile updated successfully', donorObj);
+  response.success(res, 200, 'donor.profile_updated', donorObj);
 });
 
 // Get matched requests for this donor — supports ?page=1&limit=10
@@ -186,13 +186,13 @@ export const getRequests = asyncHandler(async (req, res) => {
   const guard = await checkDonorMatchGuard(donor);
 
   if (guard.kind === 'not-found') {
-    throw new HttpError(404, 'Donor not found');
+    throw new HttpError(404, 'donor.error_not_found');
   }
   if (guard.kind === 'opted-out') {
-    return optedOutResponse(res, 'matches', page, limit, 'Matching requests retrieved successfully');
+    return optedOutResponse(res, 'matches', page, limit, 'donor.matches_retrieved');
   }
   if (guard.kind === 'no-location') {
-    throw new HttpError(422, 'Please set your location to see blood requests.', { code: 'LOCATION_REQUIRED' });
+    throw new HttpError(422, 'donor.error_set_location', { code: 'LOCATION_REQUIRED' });
   }
 
   const [matchedRequests, activeAppointmentNotice] = await Promise.all([
@@ -207,7 +207,7 @@ export const getRequests = asyncHandler(async (req, res) => {
     request: buildDonorRequestSummary(match.request),
   }));
 
-  response.success(res, 200, 'Matching requests retrieved successfully', {
+  response.success(res, 200, 'donor.matches_retrieved', {
     matches: paginatedMatches,
     pagination: paginationMeta(matchedRequests.length, page, limit),
     ...activeAppointmentNotice,
@@ -287,7 +287,7 @@ export const respondToRequest = asyncHandler(async (req, res) => {
   });
 
   // Response (donation created)
-  response.success(res, 201, 'Response submitted successfully', createdDonation);
+  response.success(res, 201, 'donor.response_submitted', createdDonation);
 });
 
 // Get donation history — supports ?page=1&limit=10
@@ -335,7 +335,7 @@ export const getDonationHistory = asyncHandler(async (req, res) => {
     return obj;
   });
 
-  response.success(res, 200, 'Donation history retrieved successfully', {
+  response.success(res, 200, 'donor.donation_history_retrieved', {
     donations: donationsWithHospital,
     pagination: paginationMeta(total, page, limit),
   });
@@ -353,7 +353,7 @@ export const updateParticipation = asyncHandler(async (req, res) => {
   }
 
   if (typeof rawValue !== 'boolean') {
-    const errorMsg = req.t ? req.t('error_invalid_participation') : 'isOptedIn must be a boolean value';
+    const errorMsg = req.t ? req.t('donor.error_invalid_participation') : 'isOptedIn must be a boolean value';
     throw new HttpError(400, errorMsg);
   }
 
@@ -363,7 +363,7 @@ export const updateParticipation = asyncHandler(async (req, res) => {
     { returnDocument: 'after', runValidators: true }
   ).select('-password');
 
-  const successMsg = req.t ? req.t('participation_updated') : 'Participation preference updated successfully';
+  const successMsg = req.t ? req.t('donor.participation_updated') : 'Participation preference updated successfully';
   response.success(res, 200, successMsg, donor);
 });
 
@@ -371,20 +371,20 @@ export const updateParticipation = asyncHandler(async (req, res) => {
 export const getDonationEligibility = asyncHandler(async (req, res) => {
   // Reject any attempt to specify another donor's id
   if (req.params?.donorId || req.query?.donorId || req.body?.donorId) {
-    throw new HttpError(400, 'You cannot specify another donor\'s ID — only your authenticated ID is used');
+    throw new HttpError(400, 'donor.error_cannot_specify_other_donor_id');
   }
 
   // Determine authenticated donor id (support either field used by JWT middleware)
   const donorId = req.user?.userId ?? req.user?.id ?? req.user?._id;
-  if (!donorId) throw new HttpError(500, 'Authenticated donor ID not found in authentication token');
+  if (!donorId) throw new HttpError(500, 'donor.error_authenticated_donor_id_not_found');
 
   // Load donor profile (readonly)
   const donor = await Donor.findById(donorId).select('isOptedIn lastDonationDate bloodType gender hemoglobinLevel temporaryDeferralUntil travelHistory dateOfBirth');
-  if (!donor) throw new HttpError(404, 'Donor not found');
+  if (!donor) throw new HttpError(404, 'donor.error_not_found');
 
   // Do not accept request-specific parameters for this informational endpoint
   if (req.query?.requestId || req.query?.donationType) {
-    throw new HttpError(400, 'requestId and donationType parameters are not accepted on this endpoint');
+    throw new HttpError(400, 'donor.error_request_id_not_accepted');
   }
 
   // Build a generic eligibility request using donor's default context (Health Profile uses current donor info)
@@ -415,7 +415,7 @@ export const getDonationEligibility = asyncHandler(async (req, res) => {
     daysRemaining,
   };
 
-  return response.success(res, 200, 'Eligibility result', payload);
+  return response.success(res, 200, 'donor.eligibility_result', payload);
 });
 
 // Health history handlers removed (endpoint deleted)
@@ -451,7 +451,7 @@ export const getDashboard = asyncHandler(async (req, res) => {
   const displayName = donor?.fullName || 'Donor';
   const firstName = displayName.split(' ')[0] || displayName;
 
-  return response.success(res, 200, 'Donor dashboard retrieved successfully', {
+  return response.success(res, 200, 'donor.dashboard_retrieved', {
     userInfo: {
       firstName,
       fullName: displayName,
@@ -477,7 +477,7 @@ export const getRecentActivity = asyncHandler(async (req, res) => {
     rewardService.getPointsHistory(donorId, { page, limit }),
   ]);
 
-  return response.success(res, 200, 'Recent activity retrieved successfully', {
+  return response.success(res, 200, 'donor.recent_activity_retrieved', {
     donations,
     points,
   });
@@ -504,7 +504,7 @@ export const getUrgentRequests = async (req, res, next) => {
 
     const donor = await Donor.findById(donorId);
     if (!donor) {
-      return response.error(res, 404, 'Donor not found');
+      return response.error(res, 404, 'donor.error_not_found');
     }
 
     if (donor.isOptedIn === false) {
@@ -620,7 +620,7 @@ export const declineUrgentRequest = async (req, res, next) => {
 
     const donor = await Donor.findById(req.user.userId);
     if (!donor) {
-      return response.error(res, 404, 'Donor not found');
+      return response.error(res, 404, 'donor.error_not_found');
     }
 
     const existingResponse = await Donation.findOne({
@@ -667,7 +667,7 @@ export const declineUrgentRequest = async (req, res, next) => {
 
 //     const donor = await Donor.findById(req.user.userId);
 //     if (!donor) {
-//       return response.error(res, 404, 'Donor not found');
+//       return response.error(res, 404, 'donor.error_not_found');
 //     }
 
 //     const existingResponse = await Donation.findOne({
@@ -720,10 +720,10 @@ export const getSettings = asyncHandler(async (req, res) => {
   const donor = await Donor.findById(donorId).select('settings');
 
   if (!donor) {
-    throw new HttpError(404, 'Donor not found');
+    throw new HttpError(404, 'donor.error_not_found');
   }
 
-  return response.success(res, 200, 'Donor settings retrieved successfully', {
+  return response.success(res, 200, 'donor.settings_retrieved', {
     settings: donor.settings || {
       pushNotifications: true,
       emergencyAlerts: true,
@@ -739,7 +739,7 @@ export const updateSettings = asyncHandler(async (req, res) => {
 
   // Validate language enum
   if (language && !['en', 'ar'].includes(language)) {
-    throw new HttpError(400, 'Language must be "en" or "ar"');
+    throw new HttpError(400, 'donor.error_invalid_language');
   }
 
   // Build update object
@@ -756,10 +756,10 @@ export const updateSettings = asyncHandler(async (req, res) => {
   ).select('settings');
 
   if (!updatedDonor) {
-    throw new HttpError(404, 'Donor not found');
+    throw new HttpError(404, 'donor.error_not_found');
   }
 
-  return response.success(res, 200, 'Donor settings updated successfully', {
+  return response.success(res, 200, 'donor.settings_updated', {
     settings: updatedDonor.settings,
   });
 });
@@ -770,7 +770,7 @@ export const getDonorStats = asyncHandler(async (req, res) => {
     donationService.getDonorStats(donorId),
     rewardService.getPointsSummary(donorId),
   ]);
-  response.success(res, 200, 'Donor stats retrieved', {
+  response.success(res, 200, 'donor.stats_retrieved', {
     totalDonations: donationStats?.completedDonations || 0,
     points: pointsSummary?.pointsBalance || 0,
     livesSaved: (donationStats?.completedDonations || 0) * 3,
@@ -785,7 +785,7 @@ export const getDonorRewards = asyncHandler(async (req, res) => {
   ]);
   const earned = badges.badges.filter(b => b.unlockStatus === 'UNLOCKED');
   const locked = badges.badges.filter(b => b.unlockStatus !== 'UNLOCKED');
-  response.success(res, 200, 'Donor rewards retrieved', {
+  response.success(res, 200, 'donor.rewards_retrieved', {
     currentPoints: pointsSummary.pointsBalance,
     earnedBadges: earned.map(b => ({ id: b.badgeId, title: b.badgeName, description: b.badgeDescription })),
     lockedBadges: locked.map(b => ({ id: b.badgeId, title: b.badgeName, progress: b.progressCurrent, target: b.progressTarget })),

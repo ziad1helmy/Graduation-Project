@@ -33,6 +33,6 @@ describe('Donation Integration', () => {
 
     await expect(
       donationService.createDonation(donor._id, request._id, { quantity: 1 })
-    ).rejects.toThrow('Donor already has an active donation in progress');
+    ).rejects.toThrow('eligibility.activeDonationInProgress');
   });
 });

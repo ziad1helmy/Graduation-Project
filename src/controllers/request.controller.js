@@ -213,7 +213,7 @@ const normalizeRequestIfExpired = async (request) => {
       await session.withTransaction(async () => {
         // Re-fetch within transaction to get latest state
         const currentRequest = await Request.findById(request._id).session(session);
-        if (!currentRequest) throw new Error('Request not found');
+        if (!currentRequest) throw new Error('request.error_not_found');
 
         // Re-check expiry and status within transaction
         const isExpired = currentRequest.requiredBy && new Date(currentRequest.requiredBy) <= new Date();
@@ -310,19 +310,19 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request ID format');
+    throw new HttpError(400, 'request.error_invalid_id_format');
   }
 
   const viewerLocation = parseLatLng(req.query);
   const request = await populateRequest(Request.findById(id));
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   await normalizeRequestIfExpired(request);
 
   if (req.user.role === 'hospital' && request.hospitalId?._id?.toString?.() !== req.user.userId) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   const donations = req.user.role === 'hospital' || req.user.role === 'admin' || req.user.role === 'superadmin'
@@ -344,7 +344,7 @@ export const getRequestDetails = asyncHandler(async (req, res) => {
     donorActiveQr: donorQrOverride,
   });
 
-  return response.success(res, 200, 'Request details retrieved successfully', payload);
+  return response.success(res, 200, 'request.details_retrieved', payload);
 });
 
 export const getNearbyRequests = asyncHandler(async (req, res) => {
@@ -419,7 +419,7 @@ export const getNearbyRequests = asyncHandler(async (req, res) => {
     : null;
   data.radiusKm = Number.isFinite(radiusKm) ? radiusKm : null;
 
-  return response.success(res, 200, 'Nearby requests retrieved successfully', data);
+  return response.success(res, 200, 'request.nearby_retrieved', data);
 });
 
 export const getRequestGoogleMaps = asyncHandler(async (req, res) => {
@@ -430,20 +430,20 @@ export const getRequestGoogleMaps = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request ID format');
+    throw new HttpError(400, 'request.error_invalid_id_format');
   }
 
   const request = await populateRequest(Request.findById(id));
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   const coordinates = getRequestCoordinates(request);
   if (!coordinates) {
-    throw new HttpError(404, 'Request location is not available');
+    throw new HttpError(404, 'request.error_location_unavailable');
   }
 
-  return response.success(res, 200, 'Request location retrieved successfully', {
+  return response.success(res, 200, 'request.location_retrieved', {
     requestId: request._id.toString(),
     location: {
       lat: coordinates.latitude,
@@ -562,17 +562,17 @@ export const acceptRequest = asyncHandler(async (req, res) => {
   }
 
   if (req.user.role !== 'donor') {
-    throw new HttpError(403, 'Access denied - donor role required');
+    throw new HttpError(403, 'request.error_donor_role_required');
   }
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request ID format');
+    throw new HttpError(400, 'request.error_invalid_id_format');
   }
 
   const request = await populateRequest(Request.findById(id));
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   await normalizeRequestIfExpired(request);
@@ -585,7 +585,7 @@ export const acceptRequest = asyncHandler(async (req, res) => {
     });
   } catch (error) {
     if (error?.code === 11000 || (typeof error?.message === 'string' && error.message.includes('E11000'))) {
-      throw new HttpError(409, 'You have already responded to this request');
+      throw new HttpError(409, 'request.error_already_responded');
     }
     if (error.statusCode === 404) throw new HttpError(404, error.message);
     if (error.statusCode === 400) throw new HttpError(400, error.message);
@@ -633,21 +633,21 @@ export const cancelRequest = asyncHandler(async (req, res) => {
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request ID format');
+    throw new HttpError(400, 'request.error_invalid_id_format');
   }
 
   const request = await populateRequest(Request.findById(id));
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   if (req.user.role === 'donor') {
     if (request.status !== 'expired' && request.status !== 'pending' && request.status !== 'accepted') {
-      throw new HttpError(400, 'Request cannot be cancelled at this stage');
+      throw new HttpError(400, 'request.error_cannot_cancel_at_stage');
     }
 
     if (request.status === 'accepted' && request.acceptedBy?.toString?.() !== req.user.userId) {
-      throw new HttpError(403, 'You can only cancel your own accepted request');
+      throw new HttpError(403, 'request.error_cancel_own_only');
     }
 
     const donation = await Donation.findOne({
@@ -657,11 +657,11 @@ export const cancelRequest = asyncHandler(async (req, res) => {
     });
 
     if (!donation) {
-      throw new HttpError(404, 'No active donation found for this request');
+      throw new HttpError(404, 'request.error_no_active_donation');
     }
 
     if (donation.qrUsed) {
-      throw new HttpError(400, 'Cannot cancel after the hospital has scanned your QR code');
+      throw new HttpError(400, 'request.error_cannot_cancel_after_qr_scan');
     }
 
     // Invalidate QR on the donation
@@ -673,7 +673,7 @@ export const cancelRequest = asyncHandler(async (req, res) => {
     if (request.status === 'expired') {
       donation.status = 'cancelled';
       await donation.save();
-      return response.success(res, 200, 'Donation cancelled', {
+      return response.success(res, 200, 'request.donation_cancelled', {
         donationId: donation._id.toString(),
         status: 'cancelled',
       });
@@ -707,23 +707,23 @@ export const cancelRequest = asyncHandler(async (req, res) => {
       }
     }).catch(() => {});
 
-    return response.success(res, 200, 'Donation cancelled — request reopened for other donors', {
+    return response.success(res, 200, 'request.donation_cancelled_request_reopened', {
       requestId: cancellation.request._id.toString(),
       status: cancellation.request.status,
     });
   }
 
   if (!['hospital', 'admin', 'superadmin'].includes(req.user.role)) {
-    throw new HttpError(403, 'Unauthorized');
+    throw new HttpError(403, 'request.error_unauthorized');
   }
 
   if (req.user.role === 'hospital' && request.hospitalId?._id?.toString?.() !== req.user.userId) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   // Guard: terminal requests cannot be cancelled by hospital/admin
   if (request.status === 'completed' || request.status === 'cancelled' || request.status === 'expired') {
-    throw new HttpError(400, 'Cannot cancel a request that is already completed, cancelled, or expired');
+    throw new HttpError(400, 'request.error_cannot_cancel_terminal');
   }
 
   const cancelledAt = new Date();
@@ -778,7 +778,7 @@ export const cancelRequest = asyncHandler(async (req, res) => {
     } catch (_) { /* non-critical */ }
   });
 
-  return response.success(res, 200, 'Request cancelled successfully', {
+  return response.success(res, 200, 'request.cancelled', {
     requestId: request._id.toString(),
     status: 'cancelled',
   });
@@ -791,39 +791,39 @@ export const confirmRequest = asyncHandler(async (req, res) => {
   }
 
   if (!['hospital', 'admin', 'superadmin'].includes(req.user.role)) {
-    throw new HttpError(403, 'Unauthorized');
+    throw new HttpError(403, 'request.error_unauthorized');
   }
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request ID format');
+    throw new HttpError(400, 'request.error_invalid_id_format');
   }
 
   const request = await populateRequest(Request.findById(id));
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   if (req.user.role === 'hospital' && request.hospitalId?._id?.toString?.() !== req.user.userId) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   if (!['accepted', 'in-progress'].includes(request.status)) {
-    throw new HttpError(400, 'Request must be in accepted or in-progress status to confirm');
+    throw new HttpError(400, 'request.error_request_must_be_accepted');
   }
 
   if (!request.acceptedBy || !request.acceptedDonationId) {
-    throw new HttpError(400, 'No donor has accepted this request');
+    throw new HttpError(400, 'request.error_no_donor_accepted');
   }
 
   const donation = await Donation.findById(request.acceptedDonationId);
   if (!donation) {
-    throw new HttpError(400, 'Associated donation not found');
+    throw new HttpError(400, 'request.error_donation_not_found_associated');
   }
 
   const donor = await Donor.findById(request.acceptedBy);
   if (!donor) {
-    throw new HttpError(400, 'Associated donor not found');
+    throw new HttpError(400, 'request.error_donor_not_found_associated');
   }
 
   // Donor is eligible — complete the donation and request atomically
@@ -847,17 +847,17 @@ export const confirmRequest = asyncHandler(async (req, res) => {
       }
 
       const sessionRequest = await Request.findById(request._id).session(session);
-      if (!sessionRequest) throw new Error('Request not found');
+      if (!sessionRequest) throw new Error('request.error_not_found');
 
       if (!['accepted', 'in-progress'].includes(sessionRequest.status)) {
-        throw new Error('Request must be in accepted or in-progress status to confirm');
+        throw new Error('request.error_request_must_be_accepted');
       }
       if (!sessionRequest.acceptedBy || !sessionRequest.acceptedDonationId) {
-        throw new Error('No donor has accepted this request');
+        throw new Error('request.error_no_donor_accepted');
       }
 
       const sessionDonor = await Donor.findById(sessionRequest.acceptedBy).session(session);
-      if (!sessionDonor) throw new Error('Associated donor not found');
+      if (!sessionDonor) throw new Error('request.error_donor_not_found_associated');
 
       // F4: Re-run eligibility inside the transaction to prevent TOCTOU
       const eligibility = await matchingService.checkEligibility(sessionDonor, sessionRequest, {
@@ -893,10 +893,10 @@ export const confirmRequest = asyncHandler(async (req, res) => {
 
     // Handle deadline/eligibility errors with meaningful responses
     if (err.message === 'ARRIVAL_DEADLINE_PASSED') {
-      throw new HttpError(400, 'Arrival deadline has passed — confirmation no longer accepted');
+      throw new HttpError(400, 'request.error_arrival_deadline_passed');
     }
     if (err.message === 'QR_EXPIRED') {
-      throw new HttpError(400, 'QR code has expired — confirmation no longer accepted');
+      throw new HttpError(400, 'request.error_qr_expired_confirmation');
     }
     if (err.message === 'DONOR_INELIGIBLE') {
       // Donor is ineligible — reject donation, reopen request, re-broadcast
@@ -911,7 +911,7 @@ export const confirmRequest = asyncHandler(async (req, res) => {
           rejectedBy: req.user.userId,
         });
 
-        return response.success(res, 200, 'Donor is no longer eligible. Request has been reopened for other donors.', {
+        return response.success(res, 200, 'request.donor_not_eligible_request_reopened', {
           requestId: result.request._id.toString(),
           status: result.request.status,
         });
@@ -969,7 +969,7 @@ export const confirmRequest = asyncHandler(async (req, res) => {
     });
   } catch (_err) { /* non-critical */ }
 
-  return response.success(res, 200, 'Donation confirmed and completed successfully', {
+  return response.success(res, 200, 'request.donation_confirmed_completed', {
     requestId: updatedRequest._id.toString(),
     donationId: updatedDonation._id.toString(),
     status: 'completed',
@@ -978,7 +978,7 @@ export const confirmRequest = asyncHandler(async (req, res) => {
 
 export const getAcceptedRequests = asyncHandler(async (req, res) => {
   if (req.user.role !== 'donor') {
-    throw new HttpError(403, 'Access denied - donor role required');
+    throw new HttpError(403, 'request.error_donor_role_required');
   }
 
   const { page: queryPage, limit: queryLimit } = req.query;
@@ -1040,7 +1040,7 @@ const items = requests
     });
 
   const meta = paginationMeta(items.length, page, limit);
-  return response.success(res, 200, 'Accepted requests retrieved successfully', {
+  return response.success(res, 200, 'request.accepted_requests_retrieved', {
     requests: items,
     pagination: meta,
   });
@@ -1053,17 +1053,17 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
   }
 
   if (req.user.role !== 'donor') {
-    throw new HttpError(403, 'Access denied - donor role required');
+    throw new HttpError(403, 'request.error_donor_role_required');
   }
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request ID format');
+    throw new HttpError(400, 'request.error_invalid_id_format');
   }
 
   const request = await populateRequest(Request.findById(id));
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   // Only donors with an active donation for this request can view it
@@ -1074,7 +1074,7 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
   });
 
   if (!donation) {
-    throw new HttpError(404, 'No active donation found for this request');
+    throw new HttpError(404, 'request.error_no_active_donation');
   }
 
   const now = new Date();
@@ -1100,7 +1100,7 @@ export const getAcceptedRequestDetails = asyncHandler(async (req, res) => {
   const arrivalDeadlinePassed = activeQr.arrivalDeadline ? now > new Date(activeQr.arrivalDeadline) : false;
   const isEligible = !qrExpired && !arrivalDeadlinePassed && activeQr.qrToken && !donation.qrUsed;
 
-  return response.success(res, 200, 'Accepted request details retrieved successfully', {
+  return response.success(res, 200, 'request.accepted_request_details_retrieved', {
     requestId: request._id.toString(),
     donationId: donation._id.toString(),
     status: request.status,
@@ -1147,27 +1147,27 @@ export const rejectRequest = asyncHandler(async (req, res) => {
   }
 
   if (!['hospital', 'admin', 'superadmin'].includes(req.user.role)) {
-    throw new HttpError(403, 'Unauthorized');
+    throw new HttpError(403, 'request.error_unauthorized');
   }
 
   const { id } = req.params;
   if (!isValidObjectId(id)) {
-    throw new HttpError(400, 'Invalid request ID format');
+    throw new HttpError(400, 'request.error_invalid_id_format');
   }
 
   const request = await populateRequest(Request.findById(id));
   if (!request) {
-    throw new HttpError(404, 'Request not found');
+    throw new HttpError(404, 'request.error_not_found');
   }
 
   await normalizeRequestIfExpired(request);
 
   if (req.user.role === 'hospital' && request.hospitalId?._id?.toString?.() !== req.user.userId) {
-    throw new HttpError(403, 'Unauthorized access to this request');
+    throw new HttpError(403, 'request.error_unauthorized_access');
   }
 
   if (!request.acceptedDonationId && !request.acceptedBy) {
-    throw new HttpError(400, 'Request has no accepted donation to reject');
+    throw new HttpError(400, 'request.error_no_accepted_donation_to_reject');
   }
 
   const result = await rejectDonationLifecycle({
@@ -1179,7 +1179,7 @@ export const rejectRequest = asyncHandler(async (req, res) => {
     requestStatus: 'pending',
   });
 
-  return response.success(res, 200, 'Request rejected successfully', {
+  return response.success(res, 200, 'request.request_rejected', {
     request: getRequestSummary(result.request),
     donation: result.donation,
   });

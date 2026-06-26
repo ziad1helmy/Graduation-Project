@@ -96,6 +96,10 @@ router.patch('/inbound-emails/:id/archive', adminController.archiveInboundEmail)
 
 router.delete('/inbound-emails/:id', adminController.deleteInboundEmail);
 
+router.get('/inbound-emails/:id/support-ticket', adminController.getSupportTicketById);
+
+router.post('/inbound-emails/:id/reply', adminController.replyToSupportTicket);
+
 // Dedicated donor/hospital listing aliases
 
 router.get('/donors', adminController.listDonors);

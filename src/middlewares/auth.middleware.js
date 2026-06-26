@@ -6,12 +6,12 @@ export default async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || typeof authHeader !== 'string') {
-    return response.error(res, 401, 'Authorization header is required');
+    return response.error(res, 401, 'auth.error_authorization_header_required');
   }
 
   const [scheme, token] = authHeader.split(' ');
   if (scheme !== 'Bearer' || !token) {
-    return response.error(res, 401, 'Authorization header must be: Bearer <token>');
+    return response.error(res, 401, 'auth.error_authorization_bearer_format');
   }
 
   try {
@@ -21,28 +21,28 @@ export default async function authMiddleware(req, res, next) {
     );
 
     if (!user) {
-      return response.error(res, 401, 'Unauthorized');
+      return response.error(res, 401, 'error.unauthorized');
     }
 
     // Block soft-deleted accounts
     if (user.deletedAt) {
-      return response.error(res, 401, 'Account not found');
+      return response.error(res, 401, 'auth.error_account_not_found');
     }
 
     // Block suspended accounts
     if (user.isSuspended) {
-      return response.error(res, 403, 'Account is suspended');
+      return response.error(res, 403, 'auth.error_account_suspended');
     }
 
     if (user.passwordChangedAt && decoded?.iat) {
       const tokenIssuedAtMs = decoded.iat * 1000;
       if (tokenIssuedAtMs < user.passwordChangedAt.getTime()) {
-        return response.error(res, 401, 'Token is no longer valid. Please log in again');
+        return response.error(res, 401, 'auth.error_token_no_longer_valid');
       }
     }
 
     if (!user.isEmailVerified) {
-      return response.error(res, 403, 'Email address is not verified');
+      return response.error(res, 403, 'auth.error_email_not_verified');
     }
 
     req.user = {
@@ -56,12 +56,12 @@ export default async function authMiddleware(req, res, next) {
     return next();
   } catch (err) {
     if (err instanceof TokenExpiredError) {
-      return response.error(res, 401, 'Token has expired');
+      return response.error(res, 401, 'auth.error_token_expired');
     }
     if (err instanceof JsonWebTokenError) {
-      return response.error(res, 401, 'Invalid token');
+      return response.error(res, 401, 'auth.error_invalid_token_generic');
     }
-    return response.error(res, 401, 'Unauthorized');
+    return response.error(res, 401, 'error.unauthorized');
   }
 }
 

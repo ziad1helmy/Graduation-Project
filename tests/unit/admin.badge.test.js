@@ -99,7 +99,7 @@ describe('Admin Badge Controller', () => {
 
       await adminController.updateBadge(req, res, next);
 
-      expectHttpError(next, 400, /Invalid badge ID/);
+      expectHttpError(next, 400, /admin.error_invalid_badge_id/);
     });
 
     it('returns 404 if badge does not exist', async () => {
@@ -112,12 +112,12 @@ describe('Admin Badge Controller', () => {
 
       await adminController.updateBadge(req, res, next);
 
-      expectHttpError(next, 404, /Badge not found/);
+      expectHttpError(next, 404, /admin.badge_not_found/);
     });
 
     it.each([
-      [{ unlockThreshold: 0 }, /unlockThreshold/],
-      [{ pointsReward: -5 }, /pointsReward/],
+      [{ unlockThreshold: 0 }, /admin.error_unlock_threshold_invalid/],
+      [{ pointsReward: -5 }, /admin.error_points_reward_invalid/],
     ])('returns 400 when validation fails (%s)', async (body, pattern) => {
       const req = makeMockReq({
         params: { id: badge._id.toString() },

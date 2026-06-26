@@ -469,10 +469,9 @@ describe('Request Details Integration', () => {
     expect(response.body.data.qrExpiresAt).toBeDefined();
 
     // Donor books an appointment — appointment QR should now take precedence
-    // Anchor to 25 h from now to satisfy the "at least 24 hours" rule regardless
-    // of what time of day the test runs, then skip forward if that lands on Sunday.
-    const bookDate = new Date(Date.now() + 25 * 60 * 60 * 1000);
-    if (bookDate.getHours() < 9 || bookDate.getHours() >= 17) bookDate.setHours(10, 0, 0, 0);
+    // Use 2 days from now at 10 am to guarantee ≥24h regardless of operating hours.
+    const bookDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    bookDate.setHours(10, 0, 0, 0);
     if (bookDate.getDay() === 0) bookDate.setDate(bookDate.getDate() + 1);
     const bookResponse = await request(app)
       .post('/donations/book-appointment')
@@ -498,9 +497,9 @@ describe('Request Details Integration', () => {
     expect(response.status).toBe(200);
     expect(response.body.data.qrToken).toBe(apptQrToken);
 
-    // Reschedule to 26 h from now (different slot, still > 24 h, skips Sunday)
-    const rescheduleDate = new Date(Date.now() + 26 * 60 * 60 * 1000);
-    if (rescheduleDate.getHours() < 9 || rescheduleDate.getHours() >= 17) rescheduleDate.setHours(11, 0, 0, 0);
+    // Reschedule to a different slot 2 days from now at 11 am (still > 24 h, different time, skips Sunday)
+    const rescheduleDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    rescheduleDate.setHours(11, 0, 0, 0);
     if (rescheduleDate.getDay() === 0) rescheduleDate.setDate(rescheduleDate.getDate() + 1);
     const rescheduleResponse = await request(app)
       .patch(`/donations/book-appointment/${bookResponse.body.data._id}`)
@@ -547,10 +546,9 @@ describe('Request Details Integration', () => {
       .send({});
 
     // Donor books appointment
-    // Anchor to 25 h from now to satisfy the "at least 24 hours" rule regardless
-    // of what time of day the test runs, then skip forward if that lands on Sunday.
-    const bookDate = new Date(Date.now() + 25 * 60 * 60 * 1000);
-    if (bookDate.getHours() < 9 || bookDate.getHours() >= 17) bookDate.setHours(10, 0, 0, 0);
+    // Use 2 days from now at 10 am to guarantee ≥24h regardless of operating hours.
+    const bookDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
+    bookDate.setHours(10, 0, 0, 0);
     if (bookDate.getDay() === 0) bookDate.setDate(bookDate.getDate() + 1);
     const bookResponse = await request(app)
       .post('/donations/book-appointment')

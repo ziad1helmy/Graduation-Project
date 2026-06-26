@@ -143,7 +143,7 @@ export const register = asyncHandler(async (req, res) => {
 
   const payload = normalizeRegisterPayload(req.body);
   if (payload.role !== 'donor') {
-    throw new HttpError(403, 'Public signup is available for donors only');
+    throw new HttpError(403, 'auth.error_donors_only');
   }
 
   try {
@@ -178,10 +178,10 @@ export const register = asyncHandler(async (req, res) => {
       responseData.verificationToken = result.verificationOtp;
     }
 
-    response.success(res, 201, 'User registered successfully', responseData);
+    response.success(res, 201, 'auth.register_success', responseData);
   } catch (error) {
     // Treat validation/business errors as 400; unexpected errors go to middleware
-    if (error.message?.startsWith('Validation failed') || !error.statusCode) {
+    if (error.message?.startsWith('auth.error_validation_failed') || !error.statusCode) {
       throw new HttpError(400, error.message);
     }
     const details = error.reason ? { reason: error.reason } : error.details;
@@ -198,7 +198,7 @@ export const loginUser = asyncHandler(async (req, res) => {
 
   const payload = normalizeLoginPayload(req.body);
   if (payload.role === 'admin') {
-    throw new HttpError(400, 'Use /auth/admin/login for admin accounts');
+    throw new HttpError(400, 'auth.error_use_admin_login');
   }
 
   // Enforce donor-only for this endpoint
@@ -210,11 +210,11 @@ export const loginUser = asyncHandler(async (req, res) => {
   payload.role = 'donor';
   const validation = validateLogin(payload);
   if (!validation.valid) {
-    throw new HttpError(400, 'Validation failed', validation.errors);
+    throw new HttpError(400, 'auth.error_validation_failed', validation.errors);
   }
 
   if (!payload.email) {
-    throw new HttpError(400, 'Email is required');
+    throw new HttpError(400, 'auth.error_email_required');
   }
 
   try {
@@ -232,7 +232,7 @@ export const loginUser = asyncHandler(async (req, res) => {
       aliases.user_name = aliases.userName;
     }
 
-    return response.success(res, 200, 'Login successful', {
+    return response.success(res, 200, 'auth.login_success', {
       ...cleanResult,
       ...aliases,
       access_token: result.accessToken,
@@ -247,13 +247,13 @@ export const loginAdmin = asyncHandler(async (req, res) => {
   const payload = normalizeLoginPayload(req.body);
   payload.role = 'admin';
   if (!payload.email) {
-    throw new HttpError(400, 'Email is required');
+    throw new HttpError(400, 'auth.error_email_required');
   }
   if (!payload.password) {
-    throw new HttpError(400, 'Password is required');
+    throw new HttpError(400, 'auth.error_password_missing');
   }
   if (!payload.adminKey) {
-    throw new HttpError(400, 'Admin key is required');
+    throw new HttpError(400, 'auth.error_admin_key_missing');
   }
 
   try {
@@ -261,7 +261,7 @@ export const loginAdmin = asyncHandler(async (req, res) => {
     const { verified, ...cleanResult } = result;
     // Keep `admin` for backward compatibility and also expose `user` alias for Flutter
     const adminObj = result.admin || null;
-    return response.success(res, 200, 'Admin login successful', {
+    return response.success(res, 200, 'auth.admin_login_success', {
       ...cleanResult,
       access_token: result.accessToken,
       refresh_token: result.refreshToken,
@@ -284,10 +284,10 @@ export const loginHospital = asyncHandler(async (req, res) => {
   }
 
   if (!payload.email) {
-    throw new HttpError(400, 'Email is required');
+    throw new HttpError(400, 'auth.error_email_required');
   }
   if (!payload.password) {
-    throw new HttpError(400, 'Password is required');
+    throw new HttpError(400, 'auth.error_password_missing');
   }
 
   // Validate payload with role-specific rules (ensures hospitalId presence/format)
@@ -295,14 +295,14 @@ export const loginHospital = asyncHandler(async (req, res) => {
   const { validateLogin } = await import('../validation/auth.validation.js');
   const validation = validateLogin(payload);
   if (!validation.valid) {
-    throw new HttpError(400, 'Validation failed', validation.errors);
+    throw new HttpError(400, 'auth.error_validation_failed', validation.errors);
   }
 
   try {
     const result = await authService.loginHospital(payload);
 
     const user = result.user || {};
-    return response.success(res, 200, 'Login successful', {
+    return response.success(res, 200, 'auth.login_success', {
       ...result,
       access_token: result.accessToken,
       refresh_token: result.refreshToken,
@@ -334,7 +334,7 @@ export const logout = asyncHandler(async (req, res) => {
     }
     throw error;
   }
-  response.success(res, 200, 'Logged out successfully');
+  response.success(res, 200, 'auth.logout_success');
 });
 
 // Refresh token
@@ -359,7 +359,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
 // Forgot password — always returns 200 to prevent enumeration
 export const forgotPassword = asyncHandler(async (req, res) => {
   await authService.forgotPassword(req.body.email);
-  response.success(res, 200, 'Password reset email sent');
+  response.success(res, 200, 'auth.password_reset_email_sent');
 });
 
 // Reset password
@@ -376,7 +376,7 @@ export const resetPassword = asyncHandler(async (req, res) => {
     }
     throw error;
   }
-  response.success(res, 200, 'Password reset successful');
+  response.success(res, 200, 'auth.password_reset_success');
 });
 
 export const changePassword = asyncHandler(async (req, res) => {
@@ -388,7 +388,7 @@ export const changePassword = asyncHandler(async (req, res) => {
 
   const validation = validateChangePassword(payload);
   if (!validation.valid) {
-    throw new HttpError(400, 'Validation failed', validation.errors);
+    throw new HttpError(400, 'auth.error_validation_failed', validation.errors);
   }
 
   try {
@@ -410,7 +410,7 @@ export const changePassword = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  response.success(res, 200, 'Password changed successfully');
+  response.success(res, 200, 'auth.password_changed');
 });
 
 export const getMe = asyncHandler(async (req, res) => {
@@ -423,7 +423,7 @@ export const getMe = asyncHandler(async (req, res) => {
   const user = await authService.getMe(req.user.userId, projection);
   const userObj = user.toObject ? user.toObject() : { ...user };
   if (req.user?.role === 'donor' && userObj.location) { delete userObj.location.lastUpdated; }
-  response.success(res, 200, 'User retrieved', userObj);
+  response.success(res, 200, 'auth.user_retrieved', userObj);
 });
 
 const getFcmTokenFromBody = (body) => body.fcmToken || body.fcm_token;
@@ -431,7 +431,7 @@ const getFcmTokenFromBody = (body) => body.fcmToken || body.fcm_token;
 export const registerFcmToken = asyncHandler(async (req, res) => {
   try {
     const result = await authService.registerFcmToken(req.user.userId, getFcmTokenFromBody(req.body));
-    response.success(res, 200, 'FCM token registered successfully', result);
+    response.success(res, 200, 'auth.fcm_token_registered', result);
   } catch (error) {
     if (error.message === ERR.FCM_TOKEN_REQUIRED) {
       throw new HttpError(400, error.message);
@@ -443,7 +443,7 @@ export const registerFcmToken = asyncHandler(async (req, res) => {
 export const replaceFcmToken = asyncHandler(async (req, res) => {
   try {
     const result = await authService.replaceFcmToken(req.user.userId, getFcmTokenFromBody(req.body));
-    response.success(res, 200, 'FCM token updated successfully', result);
+    response.success(res, 200, 'auth.fcm_token_updated', result);
   } catch (error) {
     if (error.message === 'fcmToken is required') {
       throw new HttpError(400, error.message);
@@ -455,7 +455,7 @@ export const replaceFcmToken = asyncHandler(async (req, res) => {
 export const removeFcmToken = asyncHandler(async (req, res) => {
   try {
     const result = await authService.removeFcmToken(req.user.userId, getFcmTokenFromBody(req.body));
-    response.success(res, 200, 'FCM token removed successfully', result);
+    response.success(res, 200, 'auth.fcm_token_removed', result);
   } catch (error) {
     if (error.message === 'fcmToken is required') {
       throw new HttpError(400, error.message);
@@ -466,7 +466,7 @@ export const removeFcmToken = asyncHandler(async (req, res) => {
 
 // Validate the current access token and return session basics for Flutter splash flow.
 export const validateToken = asyncHandler(async (req, res) => {
-  return response.success(res, 200, 'Token is valid', buildValidateTokenResponse(req.user));
+  return response.success(res, 200, 'auth.token_valid', buildValidateTokenResponse(req.user));
 });
 
 
@@ -477,7 +477,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
       email: req.body.email || req.body.email_or_phone,
       otp: req.body.otp || req.body.otp_code,
     });
-    response.success(res, 200, 'Password reset OTP verified successfully', result);
+    response.success(res, 200, 'auth.password_reset_otp_verified', result);
   } catch (error) {
     if (!error.statusCode || error.message.includes('Invalid') || error.message.includes('expired') || error.message.includes('exceeded') || error.message.includes('required')) {
       throw new HttpError(400, error.message);
@@ -492,7 +492,7 @@ export const verifyOtp = asyncHandler(async (req, res) => {
 export const verifyEmail = asyncHandler(async (req, res) => {
   const email = req.body.email || req.query.email;
   if (!email) {
-    throw new HttpError(400, 'Email is required');
+    throw new HttpError(400, 'auth.error_email_required');
   }
   try {
     await authService.verifyEmail(email);
@@ -502,7 +502,7 @@ export const verifyEmail = asyncHandler(async (req, res) => {
     }
     throw error;
   }
-  response.success(res, 200, 'Verification code sent');
+  response.success(res, 200, 'auth.verification_code_sent');
 });
 
 // Verify email OTP
@@ -510,10 +510,10 @@ export const verifyEmailOtp = asyncHandler(async (req, res) => {
   const email = req.body.email || req.query.email;
   const otp = req.body.otp || req.body.code || req.query.otp || req.query.code;
   if (!email) {
-    throw new HttpError(400, 'Email is required');
+    throw new HttpError(400, 'auth.error_email_required');
   }
   if (!otp) {
-    throw new HttpError(400, 'Verification code is required');
+    throw new HttpError(400, 'auth.error_verification_code_required');
   }
   try {
     await authService.verifyEmailOtp({ email, otp });
@@ -523,7 +523,7 @@ export const verifyEmailOtp = asyncHandler(async (req, res) => {
     }
     throw error;
   }
-  response.success(res, 200, 'Email verified successfully');
+  response.success(res, 200, 'auth.email_verified');
 });
 
 export default {

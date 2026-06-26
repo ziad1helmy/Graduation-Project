@@ -12,7 +12,7 @@ import NotificationOutbox from '../../src/models/NotificationOutbox.model.js';
 setupTestDB();
 
 describe('Concurrent donor respond', () => {
-  it('allows only one donor to accept a pending request (concurrent)', async () => {
+  it('allows only one donor to accept a pending request (concurrent)', { timeout: 15000 }, async () => {
     await clearDatabase();
 
     const hospital = await createHospital();

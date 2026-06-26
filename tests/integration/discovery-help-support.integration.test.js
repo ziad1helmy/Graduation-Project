@@ -277,6 +277,67 @@ describe('Discovery, Help, and Support Routes', () => {
       expect(foundTicket).toBeDefined();
       expect(foundTicket.subject).toBe('Admin check ticket');
       expect(foundTicket.fullName).toBe(donor.fullName);
+      expect(foundTicket.isRead).toBe(false);
+      expect(foundTicket.isArchived).toBe(false);
+    });
+
+    it('filters support tickets by read=false and archived=false', async () => {
+      const donor = await createDonor();
+      const admin = await createAdmin();
+      const donorToken = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      const postRes = await request(app)
+        .post('/support/contact')
+        .set('Authorization', `Bearer ${donorToken}`)
+        .send({ subject: 'Unread ticket', category: 'TECHNICAL', message: 'Not read' });
+      expect(postRes.status).toBe(201);
+
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      await SupportMessage.create({
+        userId: donor._id, fullName: donor.fullName, email: donor.email, role: 'donor',
+        subject: 'Archived ticket', category: 'ACCOUNT', message: 'Archived', isRead: true, isArchived: true,
+      });
+
+      const getRes = await request(app)
+        .get('/admin/inbound-emails')
+        .query({ read: false, archived: false })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      const tickets = getRes.body.data.supportTickets;
+      expect(tickets.every(t => t.isRead === false)).toBe(true);
+      expect(tickets.every(t => t.isArchived === false)).toBe(true);
+      expect(tickets.some(t => t.subject === 'Unread ticket')).toBe(true);
+      expect(tickets.some(t => t.subject === 'Archived ticket')).toBe(false);
+    });
+
+    it('filters support tickets by archived=true', async () => {
+      const donor = await createDonor();
+      const admin = await createAdmin();
+      const donorToken = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      await SupportMessage.create({
+        userId: donor._id, fullName: donor.fullName, email: donor.email, role: 'donor',
+        subject: 'Archived item', category: 'DONATION', message: 'Archived msg', isArchived: true,
+      });
+      await SupportMessage.create({
+        userId: donor._id, fullName: donor.fullName, email: donor.email, role: 'donor',
+        subject: 'Not archived', category: 'OTHER', message: 'Active msg',
+      });
+
+      const getRes = await request(app)
+        .get('/admin/inbound-emails')
+        .query({ archived: true })
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      const tickets = getRes.body.data.supportTickets;
+      expect(tickets.every(t => t.isArchived === true)).toBe(true);
+      expect(tickets.some(t => t.subject === 'Archived item')).toBe(true);
+      expect(tickets.some(t => t.subject === 'Not archived')).toBe(false);
     });
 
     it('returns 403 for non-admin user trying to access the endpoint', async () => {
@@ -286,6 +347,146 @@ describe('Discovery, Help, and Support Routes', () => {
       const res = await request(app)
         .get('/admin/inbound-emails')
         .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('GET /admin/inbound-emails/:id/support-ticket', () => {
+    it('returns 200 with support ticket details for an admin', async () => {
+      const donor = await createDonor();
+      const admin = await createAdmin();
+      const donorToken = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      const postRes = await request(app)
+        .post('/support/contact')
+        .set('Authorization', `Bearer ${donorToken}`)
+        .send({ subject: 'Detail view test', category: 'ACCOUNT', message: 'Check detail' });
+      expect(postRes.status).toBe(201);
+      const ticketId = postRes.body.data.ticket.id;
+
+      const res = await request(app)
+        .get(`/admin/inbound-emails/${ticketId}/support-ticket`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.ticket).toBeDefined();
+      expect(res.body.data.ticket.subject).toBe('Detail view test');
+      expect(res.body.data.ticket.message).toBe('Check detail');
+      expect(res.body.data.ticket.category).toBe('ACCOUNT');
+      expect(res.body.data.ticket.status).toBe('OPEN');
+      expect(res.body.data.ticket.fullName).toBe(donor.fullName);
+      expect(res.body.data.ticket.email).toBe(donor.email);
+    });
+
+    it('returns 404 for a non-existent support ticket', async () => {
+      const admin = await createAdmin();
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+      const fakeId = '64a1b2c3d4e5f6a7b8c9d0e1';
+
+      const res = await request(app)
+        .get(`/admin/inbound-emails/${fakeId}/support-ticket`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(404);
+    });
+
+    it('returns 400 for an invalid ID', async () => {
+      const admin = await createAdmin();
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      const res = await request(app)
+        .get('/admin/inbound-emails/invalid-id/support-ticket')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 403 for non-admin user', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const res = await request(app)
+        .get('/admin/inbound-emails/64a1b2c3d4e5f6a7b8c9d0e1/support-ticket')
+        .set('Authorization', `Bearer ${token}`);
+
+      expect(res.status).toBe(403);
+    });
+  });
+
+  describe('POST /admin/inbound-emails/:id/reply', () => {
+    it('returns 200 and marks ticket as REVIEWED when admin replies', async () => {
+      const donor = await createDonor();
+      const admin = await createAdmin();
+      const donorToken = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      const postRes = await request(app)
+        .post('/support/contact')
+        .set('Authorization', `Bearer ${donorToken}`)
+        .send({ subject: 'Reply test', category: 'TECHNICAL', message: 'Please reply' });
+      expect(postRes.status).toBe(201);
+      const ticketId = postRes.body.data.ticket.id;
+
+      const res = await request(app)
+        .post(`/admin/inbound-emails/${ticketId}/reply`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reply: 'Thank you for reaching out.' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.ticket.status).toBe('REVIEWED');
+      expect(res.body.data.ticket.adminReply).toBe('Thank you for reaching out.');
+      expect(res.body.data.ticket.adminReplyBy).toBe(admin._id.toString());
+    });
+
+    it('returns 400 when reply is missing', async () => {
+      const admin = await createAdmin();
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      const res = await request(app)
+        .post('/admin/inbound-emails/64a1b2c3d4e5f6a7b8c9d0e1/reply')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when reply exceeds 4000 characters', async () => {
+      const admin = await createAdmin();
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      const res = await request(app)
+        .post('/admin/inbound-emails/64a1b2c3d4e5f6a7b8c9d0e1/reply')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reply: 'x'.repeat(4001) });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 for a non-existent support ticket', async () => {
+      const admin = await createAdmin();
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+      const fakeId = '64a1b2c3d4e5f6a7b8c9d0e1';
+
+      const res = await request(app)
+        .post(`/admin/inbound-emails/${fakeId}/reply`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reply: 'Hello' });
+
+      expect(res.status).toBe(404);
+    });
+
+    it('returns 403 for non-admin user', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const res = await request(app)
+        .post('/admin/inbound-emails/64a1b2c3d4e5f6a7b8c9d0e1/reply')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reply: 'Hello' });
 
       expect(res.status).toBe(403);
     });

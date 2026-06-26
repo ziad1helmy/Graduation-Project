@@ -14,6 +14,8 @@ import ELIGIBILITY_KEYS from '../utils/eligibility-keys.js';
 // Rejects: numbers, special characters
 const ARABIC_ENGLISH_PATTERN = /^[\u0600-\u06FFa-zA-Z\s\.\-]+$/;
 
+export const PASSWORD_PATTERN = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+
 const parseLocationCoordinates = (location) => {
   if (!location || typeof location !== 'object' || Array.isArray(location)) {
     return { lat: undefined, lng: undefined };
@@ -49,7 +51,7 @@ const BASE_RULES = {
     required: true,
     minLength: 8,
     // Pattern: at least one uppercase, one lowercase, one digit, one special char
-    pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+    pattern: PASSWORD_PATTERN,
   },
   role: {
     required: true,

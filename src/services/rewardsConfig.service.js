@@ -200,7 +200,7 @@ export const listEarningRules = async () => {
 export const getEarningRuleById = async (id) => {
   const rule = await earningRuleRepo.findById(id);
   if (!rule) {
-    throw new HttpError(404, 'Earning rule not found');
+    throw new HttpError(404, 'earning_rule.not_found');
   }
   return rule;
 };
@@ -209,7 +209,7 @@ export const getEarningRuleById = async (id) => {
 export const updateEarningRule = async (id, updates, updatedBy = null) => {
   const rule = await earningRuleRepo.findById(id, { lean: false });
   if (!rule) {
-    throw new HttpError(404, 'Earning rule not found');
+    throw new HttpError(404, 'earning_rule.not_found');
   }
 
   if (updates.type !== undefined && updates.type !== rule.type) {
@@ -244,7 +244,7 @@ export const updateEarningRule = async (id, updates, updatedBy = null) => {
 export const deleteEarningRule = async (id, deletedBy = null) => {
   const rule = await earningRuleRepo.findById(id);
   if (!rule) {
-    throw new HttpError(404, 'Earning rule not found');
+    throw new HttpError(404, 'earning_rule.not_found');
   }
 
   await earningRuleRepo.deleteById(id);

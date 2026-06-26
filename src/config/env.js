@@ -74,6 +74,11 @@ const getEnv = () => ({
   // Fix #4 (HIGH): Wider radius for high/critical urgency emergency requests.
   // Override via EMERGENCY_MATCHING_DISTANCE_KM env var (default: 60 km).
   EMERGENCY_MATCHING_DISTANCE_KM: process.env.EMERGENCY_MATCHING_DISTANCE_KM || '60',
+
+  // Workers
+  OUTBOX_POLL_INTERVAL_MS: process.env.OUTBOX_POLL_INTERVAL_MS || '5000',
+  ESCALATION_POLL_INTERVAL_MS: process.env.ESCALATION_POLL_INTERVAL_MS || '60000',
+  SUPPORT_CLOSURE_POLL_INTERVAL_MS: process.env.SUPPORT_CLOSURE_POLL_INTERVAL_MS || '900000',
 });
 
 const required = ['MONGO_URI', 'JWT_SECRET'];

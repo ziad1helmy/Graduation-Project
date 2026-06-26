@@ -117,17 +117,23 @@ export const notifyRequest = async (donorIds, request) => {
 
     const donors = await Donor.find({ _id: { $in: uniqueDonorIds } })
       .select('_id fullName location fcmTokens settings isOptedIn bloodType dateOfBirth gender lastDonationDate hemoglobinLevel temporaryDeferralUntil travelHistory')
-      .lean(false);
+      .lean();
 
     if (donors.length === 0) {
       return [];
     }
 
     const matchedDonors = [];
-    for (const donor of donors) {
-      const match = await matchingService.evaluateMatch(donor, populatedRequest);
-      if (match.matched) {
-        matchedDonors.push({ donor, match });
+    const BATCH_SIZE = 50;
+    for (let i = 0; i < donors.length; i += BATCH_SIZE) {
+      const batch = donors.slice(i, i + BATCH_SIZE);
+      const matchResults = await Promise.all(
+        batch.map(donor => matchingService.evaluateMatch(donor, populatedRequest))
+      );
+      for (let j = 0; j < batch.length; j++) {
+        if (matchResults[j].matched) {
+          matchedDonors.push({ donor: batch[j], match: matchResults[j] });
+        }
       }
     }
 
@@ -165,44 +171,46 @@ export const notifyRequest = async (donorIds, request) => {
         ? { attempts: 5, baseDelayMs: 500 }
         : { attempts: 3, baseDelayMs: 200 };
 
-      for (let i = 0; i < matchedDonors.length; i += 1) {
-        const donor = matchedDonors[i].donor;
-        const notification = notifications[i];
-        if (!notification) continue;
+      const FCM_BATCH_SIZE = 50;
+      for (let i = 0; i < matchedDonors.length; i += FCM_BATCH_SIZE) {
+        const batch = matchedDonors.slice(i, i + FCM_BATCH_SIZE);
+        await Promise.all(batch.map(async ({ donor }, idx) => {
+          const notification = notifications[i + idx];
+          if (!notification) return;
 
-        const content = buildEmergencyRequestNotificationContent(populatedRequest, donor);
-        const data = buildEmergencyRequestFcmData(populatedRequest, donor);
-        const options = {
-          channelId: 'emergency_requests',
-          clickAction: 'FLUTTER_NOTIFICATION_CLICK',
-          apnsCategory: 'emergency_request',
-          priority: 'high',
-          sound: 'default',
-          titleLocKey: data.title_loc_key,
-          bodyLocKey: data.body_loc_key,
-          bodyLocArgs: [data.bloodTypeLabel || '', data.hospitalName || ''],
-        };
+          const content = buildEmergencyRequestNotificationContent(populatedRequest, donor);
+          const data = buildEmergencyRequestFcmData(populatedRequest, donor);
+          const options = {
+            channelId: 'emergency_requests',
+            clickAction: 'FLUTTER_NOTIFICATION_CLICK',
+            apnsCategory: 'emergency_request',
+            priority: 'high',
+            sound: 'default',
+            titleLocKey: data.title_loc_key,
+            bodyLocKey: data.body_loc_key,
+            bodyLocArgs: [data.bloodTypeLabel || '', data.hospitalName || ''],
+          };
 
-        const tokens = Array.isArray(donor.fcmTokens) ? donor.fcmTokens : [];
-        if (!tokens.length) continue;
+          const tokens = Array.isArray(donor.fcmTokens) ? donor.fcmTokens : [];
+          if (!tokens.length) return;
 
-        try {
-          await (sendToMultipleWithRetry || sendToMultiple)(tokens, content.title, content.body, data, options, retryConfig);
-        } catch (err) {
-          if (isHighUrgency) {
-            // Structured alert — searchable by monitoring tools
-            logger.error('CRITICAL_NOTIFICATION_FAILURE', {
-              event: 'CRITICAL_NOTIFICATION_FAILURE',
-              requestId: String(request._id),
-              urgency: request.urgency,
-              donorId: String(donor._id),
-              totalDonorsTargeted: matchedDonors.length,
-              error: err.message,
-            });
-          } else {
-            logger.error('Emergency push failed', { message: err.message });
+          try {
+            await (sendToMultipleWithRetry || sendToMultiple)(tokens, content.title, content.body, data, options, retryConfig);
+          } catch (err) {
+            if (isHighUrgency) {
+              logger.error('CRITICAL_NOTIFICATION_FAILURE', {
+                event: 'CRITICAL_NOTIFICATION_FAILURE',
+                requestId: String(request._id),
+                urgency: request.urgency,
+                donorId: String(donor._id),
+                totalDonorsTargeted: matchedDonors.length,
+                error: err.message,
+              });
+            } else {
+              logger.error('Emergency push failed', { message: err.message });
+            }
           }
-        }
+        }));
       }
     } catch (err) {
       logger.error('Emergency notification push scheduling failed', { message: err.message });

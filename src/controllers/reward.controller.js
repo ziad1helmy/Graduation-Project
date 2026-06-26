@@ -9,7 +9,7 @@ import { HttpError } from '../utils/HttpError.js';
 
 export const getPoints = asyncHandler(async (req, res) => {
   const data = await rewardService.getPointsSummary(req.user.userId);
-  response.success(res, 200, 'Points retrieved successfully', data);
+  response.success(res, 200, 'reward.points_retrieved', data);
 });
 
 export const getRewardsDashboard = asyncHandler(async (req, res) => {
@@ -23,7 +23,7 @@ export const getRewardsDashboard = asyncHandler(async (req, res) => {
 
   const nextRewardPoints = rewards.rewards.find(r => r.pointsCost > pointsSummary.pointsBalance)?.pointsCost || 0;
 
-  response.success(res, 200, 'Rewards dashboard retrieved', {
+  response.success(res, 200, 'reward.dashboard_retrieved', {
     points: pointsSummary.pointsBalance,
     nextRewardPoints,
     pointsToNextReward: Math.max(0, nextRewardPoints - pointsSummary.pointsBalance),
@@ -58,7 +58,7 @@ export const getRewardsStats = asyncHandler(async (req, res) => {
   const catalog = await rewardService.getRewardsCatalog({});
   const nextReward = catalog.rewards.find(r => r.pointsCost > pointsSummary.pointsBalance);
 
-  response.success(res, 200, 'Rewards stats retrieved', {
+  response.success(res, 200, 'reward.stats_retrieved', {
     points: pointsSummary.pointsBalance,
     nextReward: { pointsToGo: nextReward ? nextReward.pointsCost - pointsSummary.pointsBalance : 0 },
     badgesUnlocked: badges.unlockedCount,
@@ -71,7 +71,7 @@ export const getPointsHistory = asyncHandler(async (req, res) => {
   const { filter, date_from, date_to } = req.query;
   const { page, limit } = parsePagination(req.query, 20);
   const data = await rewardService.getPointsHistory(req.user.userId, { page, limit, filter, dateFrom: date_from, dateTo: date_to });
-  response.success(res, 200, 'Points history retrieved successfully', data);
+  response.success(res, 200, 'reward.history_retrieved', data);
 });
 
 export const getRewards = asyncHandler(async (req, res) => {
@@ -80,11 +80,11 @@ export const getRewards = asyncHandler(async (req, res) => {
     ? '-__v -createdAt -updatedAt -status -dailyLimit -monthlyLimit -redemptionCount'
     : null;
   const data = await rewardService.getRewardsCatalog(req.query, projection);
-  response.success(res, 200, 'Rewards retrieved successfully', data);
+  response.success(res, 200, 'reward.catalog_retrieved', data);
 });
 export const getEarningRules = asyncHandler(async (req, res) => {
   const data = await rewardService.getEarningRules();
-  response.success(res, 200, 'Reward earning rules retrieved successfully', data);
+  response.success(res, 200, 'reward.earning_rules_retrieved', data);
 });
 
 export const redeemReward = asyncHandler(async (req, res) => {
@@ -95,7 +95,7 @@ export const redeemReward = asyncHandler(async (req, res) => {
       deliveryMethod: delivery_preference || 'IN_APP',
       deliveryContact: delivery_contact || null,
     });
-    response.success(res, 200, 'Reward redeemed successfully', data);
+    response.success(res, 200, 'reward.redeemed_success', data);
   } catch (err) {
     if (err.code === 'INSUFFICIENT_POINTS') {
       throw new HttpError(409, err.message, err.details);
@@ -109,30 +109,30 @@ export const getRedemptions = asyncHandler(async (req, res) => {
   const { status } = req.query;
   const { page, limit } = parsePagination(req.query, 20);
   const data = await rewardService.getDonorRedemptions(req.user.userId, { page, limit, status });
-  response.success(res, 200, 'Redemptions retrieved successfully', data);
+  response.success(res, 200, 'reward.redemptions_retrieved', data);
 });
 
 export const getHistory = asyncHandler(async (req, res) => {
   const { status } = req.query;
   const { page, limit } = parsePagination(req.query, 20);
   const data = await rewardService.getDonorRedemptions(req.user.userId, { page, limit, status });
-  response.success(res, 200, 'Reward history retrieved successfully', data);
+  response.success(res, 200, 'reward.reward_history_retrieved', data);
 });
 
 export const getBadges = asyncHandler(async (req, res) => {
   const data = await rewardService.getDonorBadges(req.user.userId);
-  response.success(res, 200, 'Badges retrieved successfully', data);
+  response.success(res, 200, 'reward.badges_retrieved', data);
 });
 
 export const getLeaderboard = asyncHandler(async (req, res) => {
   const limit = parseInt(req.query.limit) || 20;
   const data = await rewardService.getLeaderboard(limit);
-  response.success(res, 200, 'Leaderboard retrieved successfully', { leaderboard: data });
+  response.success(res, 200, 'reward.leaderboard_retrieved', { leaderboard: data });
 });
 
 // ── Admin endpoints ──────────────────────────
 
 export const adminGetRewardsAnalytics = asyncHandler(async (req, res) => {
   const data = await rewardService.getRewardsAnalytics();
-  response.success(res, 200, 'Rewards analytics retrieved', data);
+  response.success(res, 200, 'reward.analytics_retrieved', data);
 });

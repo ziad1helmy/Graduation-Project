@@ -61,11 +61,11 @@ export const getTimeline = asyncHandler(async (req, res) => {
   const { page: pageParam, limit: limitParam } = req.query;
 
   if (pageParam !== undefined && !isPositiveIntegerString(pageParam)) {
-    return response.error(res, 400, 'Page must be a positive integer');
+    return response.error(res, 400, 'activity.error_invalid_page');
   }
 
   if (limitParam !== undefined && !isPositiveIntegerString(limitParam)) {
-    return response.error(res, 400, 'Limit must be a positive integer');
+    return response.error(res, 400, 'activity.error_invalid_limit');
   }
 
   const { page, limit } = parsePagination(req.query, 20, 100);
@@ -87,7 +87,7 @@ export const getTimeline = asyncHandler(async (req, res) => {
 
   const formattedActivities = result.activities.map(formatActivityForTimeline);
 
-  response.success(res, 200, 'Activity timeline retrieved successfully', {
+  response.success(res, 200, 'activity.timeline_retrieved', {
     activities: formattedActivities,
     pagination: result.pagination,
   });

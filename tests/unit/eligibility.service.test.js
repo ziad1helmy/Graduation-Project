@@ -165,7 +165,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toBe('Donor already has an active donation in progress');
+    expect(result.reason).toBe('eligibility.activeDonationInProgress');
   });
 
   it('blocks donors with an active scheduled donation', async () => {
@@ -184,7 +184,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toBe('Donor already has an active donation in progress');
+    expect(result.reason).toBe('eligibility.activeDonationInProgress');
   });
 
   it('allows donors with only completed donations', async () => {
@@ -243,7 +243,7 @@ describe('Eligibility Service — Donation Interval Cooldowns', () => {
     const result = await canDonate(donor, { donationType: 'blood' });
 
     expect(result.eligible).toBe(false);
-    expect(result.reason).toBe('Donor already has an active donation in progress');
+    expect(result.reason).toBe('eligibility.activeDonationInProgress');
   });
 });
 
