@@ -173,7 +173,9 @@
         },
         "default": "[AR] تم تنفيذ الإجراء {{action}} على {{targetType}}"
       }
-    }
+    },
+    "error_password_fields_required": "[AR] currentPassword و newPassword مطلوبان",
+    "password_updated": "[AR] تم تحديث كلمة المرور بنجاح"
   },
   "ui": {
     "accept": "[AR] قبول",

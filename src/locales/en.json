@@ -549,7 +549,9 @@
     "error_at_least_one_field": "At least one field to update is required",
     "badge_not_found": "Badge not found",
     "badge_updated": "Badge updated successfully",
-    "error_cannot_broadcast_status": "cannot broadcast a request with status: {{status}}"
+    "error_cannot_broadcast_status": "cannot broadcast a request with status: {{status}}",
+    "error_password_fields_required": "currentPassword and newPassword are required",
+    "password_updated": "Password updated successfully"
   },
     // ──────────────────────────────────────────────
   // DISCOVERY ENDPOINTS  (/discovery/*)

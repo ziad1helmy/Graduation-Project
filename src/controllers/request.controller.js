@@ -146,6 +146,7 @@ export const buildDonorRequestSummary = (request, viewerLocation = null) => {
     || null;
 
   return {
+    // Primary fields
     _id: request._id.toString(),
     id: request._id.toString(),
     requestId: request._id.toString(),
@@ -176,6 +177,12 @@ export const buildDonorRequestSummary = (request, viewerLocation = null) => {
       longitude: requestLocation?.longitude ?? null,
     },
     ...distance,
+
+    // ── Backward-compatibility fields ──────────────────────────────────────
+    // Flutter client depends on these flat fields. Do NOT remove.
+    posted: request.createdAt || null,
+    hospitalLatitude: requestLocation?.latitude ?? null,
+    hospitalLongitude: requestLocation?.longitude ?? null,
   };
 };
 
