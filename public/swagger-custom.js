@@ -88,6 +88,9 @@
     '/help/faq': 'Help & Support',
     '/help/documents/{type}': 'Help & Support',
     '/support/contact': 'Help & Support',
+    '/support/my-tickets': 'Help & Support',
+    '/support/my-tickets/{id}': 'Help & Support',
+    '/support/my-tickets/{id}/reply': 'Help & Support',
 
     '/notifications': 'Notifications',
     '/notifications/read-all': 'Notifications',

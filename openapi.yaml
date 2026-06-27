@@ -4287,6 +4287,65 @@ paths:
           description: Unauthenticated request
         "404":
           description: Support ticket not found
+  /support/my-tickets/{id}/reply:
+    post:
+      summary: Reply to my support ticket
+      tags:
+        - Support
+      security:
+        - bearerAuth: []
+      description: |-
+        Reply to an existing support ticket after the admin has responded.
+        Only allowed when the ticket status is REVIEWED. Resets status to OPEN
+        so the admin knows a new response is waiting.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - reply
+              properties:
+                reply:
+                  type: string
+                  maxLength: 2000
+                  description: Donor reply message
+            example:
+              reply: Thank you for your response. I still need help with the next step.
+      responses:
+        "200":
+          description: Reply submitted successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Reply submitted successfully
+                data:
+                  ticket:
+                    _id: "670000000000000000000001"
+                    id: "670000000000000000000001"
+                    subject: Need help with reward redemption
+                    category: REWARDS
+                    message: I can see my points balance but I want to confirm when the Coffee Voucher becomes available.
+                    status: OPEN
+                    adminReply: The Coffee Voucher will be active on the first of next month.
+                    adminReplyAt: "2026-05-24T17:00:00.000Z"
+                    donorReply: Thank you for your response. I still need help with the next step.
+                    donorReplyAt: "2026-05-24T18:00:00.000Z"
+                    createdAt: "2026-05-24T16:24:00.000Z"
+        "400":
+          description: Validation error (missing reply, too long, ticket not REVIEWED, or invalid ID)
+        "401":
+          description: Unauthenticated request
+        "404":
+          description: Support ticket not found
   /notifications:
     get:
       summary: List notifications for authenticated user

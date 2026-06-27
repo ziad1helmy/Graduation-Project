@@ -15,5 +15,6 @@ const router = Router();
 router.post('/contact', authMiddleware, helpController.contactSupport);
 router.get('/my-tickets', authMiddleware, requireRole('donor'), helpController.getMyTickets);
 router.get('/my-tickets/:id', authMiddleware, requireRole('donor'), helpController.getMyTicketById);
+router.post('/my-tickets/:id/reply', authMiddleware, requireRole('donor'), helpController.replyToMyTicket);
 
 export default router;
