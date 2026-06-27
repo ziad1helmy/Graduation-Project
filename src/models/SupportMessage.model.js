@@ -51,6 +51,16 @@ const supportMessageSchema = new mongoose.Schema(
       ref: 'User',
       default: null,
     },
+    donorReply: {
+      type: String,
+      default: null,
+      trim: true,
+      maxlength: 2000,
+    },
+    donorReplyAt: {
+      type: Date,
+      default: null,
+    },
     isRead: { type: Boolean, default: false },
     isArchived: { type: Boolean, default: false },
   },

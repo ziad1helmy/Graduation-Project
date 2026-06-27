@@ -1,9 +1,13 @@
 import response from '../utils/response.js';
 import HelpDocument from '../models/HelpDocument.model.js';
+import Notification from '../models/Notification.model.js';
 import SupportMessage from '../models/SupportMessage.model.js';
+import User from '../models/User.model.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { parsePagination, paginationMeta } from '../utils/pagination.js';
 import { isValidObjectId } from '../utils/query.js';
+import { sendToMultiple } from '../utils/fcm.js';
+import { logger } from '../utils/logger.js';
 const FAQS = [
   { category: 'DONATION', question: 'How often can I donate blood?', answer: 'Donation intervals depend on type: whole blood every 56 days, plasma every 14 days, and platelets every 7 days.' },
   { category: 'HEALTH', question: 'Can I donate if I am feeling unwell?', answer: 'No. Please wait until you are fully recovered and meet eligibility requirements.' },
@@ -104,6 +108,8 @@ const toSupportMessageResponse = (ticket) => {
     status: ticket.status,
     adminReply: ticket.adminReply,
     adminReplyAt: ticket.adminReplyAt,
+    donorReply: ticket.donorReply,
+    donorReplyAt: ticket.donorReplyAt,
     createdAt: ticket.createdAt,
   };
 };
@@ -143,5 +149,90 @@ export const getMyTicketById = asyncHandler(async (req, res) => {
 
   return response.success(res, 200, 'help.support_ticket_retrieved', {
     ticket: toSupportMessageResponse(ticket),
+  });
+});
+
+const notifyAdminOfDonorReply = (ticketId, subject, adminUserId, donorName) => {
+  setImmediate(async () => {
+    if (!adminUserId) return;
+    try {
+      const admin = await User.findById(adminUserId).select('fcmTokens').lean();
+      if (!admin) return;
+
+      const title = 'New Donor Reply';
+      const message = `"${subject}" — ${donorName} has replied.`;
+
+      const data = {
+        type: 'support_donor_reply',
+        ticketId: String(ticketId),
+        click_action: 'FLUTTER_NOTIFICATION_CLICK',
+      };
+
+      if (Array.isArray(admin.fcmTokens) && admin.fcmTokens.length > 0) {
+        try {
+          await sendToMultiple(admin.fcmTokens, title, message, data, { channelId: 'support_replies' });
+        } catch (fcmErr) {
+          logger.warn('Donor reply FCM delivery to admin failed', { adminId: String(adminUserId), ticketId: String(ticketId), message: fcmErr.message });
+        }
+      }
+
+      try {
+        await Notification.create({
+          userId: adminUserId,
+          type: 'admin',
+          title,
+          message,
+          relatedId: ticketId,
+          relatedType: null,
+          data: { ticketId: String(ticketId) },
+        });
+      } catch (notifErr) {
+        logger.warn('Donor reply in-app notification create failed', { adminId: String(adminUserId), ticketId: String(ticketId), message: notifErr.message });
+      }
+    } catch (err) {
+      logger.error('Donor reply admin notification dispatch error', { ticketId: String(ticketId), message: err.message });
+    }
+  });
+};
+
+export const replyToMyTicket = asyncHandler(async (req, res) => {
+  if (!isValidObjectId(req.params.id)) {
+    return response.error(res, 400, 'help.error_invalid_ticket_id');
+  }
+
+  const { reply } = req.body;
+  if (!reply || typeof reply !== 'string' || !reply.trim()) {
+    return response.error(res, 400, 'help.error_reply_required');
+  }
+
+  const trimmedReply = reply.trim();
+  if (trimmedReply.length > 2000) {
+    return response.error(res, 400, 'help.error_reply_too_long');
+  }
+
+  const ticket = await SupportMessage.findOne({
+    _id: req.params.id,
+    userId: req.user._id,
+  });
+
+  if (!ticket) {
+    return response.error(res, 404, 'help.error_support_ticket_not_found');
+  }
+
+  if (ticket.status !== 'REVIEWED') {
+    return response.error(res, 400, 'help.error_cannot_reply_not_reviewed');
+  }
+
+  ticket.donorReply = trimmedReply;
+  ticket.donorReplyAt = new Date();
+  ticket.status = 'OPEN';
+  await ticket.save({ validateBeforeSave: false });
+
+  notifyAdminOfDonorReply(ticket._id, ticket.subject, ticket.adminReplyBy, req.user.fullName || 'A donor');
+
+  const updated = await SupportMessage.findById(ticket._id).lean();
+
+  return response.success(res, 200, 'help.reply_submitted', {
+    ticket: toSupportMessageResponse(updated),
   });
 });

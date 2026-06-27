@@ -249,6 +249,165 @@ describe('Discovery, Help, and Support Routes', () => {
     });
   });
 
+  describe('POST /support/my-tickets/:id/reply', () => {
+    it('returns 200 and resets status to OPEN when donor replies to a REVIEWED ticket', async () => {
+      const donor = await createDonor();
+      const admin = await createAdmin();
+      const donorToken = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+      const adminToken = signToken({ userId: admin._id.toString(), role: 'admin', isEmailVerified: true });
+
+      // Create a ticket
+      const postRes = await request(app)
+        .post('/support/contact')
+        .set('Authorization', `Bearer ${donorToken}`)
+        .send({ subject: 'Donor reply test', category: 'DONATION', message: 'Please help' });
+      expect(postRes.status).toBe(201);
+      const ticketId = postRes.body.data.ticket.id;
+
+      // Admin replies → status becomes REVIEWED
+      const adminReplyRes = await request(app)
+        .post(`/admin/inbound-emails/${ticketId}/reply`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ reply: 'We are looking into it.' });
+      expect(adminReplyRes.status).toBe(200);
+      expect(adminReplyRes.body.data.ticket.status).toBe('REVIEWED');
+
+      // Donor replies → status resets to OPEN
+      const res = await request(app)
+        .post(`/support/my-tickets/${ticketId}/reply`)
+        .set('Authorization', `Bearer ${donorToken}`)
+        .send({ reply: 'Thank you, please let me know when ready.' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.ticket.status).toBe('OPEN');
+      expect(res.body.data.ticket.donorReply).toBe('Thank you, please let me know when ready.');
+      expect(res.body.data.ticket.donorReplyAt).toBeDefined();
+      expect(res.body.data.ticket.adminReply).toBe('We are looking into it.');
+      expect(res.body.data.ticket._id).toBe(ticketId);
+    });
+
+    it('returns 400 when reply is missing', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const res = await request(app)
+        .post('/support/my-tickets/64a1b2c3d4e5f6a7b8c9d0e1/reply')
+        .set('Authorization', `Bearer ${token}`)
+        .send({});
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when reply exceeds 2000 characters', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const res = await request(app)
+        .post('/support/my-tickets/64a1b2c3d4e5f6a7b8c9d0e1/reply')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reply: 'x'.repeat(2001) });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 400 when ticket status is not REVIEWED', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      const ticket = await SupportMessage.create({
+        userId: donor._id,
+        fullName: donor.fullName,
+        email: donor.email,
+        role: 'donor',
+        subject: 'Still OPEN ticket',
+        category: 'TECHNICAL',
+        message: 'Not yet answered',
+        status: 'OPEN',
+      });
+
+      const res = await request(app)
+        .post(`/support/my-tickets/${ticket._id}/reply`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reply: 'I want to reply' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.message).toBe('help.error_cannot_reply_not_reviewed');
+    });
+
+    it('returns 400 when ticket status is CLOSED', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      const ticket = await SupportMessage.create({
+        userId: donor._id,
+        fullName: donor.fullName,
+        email: donor.email,
+        role: 'donor',
+        subject: 'Closed ticket',
+        category: 'ACCOUNT',
+        message: 'Already closed',
+        status: 'CLOSED',
+      });
+
+      const res = await request(app)
+        .post(`/support/my-tickets/${ticket._id}/reply`)
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reply: 'I want to reply' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 404 if ticket belongs to another donor', async () => {
+      const donor1 = await createDonor();
+      const donor2 = await createDonor();
+      const token2 = signToken({ userId: donor2._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
+      const ticket = await SupportMessage.create({
+        userId: donor1._id,
+        fullName: donor1.fullName,
+        email: donor1.email,
+        role: 'donor',
+        subject: 'Not your ticket to reply',
+        category: 'TECHNICAL',
+        message: 'Need help',
+        status: 'REVIEWED',
+        adminReply: 'We replied',
+        adminReplyAt: new Date(),
+      });
+
+      const res = await request(app)
+        .post(`/support/my-tickets/${ticket._id}/reply`)
+        .set('Authorization', `Bearer ${token2}`)
+        .send({ reply: 'I want to reply' });
+
+      expect(res.status).toBe(404);
+    });
+
+    it('returns 400 for an invalid ObjectId', async () => {
+      const donor = await createDonor();
+      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
+
+      const res = await request(app)
+        .post('/support/my-tickets/invalid-id/reply')
+        .set('Authorization', `Bearer ${token}`)
+        .send({ reply: 'Hello' });
+
+      expect(res.status).toBe(400);
+    });
+
+    it('returns 401 if unauthenticated', async () => {
+      const res = await request(app)
+        .post('/support/my-tickets/64a1b2c3d4e5f6a7b8c9d0e1/reply')
+        .send({ reply: 'Hello' });
+
+      expect(res.status).toBe(401);
+    });
+  });
+
   describe('GET /admin/inbound-emails includes support tickets', () => {
     it('returns 200 with support tickets alongside inbound emails for an admin', async () => {
       const donor = await createDonor();
