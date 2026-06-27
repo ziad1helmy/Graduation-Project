@@ -391,8 +391,9 @@ export const changePassword = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'auth.error_validation_failed', validation.errors);
   }
 
+  let result;
   try {
-    await authService.changePassword(req.user.userId, {
+    result = await authService.changePassword(req.user.userId, {
       currentPassword: payload.currentPassword,
       newPassword: payload.newPassword,
     });
@@ -410,7 +411,13 @@ export const changePassword = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  response.success(res, 200, 'auth.password_changed');
+  response.success(res, 200, 'auth.password_changed', {
+    tokens: {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    },
+    user: result.user,
+  });
 });
 
 export const getMe = asyncHandler(async (req, res) => {

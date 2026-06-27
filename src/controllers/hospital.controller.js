@@ -1172,8 +1172,9 @@ export const changePassword = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'hospital.error_password_mismatch');
   }
 
+  let result;
   try {
-    await authService.changePassword(req.user.userId, { currentPassword, newPassword });
+    result = await authService.changePassword(req.user.userId, { currentPassword, newPassword });
   } catch (error) {
     if (error.message === ERR.AUTH_CURRENT_PASSWORD_INCORRECT) {
       throw new HttpError(400, error.message);
@@ -1188,7 +1189,13 @@ export const changePassword = asyncHandler(async (req, res) => {
     throw error;
   }
 
-  response.success(res, 200, 'hospital.password_updated');
+  response.success(res, 200, 'hospital.password_updated', {
+    tokens: {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    },
+    user: result.user,
+  });
 });
 
 export const getAppointments = asyncHandler(async (req, res) => {

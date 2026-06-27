@@ -101,7 +101,10 @@ describe('Auth Service', () => {
       newPassword,
     });
 
-    expect(result).toEqual({ success: true });
+    expect(result.success).toBe(true);
+    expect(result.accessToken).toBeTruthy();
+    expect(result.refreshToken).toBeTruthy();
+    expect(result.user).toBeDefined();
 
     const freshUser = await Donor.findOne({ email }).select('+password +passwordChangedAt');
     expect(freshUser.passwordChangedAt).toBeTruthy();
