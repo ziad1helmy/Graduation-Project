@@ -371,7 +371,7 @@ export const findCompatibleDonors = async (requestId) => {
   for (let i = 0; i < eligibleDonors.length; i += EVALUATE_BATCH_SIZE) {
     const batch = eligibleDonors.slice(i, i + EVALUATE_BATCH_SIZE);
     const matchResults = await Promise.all(
-      batch.map(donor => evaluateMatch(donor, request, { radiusKm }))
+      batch.map(donor => evaluateMatch(donor, request, { radiusKm, skipActiveDonationCheck: true }))
     );
 
     for (let j = 0; j < batch.length; j++) {
@@ -471,10 +471,10 @@ export const searchCompatibleDonors = async ({
           evaluateMatch(donor, {
             ...searchRequest,
             hospitalLocationGeo: { type: 'Point', coordinates: [geoPoint.longitude, geoPoint.latitude] },
-          }, { radiusKm: normalizedRadiusKm, allowOptedOut: participation === false })
+          }, { radiusKm: normalizedRadiusKm, allowOptedOut: participation === false, skipActiveDonationCheck: true })
         ))
       : await Promise.all(batch.map(donor =>
-          checkEligibility(donor, searchRequest)
+          checkEligibility(donor, searchRequest, { skipActiveDonationCheck: true })
         ));
 
     for (let j = 0; j < batch.length; j++) {
@@ -642,7 +642,7 @@ export const findCompatibleRequests = async (
     );
 
     const matchResults = await Promise.all(
-      batch.map((request, idx) => evaluateMatch(donor, request, { radiusKm: maxDists[idx] }))
+      batch.map((request, idx) => evaluateMatch(donor, request, { radiusKm: maxDists[idx], skipActiveDonationCheck: true }))
     );
 
     for (let j = 0; j < batch.length; j++) {

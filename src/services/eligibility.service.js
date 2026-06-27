@@ -56,6 +56,14 @@ const makeRuleResult = (valid, reason, nextEligibleDate) => ({
 
 const getDonorId = (donor) => donor?._id || donor?.id || null;
 
+/**
+ * Check if a donor has an active (pending/scheduled) donation in progress.
+ * @param {Object} donor - Donor document or plain object with `_id` or `id`.
+ * @param {Object} [options={}] - Options object.
+ * @param {boolean} [options.skipActiveDonationCheck] - When true, skip this check entirely (used by callers that pre-filter actively donating donors).
+ * @param {string} [options.excludeDonationId] - If set, exclude a specific donation from the check.
+ * @returns {Promise<boolean>}
+ */
 export const hasActiveDonationInProgress = async (donor, options = {}) => {
   const donorId = getDonorId(donor);
   if (!donorId) {
@@ -201,6 +209,15 @@ const evaluateHemoglobinRule = (donor) => {
   return makeRuleResult(true, ELIGIBILITY_KEYS.HEMOGLOBIN_LEVEL_ACCEPTABLE);
 };
 
+/**
+ * Run the full eligibility rule set for a donor.
+ * @param {Object} donor - Donor document or plain object.
+ * @param {Object} [options={}] - Options object.
+ * @param {boolean} [options.skipActiveDonationCheck] - When true, skip the active-donation DB query (caller must have pre-filtered).
+ * @param {boolean} [options.persistTravelDeferral] - Persist travel deferral on donor doc.
+ * @param {string} [options.donationType] - Type of donation for cooldown calculation.
+ * @returns {Promise<{eligible: boolean, reason: string, nextEligibleDate?: Date}>}
+ */
 export const canDonate = async (donor, options = {}) => {
   if (!donor || donor.deletedAt) {
     return {
@@ -223,7 +240,7 @@ export const canDonate = async (donor, options = {}) => {
     };
   }
 
-  if (await hasActiveDonationInProgress(donor, options)) {
+  if (!options.skipActiveDonationCheck && await hasActiveDonationInProgress(donor, options)) {
     return {
       eligible: false,
       reason: ELIGIBILITY_KEYS.ACTIVE_DONATION_IN_PROGRESS,
