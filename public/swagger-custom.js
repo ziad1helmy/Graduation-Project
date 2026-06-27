@@ -156,6 +156,7 @@
 
 
     '/admin/profile': 'User Management',
+    '/admin/profile/password': 'User Management',
     '/admin/users': 'User Management',
     '/admin/users/hospital': 'User Management',
     '/admin/users/donor/{id}': 'User Management',

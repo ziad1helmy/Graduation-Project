@@ -1108,9 +1108,10 @@ paths:
     post:
       tags:
         - Auth
-      summary: Change the authenticated user's password
+      summary: Change the authenticated donor's password
       security:
         - bearerAuth: []
+      description: "Donor-only. Returns new tokens so the client stays authenticated."
       requestBody:
         required: true
         content:
@@ -1140,6 +1141,15 @@ paths:
               example:
                 success: true
                 message: Password changed successfully
+                data:
+                  tokens:
+                    accessToken: eyJhbGciOiJIUzI1NiIs...
+                    refreshToken: eyJhbGciOiJIUzI1NiIs...
+                  user:
+                    _id: 66f200000000000000000001
+                    fullName: John Doe
+                    email: donor@lifelink.demo
+                    role: donor
         "400":
           description: Validation or business-rule error
           content:
@@ -1161,9 +1171,8 @@ paths:
                       newPassword: newPassword must be different from currentPassword
         "401":
           description: Unauthorized - missing, invalid, or expired JWT token
-      description: "Demo seed available via `npm run seed-demo`. Base URL example:
-        https://graduation-project-cy61.onrender.com This operation includes a
-        seeded demo request example."
+        "403":
+          description: Forbidden - not a donor
   /auth/fcm-token:
     post:
       tags:
@@ -4822,7 +4831,7 @@ paths:
       tags:
         - Hospital
       summary: Change password
-      description: Safely changes the account credentials by verifying the current password.
+      description: Returns new tokens so the client stays authenticated after a password change.
       security:
         - bearerAuth: []
       requestBody:
@@ -4856,6 +4865,15 @@ paths:
               example:
                 success: true
                 message: Password updated successfully
+                data:
+                  tokens:
+                    accessToken: eyJhbGciOiJIUzI1NiIs...
+                    refreshToken: eyJhbGciOiJIUzI1NiIs...
+                  user:
+                    _id: 66f200000000000000000001
+                    fullName: Cairo Care Hospital
+                    email: ops@cairocare.demo
+                    role: hospital
         "400":
           description: Validation error
         "401":
@@ -8438,6 +8456,58 @@ paths:
           description: Admin profile not found
         "409":
           description: Email already in use by another account
+  /admin/profile/password:
+    put:
+      tags:
+        - Admin
+      summary: Change the authenticated admin's password
+      description: "Admin/superadmin only. Returns new tokens so the client stays authenticated."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - currentPassword
+                - newPassword
+              properties:
+                currentPassword:
+                  type: string
+                  format: password
+                  example: AdminPass@123
+                newPassword:
+                  type: string
+                  format: password
+                  example: NewAdminPass@456
+            example:
+              currentPassword: AdminPass@123
+              newPassword: NewAdminPass@456
+      responses:
+        "200":
+          description: Password updated successfully
+          content:
+            application/json:
+              example:
+                success: true
+                message: Password updated successfully
+                data:
+                  tokens:
+                    accessToken: eyJhbGciOiJIUzI1NiIs...
+                    refreshToken: eyJhbGciOiJIUzI1NiIs...
+                  user:
+                    _id: 66f200000000000000000001
+                    fullName: Noura Hassan
+                    email: admin@lifelink.demo
+                    role: admin
+        "400":
+          description: Validation error
+        "401":
+          description: Missing or invalid JWT token
+        "403":
+          description: Forbidden - not an admin or superadmin
   /admin/users:
     get:
       summary: List all users with filters, pagination, global stats, and AI insights
