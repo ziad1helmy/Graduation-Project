@@ -1394,8 +1394,12 @@ export const listSupportMessages = async (filters = {}, pagination = {}) => {
   const query = {};
   if (status) query.status = status;
   if (category) query.category = category;
-  if (read !== null && read !== undefined) query.isRead = read;
-  if (archived !== null && archived !== undefined) query.isArchived = archived;
+  if (read !== null && read !== undefined) {
+    query.isRead = read ? true : { $ne: true };
+  }
+  if (archived !== null && archived !== undefined) {
+    query.isArchived = archived ? true : { $ne: true };
+  }
   if (search) {
     query.$or = [
       { fullName: { $regex: search, $options: 'i' } },
@@ -1410,7 +1414,13 @@ export const listSupportMessages = async (filters = {}, pagination = {}) => {
     SupportMessage.countDocuments(query),
   ]);
 
-  return { tickets, total, page, limit };
+  const ticketsWithDefaults = tickets.map((t) => ({
+    ...t,
+    isRead: t.isRead ?? false,
+    isArchived: t.isArchived ?? false,
+  }));
+
+  return { tickets: ticketsWithDefaults, total, page, limit };
 };
 
 export const getSupportMessageById = async (id) =>
@@ -1435,6 +1445,8 @@ export const replySupportMessage = async (id, reply, adminId) => {
   await ticket.save({ validateBeforeSave: false });
 
   const ticketObj = ticket.toObject({ versionKey: false });
+  ticketObj.isRead = ticketObj.isRead ?? false;
+  ticketObj.isArchived = ticketObj.isArchived ?? false;
   if (ticketObj.adminReplyBy && typeof ticketObj.adminReplyBy === 'object') {
     ticketObj.adminReplyBy = String(ticketObj.adminReplyBy);
   }

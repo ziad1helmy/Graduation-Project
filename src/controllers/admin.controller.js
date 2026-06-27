@@ -4,6 +4,7 @@ import { ERR } from '../utils/errorCodes.js';
 import User from '../models/User.model.js';
 import Badge from '../models/Badge.model.js';
 import InboundEmail from '../models/InboundEmail.model.js';
+import SupportMessage from '../models/SupportMessage.model.js';
 import * as adminService from '../services/admin.service.js';
 import * as analyticsService from '../services/analytics.service.js';
 import * as rewardService from '../services/reward.service.js';
@@ -311,13 +312,20 @@ export const getInboundEmailById = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'admin.error_invalid_inbound_email_id');
   }
 
-  const inboundEmail = await InboundEmail.findById(req.params.id).lean();
-  if (!inboundEmail) {
+  let doc = await InboundEmail.findById(req.params.id).lean();
+  if (doc) {
+    return response.success(res, 200, 'admin.inbound_email_retrieved', {
+      inboundEmail: toInboundEmailResponse(doc),
+    });
+  }
+
+  doc = await SupportMessage.findById(req.params.id).lean();
+  if (!doc) {
     throw new HttpError(404, 'admin.error_inbound_not_found');
   }
 
   return response.success(res, 200, 'admin.inbound_email_retrieved', {
-    inboundEmail: toInboundEmailResponse(inboundEmail),
+    supportTicket: { ...doc, isRead: doc.isRead ?? false, isArchived: doc.isArchived ?? false },
   });
 });
 
@@ -327,23 +335,30 @@ export const markInboundEmailRead = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'admin.error_invalid_inbound_email_id');
   }
 
-  const inboundEmail = await InboundEmail.findByIdAndUpdate(
+  let doc = await InboundEmail.findByIdAndUpdate(
     req.params.id,
-    {
-      $set: {
-        isRead: true,
-        readAt: new Date(),
-      },
-    },
+    { $set: { isRead: true, readAt: new Date() } },
     { new: true }
   ).lean();
 
-  if (!inboundEmail) {
+  if (doc) {
+    return response.success(res, 200, 'admin.inbound_email_read', {
+      inboundEmail: toInboundEmailResponse(doc),
+    });
+  }
+
+  doc = await SupportMessage.findByIdAndUpdate(
+    req.params.id,
+    { $set: { isRead: true } },
+    { new: true }
+  ).lean();
+
+  if (!doc) {
     throw new HttpError(404, 'admin.error_inbound_not_found');
   }
 
   return response.success(res, 200, 'admin.inbound_email_read', {
-    inboundEmail: toInboundEmailResponse(inboundEmail),
+    supportTicket: { ...doc, isRead: doc.isRead ?? true, isArchived: doc.isArchived ?? false },
   });
 });
 
@@ -353,23 +368,30 @@ export const archiveInboundEmail = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'admin.error_invalid_inbound_email_id');
   }
 
-  const inboundEmail = await InboundEmail.findByIdAndUpdate(
+  let doc = await InboundEmail.findByIdAndUpdate(
     req.params.id,
-    {
-      $set: {
-        isArchived: true,
-        archivedAt: new Date(),
-      },
-    },
+    { $set: { isArchived: true, archivedAt: new Date() } },
     { new: true }
   ).lean();
 
-  if (!inboundEmail) {
+  if (doc) {
+    return response.success(res, 200, 'admin.inbound_email_archived', {
+      inboundEmail: toInboundEmailResponse(doc),
+    });
+  }
+
+  doc = await SupportMessage.findByIdAndUpdate(
+    req.params.id,
+    { $set: { isArchived: true } },
+    { new: true }
+  ).lean();
+
+  if (!doc) {
     throw new HttpError(404, 'admin.error_inbound_not_found');
   }
 
   return response.success(res, 200, 'admin.inbound_email_archived', {
-    inboundEmail: toInboundEmailResponse(inboundEmail),
+    supportTicket: { ...doc, isRead: doc.isRead ?? false, isArchived: doc.isArchived ?? true },
   });
 });
 
@@ -379,13 +401,20 @@ export const deleteInboundEmail = asyncHandler(async (req, res) => {
     throw new HttpError(400, 'admin.error_invalid_inbound_email_id');
   }
 
-  const inboundEmail = await InboundEmail.findByIdAndDelete(req.params.id).lean();
-  if (!inboundEmail) {
+  let doc = await InboundEmail.findByIdAndDelete(req.params.id).lean();
+  if (doc) {
+    return response.success(res, 200, 'admin.inbound_email_deleted', {
+      inboundEmail: toInboundEmailResponse(doc),
+    });
+  }
+
+  doc = await SupportMessage.findByIdAndDelete(req.params.id).lean();
+  if (!doc) {
     throw new HttpError(404, 'admin.error_inbound_not_found');
   }
 
   return response.success(res, 200, 'admin.inbound_email_deleted', {
-    inboundEmail: toInboundEmailResponse(inboundEmail),
+    supportTicket: { ...doc, isRead: doc.isRead ?? false, isArchived: doc.isArchived ?? false },
   });
 });
 
