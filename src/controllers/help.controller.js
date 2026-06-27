@@ -39,7 +39,7 @@ export const contactSupport = asyncHandler(async (req, res) => {
     return response.error(res, 400, 'help.error_identity_fields');
   }
 
-  const { subject, category, message } = req.body;
+  const { subject, category, message, attachmentUrls } = req.body;
   if (!subject || !category || !message) {
     return response.error(res, 400, 'help.error_subject_category_message_required');
   }
@@ -47,6 +47,18 @@ export const contactSupport = asyncHandler(async (req, res) => {
   const allowedCategories = ['TECHNICAL', 'ACCOUNT', 'DONATION', 'REWARDS', 'OTHER'];
   if (!allowedCategories.includes(category)) {
     return response.error(res, 400, `category must be one of: ${allowedCategories.join(', ')}`);
+  }
+
+  if (attachmentUrls !== undefined) {
+    if (!Array.isArray(attachmentUrls) || attachmentUrls.some((u) => typeof u !== 'string')) {
+      return response.error(res, 400, 'help.error_invalid_attachment_urls');
+    }
+    if (attachmentUrls.length > 5) {
+      return response.error(res, 400, 'help.error_too_many_attachments');
+    }
+    if (attachmentUrls.some((u) => u.length > 2048)) {
+      return response.error(res, 400, 'help.error_attachment_url_too_long');
+    }
   }
 
   const user = req.user;
@@ -62,6 +74,7 @@ export const contactSupport = asyncHandler(async (req, res) => {
     subject,
     category,
     message,
+    ...(attachmentUrls !== undefined && { attachmentUrls }),
   });
 
   return response.success(res, 201, 'help.support_submitted', {
@@ -73,6 +86,7 @@ export const contactSupport = asyncHandler(async (req, res) => {
       subject: ticket.subject,
       category: ticket.category,
       message: ticket.message,
+      attachmentUrls: ticket.attachmentUrls,
       createdAt: ticket.createdAt,
     },
   });
@@ -86,6 +100,7 @@ const toSupportMessageResponse = (ticket) => {
     subject: ticket.subject,
     category: ticket.category,
     message: ticket.message,
+    attachmentUrls: ticket.attachmentUrls,
     status: ticket.status,
     adminReply: ticket.adminReply,
     adminReplyAt: ticket.adminReplyAt,

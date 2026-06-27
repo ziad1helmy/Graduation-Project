@@ -320,7 +320,7 @@ export const listInboundEmails = asyncHandler(async (req, res) => {
     ];
   }
 
-  const [inboundEmails, total, supportResult] = await Promise.all([
+  const [inboundEmails, inboundTotal, supportResult] = await Promise.all([
     InboundEmail.find(filter)
       .sort({ receivedAt: -1, createdAt: -1 })
       .skip(offset)
@@ -333,9 +333,26 @@ export const listInboundEmails = asyncHandler(async (req, res) => {
     ),
   ]);
 
+  const emailItems = inboundEmails.map((e) => ({
+    ...toInboundEmailResponse(e),
+    type: 'email',
+  }));
+
+  const ticketItems = supportResult.tickets.map((t) => ({
+    ...t,
+    type: 'supportTicket',
+  }));
+
+  const items = [...emailItems, ...ticketItems].sort((a, b) => {
+    const dateA = a.receivedAt || a.createdAt;
+    const dateB = b.receivedAt || b.createdAt;
+    return new Date(dateB).getTime() - new Date(dateA).getTime();
+  });
+
+  const total = inboundTotal + supportResult.total;
+
   return response.success(res, 200, 'admin.inbound_emails_retrieved', {
-    inboundEmails: inboundEmails.map(toInboundEmailResponse),
-    supportTickets: supportResult.tickets,
+    items,
     pagination: paginationMeta(total, page, limit),
   });
 });
