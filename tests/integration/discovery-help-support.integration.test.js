@@ -271,9 +271,9 @@ describe('Discovery, Help, and Support Routes', () => {
 
       expect(getRes.status).toBe(200);
       expect(getRes.body.success).toBe(true);
-      expect(Array.isArray(getRes.body.data.supportTickets)).toBe(true);
+      expect(Array.isArray(getRes.body.data.items)).toBe(true);
       
-      const foundTicket = getRes.body.data.supportTickets.find(t => t._id.toString() === ticketId.toString());
+      const foundTicket = getRes.body.data.items.find(t => t.type === 'supportTicket' && t._id.toString() === ticketId.toString());
       expect(foundTicket).toBeDefined();
       expect(foundTicket.subject).toBe('Admin check ticket');
       expect(foundTicket.fullName).toBe(donor.fullName);
@@ -305,7 +305,7 @@ describe('Discovery, Help, and Support Routes', () => {
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(getRes.status).toBe(200);
-      const tickets = getRes.body.data.supportTickets;
+      const tickets = getRes.body.data.items.filter(t => t.type === 'supportTicket');
       expect(tickets.every(t => t.isRead === false)).toBe(true);
       expect(tickets.every(t => t.isArchived === false)).toBe(true);
       expect(tickets.some(t => t.subject === 'Unread ticket')).toBe(true);
@@ -334,7 +334,7 @@ describe('Discovery, Help, and Support Routes', () => {
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(getRes.status).toBe(200);
-      const tickets = getRes.body.data.supportTickets;
+      const tickets = getRes.body.data.items.filter(t => t.type === 'supportTicket');
       expect(tickets.every(t => t.isArchived === true)).toBe(true);
       expect(tickets.some(t => t.subject === 'Archived item')).toBe(true);
       expect(tickets.some(t => t.subject === 'Not archived')).toBe(false);

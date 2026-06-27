@@ -404,19 +404,113 @@ components:
         updatedAt:
           type: string
           format: date-time
+    SupportTicket:
+      type: object
+      properties:
+        _id:
+          type: string
+        userId:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        category:
+          type: string
+          enum: [TECHNICAL, ACCOUNT, DONATION, REWARDS, OTHER]
+        subject:
+          type: string
+        message:
+          type: string
+        attachmentUrls:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [OPEN, REVIEWED, CLOSED]
+        adminReply:
+          type: string
+          nullable: true
+        adminReplyAt:
+          type: string
+          format: date-time
+          nullable: true
+        adminReplyBy:
+          type: string
+          nullable: true
+        isRead:
+          type: boolean
+        isArchived:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    InboxItem:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [email, supportTicket]
+        _id:
+          type: string
+        subject:
+          type: string
+        isRead:
+          type: boolean
+        isArchived:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        receivedAt:
+          type: string
+          format: date-time
+        from:
+          type: string
+        to:
+          type: array
+          items:
+            type: string
+        text:
+          type: string
+        userId:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        category:
+          type: string
+        message:
+          type: string
+        status:
+          type: string
     InboundEmailListResponse:
       type: object
       properties:
-        inboundEmails:
+        items:
           type: array
           items:
-            $ref: "#/components/schemas/InboundEmail"
+            $ref: "#/components/schemas/InboxItem"
         pagination:
           type: object
           properties:
             total:
               type: integer
             page:
+              type: integer
+            currentPage:
               type: integer
             limit:
               type: integer
@@ -4043,10 +4137,18 @@ paths:
                 message:
                   type: string
                   maxLength: 2000
+                attachmentUrls:
+                  type: array
+                  items:
+                    type: string
+                    maxLength: 2048
+                  maxItems: 5
             example:
               subject: Need help with reward redemption
               category: REWARDS
               message: I can see my points balance but I want to confirm when the Coffee Voucher becomes available.
+              attachmentUrls:
+                - https://example.com/screenshot.png
       responses:
         "201":
           description: Support request submitted successfully
@@ -4064,6 +4166,8 @@ paths:
                     subject: Need help with reward redemption
                     category: REWARDS
                     message: I can see my points balance but I want to confirm when the Coffee Voucher becomes available.
+                    attachmentUrls:
+                      - https://example.com/screenshot.png
                     createdAt: "2026-05-24T16:24:00.000Z"
         "400":
           description: Validation error or identity spoofing block
@@ -8126,9 +8230,9 @@ paths:
                 success: true
                 message: Inbound emails retrieved successfully
                 data:
-                  inboundEmails:
-                    - _id: 66f700000000000000000001
-                      provider: resend
+                  items:
+                    - type: email
+                      _id: 66f700000000000000000001
                       from: donor.followup@lifelink.demo
                       to:
                         - support@lifelink.demo
@@ -8136,8 +8240,9 @@ paths:
                       isRead: false
                       isArchived: false
                       receivedAt: 2026-05-18T08:30:00.000Z
-                  supportTickets:
-                    - _id: "670000000000000000000001"
+                      createdAt: 2026-05-18T08:30:00.000Z
+                    - type: supportTicket
+                      _id: "670000000000000000000001"
                       userId: "670000000000000000000000"
                       fullName: "Mohamed Yaser"
                       email: "donor@example.com"
@@ -8150,8 +8255,9 @@ paths:
                       adminReply: null
                       createdAt: "2026-05-24T16:24:00.000Z"
                   pagination:
-                    total: 1
+                    total: 2
                     page: 1
+                    currentPage: 1
                     limit: 20
                     totalPages: 1
                     hasNextPage: false
