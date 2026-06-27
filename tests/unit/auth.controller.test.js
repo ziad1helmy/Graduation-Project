@@ -231,12 +231,18 @@ describe('Auth Controller', () => {
       const res = makeMockRes();
       const next = vi.fn();
 
-      authService.changePassword.mockResolvedValue({});
+      authService.changePassword.mockResolvedValue({
+        success: true,
+        accessToken: 'new_access_token',
+        refreshToken: 'new_refresh_token',
+        user: { _id: userId, fullName: 'John Doe', email: 'john@example.com', role: 'donor' },
+      });
 
       await authController.changePassword(req, res, next);
 
       expect(res.status).toHaveBeenCalledWith(200);
-      expect(res.json.mock.calls[0][0].data).toBe('auth.password_changed');
+      expect(res.json.mock.calls[0][0].data.tokens.accessToken).toBe('new_access_token');
+      expect(res.json.mock.calls[0][0].data.tokens.refreshToken).toBe('new_refresh_token');
     });
 
     it('returns 400 on incorrect current password', async () => {

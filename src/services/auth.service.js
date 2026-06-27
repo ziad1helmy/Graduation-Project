@@ -756,7 +756,13 @@ export const changePassword = async (userId, { currentPassword, newPassword }) =
     });
   });
 
-  return { success: true };
+  const tokens = buildAuthPayload(user);
+  return {
+    success: true,
+    accessToken: tokens.accessToken,
+    refreshToken: tokens.refreshToken,
+    user: tokens.user,
+  };
 };
 
 
