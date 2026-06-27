@@ -195,6 +195,11 @@ export const getRequests = asyncHandler(async (req, res) => {
     throw new HttpError(422, 'donor.error_set_location', { code: 'LOCATION_REQUIRED' });
   }
 
+  const donorCoords = extractLocation(donor, 'donor');
+  const viewerLocation = donorCoords
+    ? { lat: donorCoords.latitude, lng: donorCoords.longitude, hasCoordinates: true }
+    : null;
+
   const [matchedRequests, activeAppointmentNotice] = await Promise.all([
     matchingService.findCompatibleRequests(donor._id, {
       excludeActiveDonationInProgress: false,
@@ -204,7 +209,7 @@ export const getRequests = asyncHandler(async (req, res) => {
   ]);
   const paginatedMatches = matchedRequests.slice(offset, offset + limit).map((match) => ({
     ...match,
-    request: buildDonorRequestSummary(match.request),
+    request: buildDonorRequestSummary(match.request, viewerLocation),
   }));
 
   response.success(res, 200, 'donor.matches_retrieved', {

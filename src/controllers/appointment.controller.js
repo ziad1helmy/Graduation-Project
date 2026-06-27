@@ -202,7 +202,7 @@ export const cancelAppointment = asyncHandler(async (req, res) => {
     const appointment = await appointmentService.cancelAppointment(appointmentId, donorId);
     return response.success(res, 200, 'appointment.cancelled', appointment);
   } catch (error) {
-    if (error.message === 'appointment.error_not_found') throw new HttpError(404, ERR.APPOINTMENT_NOT_FOUND);
+    if (error.message === 'Appointment not found') throw new HttpError(404, ERR.APPOINTMENT_NOT_FOUND);
     if (error.message === 'This appointment cannot be cancelled') throw new HttpError(400, ERR.APPOINTMENT_CANNOT_CANCEL);
     if (error.message.includes('Cancellation must be at least')) throw new HttpError(400, error.message);
     throw error;
@@ -222,8 +222,8 @@ export const getAppointmentById = asyncHandler(async (req, res) => {
     await appointment.populate(req.user?.role === 'donor' ? donorAppointmentPopulateOptions : appointmentPopulateOptions);
     return response.success(res, 200, 'appointment.retrieved', toAppointmentResponse(appointment, { role: req.user?.role }));
   } catch (error) {
-    if (error.message === 'appointment.error_not_found') throw new HttpError(404, 'appointment.error_not_found');
-    if (error.message === 'appointment.error_invalid_appointment_id') throw new HttpError(400, 'appointment.error_invalid_appointment_id');
+    if (error.message === 'Appointment not found') throw new HttpError(404, 'appointment.error_not_found');
+    if (error.message === 'Invalid appointment ID') throw new HttpError(400, 'appointment.error_invalid_appointment_id');
     throw error;
   }
 });
@@ -251,8 +251,8 @@ export const rescheduleAppointment = asyncHandler(async (req, res) => {
 
     return response.success(res, 200, 'appointment.rescheduled', toAppointmentResponse(appointment, { role: req.user?.role, isReschedule: true }));
   } catch (error) {
-    if (error.message === 'appointment.error_not_found') throw new HttpError(404, 'appointment.error_not_found');
-    if (error.message === 'appointment.error_invalid_appointment_id') throw new HttpError(400, 'appointment.error_invalid_appointment_id');
+    if (error.message === 'Appointment not found') throw new HttpError(404, 'appointment.error_not_found');
+    if (error.message === 'Invalid appointment ID') throw new HttpError(400, 'appointment.error_invalid_appointment_id');
     if (error.message.includes('rescheduled')) throw new HttpError(400, error.message);
     if (error.message.includes('future')) throw new HttpError(400, error.message);
     if (RESCHEDULE_ERROR_PATTERNS.some((p) => error.message.includes(p))) {
