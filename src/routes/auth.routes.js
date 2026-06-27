@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import AUC from '../controllers/auth.controller.js';
 import authMiddleware from '../middlewares/auth.middleware.js';
+import requireRole from '../middlewares/role.middleware.js';
 
 // ─── API CONTRACT ────────────────────────────────────────────────────────────
 // Swagger/OpenAPI documentation for this router lives in /openapi.yaml
@@ -12,7 +13,7 @@ import authMiddleware from '../middlewares/auth.middleware.js';
 const router = Router();
 
 router.post('/reset-password', AUC.resetPassword);
-router.post('/change-password', authMiddleware, AUC.changePassword);
+router.post('/change-password', authMiddleware, requireRole('donor'), AUC.changePassword);
 router.post('/signup', AUC.register);
 router.post('/login', AUC.loginUser);
 router.post('/hospital/login', AUC.loginHospital);

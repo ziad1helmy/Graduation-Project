@@ -24,6 +24,7 @@ router.use(authMiddleware, requireRole('admin', 'superadmin'));
 
 router.get('/profile', adminController.getAdminProfile);
 router.patch('/profile', adminController.updateAdminProfile);
+router.put('/profile/password', adminController.changePassword);
 
 // ──────────────────────────────────────────────
 //  System Management

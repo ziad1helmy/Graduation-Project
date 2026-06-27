@@ -22,6 +22,7 @@ import {
   validateUpdateSystemSettingsBody,
 } from '../validation/admin.validation.js';
 
+import * as authService from '../services/auth.service.js';
 import { asyncHandler } from '../middlewares/asyncHandler.js';
 import { HttpError } from '../utils/HttpError.js';
 
@@ -83,6 +84,39 @@ export const updateAdminProfile = asyncHandler(async (req, res) => {
     }
     throw error;
   }
+});
+
+export const changePassword = asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  if (!currentPassword || !newPassword) {
+    throw new HttpError(400, 'admin.error_password_fields_required');
+  }
+
+  let result;
+  try {
+    result = await authService.changePassword(req.user.userId, { currentPassword, newPassword });
+  } catch (error) {
+    if (error.message === ERR.AUTH_CURRENT_PASSWORD_INCORRECT) {
+      throw new HttpError(400, error.message);
+    }
+    if (
+      error.message === ERR.AUTH_USER_NOT_FOUND ||
+      error.message.includes('required') ||
+      error.message.includes('must be different')
+    ) {
+      throw new HttpError(400, error.message);
+    }
+    throw error;
+  }
+
+  response.success(res, 200, 'admin.password_updated', {
+    tokens: {
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+    },
+    user: result.user,
+  });
 });
 
 export const getProfile = getAdminProfile;
