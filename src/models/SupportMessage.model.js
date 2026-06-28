@@ -61,6 +61,14 @@ const supportMessageSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    replies: [
+      {
+        sender: { type: String, enum: ['admin', 'donor', 'hospital'], required: true },
+        senderId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+        text: { type: String, required: true, trim: true, maxlength: 4000 },
+        createdAt: { type: Date, default: Date.now },
+      },
+    ],
     isRead: { type: Boolean, default: false },
     isArchived: { type: Boolean, default: false },
   },

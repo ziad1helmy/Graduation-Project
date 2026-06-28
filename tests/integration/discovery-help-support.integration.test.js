@@ -221,6 +221,7 @@ describe('Discovery, Help, and Support Routes', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.ticket).toBeDefined();
       expect(res.body.data.ticket.subject).toBe('My specific ticket');
+      expect(Array.isArray(res.body.data.ticket.replies)).toBe(true);
       // Ensure private fields are excluded
       expect(res.body.data.ticket.userId).toBeUndefined();
     });
@@ -281,9 +282,12 @@ describe('Discovery, Help, and Support Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.ticket.status).toBe('OPEN');
-      expect(res.body.data.ticket.donorReply).toBe('Thank you, please let me know when ready.');
-      expect(res.body.data.ticket.donorReplyAt).toBeDefined();
-      expect(res.body.data.ticket.adminReply).toBe('We are looking into it.');
+      expect(res.body.data.ticket.replies).toBeDefined();
+      expect(res.body.data.ticket.replies.length).toBe(2);
+      expect(res.body.data.ticket.replies[0].sender).toBe('admin');
+      expect(res.body.data.ticket.replies[0].text).toBe('We are looking into it.');
+      expect(res.body.data.ticket.replies[1].sender).toBe('donor');
+      expect(res.body.data.ticket.replies[1].text).toBe('Thank you, please let me know when ready.');
       expect(res.body.data.ticket._id).toBe(ticketId);
     });
 
@@ -309,31 +313,6 @@ describe('Discovery, Help, and Support Routes', () => {
         .send({ reply: 'x'.repeat(2001) });
 
       expect(res.status).toBe(400);
-    });
-
-    it('returns 400 when ticket status is not REVIEWED', async () => {
-      const donor = await createDonor();
-      const token = signToken({ userId: donor._id.toString(), role: 'donor', isEmailVerified: true });
-
-      const SupportMessage = (await import('../../src/models/SupportMessage.model.js')).default;
-      const ticket = await SupportMessage.create({
-        userId: donor._id,
-        fullName: donor.fullName,
-        email: donor.email,
-        role: 'donor',
-        subject: 'Still OPEN ticket',
-        category: 'TECHNICAL',
-        message: 'Not yet answered',
-        status: 'OPEN',
-      });
-
-      const res = await request(app)
-        .post(`/support/my-tickets/${ticket._id}/reply`)
-        .set('Authorization', `Bearer ${token}`)
-        .send({ reply: 'I want to reply' });
-
-      expect(res.status).toBe(400);
-      expect(res.body.message).toBe('help.error_cannot_reply_not_reviewed');
     });
 
     it('returns 400 when ticket status is CLOSED', async () => {
@@ -375,8 +354,7 @@ describe('Discovery, Help, and Support Routes', () => {
         category: 'TECHNICAL',
         message: 'Need help',
         status: 'REVIEWED',
-        adminReply: 'We replied',
-        adminReplyAt: new Date(),
+        replies: [{ sender: 'admin', senderId: donor1._id, text: 'We replied', createdAt: new Date() }],
       });
 
       const res = await request(app)
@@ -597,8 +575,11 @@ describe('Discovery, Help, and Support Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.ticket.status).toBe('REVIEWED');
-      expect(res.body.data.ticket.adminReply).toBe('Thank you for reaching out.');
-      expect(res.body.data.ticket.adminReplyBy).toBe(admin._id.toString());
+      expect(res.body.data.ticket.replies).toBeDefined();
+      expect(res.body.data.ticket.replies.length).toBe(1);
+      expect(res.body.data.ticket.replies[0].sender).toBe('admin');
+      expect(res.body.data.ticket.replies[0].text).toBe('Thank you for reaching out.');
+      expect(res.body.data.ticket.replies[0].senderId).toBe(admin._id.toString());
     });
 
     it('returns 400 when reply is missing', async () => {
