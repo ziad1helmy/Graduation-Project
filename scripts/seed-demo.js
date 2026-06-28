@@ -1257,6 +1257,8 @@ async function main() {
     status: 'OPEN',
   });
 
+  const demoAdmin = await User.findOne({ role: 'superadmin' }).lean();
+
   await ensureSupportMessage({
     userId: hospitals.cairoCare._id,
     fullName: hospitals.cairoCare.fullName,
@@ -1267,6 +1269,14 @@ async function main() {
     message: 'Please confirm our updated coordinates are reflected in nearby discovery results.',
     attachmentUrls: [],
     status: 'REVIEWED',
+    replies: [
+      {
+        sender: 'admin',
+        senderId: demoAdmin ? demoAdmin._id : hospitals.cairoCare._id,
+        text: 'We have reviewed your coordinates and they are correctly reflected in the system.',
+        createdAt: new Date(),
+      },
+    ],
   });
 
   await ensureSupportMessage({
@@ -1279,6 +1289,14 @@ async function main() {
     message: 'Can I use the same QR code twice if my first check-in fails?',
     attachmentUrls: [],
     status: 'REVIEWED',
+    replies: [
+      {
+        sender: 'admin',
+        senderId: demoAdmin ? demoAdmin._id : donors.noor._id,
+        text: 'No, each QR code is single-use. If your check-in fails, please request a new QR code from the app.',
+        createdAt: new Date(),
+      },
+    ],
   });
 
   const coffeeVoucher = await RewardCatalog.findOne({ name: 'Coffee Voucher' });

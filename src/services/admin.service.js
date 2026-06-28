@@ -1438,18 +1438,20 @@ export const replySupportMessage = async (id, reply, adminId) => {
   const ticket = await SupportMessage.findById(id);
   if (!ticket) return null;
 
+  const replyEntry = {
+    sender: 'admin',
+    senderId: adminId,
+    text: reply,
+    createdAt: new Date(),
+  };
+
   ticket.status = 'REVIEWED';
-  ticket.adminReply = reply;
-  ticket.adminReplyAt = new Date();
-  ticket.adminReplyBy = adminId;
+  ticket.replies.push(replyEntry);
   await ticket.save({ validateBeforeSave: false });
 
   const ticketObj = ticket.toObject({ versionKey: false });
   ticketObj.isRead = ticketObj.isRead ?? false;
   ticketObj.isArchived = ticketObj.isArchived ?? false;
-  if (ticketObj.adminReplyBy && typeof ticketObj.adminReplyBy === 'object') {
-    ticketObj.adminReplyBy = String(ticketObj.adminReplyBy);
-  }
 
   // Fetch user for push token + email delivery (fire-and-forget — never fail the reply)
   setImmediate(async () => {

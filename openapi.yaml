@@ -431,23 +431,21 @@ components:
         status:
           type: string
           enum: [OPEN, REVIEWED, CLOSED]
-        adminReply:
-          type: string
-          nullable: true
-        adminReplyAt:
-          type: string
-          format: date-time
-          nullable: true
-        adminReplyBy:
-          type: string
-          nullable: true
-        donorReply:
-          type: string
-          nullable: true
-        donorReplyAt:
-          type: string
-          format: date-time
-          nullable: true
+        replies:
+          type: array
+          items:
+            type: object
+            properties:
+              sender:
+                type: string
+                enum: [admin, donor, hospital]
+              senderId:
+                type: string
+              text:
+                type: string
+              createdAt:
+                type: string
+                format: date-time
         isRead:
           type: boolean
         isArchived:

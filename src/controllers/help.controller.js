@@ -106,10 +106,7 @@ const toSupportMessageResponse = (ticket) => {
     message: ticket.message,
     attachmentUrls: ticket.attachmentUrls,
     status: ticket.status,
-    adminReply: ticket.adminReply,
-    adminReplyAt: ticket.adminReplyAt,
-    donorReply: ticket.donorReply,
-    donorReplyAt: ticket.donorReplyAt,
+    replies: ticket.replies || [],
     createdAt: ticket.createdAt,
   };
 };
@@ -219,12 +216,16 @@ export const replyToMyTicket = asyncHandler(async (req, res) => {
     return response.error(res, 404, 'help.error_support_ticket_not_found');
   }
 
-  if (ticket.status !== 'REVIEWED') {
-    return response.error(res, 400, 'help.error_cannot_reply_not_reviewed');
+  if (ticket.status === 'CLOSED') {
+    return response.error(res, 400, 'help.error_cannot_reply_closed');
   }
 
-  ticket.donorReply = trimmedReply;
-  ticket.donorReplyAt = new Date();
+  ticket.replies.push({
+    sender: 'donor',
+    senderId: req.user._id,
+    text: trimmedReply,
+    createdAt: new Date(),
+  });
   ticket.status = 'OPEN';
   await ticket.save({ validateBeforeSave: false });
 

@@ -193,7 +193,7 @@ describe('Request Details Integration', () => {
       .send({});
 
     expect(cancelRes.status).toBe(400);
-    expect(cancelRes.body.message).toMatch(/cannot be cancelled/i);
+    expect(cancelRes.body.message).toMatch(/can only cancel.*pledge/i);
   });
 
   it('POST /requests/:id/cancel blocks donor when QR was already scanned', async () => {
@@ -228,7 +228,7 @@ describe('Request Details Integration', () => {
       .send({});
 
     expect(cancelRes.status).toBe(400);
-    expect(cancelRes.body.message).toMatch(/cannot cancel.*QR/i);
+    expect(cancelRes.body.message).toMatch(/already scanned.*QR/i);
   });
 
   it('POST /requests/:id/accept rolls back when orphan validation fails', async () => {
