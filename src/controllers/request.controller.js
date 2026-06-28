@@ -767,24 +767,22 @@ export const cancelRequest = asyncHandler(async (req, res) => {
     session.endSession();
   }
 
-  setImmediate(async () => {
-    try {
-      const affectedDonorIds = activeDonations.map((d) => d.donorId.toString());
-      if (affectedDonorIds.length > 0) {
-        await Notification.create(
-          affectedDonorIds.map((userId) => ({
-            userId,
-            type: 'request',
-            title: 'Request cancelled',
-            message: `Your accepted donation for ${request.hospitalName || 'the hospital'} has been cancelled.`,
-            relatedId: request._id,
-            relatedType: 'Request',
-            data: { requestId: request._id.toString(), status: 'cancelled' },
-          })),
-        );
-      }
-    } catch (_) { /* non-critical */ }
-  });
+  try {
+    const affectedDonorIds = activeDonations.map((d) => d.donorId.toString());
+    if (affectedDonorIds.length > 0) {
+      await Notification.create(
+        affectedDonorIds.map((userId) => ({
+          userId,
+          type: 'request',
+          title: 'Request cancelled',
+          message: `Your accepted donation for ${request.hospitalName || 'the hospital'} has been cancelled.`,
+          relatedId: request._id,
+          relatedType: 'Request',
+          data: { requestId: request._id.toString(), status: 'cancelled' },
+        })),
+      );
+    }
+  } catch (_) { /* non-critical */ }
 
   return response.success(res, 200, 'request.cancelled', {
     requestId: request._id.toString(),
