@@ -115,6 +115,7 @@ export const buildRequestPayload = (request, viewerLocation = null, { responseCo
       name: hospitalName,
       contactNumber,
       address: request.hospitalId?.address || null,
+      location: request.hospitalId?.location || null,
       latitude: requestLocation?.latitude ?? null,
       longitude: requestLocation?.longitude ?? null,
     },

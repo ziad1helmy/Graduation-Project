@@ -441,6 +441,13 @@ components:
         adminReplyBy:
           type: string
           nullable: true
+        donorReply:
+          type: string
+          nullable: true
+        donorReplyAt:
+          type: string
+          format: date-time
+          nullable: true
         isRead:
           type: boolean
         isArchived:
@@ -496,6 +503,27 @@ components:
           type: string
         status:
           type: string
+        attachmentUrls:
+          type: array
+          items:
+            type: string
+        adminReply:
+          type: string
+          nullable: true
+        adminReplyAt:
+          type: string
+          format: date-time
+          nullable: true
+        adminReplyBy:
+          type: string
+          nullable: true
+        donorReply:
+          type: string
+          nullable: true
+        donorReplyAt:
+          type: string
+          format: date-time
+          nullable: true
     InboundEmailListResponse:
       type: object
       properties:
@@ -2576,6 +2604,20 @@ paths:
                   status: pending
                   requestStatus: pending
                   urgency: critical
+                  hospital:
+                    id: 69fe540565ff7785a031314e
+                    name: Cairo Care Hospital
+                    contactNumber: "0223456789"
+                    address: "123 Hospital St, Cairo"
+                    location:
+                      city: Cairo
+                      governorate: Cairo
+                      coordinates:
+                        lat: 30.0511
+                        lng: 31.2435
+                      lastUpdated: 2026-05-18T08:00:00.000Z
+                    latitude: 30.0511
+                    longitude: 31.2435
   /requests/nearby:
     get:
       tags:
