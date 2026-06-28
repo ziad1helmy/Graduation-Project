@@ -441,6 +441,13 @@ components:
         adminReplyBy:
           type: string
           nullable: true
+        donorReply:
+          type: string
+          nullable: true
+        donorReplyAt:
+          type: string
+          format: date-time
+          nullable: true
         isRead:
           type: boolean
         isArchived:
@@ -496,6 +503,27 @@ components:
           type: string
         status:
           type: string
+        attachmentUrls:
+          type: array
+          items:
+            type: string
+        adminReply:
+          type: string
+          nullable: true
+        adminReplyAt:
+          type: string
+          format: date-time
+          nullable: true
+        adminReplyBy:
+          type: string
+          nullable: true
+        donorReply:
+          type: string
+          nullable: true
+        donorReplyAt:
+          type: string
+          format: date-time
+          nullable: true
     InboundEmailListResponse:
       type: object
       properties:
